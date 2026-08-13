@@ -86,7 +86,7 @@ src/server/Data/Migrations.lua
 - BigNum 필드 왕복
 - 강제 종료 시 데이터 무손실
 
-**결과**: `SchemaTests.server.lua` 31개, `MigrationsTests.server.lua` 8개 통과
+**결과**: `SchemaTests.server.lua` 31개, `MigrationsTests.server.lua` 13개 통과
 
 ### 2-2. CurrencyService
 `src/server/Systems/CurrencyService.lua`
@@ -95,11 +95,9 @@ src/server/Data/Migrations.lua
 
 **결과**: `CurrencyServiceTests.server.lua` 38개 통과
 
-**다음**: Phase 3 — 코어 루프
-
 ---
 
-## Phase 3 — 코어 루프 (코드 + 에셋)
+## Phase 3 — 코어 루프 (코드 + 에셋) ✅ 완료
 
 ### 3-1. 블록 (서버) ✅ 완료
 ```
@@ -109,18 +107,17 @@ src/shared/BlockShuffle.lua (서버/클라 공유 파괴 순서 셔플)
 HP 관리, 데미지 오버플로우(블록 하나를 부수고 남은 데미지가 다음 블록으로 흘러감,
 DESIGN.md "2. 블록 → 데미지 오버플로우" 참고), 클리어 판정, 시드 생성
 
-⚠️ 코어 로직이 반경 기반(`applyDamage(player, originPosition, damage, radius)`)에서
-오버플로우 기반으로 바뀌어서, 현재 `BlockService.lua`의 시그니처와 안 맞는다. 코드 반영은
-별도 작업으로 진행.
+**결과**: `BlockServiceTests.server.lua` 30개, `BlockShuffleTests.server.lua` 3개 통과
 
-**결과**: `BlockServiceTests.server.lua` 22개, `BlockShuffleTests.server.lua` 3개 통과 (반경 기반 기준 — 오버플로우 반영 후 재검증 필요)
-
-### 3-2. 블록 (클라)
+### 3-2. 블록 (클라) ✅ 완료
 ```
 src/client/Effects/ChunkBreaker.lua
 src/client/Effects/ParticlePool.lua
+src/client/Effects/ChunkBreakerDemo.client.lua (임시 데모, RemoteEvent 붙으면 삭제)
 ```
-⚠️ 파편 상한 200, 풀링 필수, 물리 금지
+파편 상한 200, 풀링 필수, 물리 금지 — 전부 반영됨.
+
+**결과**: 자동 테스트 없음(클라 시각 연출). `ChunkBreakerDemo.client.lua`로 Studio Play에서 육안 확인.
 
 ### 3-3. 챌린지 ✅ 완료
 `src/server/Systems/ChallengeService.lua`
@@ -128,10 +125,13 @@ src/client/Effects/ParticlePool.lua
 
 **결과**: `ChallengeServiceTests.server.lua` 19개 통과
 
-### 3-4. 블록 모델 [수동]
-Studio에서 큐브 격자 정육면체 제작. 재질별 프리셋.
+### 3-4. 블록 모델 ✅ 완료 (도구)
+`src/server/Tools/BlockModelGenerator.lua` — 격자 큐브 블록 모델 생성기(개발 도구).
+재질 프리셋(나무/돌/철/크리스탈/용암/우주)은 임시 색상, 디자인 담당이 교체.
 
 **검증**: 블록을 부수고 다음 스테이지로 갈 수 있다
+
+**다음**: Phase 4 — 성장
 
 ---
 
