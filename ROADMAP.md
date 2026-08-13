@@ -24,7 +24,7 @@ ProfileStore (서버 전용)
 
 ---
 
-## Phase 1 — 기반 (코드)
+## Phase 1 — 기반 (코드) ✅ 완료
 
 ### 1-1. BigNum
 `src/shared/BigNum.lua`
@@ -42,6 +42,8 @@ serialize / deserialize  ({m,e} ↔ 저장 형태)
 - 0과 음수 처리
 - 직렬화 왕복 일치
 
+**결과**: `BigNumTests.server.lua` 33개 통과 (Studio 실행 확인)
+
 ### 1-2. Formatter
 `src/shared/Formatter.lua`
 
@@ -54,6 +56,8 @@ tier 11~   → 알파벳 계산
 
 **검증**: 경계값 (10^32/10^33, 10^2058/10^2061)
 
+**결과**: `FormatterTests.server.lua` 33개 통과 (Studio 실행 확인)
+
 ### 1-3. Config 골격
 `src/shared/Config/`
 ```
@@ -61,6 +65,10 @@ StageConfig / UpgradeConfig / ShopConfig
 AuraConfig / TitleConfig / PetConfig / WorldConfig
 ```
 값은 임시. 구조만 확정.
+
+**결과**: `ConfigTests.server.lua` 11개 통과 (Studio 실행 확인)
+
+**다음**: Phase 2 — 데이터 계층
 
 ---
 
