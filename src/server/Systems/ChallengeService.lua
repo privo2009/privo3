@@ -142,7 +142,7 @@ function ChallengeService.startRun(player: Player, stage: number?): boolean
 end
 
 -- 데미지를 BlockService에 위임하고, 이번 타격으로 클리어됐으면 타이머를 멈추고 maxStage를 갱신한다.
-function ChallengeService.applyDamage(player: Player, originPosition: Vector3, damage: BigNumber, radius: number): { BlockChange }?
+function ChallengeService.applyDamage(player: Player, originPosition: Vector3, damage: BigNumber): { BlockChange }?
 	local run = runs[player]
 	if run == nil then
 		warn(string.format("[ChallengeService] applyDamage 실패: %s(%d) 활성 런 없음", player.Name, player.UserId))
@@ -154,7 +154,7 @@ function ChallengeService.applyDamage(player: Player, originPosition: Vector3, d
 		return nil
 	end
 
-	local changes = BlockService.applyDamage(player, originPosition, damage, radius)
+	local changes = BlockService.applyDamage(player, originPosition, damage)
 	if changes == nil then
 		return nil
 	end

@@ -6,12 +6,13 @@
 --     (클라가 destroyedCount = floor(총큐브수 × (1 - hp/maxHp))로 역산)
 --   - 파괴 순서는 시드 기반 결정론적 셔플. 순서 배열 자체는 전송하지 않는다
 --     (셔플 알고리즘은 src/shared/BlockShuffle.lua — 서버/클라가 반드시 같은 걸 써야 해서 공유 모듈로 뺐다)
---   - 클라는 "어느 블록을 맞췄는지" 보내지 않는다. 서버가 원점 좌표 + 반경으로 판정한다
---   - 반경(R = base × log(힘))은 Phase 4 호출부가 계산해서 넘긴다. 여기서는 받은 값을 그대로 씀
+--   - 클라는 "어느 블록을 맞췄는지" 보내지 않는다. 서버가 원점 좌표 기준 가까운 순으로 판정한다
+--   - 반경 개념 없음. 힘은 데미지 풀이다 — 가까운 블록부터 HP만큼 소진하고, 남으면 다음
+--     블록으로 흘러간다 (DESIGN.md 2장 "데미지 오버플로우")
 --   - profile을 직접 건드리지 않는다 (재화는 ChallengeService가 CurrencyService로 처리, Phase 3-3)
 --   - Instance를 생성하지 않는다 (3-4 모델 작업 전까지는 순수 데이터 모듈)
 --
--- 배치/반경 판정/셔플/데미지 계산은 전부 Player·Instance 없이 동작하는 순수 함수로 분리했고,
+-- 배치/셔플/데미지 오버플로우 계산은 전부 Player·Instance 없이 동작하는 순수 함수로 분리했고,
 -- BlockService._pure로 노출해서 BlockServiceTests.server.lua가 직접 검증한다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,6 +22,7 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local BlockShuffle = require(ReplicatedStorage.Shared.BlockShuffle)
 local Schema = require(script.Parent.Parent.Data.Schema)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
+local BlockLayoutConfig = require(ReplicatedStorage.Shared.Config.BlockLayoutConfig)
 
 type BigNumber = BigNum.BigNumber
 
@@ -56,12 +58,14 @@ local BlockService = {}
 
 -- ===== 배치 좌표 (순수) ==============================================================
 -- DESIGN.md: 1~4 중앙 사각 / 5~8 원형 / 9~16 이중 원(안8+바깥8), 16칸 미리 배치 후 슬라이스.
--- 반지름 값은 전부 임시 — Phase 3-4 블록 모델 작업에서 실측 크기로 교체 예정.
+-- 반지름은 BlockLayoutConfig.BLOCK_SPAN(블록 실제 크기) × 배율로만 계산한다 — 여기에
+-- studs 절대값을 직접 하드코딩하지 않는다 (CLAUDE.md: 밸런싱 수치는 Config로).
+-- 배율 산출 근거는 BlockLayoutConfig.lua에 있다.
 
-local SQUARE_RADIUS = 6
-local CIRCLE_RADIUS = 10
-local INNER_RING_RADIUS = 8
-local OUTER_RING_RADIUS = 14
+local SQUARE_RADIUS = BlockLayoutConfig.BLOCK_SPAN * BlockLayoutConfig.SQUARE_RADIUS_MULT
+local CIRCLE_RADIUS = BlockLayoutConfig.BLOCK_SPAN * BlockLayoutConfig.CIRCLE_RADIUS_MULT
+local INNER_RING_RADIUS = BlockLayoutConfig.BLOCK_SPAN * BlockLayoutConfig.INNER_RING_MULT
+local OUTER_RING_RADIUS = BlockLayoutConfig.BLOCK_SPAN * BlockLayoutConfig.OUTER_RING_MULT
 
 -- count개 점을 반지름 radius인 원 위에 angleOffsetDeg부터 균등 배치한다.
 local function ring(count: number, radius: number, angleOffsetDeg: number): { Vector3 }
@@ -109,12 +113,6 @@ local function computeLayout(count: number): { Vector3 }
 	return positions
 end
 
--- ===== 반경 판정 (순수) ================================================================
-
-local function isWithinRadius(originPosition: Vector3, blockPosition: Vector3, radius: number): boolean
-	return (originPosition - blockPosition).Magnitude <= radius
-end
-
 -- ===== 블록 세트 생성 (순수) ============================================================
 
 -- count/maxHp/baseSeed만으로 블록 배열을 만든다. baseSeed 하나에서 블록마다 다른 seed를 뽑아
@@ -138,27 +136,55 @@ end
 
 -- ===== 데미지 처리 (순수) ===============================================================
 
--- originPosition 기준 radius 안에 있고 아직 안 죽은 블록에만 damage를 적용한다.
+-- 힘은 데미지 풀이다. originPosition에서 가까운 순으로 활성(안 죽은) 블록을 정렬해서
+-- damage를 순서대로 소진한다 — 반경 개념 없음 (DESIGN.md 2장 "데미지 오버플로우").
+--   블록 HP <= 남은 데미지: 그 블록을 파괴하고, 남은 데미지에서 HP만큼 차감한 뒤 다음 블록으로
+--   블록 HP >  남은 데미지: 그 블록 HP만 깎고 종료 (남은 데미지 0)
 -- blocks를 직접 수정하고(제자리), 이번 호출로 실제 바뀐 블록만 changes로 반환한다.
-local function applyDamageToBlocks(blocks: { BlockState }, originPosition: Vector3, damage: BigNumber, radius: number): { BlockChange }
+-- changes의 index는 원래 blocks 배열 기준 위치다 (거리순 정렬은 내부 처리 순서에만 쓴다).
+local function applyDamageToBlocks(blocks: { BlockState }, originPosition: Vector3, damage: BigNumber): { BlockChange }
 	local changes: { BlockChange } = {}
 
 	if not Schema.isBigNum(damage) or damage.m < 0 then
 		return changes
 	end
 
+	local active: { { index: number, block: BlockState, distance: number } } = {}
 	for index, block in ipairs(blocks) do
-		if not block.destroyed and isWithinRadius(originPosition, block.position, radius) then
-			local newHp = BigNum.sub(block.hp, damage)
-			if BigNum.lt(newHp, BigNum.new(0, 0)) then
-				newHp = BigNum.new(0, 0) -- 음수 HP 클램프
-			end
-
-			block.hp = newHp
-			block.destroyed = BigNum.lte(newHp, BigNum.new(0, 0))
-
-			table.insert(changes, { index = index, hp = newHp, destroyed = block.destroyed })
+		if not block.destroyed then
+			table.insert(active, {
+				index = index,
+				block = block,
+				distance = (originPosition - block.position).Magnitude,
+			})
 		end
+	end
+
+	table.sort(active, function(a, b)
+		if a.distance ~= b.distance then
+			return a.distance < b.distance
+		end
+		return a.index < b.index -- 거리가 같으면 결정론적으로 원래 순서대로
+	end)
+
+	local remaining = damage
+	for _, entry in ipairs(active) do
+		if BigNum.lte(remaining, BigNum.new(0, 0)) then
+			break
+		end
+
+		local block = entry.block
+
+		if BigNum.lte(block.hp, remaining) then
+			remaining = BigNum.sub(remaining, block.hp)
+			block.hp = BigNum.new(0, 0)
+			block.destroyed = true
+		else
+			block.hp = BigNum.sub(block.hp, remaining)
+			remaining = BigNum.new(0, 0)
+		end
+
+		table.insert(changes, { index = entry.index, hp = block.hp, destroyed = block.destroyed })
 	end
 
 	return changes
@@ -193,7 +219,6 @@ end
 -- 테스트 전용 통로. 공개 API 계약이 아니므로 이 밖에서는 쓰지 말 것.
 BlockService._pure = {
 	computeLayout = computeLayout,
-	isWithinRadius = isWithinRadius,
 	buildBlockSet = buildBlockSet,
 	applyDamageToBlocks = applyDamageToBlocks,
 	isBlockSetCleared = isBlockSetCleared,
@@ -223,16 +248,16 @@ function BlockService.enterStage(player: Player, stage: number): { BlockSnapshot
 	return buildSnapshot(blocks)
 end
 
--- originPosition 기준 radius 안의 활성 블록에 damage를 적용하고, 이번 타격으로 바뀐
--- 블록들의 {index, hp, destroyed} 목록을 반환한다. 활성 블록 세트가 없으면 nil.
-function BlockService.applyDamage(player: Player, originPosition: Vector3, damage: BigNumber, radius: number): { BlockChange }?
+-- originPosition에서 가까운 순으로 활성 블록에 damage(데미지 풀)를 소진하고, 이번 타격으로
+-- 바뀐 블록들의 {index, hp, destroyed} 목록을 반환한다. 활성 블록 세트가 없으면 nil.
+function BlockService.applyDamage(player: Player, originPosition: Vector3, damage: BigNumber): { BlockChange }?
 	local set = blockSets[player]
 	if set == nil then
 		warn(string.format("[BlockService] applyDamage 실패: %s(%d) 활성 블록 세트 없음", player.Name, player.UserId))
 		return nil
 	end
 
-	return applyDamageToBlocks(set.blocks, originPosition, damage, radius)
+	return applyDamageToBlocks(set.blocks, originPosition, damage)
 end
 
 function BlockService.isCleared(player: Player): boolean

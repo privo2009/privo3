@@ -6,7 +6,7 @@
 
 local Schema = {}
 
-Schema.VERSION = 1
+Schema.VERSION = 2 -- v2: upgrades.radius 필드 제거 (데미지 오버플로우 도입, DESIGN.md 2장/7장)
 
 -- 구조적 상한값. DESIGN.md 5/6/9장 수치와 같지만 Schema는 Config를 몰라야 하므로 별도로 둔다.
 -- TODO: Phase 8 전후로 ShopConfig/PetConfig/AuraConfig와 단일 출처로 합칠 것 (지금은 중복 관리).
@@ -72,7 +72,6 @@ local function buildTemplate()
 		upgrades = {
 			punchDamage = 0,
 			punchSpeed = 0, -- 상한
-			radius = 0,
 			moveSpeed = 0, -- 상한
 			bloxGain = 0,
 			auraLuck = 0,

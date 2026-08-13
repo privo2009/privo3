@@ -1,6 +1,6 @@
 --!strict
 -- BlockService 검증 스크립트. Studio에서 Rojo 연결 후 Play 하면 서버 시작 시 자동 실행된다.
--- Phase 3-1 검증: 배치 좌표 비중첩 / 반경 판정 경계값 / HP 0 클램프 / 클리어 판정.
+-- Phase 3-1 검증: 배치 좌표 비중첩 / 데미지 오버플로우(거리순 소진) / 클리어 판정.
 -- 파괴 순서 셔플(computeDestructionOrder) 검증은 src/server/Tests/BlockShuffleTests로 옮겼다 —
 -- 그 알고리즘이 src/shared/BlockShuffle.lua로 이동했기 때문 (서버/클라 공유 모듈).
 --
@@ -9,6 +9,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
+local BlockLayoutConfig = require(ReplicatedStorage.Shared.Config.BlockLayoutConfig)
 local BlockService = require(script.Parent.BlockService)
 
 local pure = BlockService._pure
@@ -25,10 +26,13 @@ local function check(name: string, ok: boolean, detail: string?)
 	end
 end
 
-local function allDistinct(positions: { Vector3 }): boolean
+-- positions가 서로 minDistance 이상 떨어져 있는지(=블록끼리 안 겹치는지) 검증한다.
+-- 절대 좌표값을 하드코딩해서 비교하지 않고 "관계"(거리)만 확인 — BlockLayoutConfig의
+-- 반지름 배율이 바뀌어도 이 테스트는 그대로 유효하다.
+local function allSeparatedByAtLeast(positions: { Vector3 }, minDistance: number): boolean
 	for i = 1, #positions do
 		for j = i + 1, #positions do
-			if positions[i] == positions[j] then
+			if (positions[i] - positions[j]).Magnitude < minDistance then
 				return false
 			end
 		end
@@ -37,56 +41,115 @@ local function allDistinct(positions: { Vector3 }): boolean
 end
 
 -- 1. computeLayout: 개수별 배치 좌표가 겹치지 않는지 (1, 4, 8, 16개) --------------------------
+-- "겹치지 않는다"는 두 좌표가 서로 다르다는 뜻이 아니라, 블록 한 변(BLOCK_SPAN) 이상
+-- 떨어져 있어야 한다는 뜻이다 — BlockModelGenerator가 만드는 실제 블록 크기 기준.
 
 for _, count in ipairs({ 1, 4, 8, 16 }) do
 	local positions = pure.computeLayout(count)
 	check(string.format("computeLayout(%d): 개수만큼 좌표가 나옴", count), #positions == count)
-	check(string.format("computeLayout(%d): 좌표가 서로 겹치지 않음", count), allDistinct(positions))
+	check(
+		string.format("computeLayout(%d): 블록끼리 겹치지 않음 (BLOCK_SPAN=%.1f 이상 간격)", count, BlockLayoutConfig.BLOCK_SPAN),
+		allSeparatedByAtLeast(positions, BlockLayoutConfig.BLOCK_SPAN)
+	)
 end
 
 -- 경계 사이(5, 9)에서도 겹치지 않는지 확인 (원형/이중원 전환 지점)
 
 for _, count in ipairs({ 5, 9 }) do
 	local positions = pure.computeLayout(count)
-	check(string.format("computeLayout(%d): 좌표가 서로 겹치지 않음 (전환 지점)", count), allDistinct(positions))
+	check(
+		string.format("computeLayout(%d): 블록끼리 겹치지 않음 (전환 지점)", count),
+		allSeparatedByAtLeast(positions, BlockLayoutConfig.BLOCK_SPAN)
+	)
 end
 
--- 2. isWithinRadius: 경계값 --------------------------------------------------------------
+-- 2. applyDamageToBlocks: 데미지 오버플로우 (DESIGN.md 2장) -------------------------------
+-- 반경 개념 없음 — 힘은 데미지 풀이고, origin에서 가까운 순으로 블록을 정렬해 HP만큼
+-- 소진하고 남으면 다음 블록으로 흘러간다. 파괴된 블록의 hp는 뺄셈이 아니라 항상
+-- {m=0,e=0}을 직접 대입해서 만들기 때문에, 예전처럼 별도 "0 클램프" 테스트가 필요 없다 —
+-- 이 알고리즘 자체가 구조적으로 음수 HP를 만들 수 없다.
 
 do
-	local origin = Vector3.new(0, 0, 0)
-	local blockPos = Vector3.new(5, 0, 0) -- 거리 정확히 5
+	-- 데미지가 HP보다 작을 때: 부분 데미지만 적용되고 파괴되지 않음
+	local blocks = {
+		{ position = Vector3.new(0, 0, 0), maxHp = BigNum.new(1, 1), hp = BigNum.new(1, 1), destroyed = false, seed = 1 }, -- HP 10
+	}
+	local changes = pure.applyDamageToBlocks(blocks, Vector3.new(0, 0, 0), BigNum.new(6, 0)) -- 데미지 6
 
-	check("반경과 거리가 정확히 같으면 안(포함)", pure.isWithinRadius(origin, blockPos, 5) == true)
-	check("반경보다 살짝 먼 블록은 밖", pure.isWithinRadius(origin, blockPos, 4.999) == false)
-	check("반경보다 넉넉히 큰 경우 안", pure.isWithinRadius(origin, blockPos, 10) == true)
-	check("거리가 0(원점에 겹침)이면 항상 안", pure.isWithinRadius(origin, origin, 0) == true)
+	check("부분 데미지: HP가 데미지만큼만 줄어듦 (10-6=4)", BigNum.eq(blocks[1].hp, BigNum.new(4, 0)))
+	check("부분 데미지: 파괴되지 않음", blocks[1].destroyed == false)
+	check(
+		"부분 데미지: changes에 기록됨",
+		#changes == 1 and changes[1].destroyed == false and BigNum.eq(changes[1].hp, BigNum.new(4, 0))
+	)
 end
 
--- 3. applyDamageToBlocks: HP 0 클램프 (음수 HP를 만들지 않음) -------------------------------
+do
+	-- 정확히 하나를 부술 때: 데미지 == HP
+	local blocks = {
+		{ position = Vector3.new(0, 0, 0), maxHp = BigNum.new(1, 1), hp = BigNum.new(1, 1), destroyed = false, seed = 1 }, -- HP 10
+	}
+	local changes = pure.applyDamageToBlocks(blocks, Vector3.new(0, 0, 0), BigNum.new(1, 1)) -- 데미지 10
+
+	check("정확히 파괴: HP == 0", BigNum.eq(blocks[1].hp, BigNum.new(0, 0)))
+	check("정확히 파괴: destroyed == true", blocks[1].destroyed == true)
+	check("정확히 파괴: changes 1건", #changes == 1 and changes[1].destroyed == true)
+end
 
 do
+	-- 여러 개를 부수고 남는 데미지가 다음으로 흘러가는지
+	local blocks = {
+		{ position = Vector3.new(0, 0, 0), maxHp = BigNum.new(1, 1), hp = BigNum.new(1, 1), destroyed = false, seed = 1 }, -- HP 10
+		{ position = Vector3.new(10, 0, 0), maxHp = BigNum.new(1, 1), hp = BigNum.new(1, 1), destroyed = false, seed = 2 }, -- HP 10
+		{ position = Vector3.new(20, 0, 0), maxHp = BigNum.new(1, 1), hp = BigNum.new(1, 1), destroyed = false, seed = 3 }, -- HP 10
+	}
+	-- 데미지 25: 블록1(10) 파괴, 15 남음 -> 블록2(10) 파괴, 5 남음 -> 블록3에 5 적용(생존)
+	local changes = pure.applyDamageToBlocks(blocks, Vector3.new(0, 0, 0), BigNum.new(2.5, 1))
+
+	check("오버플로우: 블록1 파괴", blocks[1].destroyed == true and BigNum.eq(blocks[1].hp, BigNum.new(0, 0)))
+	check("오버플로우: 블록2 파괴", blocks[2].destroyed == true and BigNum.eq(blocks[2].hp, BigNum.new(0, 0)))
+	check("오버플로우: 블록3은 5데미지만 받고 생존 (HP 10-5=5)", blocks[3].destroyed == false and BigNum.eq(blocks[3].hp, BigNum.new(5, 0)))
+	check("오버플로우: changes에 3건 전부 기록됨", #changes == 3)
+end
+
+do
+	-- 전체 HP를 초과할 때 전부 파괴 (남는 데미지는 버려짐, 에러 없음)
+	local blocks = {
+		{ position = Vector3.new(0, 0, 0), maxHp = BigNum.new(1, 1), hp = BigNum.new(1, 1), destroyed = false, seed = 1 }, -- HP 10
+		{ position = Vector3.new(10, 0, 0), maxHp = BigNum.new(1, 1), hp = BigNum.new(1, 1), destroyed = false, seed = 2 }, -- HP 10
+		{ position = Vector3.new(20, 0, 0), maxHp = BigNum.new(1, 1), hp = BigNum.new(1, 1), destroyed = false, seed = 3 }, -- HP 10
+	}
+	local changes = pure.applyDamageToBlocks(blocks, Vector3.new(0, 0, 0), BigNum.new(5, 1)) -- 데미지 50 (총 HP 30)
+
+	check("총 HP 초과: 전부 파괴됨", blocks[1].destroyed and blocks[2].destroyed and blocks[3].destroyed)
+	check("총 HP 초과: changes 3건 (남는 20 데미지는 그냥 버려짐)", #changes == 3)
+end
+
+do
+	-- 거리순 정렬이 실제로 적용되는지: blocks 배열 순서와 거리 순서를 일부러 반대로 둔다.
+	local blocks = {
+		{ position = Vector3.new(100, 0, 0), maxHp = BigNum.new(1, 1), hp = BigNum.new(1, 1), destroyed = false, seed = 1 }, -- 배열상 1번째, 멀리 있음
+		{ position = Vector3.new(5, 0, 0), maxHp = BigNum.new(1, 1), hp = BigNum.new(1, 1), destroyed = false, seed = 2 }, -- 배열상 2번째, 가까움
+	}
+	-- 하나만 파괴할 데미지. 배열 순서대로면 blocks[1](먼 블록)이 맞아야 하지만,
+	-- 거리순이면 blocks[2](가까운 블록)가 맞아야 한다.
+	local changes = pure.applyDamageToBlocks(blocks, Vector3.new(0, 0, 0), BigNum.new(1, 1))
+
+	check("거리순: 가까운 블록(배열상 2번째)이 파괴됨", blocks[2].destroyed == true)
+	check("거리순: 먼 블록(배열상 1번째)은 안 건드림", blocks[1].destroyed == false and BigNum.eq(blocks[1].hp, BigNum.new(1, 1)))
+	check("거리순: changes에는 실제로 파괴된 블록의 index(2)만 기록됨", #changes == 1 and changes[1].index == 2)
+end
+
+do
+	-- 잘못된 데미지 값(음수)은 거부 — 아무것도 안 바뀜
 	local blocks = {
 		{ position = Vector3.new(0, 0, 0), maxHp = BigNum.new(1, 0), hp = BigNum.new(1, 0), destroyed = false, seed = 1 },
 	}
-
-	local changes = pure.applyDamageToBlocks(blocks, Vector3.new(0, 0, 0), BigNum.new(5, 0), 1) -- HP 1에 데미지 5
-
-	check("데미지가 HP를 넘겨도 hp는 0으로 클램프됨", BigNum.eq(blocks[1].hp, BigNum.new(0, 0)))
-	check("클램프된 블록은 destroyed == true", blocks[1].destroyed == true)
-	check("changes에 클램프된 블록이 기록됨", #changes == 1 and changes[1].destroyed == true and BigNum.eq(changes[1].hp, BigNum.new(0, 0)))
+	local changes = pure.applyDamageToBlocks(blocks, Vector3.new(0, 0, 0), BigNum.new(-5, 0))
+	check("음수 데미지는 거부됨 (변경 없음)", #changes == 0 and BigNum.eq(blocks[1].hp, BigNum.new(1, 0)))
 end
 
-do
-	-- 반경 밖 블록은 damage가 커도 전혀 안 바뀜
-	local blocks = {
-		{ position = Vector3.new(100, 0, 0), maxHp = BigNum.new(1, 0), hp = BigNum.new(1, 0), destroyed = false, seed = 1 },
-	}
-	local changes = pure.applyDamageToBlocks(blocks, Vector3.new(0, 0, 0), BigNum.new(5, 0), 1)
-	check("반경 밖 블록은 변경되지 않음", #changes == 0 and BigNum.eq(blocks[1].hp, BigNum.new(1, 0)))
-end
-
--- 4. buildBlockSet: 블록마다 다른 시드가 나오는지 ---------------------------------------------
+-- 3. buildBlockSet: 블록마다 다른 시드가 나오는지 ---------------------------------------------
 
 do
 	local blocks = pure.buildBlockSet(8, BigNum.new(1, 2), 777)
@@ -101,17 +164,17 @@ do
 	check("buildBlockSet: 블록 8개가 서로 다른 시드를 가짐", uniqueCount == 8)
 end
 
--- 5. isBlockSetCleared: 전부 파괴 시에만 true ---------------------------------------------
+-- 4. isBlockSetCleared: 전부 파괴 시에만 true ---------------------------------------------
 
 do
 	local blocks = pure.buildBlockSet(3, BigNum.new(1, 0), 1)
 	check("아무 것도 안 부순 상태는 클리어 아님", pure.isBlockSetCleared(blocks) == false)
 
-	pure.applyDamageToBlocks(blocks, blocks[1].position, BigNum.new(1, 0), 0)
-	pure.applyDamageToBlocks(blocks, blocks[2].position, BigNum.new(1, 0), 0)
+	pure.applyDamageToBlocks(blocks, blocks[1].position, BigNum.new(1, 0))
+	pure.applyDamageToBlocks(blocks, blocks[2].position, BigNum.new(1, 0))
 	check("일부만 부순 상태는 아직 클리어 아님", pure.isBlockSetCleared(blocks) == false)
 
-	pure.applyDamageToBlocks(blocks, blocks[3].position, BigNum.new(1, 0), 0)
+	pure.applyDamageToBlocks(blocks, blocks[3].position, BigNum.new(1, 0))
 	check("전부 부순 상태는 클리어", pure.isBlockSetCleared(blocks) == true)
 end
 

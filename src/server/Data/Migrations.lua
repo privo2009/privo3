@@ -1,9 +1,7 @@
 --!strict
 -- 버전별 프로필 데이터 변환. schemaVersion을 하나씩 올려가며 순차 적용한다.
--- 지금은 Schema.VERSION이 1(최초 버전)이라 등록된 변환 함수가 하나도 없는 게 정상이다.
 --
 -- 사용법: 스키마가 바뀌면 "버전 N → N+1" 변환 함수를 Migrations[N]에 등록한다.
--- 예시 (아직 실제로 등록된 것은 없음):
 --   Migrations[1] = function(data)
 --       data.someNewField = 0 -- 버전 2에서 새로 생긴 필드 기본값 채우기
 --       return data
@@ -17,6 +15,17 @@ local Schema = require(script.Parent.Schema)
 local Migrations = {}
 
 Migrations.CURRENT = Schema.VERSION
+
+-- v1 -> v2: 데미지 오버플로우 도입으로 upgrades.radius(파괴 반경) 필드가 없어짐
+-- (DESIGN.md 2장 "데미지 오버플로우" / 7장 업그레이드 상점). 기존 프로필에 남아있던
+-- 값은 그냥 버린다 — 환불/보상 대상 아님(사용한 만큼 다른 업그레이드에 쓸 수 있었던
+-- 재화가 아니라 순수 구조 필드 삭제).
+Migrations[1] = function(data)
+	if type(data.upgrades) == "table" then
+		data.upgrades.radius = nil
+	end
+	return data
+end
 
 -- data.schemaVersion부터 Migrations.CURRENT까지 등록된 변환 함수를 순서대로 적용하고
 -- data.schemaVersion을 최종 버전으로 갱신한다. data는 in-place로 수정된다.

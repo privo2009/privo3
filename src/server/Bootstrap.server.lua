@@ -87,7 +87,7 @@ if VERIFY_CHALLENGE then
 			end
 
 			for _, block in ipairs(snapshot) do
-				ChallengeService.applyDamage(player, block.position, HUGE_DAMAGE, 0)
+				ChallengeService.applyDamage(player, block.position, HUGE_DAMAGE)
 			end
 
 			local runStateAfterClear = ChallengeService.getRunState(player)

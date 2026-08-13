@@ -46,7 +46,7 @@ do
 	check("new()는 매번 독립된 깊은 복사본을 반환함", b.blox.m == 0)
 end
 
-check("Schema.VERSION == 1", Schema.VERSION == 1)
+check("Schema.VERSION == 2 (v2: upgrades.radius 제거)", Schema.VERSION == 2)
 check("LIMITS.MAX_DRONES == 5", Schema.LIMITS.MAX_DRONES == 5)
 check("LIMITS.MAX_PET_SLOTS == 6", Schema.LIMITS.MAX_PET_SLOTS == 6)
 check("LIMITS.MAX_AURA_PACKS == 5", Schema.LIMITS.MAX_AURA_PACKS == 5)

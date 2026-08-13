@@ -19,7 +19,8 @@ local UpgradeConfig = {}
 local Upgrades: { [string]: UpgradeDef } = {
 	punchDamage = { maxLevel = nil, baseCost = BigNum.new(1, 1), costGrowth = 1.15, effectPerLevel = 0.1 },
 	punchSpeed = { maxLevel = 20, baseCost = BigNum.new(1, 1), costGrowth = 1.2, effectPerLevel = 0.05 }, -- 상한 있음
-	radius = { maxLevel = nil, baseCost = BigNum.new(1, 1), costGrowth = 1.15, effectPerLevel = 0.1 },
+	-- radius(파괴 반경) 삭제됨: 데미지 오버플로우 도입으로 반경 개념 자체가 없어짐
+	-- (DESIGN.md 2장 "데미지 오버플로우" / 7장 업그레이드 상점). 펀치 데미지와 중복이었다.
 	moveSpeed = { maxLevel = 20, baseCost = BigNum.new(1, 1), costGrowth = 1.2, effectPerLevel = 0.05 }, -- 상한 있음
 	bloxGain = { maxLevel = nil, baseCost = BigNum.new(1, 1), costGrowth = 1.15, effectPerLevel = 0.1 },
 	auraLuck = { maxLevel = nil, baseCost = BigNum.new(1, 2), costGrowth = 1.25, effectPerLevel = 0.01 }, -- 소폭씩만 (롤 상품 보호)
