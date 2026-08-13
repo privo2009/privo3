@@ -6,6 +6,12 @@ local BigNum = require(script.Parent.Parent.BigNum)
 
 type BigNumber = BigNum.BigNumber
 
+export type GrowthSegment = {
+	from: number, -- 시작 스테이지 (포함)
+	to: number, -- 끝 스테이지 (포함)
+	growth: number, -- 이 구간에서 스테이지 1칸당 곱해지는 배율
+}
+
 export type WorldDef = {
 	id: number,
 	name: string,
@@ -14,7 +20,7 @@ export type WorldDef = {
 	hpBase: BigNumber,
 	hpGrowth: number, -- 스테이지당 HP 배율
 	bloxBase: BigNumber,
-	bloxGrowth: number, -- 스테이지당 보상 배율
+	bloxGrowthSegments: { GrowthSegment }, -- 구간별 보상 배율. stageRange를 빈틈/중복 없이 덮어야 함
 	eggPacks: { number }, -- PetConfig.Eggs 인덱스
 	auraPacks: { number }, -- AuraConfig.Packs 인덱스
 }
@@ -30,7 +36,14 @@ local Worlds: { [number]: WorldDef } = {
 		hpBase = BigNum.new(1, 2), -- 100 (임시)
 		hpGrowth = 1.35,
 		bloxBase = BigNum.new(1, 0), -- 1 (임시)
-		bloxGrowth = 1.4,
+		-- 구간별 보상 성장률. 값은 임시 (Phase 3에서 실플레이 데이터로 튜닝 예정).
+		bloxGrowthSegments = {
+			{ from = 1, to = 20, growth = 1.3 },
+			{ from = 21, to = 40, growth = 1.4 },
+			{ from = 41, to = 60, growth = 1.5 },
+			{ from = 61, to = 80, growth = 1.6 },
+			{ from = 81, to = 100, growth = 1.7 },
+		},
 		eggPacks = { 1, 2, 3 },
 		auraPacks = { 1, 2, 3, 4, 5 },
 	},
@@ -51,6 +64,23 @@ function WorldConfig.getByStage(stage: number): WorldDef?
 	return nil
 end
 
+-- bloxGrowthSegments가 world.stageRange를 빈틈/중복/역순 없이 정확히 덮는지 확인한다.
+local function validateGrowthSegments(worldId: number, world: WorldDef)
+	local segments = world.bloxGrowthSegments
+	assert(type(segments) == "table" and #segments > 0, string.format("WorldConfig: 월드 %d의 bloxGrowthSegments가 비어있음", worldId))
+
+	local expectedFrom = world.stageRange[1]
+	for i, segment in ipairs(segments) do
+		assert(segment.from == expectedFrom, string.format("WorldConfig: 월드 %d의 bloxGrowthSegments[%d] 시작이 이어지지 않음 (기대=%d, 실제=%d)", worldId, i, expectedFrom, segment.from))
+		assert(segment.to >= segment.from, string.format("WorldConfig: 월드 %d의 bloxGrowthSegments[%d] 끝이 시작보다 작음", worldId, i))
+		assert(segment.growth > 1, string.format("WorldConfig: 월드 %d의 bloxGrowthSegments[%d] growth는 1보다 커야 함", worldId, i))
+		expectedFrom = segment.to + 1
+	end
+
+	local lastCovered = expectedFrom - 1
+	assert(lastCovered == world.stageRange[2], string.format("WorldConfig: 월드 %d의 bloxGrowthSegments가 stageRange 끝(%d)까지 덮지 못함 (마지막=%d)", worldId, world.stageRange[2], lastCovered))
+end
+
 function WorldConfig.validate(): boolean
 	local ids = {}
 	for id in pairs(Worlds) do
@@ -69,7 +99,7 @@ function WorldConfig.validate(): boolean
 		assert(endStage >= startStage, string.format("WorldConfig: 월드 %d의 stageRange 끝이 시작보다 작음", id))
 
 		assert(world.hpGrowth > 1, string.format("WorldConfig: 월드 %d의 hpGrowth는 1보다 커야 함", id))
-		assert(world.bloxGrowth > 1, string.format("WorldConfig: 월드 %d의 bloxGrowth는 1보다 커야 함", id))
+		validateGrowthSegments(id, world)
 		assert(BigNum.gt(world.hpBase, BigNum.new(0, 0)), string.format("WorldConfig: 월드 %d의 hpBase는 0보다 커야 함", id))
 		assert(BigNum.gt(world.bloxBase, BigNum.new(0, 0)), string.format("WorldConfig: 월드 %d의 bloxBase는 0보다 커야 함", id))
 		assert(type(world.material) == "string" and #world.material > 0, string.format("WorldConfig: 월드 %d의 material이 비어있음", id))

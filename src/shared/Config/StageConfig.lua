@@ -19,6 +19,25 @@ local function stageOffset(stage: number, world: WorldDef): number
 	return stage - world.stageRange[1]
 end
 
+-- world.bloxGrowthSegments를 따라 구간별로 다른 배율을 곱해 stage까지의 누적 성장 배수를 계산한다.
+-- 시작 스테이지(offset 0) 자체는 성장이 적용되지 않고, 그다음 스테이지로 넘어갈 때마다
+-- "도착한 스테이지가 속한 구간"의 growth가 한 번씩 곱해진다.
+local function segmentedGrowthMultiplier(stage: number, world: WorldDef): BigNumber
+	local startStage = world.stageRange[1]
+	local multiplier = BigNum.new(1, 0)
+
+	for _, segment in ipairs(world.bloxGrowthSegments) do
+		local lower = math.max(segment.from, startStage + 1)
+		local upper = math.min(segment.to, stage)
+		local steps = upper - lower + 1
+		if steps > 0 then
+			multiplier = BigNum.mul(multiplier, BigNum.pow(BigNum.fromNumber(segment.growth), steps))
+		end
+	end
+
+	return multiplier
+end
+
 function StageConfig.getWorld(stage: number): WorldDef
 	local world = WorldConfig.getByStage(stage)
 	assert(world ~= nil, string.format("StageConfig: 스테이지 %d에 해당하는 월드가 없음", stage))
@@ -34,8 +53,7 @@ end
 
 function StageConfig.getBloxReward(stage: number): BigNumber
 	local world = StageConfig.getWorld(stage)
-	local offset = stageOffset(stage, world)
-	return BigNum.mul(world.bloxBase, BigNum.pow(BigNum.fromNumber(world.bloxGrowth), offset))
+	return BigNum.mul(world.bloxBase, segmentedGrowthMultiplier(stage, world))
 end
 
 function StageConfig.getBlockCount(stage: number): number
