@@ -72,7 +72,7 @@ AuraConfig / TitleConfig / PetConfig / WorldConfig
 
 ---
 
-## Phase 2 — 데이터 계층 (코드)
+## Phase 2 — 데이터 계층 (코드) ✅ 완료
 
 ### 2-1. Schema + ProfileManager
 ```
@@ -86,10 +86,16 @@ src/server/Data/Migrations.lua
 - BigNum 필드 왕복
 - 강제 종료 시 데이터 무손실
 
+**결과**: `SchemaTests.server.lua` 31개, `MigrationsTests.server.lua` 8개 통과
+
 ### 2-2. CurrencyService
 `src/server/Systems/CurrencyService.lua`
 
 모든 재화 증감의 단일 통로. 여기서 검증과 로깅.
+
+**결과**: `CurrencyServiceTests.server.lua` 39개 통과
+
+**다음**: Phase 3 — 코어 루프
 
 ---
 
