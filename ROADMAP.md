@@ -106,9 +106,14 @@ src/server/Data/Migrations.lua
 src/server/Systems/BlockService.lua
 src/shared/BlockShuffle.lua (서버/클라 공유 파괴 순서 셔플)
 ```
-HP 관리, 데미지 처리, 클리어 판정, 시드 생성
+HP 관리, 데미지 오버플로우(블록 하나를 부수고 남은 데미지가 다음 블록으로 흘러감,
+DESIGN.md "2. 블록 → 데미지 오버플로우" 참고), 클리어 판정, 시드 생성
 
-**결과**: `BlockServiceTests.server.lua` 22개, `BlockShuffleTests.server.lua` 3개 통과
+⚠️ 코어 로직이 반경 기반(`applyDamage(player, originPosition, damage, radius)`)에서
+오버플로우 기반으로 바뀌어서, 현재 `BlockService.lua`의 시그니처와 안 맞는다. 코드 반영은
+별도 작업으로 진행.
+
+**결과**: `BlockServiceTests.server.lua` 22개, `BlockShuffleTests.server.lua` 3개 통과 (반경 기반 기준 — 오버플로우 반영 후 재검증 필요)
 
 ### 3-2. 블록 (클라)
 ```
@@ -132,7 +137,7 @@ Studio에서 큐브 격자 정육면체 제작. 재질별 프리셋.
 
 ## Phase 4 — 성장 (코드)
 ```
-힘 업그레이드 / 파괴 반경 (R = base × log(힘))
+힘 업그레이드
 RebirthService (1000 블럭스 = +1x)
 WarpService (미개척 구간만 유료)
 ```
@@ -211,15 +216,27 @@ PetService   — 크래프팅, 장착, 저장 공간
 ## Claude Code가 하는 것
 모든 `.lua` 파일, 모듈 구조, Config, 리팩토링, Git
 
-## Privo가 직접 해야 하는 것
+## 코드 담당이 하는 것
+```
+모든 .lua (Claude Code로 처리)
+Rojo / Wally 관리
+Git
+Roblox 대시보드 설정
+밸런싱 수치 조정
+```
+
+## 디자인 담당이 하는 것
 ```
 3D 모델링 (블록, 펫, 운동기구, 맵)
 UI 이미지 / 색상 / 아이콘
 이펙트 감각 튜닝
 게임 아이콘 · 썸네일
 사운드
+```
+
+## 공동
+```
 플레이 테스트 ("재미있나?" 판단)
-Roblox 대시보드 설정
 밸런싱 판단
 ```
 
