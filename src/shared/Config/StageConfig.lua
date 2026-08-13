@@ -15,6 +15,10 @@ local MAX_BLOCK_COUNT = 16
 local BLOCK_COUNT_START = 1
 local STAGES_PER_BLOCK = 5 -- 임시: N스테이지마다 블록 1개 추가
 
+-- 챌린지 타이머(초). DESIGN.md 1. 챌린지: "20초는 상한이지 라운드 길이가 아니다".
+-- 지금은 고정값. 초반 18초→후반 0.5초 같은 스테이지별 체감 단축은 이후 밸런싱 단계에서 다룬다.
+StageConfig.CHALLENGE_TIMER_SEC = 20
+
 local function stageOffset(stage: number, world: WorldDef): number
 	return stage - world.stageRange[1]
 end
