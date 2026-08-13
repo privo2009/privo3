@@ -1,0 +1,10 @@
+# Wally 패키지 (wally.lock으로 복원 가능)
+Packages/
+ServerPackages/
+DevPackages/
+
+# Studio 바이너리 파일
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
