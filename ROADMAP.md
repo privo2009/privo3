@@ -42,7 +42,7 @@ serialize / deserialize  ({m,e} ↔ 저장 형태)
 - 0과 음수 처리
 - 직렬화 왕복 일치
 
-**결과**: `BigNumTests.server.lua` 33개 통과 (Studio 실행 확인)
+**결과**: `BigNumTests.server.lua` 88개 통과 (Studio 실행 확인)
 
 ### 1-2. Formatter
 `src/shared/Formatter.lua`
@@ -93,7 +93,7 @@ src/server/Data/Migrations.lua
 
 모든 재화 증감의 단일 통로. 여기서 검증과 로깅.
 
-**결과**: `CurrencyServiceTests.server.lua` 39개 통과
+**결과**: `CurrencyServiceTests.server.lua` 38개 통과
 
 **다음**: Phase 3 — 코어 루프
 
@@ -101,9 +101,14 @@ src/server/Data/Migrations.lua
 
 ## Phase 3 — 코어 루프 (코드 + 에셋)
 
-### 3-1. 블록 (서버)
-`src/server/Systems/BlockService.lua`
+### 3-1. 블록 (서버) ✅ 완료
+```
+src/server/Systems/BlockService.lua
+src/shared/BlockShuffle.lua (서버/클라 공유 파괴 순서 셔플)
+```
 HP 관리, 데미지 처리, 클리어 판정, 시드 생성
+
+**결과**: `BlockServiceTests.server.lua` 22개, `BlockShuffleTests.server.lua` 3개 통과
 
 ### 3-2. 블록 (클라)
 ```
@@ -112,9 +117,11 @@ src/client/Effects/ParticlePool.lua
 ```
 ⚠️ 파편 상한 200, 풀링 필수, 물리 금지
 
-### 3-3. 챌린지
+### 3-3. 챌린지 ✅ 완료
 `src/server/Systems/ChallengeService.lua`
 20초 타이머(서버 권위), 스테이지 진행, 보상 갱신, 실패 처리
+
+**결과**: `ChallengeServiceTests.server.lua` 19개 통과
 
 ### 3-4. 블록 모델 [수동]
 Studio에서 큐브 격자 정육면체 제작. 재질별 프리셋.
