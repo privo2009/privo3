@@ -136,6 +136,24 @@ src/client/Effects/ChunkBreakerDemo.client.lua (임시 데모, RemoteEvent 붙�
 ---
 
 ## Phase 4 — 성장 (코드)
+
+### 선행 조건 (착수 전 처리)
+`ChallengeService`에 **발판 Touched 감지 및 벽 통과 판정 구조**를 반영한다.
+수령·진행이 화면 UI 버튼이 아니라 3D 오브젝트로 확정되었으므로
+(DESIGN.md "1. 챌린지 → 선택 방식 — 둘 다 3D 오브젝트"),
+진입점이 RemoteEvent가 아니라 서버 측 Touched/판정이 된다.
+
+```
+수령 발판 Touched → ChallengeService.cashout(player)
+진행 벽 통과      → ChallengeService.advance(player)
+```
+
+⚠️ 서버 권위 유지. Touched는 신호일 뿐이고 클리어 여부·보상은 기존대로
+   서버 런 상태(`run.cleared`)로 판정한다.
+⚠️ Touched는 연타로 중복 발화한다. 런당 1회 처리 보장(디바운스) 필수.
+⚠️ 이 구조가 먼저 서야 WarpService의 스테이지 이동과 진입점이 어긋나지 않는다.
+
+### 본 작업
 ```
 힘 업그레이드
 RebirthService (1000 블럭스 = +1x)
@@ -164,11 +182,13 @@ OfflineService — 상한 8h, 서버 시각 기준
 [수동]   이미지, 색상, 아이콘
 ```
 
-화면 목록:
-```
-메인 HUD / 상점(업그레이드·로벅스) / 아우라 / 타이틀
-펫 인벤토리 / 환생 / 드론 / 설정
-```
+화면 목록: **총 29개**. 목록과 각 화면의 구성은 `docs/UI.md` "1. 화면 목록" 참조.
+(이 문서에 중복 기재하지 않는다 — 화면이 늘거나 줄면 UI.md 한 곳만 고친다)
+
+에셋 제작 규격은 `docs/UI_ASSET_SPEC.md`, 인계 절차와 검증 관문은
+`docs/UI_HANDOFF.md` 참조. 검증 관문 G1은 **Phase 6 착수 조건**이다.
+
+UI 작업은 자체 단계(U0~U8)로 코드 Phase와 독립 진행한다 — `docs/UI.md` "UI Phase" 참조.
 
 ⚠️ 이 단계가 전체에서 가장 오래 걸린다
 
