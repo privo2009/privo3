@@ -324,15 +324,21 @@ N값과 레벨업 필요 수치는 미정. 밸런싱 단계에서 확정한다.
 3D 이동으로 선택되는 구조인데, 속도가 수백이면 발판을 밟으려다
 벽을 통과해버린다. 푸시-유어-럭의 선택이 사고로 뒤집힌다.
 
-```
-저장: settings.customSpeed  (raw number. BigNum 아님)
-```
+**저장하지 않는다.** 세션 내 서버 메모리에만 둔다 (→ "10. 데이터 스키마 >
+저장하지 않는 것"). 접속 시와 환생 시 최대 속도로 시작한다.
 
-⚠️ 최대 속도가 내려가는 시점(환생, 프로필 로드)에 저장값이 최대를
-   초과할 수 있다. 반드시 클램프.
-⚠️ `WalkSpeed`는 클라가 바꿔도 복제된다. 서버가 최종적으로
+저장하지 않는 이유: 한 세션 안에서도 상황에 따라 계속 바꾸는 조작값이지
+한 번 정해두는 고정 설정이 아니다. 저장하면 환생·레벨 하락 시점마다
+최대값 초과를 클램프해야 하는데, 세션 값이면 초기화 시점이
+접속·환생 둘로 통일된다.
+
+⚠️ 저장을 안 할 뿐 **서버 검증은 그대로 필요하다.**
+   `WalkSpeed`는 클라가 바꿔도 복제되므로, 서버가 최종적으로
    `min(요청값, 최대값)`을 세팅하고 주기 검사한다.
+   최대값은 레벨에서 나오고 레벨은 힘에서 파생되므로 서버가 계산한다.
    (CLAUDE.md "절대 규칙 3. 서버 권위" 적용 대상)
+⚠️ 레벨이 내려가는 시점(환생)에는 세션 값도 최대를 초과할 수 있다.
+   저장 여부와 무관하게 클램프는 필요하다.
 
 ---
 
@@ -526,6 +532,10 @@ OP 자동 클리커        79
 
 ## 10. 데이터 스키마
 
+⚠️ 이 블록과 `Schema.lua`가 어긋나면 **코드가 기준이다.**
+실제 템플릿은 `src/server/Data/Schema.lua`의 `buildTemplate()`이고,
+여기 있는 것은 읽기용 사본이다. 필드를 바꿀 때는 코드를 먼저 고친다.
+
 ```lua
 {
   schemaVersion = 2,     -- 실 코드 Schema.VERSION 과 일치시킬 것
@@ -557,13 +567,14 @@ OP 자동 클리커        79
 
   drones = {
     count = 1,
-    lastCollectAt = 0,   -- 서버 시각
+    lastCollectAt = 0,   -- 서버 시각. 템플릿은 0으로 시작하고
+                         --   신규 프로필 생성 시 ProfileManager가 os.time()으로 채운다
   },
 
   cosmetics = {
-    equippedAura = nil,
-    ownedAuras = {},     -- {auraId = true}
-    equippedTitle = nil,
+    equippedAura = false,   -- nil 아님. DataStore는 nil 값을 가진 필드를 저장하지 못한다
+    ownedAuras = {},        -- {auraId = true}
+    equippedTitle = false,  -- 위와 같은 이유
     ownedTitles = {},
     hideOtherAuras = false,
     hideOtherPets = false,
@@ -574,17 +585,14 @@ OP 자동 클리커        79
     equipped = {},       -- uid 배열
     slots = 2,
     storage = 50,
+    nextUid = 1,         -- 다음 발급할 uid 번호. 실제 uid는 tostring()으로 문자열 발급.
+                         --   JSON이 숫자 키를 문자열로 바꿔 uid 참조가 어긋나는 것을 방지
   },
 
   rolling = {
     unlockedAuraPacks = 1,
     selectedPack = 1,
     autoRollTitle = false,
-  },
-
-  settings = {           -- ⚠️ 예정. schemaVersion 3 마이그레이션에서 실제 추가
-    customSpeed = nil,   -- raw number (BigNum 아님). nil이면 최대 속도 사용.
-                         --   로드 시 반드시 min(값, 현재 최대속도)로 클램프
   },
 
   boosts = {},           -- {type, mult, expiresAt} 서버에서만 만료 판정
@@ -614,6 +622,12 @@ run 상태 (stage, currentReward, timeLeft)
 
 게임패스 소유 여부
   → 매 세션 MarketplaceService 확인
+
+커스텀 스피드
+  → 세션 내에서만 유지. 접속 시·환생 시 최대 속도로 시작.
+     한 세션 안에서도 상황에 따라 계속 바꾸는 조작값이라 고정 설정이 아니다.
+     저장하면 환생·레벨 하락 시점마다 최대값 초과 클램프가 필요한데,
+     세션 값이면 초기화 시점이 접속·환생 둘로 통일된다
 ```
 
 ⚠️ 펫 50~150개가 프로필에 들어간다. DataStore 4MB 한도 주의.
