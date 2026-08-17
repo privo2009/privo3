@@ -8,3 +8,18 @@ DevPackages/
 *.rbxlx
 *.rbxl.lock
 *.rbxlx.lock
+
+# OS 생성 파일
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 에디터 · 개인 환경 종속
+# extensions.json은 팀 공용 권장 목록이라 제외하지 않는다
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.code-workspace
+
+# Rojo 생성물
+sourcemap.json
