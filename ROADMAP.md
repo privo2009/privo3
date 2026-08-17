@@ -86,7 +86,7 @@ src/server/Data/Migrations.lua
 - BigNum 필드 왕복
 - 강제 종료 시 데이터 무손실
 
-**결과**: `SchemaTests.server.lua` 31개, `MigrationsTests.server.lua` 13개 통과
+**결과**: `SchemaTests.server.lua` 31개, `MigrationsTests.server.lua` 20개 통과
 
 ### 2-2. CurrencyService
 `src/server/Systems/CurrencyService.lua`
