@@ -547,9 +547,6 @@ OP 자동 클리커        79
   upgrades = {
     punchDamage = 0,
     punchSpeed = 0,      -- 상한
-    radius = 0,          -- ⚠️ 폐기됨. 데미지 오버플로우 도입으로 개념 자체가 없어졌고
-                         --    실 코드에서는 schemaVersion 2 마이그레이션 때 이미 제거됐다.
-                         --    이 블록에는 이력 참고용으로만 남긴다
     moveSpeed = 0,       -- 상한
     bloxGain = 0,
     auraLuck = 0,
@@ -621,3 +618,5 @@ run 상태 (stage, currentReward, timeLeft)
 
 ⚠️ 펫 50~150개가 프로필에 들어간다. DataStore 4MB 한도 주의.
    펫 이름·이미지는 저장 금지. `petId`로 config 참조.
+
+※ 삭제 이력 — `upgrades.radius`는 schemaVersion 2에서 제거됐다 (커밋 `d3a490f`).
