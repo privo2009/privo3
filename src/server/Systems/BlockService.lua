@@ -236,7 +236,7 @@ Players.PlayerRemoving:Connect(function(player: Player)
 end)
 
 -- 스테이지 진입 시 블록 세트를 (다시) 만든다. 개수/HP는 StageConfig 기준
--- (StageConfig.getHp가 WorldConfig의 hpBase/hpGrowth로 계산한 값을 그대로 씀).
+-- (StageConfig.getHp가 WorldConfig의 hpBase/hpGrowthSegments로 계산한 값을 그대로 씀).
 function BlockService.enterStage(player: Player, stage: number): { BlockSnapshotEntry }
 	local count = StageConfig.getBlockCount(stage)
 	local maxHp = StageConfig.getHp(stage)

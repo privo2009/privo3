@@ -62,6 +62,25 @@ check("StageConfig.getHp(1)이 BigNum을 반환", function()
 	return type(hp) == "table" and type(hp.m) == "number" and type(hp.e) == "number"
 end)
 
+check("StageConfig.hasStage: 0층과 최종 층 다음은 없다", function()
+	local finalStage = 0
+	for _, world in pairs(WorldConfig.Worlds) do
+		finalStage = math.max(finalStage, world.stageRange[2])
+	end
+	return StageConfig.hasStage(1) == true
+		and StageConfig.hasStage(finalStage) == true
+		and StageConfig.hasStage(finalStage + 1) == false
+		and StageConfig.hasStage(0) == false
+end)
+
+check("StageConfig.isFinalStage: 최종 층만 true", function()
+	local finalStage = 0
+	for _, world in pairs(WorldConfig.Worlds) do
+		finalStage = math.max(finalStage, world.stageRange[2])
+	end
+	return StageConfig.isFinalStage(finalStage) == true and StageConfig.isFinalStage(finalStage - 1) == false
+end)
+
 check("UpgradeConfig.getCostAtLevel이 레벨에 따라 증가", function()
 	local cost0 = UpgradeConfig.getCostAtLevel("punchDamage", 0)
 	local cost5 = UpgradeConfig.getCostAtLevel("punchDamage", 5)

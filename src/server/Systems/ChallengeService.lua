@@ -45,6 +45,9 @@ export type RunStateView = {
 	reward: BigNumber,
 	timeLeft: number,
 	cleared: boolean,
+	-- 진행 벽을 열어도 되는가. false면 벽을 비활성화하고 수령 발판만 남긴다
+	-- (DESIGN.md 8. 월드 > 최종 월드의 마지막 층). 벽 배치 코드는 이 값만 보면 된다.
+	canAdvance: boolean,
 }
 
 local ChallengeService = {}
@@ -88,6 +91,19 @@ local function resolveRunOutcome(run: RunState, cleared: boolean): BigNumber
 	return BigNum.new(0, 0)
 end
 
+-- 진행 벽이 열리는 조건. 클리어했고, 갈 다음 층이 실재해야 한다.
+-- nextStageExists를 인자로 받는 이유: 이 판정을 StageConfig 조회와 분리해두면
+-- "다음 월드가 있는 경우"를 월드 주입 없이도 순수 함수로 검증할 수 있다.
+local function canAdvanceFrom(run: RunState, nextStageExists: boolean): boolean
+	return run.cleared and nextStageExists
+end
+
+-- 수령 발판이 활성화되는 조건. 진행 벽이 막혀도 이쪽은 영향받지 않는다 —
+-- 최종 층에서 "수령만 가능"이 성립하는 근거가 이 독립성이다.
+local function canCashout(run: RunState): boolean
+	return run.cleared
+end
+
 -- 테스트 전용 통로. 공개 API 계약이 아니므로 이 밖에서는 쓰지 말 것.
 ChallengeService._pure = {
 	buildRun = buildRun,
@@ -95,6 +111,8 @@ ChallengeService._pure = {
 	isExpired = isExpired,
 	computeNewMaxStage = computeNewMaxStage,
 	resolveRunOutcome = resolveRunOutcome,
+	canAdvanceFrom = canAdvanceFrom,
+	canCashout = canCashout,
 }
 
 -- ===== 공개 API (Player 상태 보관) ======================================================
@@ -173,6 +191,10 @@ function ChallengeService.applyDamage(player: Player, originPosition: Vector3, d
 end
 
 -- 클리어 상태에서만 다음 스테이지로 넘어간다. reward는 새 스테이지 값으로 덮어쓴다(누적 아님).
+--
+-- 현재 정의된 마지막 층에서는 진행 벽이 열리지 않으므로 여기서 정상 거부한다.
+-- StageConfig.getWorld는 없는 월드에 assert로 터지는데, 그건 "있어선 안 될 상태"를 잡는
+-- 장치지 유저가 25층을 깬 정상 상황을 다룰 자리가 아니다. 터뜨리지 않고 false를 돌려준다.
 function ChallengeService.advance(player: Player): boolean
 	local run = runs[player]
 	if run == nil then
@@ -186,6 +208,13 @@ function ChallengeService.advance(player: Player): boolean
 	end
 
 	local nextStage = run.stage + 1
+
+	if not canAdvanceFrom(run, StageConfig.hasStage(nextStage)) then
+		-- 에러가 아니라 설계된 종착점이다. WorldConfig에 다음 월드가 추가되면 저절로 풀린다.
+		warn(string.format("[ChallengeService] advance 거부: %s(%d) 최종 층 도달 (stage=%d) - 스테이지 %d를 담당하는 월드가 WorldConfig에 없음. 진행 벽 비활성, 수령만 가능", player.Name, player.UserId, run.stage, nextStage))
+		return false
+	end
+
 	local nextReward = StageConfig.getBloxReward(nextStage)
 	runs[player] = buildRun(nextStage, nextReward, os.clock())
 	BlockService.enterStage(player, nextStage)
@@ -201,7 +230,8 @@ function ChallengeService.cashout(player: Player): (boolean, BigNumber?)
 		return false, nil
 	end
 
-	if not run.cleared then
+	-- 진행 벽이 막힌 최종 층에서도 이 게이트는 그대로 통과한다. 수령은 벽 상태와 무관하다.
+	if not canCashout(run) then
 		warn(string.format("[ChallengeService] cashout 거부: %s(%d) 아직 클리어 안 됨 (stage=%d)", player.Name, player.UserId, run.stage))
 		return false, nil
 	end
@@ -244,6 +274,7 @@ function ChallengeService.getRunState(player: Player): RunStateView?
 		reward = run.currentReward,
 		timeLeft = timeLeft,
 		cleared = run.cleared,
+		canAdvance = canAdvanceFrom(run, StageConfig.hasStage(run.stage + 1)),
 	}
 end
 
