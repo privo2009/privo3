@@ -7,6 +7,36 @@
 
 ---
 
+## 테스트 현황
+
+**테스트 개수는 여기에만 적는다.** Phase 절에는 어떤 파일이 생겼는지만 쓰고
+개수는 쓰지 않는다 — 두 군데 적으면 반드시 어긋난다.
+
+전부 Studio에서 Rojo 연결 후 Play 하면 서버 시작 시 자동 실행된다.
+
+| 파일 | 개수 | 대상 |
+|---|---:|---|
+| `Tests/BigNumTests.server.lua` | 88 | BigNum 사칙연산·비교·직렬화·정밀도 |
+| `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
+| `Tests/ConfigTests.server.lua` | 13 | 모든 Config의 validate + 스모크 |
+| `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
+| `Data/SchemaTests.server.lua` | 31 | 프로필 스키마 검증 |
+| `Data/MigrationsTests.server.lua` | 20 | schemaVersion 마이그레이션·멱등성 |
+| `Systems/CurrencyServiceTests.server.lua` | 38 | 재화 단일 게이트·롤백 |
+| `Systems/BlockServiceTests.server.lua` | 30 | 배치·데미지 오버플로우·클리어 |
+| `Systems/ChallengeServiceTests.server.lua` | 35 | 타이머·보상 갱신·진입점 거부 |
+| **합계** | **291** | |
+
+최근 갱신: 25층 벽 막기 작업으로 ChallengeService 19 → 35, Config 11 → 13.
+
+자동 테스트가 없는 것:
+- `Effects/ChunkBreaker` 등 클라 시각 연출 — `ChunkBreakerDemo.client.lua`로 육안 확인
+- `Tests/CurveReport.server.lua` — pass/fail을 세지 않는 **리포트**다.
+  커브 수치를 눈으로 검산하는 용도이고, 커브의 계약 검증은
+  `WorldConfig.validate()` / `StageConfig.validate()`가 맡는다 (→ ConfigTests에 포함)
+
+---
+
 ## Phase 0 — 환경 ✅ 완료
 ```
 Aftman / Rojo 7.7.0 / Wally 0.3.2 / Git / VS Code
@@ -42,7 +72,7 @@ serialize / deserialize  ({m,e} ↔ 저장 형태)
 - 0과 음수 처리
 - 직렬화 왕복 일치
 
-**결과**: `BigNumTests.server.lua` 88개 통과 (Studio 실행 확인)
+**결과**: `BigNumTests.server.lua` (개수 → "테스트 현황")
 
 ### 1-2. Formatter
 `src/shared/Formatter.lua`
@@ -56,7 +86,7 @@ tier 11~   → 알파벳 계산
 
 **검증**: 경계값 (10^32/10^33, 10^2058/10^2061)
 
-**결과**: `FormatterTests.server.lua` 33개 통과 (Studio 실행 확인)
+**결과**: `FormatterTests.server.lua` (개수 → "테스트 현황")
 
 ### 1-3. Config 골격
 `src/shared/Config/`
@@ -66,7 +96,7 @@ AuraConfig / TitleConfig / PetConfig / WorldConfig
 ```
 값은 임시. 구조만 확정.
 
-**결과**: `ConfigTests.server.lua` 11개 통과 (Studio 실행 확인)
+**결과**: `ConfigTests.server.lua` (개수 → "테스트 현황")
 
 **다음**: Phase 2 — 데이터 계층
 
@@ -86,14 +116,14 @@ src/server/Data/Migrations.lua
 - BigNum 필드 왕복
 - 강제 종료 시 데이터 무손실
 
-**결과**: `SchemaTests.server.lua` 31개, `MigrationsTests.server.lua` 20개 통과
+**결과**: `SchemaTests.server.lua`, `MigrationsTests.server.lua` (개수 → "테스트 현황")
 
 ### 2-2. CurrencyService
 `src/server/Systems/CurrencyService.lua`
 
 모든 재화 증감의 단일 통로. 여기서 검증과 로깅.
 
-**결과**: `CurrencyServiceTests.server.lua` 38개 통과
+**결과**: `CurrencyServiceTests.server.lua` (개수 → "테스트 현황")
 
 ---
 
@@ -107,7 +137,7 @@ src/shared/BlockShuffle.lua (서버/클라 공유 파괴 순서 셔플)
 HP 관리, 데미지 오버플로우(블록 하나를 부수고 남은 데미지가 다음 블록으로 흘러감,
 DESIGN.md "2. 블록 → 데미지 오버플로우" 참고), 클리어 판정, 시드 생성
 
-**결과**: `BlockServiceTests.server.lua` 30개, `BlockShuffleTests.server.lua` 3개 통과
+**결과**: `BlockServiceTests.server.lua`, `BlockShuffleTests.server.lua` (개수 → "테스트 현황")
 
 ### 3-2. 블록 (클라) ✅ 완료
 ```
@@ -123,7 +153,7 @@ src/client/Effects/ChunkBreakerDemo.client.lua (임시 데모, RemoteEvent 붙�
 `src/server/Systems/ChallengeService.lua`
 20초 타이머(서버 권위), 스테이지 진행, 보상 갱신, 실패 처리
 
-**결과**: `ChallengeServiceTests.server.lua` 19개 통과
+**결과**: `ChallengeServiceTests.server.lua` (개수 → "테스트 현황")
 
 ### 3-4. 블록 모델 ✅ 완료 (도구)
 `src/server/Tools/BlockModelGenerator.lua` — 격자 큐브 블록 모델 생성기(개발 도구).
