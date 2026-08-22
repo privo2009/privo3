@@ -23,6 +23,7 @@ local BlockShuffle = require(ReplicatedStorage.Shared.BlockShuffle)
 local Schema = require(script.Parent.Parent.Data.Schema)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local BlockLayoutConfig = require(ReplicatedStorage.Shared.Config.BlockLayoutConfig)
+local GameTypes = require(ReplicatedStorage.Shared.GameTypes)
 
 type BigNumber = BigNum.BigNumber
 
@@ -34,11 +35,10 @@ export type BlockState = {
 	seed: number, -- 이 블록의 파괴 순서 셔플 시드. 블록마다 다름
 }
 
-export type BlockChange = {
-	index: number,
-	hp: BigNumber,
-	destroyed: boolean,
-}
+-- 정의는 Shared/GameTypes.lua 한 곳에 있다. 이 타입은 RemoteEvent로 클라에 건너가므로
+-- 서버·클라가 같은 정의를 봐야 한다. 여기서는 별칭만 두고 기존 이름을 그대로 유지한다
+-- (BlockService.BlockChange로 참조하던 코드는 손대지 않아도 된다).
+export type BlockChange = GameTypes.BlockChange
 
 export type BlockSnapshotEntry = {
 	index: number,

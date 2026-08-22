@@ -1,11 +1,17 @@
 --!strict
 -- ⚠️ Phase 3-2 임시 데모. 실제 서버 연동(RemoteEvent) 없이 클라 혼자서 ChunkBreaker를
 -- 호출해 블록이 부서지는 과정을 Studio Play 상태에서 눈으로 확인하기 위한 것.
--- RemoteEvent가 붙어서 서버가 실제로 HP를 보내주는 단계가 되면 이 파일 전체를 삭제할 것.
+-- 서버 신호가 붙은 지금은 아래 DEMO_ENABLED로 꺼둔 상태다. 수신부와 대조할 일이 없어지면
+-- 이 파일 전체를 삭제할 것.
 
-local DEMO_MODE = true
+-- 실제 서버 신호(Net/RemoteReceiver.client.lua)가 붙은 뒤로는 꺼둔다. 켜면 이 데모가
+-- 자체 타이머로 만든 블록을 따로 부수므로, 수신부가 만든 연출과 화면에서 섞인다.
+-- 수신부가 이상할 때 true로 바꿔서 "연출 자체는 멀쩡한가"를 대조하는 용도로 남겨둔다.
+-- (원래 이 자리에 있던 DEMO_MODE 플래그를 이름만 바꾼 것이다. 같은 뜻의 플래그를 둘로
+--  늘리면 어느 쪽이 진짜인지 헷갈린다)
+local DEMO_ENABLED = false
 
-if not DEMO_MODE then
+if not DEMO_ENABLED then
 	return
 end
 

@@ -433,6 +433,38 @@ do
 	end
 end
 
+-- 11. toRatio: 큰 수의 비율을 number로 푸는 순서 --------------------------------------
+--
+-- 이 함수가 따로 있는 이유가 곧 테스트할 내용이다. m * 10^e를 먼저 계산하면 10^2000이
+-- inf가 되고 inf/inf = nan이 된다. 나눗셈을 BigNum 안에서 끝낸 뒤에 풀어야 살아남는다.
+-- 파편 연출이 이 비율 하나로 큐브 개수를 역산하므로(Client/Net/RemoteReceiver), 여기가
+-- 깨지면 화면에서 블록이 통째로 사라지거나 아예 안 부서진다.
+
+do
+	check("같은 값의 비는 1", BigNum.toRatio(BigNum.new(5, 100), BigNum.new(5, 100)) == 1)
+	check("0의 비는 0", BigNum.toRatio(BigNum.new(0, 0), BigNum.new(5, 100)) == 0)
+
+	-- 핵심 케이스. 둘 다 number로 풀면 inf라서 inf/inf = nan이 되는 크기다.
+	local huge = BigNum.toRatio(BigNum.new(1, 2000), BigNum.new(2, 2000))
+	check("10^2000 규모의 절반 = 0.5 (nan 아님)", math.abs(huge - 0.5) < 1e-9, tostring(huge))
+
+	local quarter = BigNum.toRatio(BigNum.new(2.5, 500), BigNum.new(1, 501))
+	check("2.5e500 / 1e501 = 0.25", math.abs(quarter - 0.25) < 1e-9, tostring(quarter))
+
+	-- 양 끝 포화. number로 표현할 수 없는 구간이라 inf / 0으로 접는다.
+	check("분자가 10^308배 이상 크면 inf로 포화", BigNum.toRatio(BigNum.new(1, 2000), BigNum.new(1, 1)) == math.huge)
+	check("분모가 10^308배 이상 크면 0으로 포화", BigNum.toRatio(BigNum.new(1, 1), BigNum.new(1, 2000)) == 0)
+
+	-- HP가 조금 깎인 정상 범위. 파편 개수 역산이 이 구간에서 돈다.
+	local partial = BigNum.toRatio(BigNum.new(7.5, 1200), BigNum.new(1, 1201))
+	check("7.5e1200 / 1e1201 = 0.75", math.abs(partial - 0.75) < 1e-9, tostring(partial))
+
+	local ok = pcall(function()
+		BigNum.toRatio(BigNum.new(1, 0), BigNum.new(0, 0))
+	end)
+	check("분모가 0이면 assert로 막힌다", ok == false)
+end
+
 -- 결과 -------------------------------------------------------------------
 
 print(string.format("[BigNumTests] %d passed, %d failed", passed, failed))

@@ -166,6 +166,35 @@ function BigNum.div(a: BigNumber, b: BigNumber): BigNumber
 	return BigNum.normalize(a.m / b.m, a.e - b.e)
 end
 
+-- a / b를 평범한 Luau number로 돌려준다. 비율(0~1 근처)이 필요한 곳 전용이다.
+--
+-- 왜 따로 있나: BigNum 값을 number로 풀려고 m * 10^e를 직접 계산하면 e가 조금만 커도
+-- inf가 된다(10^2000). 그 상태로 hp/maxHp를 하면 inf/inf = nan이 되어 비율이 통째로
+-- 깨진다. 나눗셈을 BigNum 안에서 먼저 끝내면 결과의 지수가 작아지므로 그 뒤에야
+-- 안전하게 number로 풀 수 있다. 순서가 전부다.
+--
+-- 그래도 넘칠 수 있는 양 끝(a가 b보다 10^308배 이상 크거나 작은 경우)은 inf/0으로
+-- 포화시킨다. 비율 용도에서 그 너머의 값은 의미가 없다.
+function BigNum.toRatio(a: BigNumber, b: BigNumber): number
+	assert(b.m ~= 0, "BigNum.toRatio: b는 0일 수 없다")
+
+	local r = BigNum.div(a, b)
+	if r.m == 0 then
+		return 0
+	end
+	if r.e > 308 then
+		if r.m > 0 then
+			return math.huge
+		end
+		return -math.huge
+	end
+	if r.e < -308 then
+		return 0
+	end
+
+	return r.m * 10 ^ r.e
+end
+
 -- a ^ n. n은 일반 Luau number(정수/실수). 밑이 음수면 n은 정수여야 한다.
 function BigNum.pow(a: BigNumber, n: number): BigNumber
 	if n == 0 then

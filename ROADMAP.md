@@ -18,7 +18,7 @@
 
 | 파일 | 개수 | 대상 |
 |---|---:|---|
-| `Tests/BigNumTests.server.lua` | 88 | BigNum 사칙연산·비교·직렬화·정밀도 |
+| `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
 | `Tests/ConfigTests.server.lua` | 13 | 모든 Config의 validate + 스모크 |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
@@ -27,9 +27,10 @@
 | `Systems/CurrencyServiceTests.server.lua` | 38 | 재화 단일 게이트·롤백 |
 | `Systems/BlockServiceTests.server.lua` | 30 | 배치·데미지 오버플로우·클리어 |
 | `Systems/ChallengeServiceTests.server.lua` | 51 | 타이머·보상 갱신·진입점 거부·source 식별 |
-| **합계** | **307** | |
+| **합계** | **315** | |
 
-최근 갱신: source 인자 추가 작업으로 ChallengeService 38 → 51.
+최근 갱신: RemoteEvent 배선(Phase 4-2-a)으로 BigNum 88 → 96 (toRatio 8케이스 추가).
+직전 갱신: source 인자 추가 작업으로 ChallengeService 38 → 51.
 표에 적혀 있던 35는 실측 38과 어긋난 값이었다. 25층 벽 막기 작업 때 3개가 추가됐는데
 표를 갱신하지 않은 것으로 보인다. 2026-08-22 Studio Play 실측으로 전 항목을 대조해 확정했다
 — 어긋난 것은 이 한 줄뿐이고 나머지 8개 파일은 표와 실측이 일치한다.

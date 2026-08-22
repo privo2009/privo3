@@ -28,6 +28,8 @@ local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 local CurrencyService = require(script.Parent.CurrencyService)
 local BlockService = require(script.Parent.BlockService)
+local GameTypes = require(ReplicatedStorage.Shared.GameTypes)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 type BigNumber = BigNum.BigNumber
 type BlockChange = BlockService.BlockChange
@@ -40,15 +42,12 @@ export type RunState = {
 	frozenTimeLeft: number?, -- cleared된 순간의 남은 시간 스냅샷 (타이머 정지 표시용)
 }
 
-export type RunStateView = {
-	stage: number,
-	reward: BigNumber,
-	timeLeft: number,
-	cleared: boolean,
-	-- 진행 벽을 열어도 되는가. false면 벽을 비활성화하고 수령 발판만 남긴다
-	-- (DESIGN.md 8. 월드 > 최종 월드의 마지막 층). 벽 배치 코드는 이 값만 보면 된다.
-	canAdvance: boolean,
-}
+-- 정의는 Shared/GameTypes.lua 한 곳에 있다. RemoteEvent로 클라에 건너가는 타입이라
+-- 서버·클라가 같은 정의를 봐야 한다. 여기서는 별칭만 두고 기존 이름을 유지한다
+-- (ChallengeService.RunStateView로 참조하던 코드는 손대지 않아도 된다).
+-- 반면 위의 RunState는 서버 메모리 전용이라 옮기지 않았다 — startedAt 같은 필드는
+-- 클라에 줄 이유가 없고, 공유하면 실수로 실릴 여지만 생긴다.
+export type RunStateView = GameTypes.RunStateView
 
 local ChallengeService = {}
 
@@ -133,12 +132,81 @@ ChallengeService._pure = {
 local runs: { [Player]: RunState } = {}
 
 Players.PlayerRemoving:Connect(function(player: Player)
+	-- 여기서는 통지하지 않는다. 나가는 중인 클라에 보낼 것이 없다.
 	runs[player] = nil
 end)
+
+-- ===== 클라 통지 ========================================================================
+--
+-- 발신은 이 세 함수로만 나간다. 판정에는 일절 관여하지 않는다 — 이미 확정된 상태를
+-- 알리기만 하는 계층이다. 채널 정의는 Shared/Remotes.lua.
+--
+-- 인스턴스를 로드 시점에 만드는 이유: 클라는 WaitForChild로 기다리는데, 첫 발화까지
+-- 생성을 미루면 그때까지 클라가 멈춰 있는다. ChallengeService는 Bootstrap이 서버 시작 시
+-- require하므로 여기서 만들면 클라가 붙기 전에 준비된다.
+local channels = Remotes.getServer()
+
+-- ChallengeServiceTests는 { Name, UserId }만 있는 가짜 Player 테이블로 이 API들을 굴린다
+-- (그 파일 상단 주석 참고). FireClient는 진짜 Player 인스턴스만 받으므로 검사 없이 부르면
+-- 기존 테스트가 통째로 터진다. 테스트용 우회라기보다 "통지는 실제 접속자에게만 의미가
+-- 있다"는 사실을 그대로 쓴 것이다.
+local function isRealPlayer(player: Player): boolean
+	return typeof(player) == "Instance" and player:IsA("Player")
+end
+
+-- 런 상태의 클라 노출본. getRunState()와 이 함수가 같은 것을 만든다 — 통지 payload와
+-- 조회 결과가 어긋나지 않도록 계산을 한곳에 뒀다.
+local function buildView(run: RunState): RunStateView
+	local timeLeft: number
+	if run.cleared then
+		timeLeft = run.frozenTimeLeft or 0
+	else
+		timeLeft = computeTimeLeft(run.startedAt, os.clock(), StageConfig.CHALLENGE_TIMER_SEC)
+	end
+
+	return {
+		stage = run.stage,
+		reward = run.currentReward,
+		timeLeft = timeLeft,
+		cleared = run.cleared,
+		canAdvance = canAdvanceFrom(run, StageConfig.hasStage(run.stage + 1)),
+	}
+end
+
+-- active=false는 "이 런은 끝났고 state는 끝나는 순간의 스냅샷"이라는 뜻이다.
+-- nil을 보낼 수 없어서 이렇게 표현한다 (근거는 Remotes.lua의 RunStateChangedPayload 주석).
+local function notifyRunState(player: Player, run: RunState, active: boolean, reason: string)
+	if not isRealPlayer(player) then
+		return
+	end
+
+	local payload: Remotes.RunStateChangedPayload = {
+		active = active,
+		reason = reason,
+		state = buildView(run),
+	}
+	channels.runStateChanged:FireClient(player, payload)
+end
+
+-- 고빈도 채널. 서버는 블록 HP만 보낸다 — 큐브 개수는 클라가 HP 비율로 역산한다
+-- (CLAUDE.md "4. 파편·파티클은 클라이언트 전용").
+local function notifyBlockDamaged(player: Player, changes: { BlockChange })
+	if not isRealPlayer(player) then
+		return
+	end
+	if #changes == 0 then
+		-- 데미지가 거부되면 BlockService가 빈 배열을 준다. 바뀐 게 없으니 보내지 않는다 —
+		-- 초당 여러 번 나가는 채널이라 빈 발화를 흘려보낼 이유가 없다.
+		return
+	end
+
+	channels.blockDamaged:FireClient(player, changes)
+end
 
 local function failRun(player: Player, run: RunState)
 	warn(string.format("[ChallengeService] %s(%d) 챌린지 실패(시간 초과) - stage=%d, reward=%s 소멸", player.Name, player.UserId, run.stage, BigNum.tostring(run.currentReward)))
 	runs[player] = nil
+	notifyRunState(player, run, false, "timeout")
 end
 
 -- 만료 검사 루프. 20초 타이머라 프레임 단위 정밀도가 필요 없으므로 일정 간격으로만 스캔한다.
@@ -166,8 +234,10 @@ function ChallengeService.startRun(player: Player, stage: number?): boolean
 	assert(type(targetStage) == "number" and targetStage >= 1, "ChallengeService.startRun: stage는 1 이상이어야 함")
 
 	local reward = StageConfig.getBloxReward(targetStage)
-	runs[player] = buildRun(targetStage, reward, os.clock())
+	local run = buildRun(targetStage, reward, os.clock())
+	runs[player] = run
 	BlockService.enterStage(player, targetStage)
+	notifyRunState(player, run, true, "start")
 
 	return true
 end
@@ -190,6 +260,10 @@ function ChallengeService.applyDamage(player: Player, originPosition: Vector3, d
 		return nil
 	end
 
+	-- 클리어 통지보다 먼저 보낸다. 마지막 블록이 부서지는 연출이 끝나기 전에 "클리어됐다"가
+	-- 도착하면 클라에서 순서가 뒤집혀 보인다.
+	notifyBlockDamaged(player, changes)
+
 	if BlockService.isCleared(player) then
 		run.cleared = true
 		run.frozenTimeLeft = computeTimeLeft(run.startedAt, os.clock(), StageConfig.CHALLENGE_TIMER_SEC)
@@ -198,6 +272,9 @@ function ChallengeService.applyDamage(player: Player, originPosition: Vector3, d
 		if profile ~= nil then
 			profile.Data.progress.maxStage = computeNewMaxStage(profile.Data.progress.maxStage, run.stage)
 		end
+
+		-- 타이머가 멈추고 수령·진행 선택이 열리는 전이다. 클라가 반드시 알아야 한다.
+		notifyRunState(player, run, true, "cleared")
 	end
 
 	return changes
@@ -230,7 +307,8 @@ function ChallengeService.advance(player: Player, source: string?): boolean
 	end
 
 	local nextReward = StageConfig.getBloxReward(nextStage)
-	runs[player] = buildRun(nextStage, nextReward, os.clock())
+	local nextRun = buildRun(nextStage, nextReward, os.clock())
+	runs[player] = nextRun
 	BlockService.enterStage(player, nextStage)
 
 	-- 성공 로그를 추가한 이유: 거부만 로깅하면 자동 진행 모드가 붙었을 때 "몇 층에서 몇 층으로,
@@ -239,6 +317,9 @@ function ChallengeService.advance(player: Player, source: string?): boolean
 	-- 못 쫓는다. 층 전환 1회당 한 줄이라 수동 진행(20초에 1회)에서는 부담이 없고, 자동 진행에서
 	-- 과하면 이 줄만 지우면 된다 — 판정에는 관여하지 않는다.
 	print(string.format("[ChallengeService] advance: %s(%d) stage %d -> %d (source=%s)", player.Name, player.UserId, run.stage, nextStage, src))
+
+	-- 새 층의 런이 시작된 것이므로 startRun과 같은 성격의 전이다.
+	notifyRunState(player, nextRun, true, "advance")
 
 	return true
 end
@@ -270,15 +351,21 @@ function ChallengeService.cashout(player: Player, source: string?): (boolean, Bi
 	end
 
 	runs[player] = nil
+	-- 런이 사라졌음을 알린다. run은 아직 손에 있으므로 끝나는 순간의 스냅샷을 그대로 싣는다.
+	-- 실패 경로(위 두 거부, 지급 거부)에서는 보내지 않는다 — 런이 그대로 남아 있어서
+	-- 상태가 전이되지 않았고, 클라가 다시 그릴 것도 없다.
+	notifyRunState(player, run, false, "cashout")
 	return true, reward
 end
 
 -- 이탈/포기 처리. 실패와 동일하게 런을 그냥 버린다 (보상 0, 패널티 없음).
 function ChallengeService.abandonRun(player: Player): boolean
-	if runs[player] == nil then
+	local run = runs[player]
+	if run == nil then
 		return false
 	end
 	runs[player] = nil
+	notifyRunState(player, run, false, "abandon")
 	return true
 end
 
@@ -288,20 +375,7 @@ function ChallengeService.getRunState(player: Player): RunStateView?
 		return nil
 	end
 
-	local timeLeft: number
-	if run.cleared then
-		timeLeft = run.frozenTimeLeft or 0
-	else
-		timeLeft = computeTimeLeft(run.startedAt, os.clock(), StageConfig.CHALLENGE_TIMER_SEC)
-	end
-
-	return {
-		stage = run.stage,
-		reward = run.currentReward,
-		timeLeft = timeLeft,
-		cleared = run.cleared,
-		canAdvance = canAdvanceFrom(run, StageConfig.hasStage(run.stage + 1)),
-	}
+	return buildView(run)
 end
 
 return ChallengeService
