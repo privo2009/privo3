@@ -103,8 +103,11 @@ if VERIFY_CHALLENGE then
 			local bloxBefore = CurrencyService.get(player, "blox")
 			print(string.format("[Bootstrap][VERIFY_CHALLENGE] %s cashout 전 blox=%s", player.Name, fmtBigNum(bloxBefore)))
 
-			-- 4. cashout(player)
-			local cashoutOk, reward = ChallengeService.cashout(player)
+			-- 4. cashout(player, "bootstrap_verify")
+			--    source를 붙이는 이유: 이 루틴은 실제 프로필에 blox를 지급한다. source가 없으면
+			--    CurrencyService 로그에 reason=challenge_cashout_unknown으로 남아서, 수령 경로별
+			--    통계를 볼 때(Phase 4-2-f) 개발 중 검증 지급이 실제 플레이 데이터에 섞인다.
+			local cashoutOk, reward = ChallengeService.cashout(player, "bootstrap_verify")
 			print(string.format(
 				"[Bootstrap][VERIFY_CHALLENGE] %s cashout(ok=%s) 보상액=%s",
 				player.Name,
