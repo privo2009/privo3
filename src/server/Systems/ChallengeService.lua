@@ -28,6 +28,7 @@ local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 local CurrencyService = require(script.Parent.CurrencyService)
 local BlockService = require(script.Parent.BlockService)
+local BlockSpawner = require(script.Parent.BlockSpawner)
 local GameTypes = require(ReplicatedStorage.Shared.GameTypes)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
@@ -236,7 +237,12 @@ function ChallengeService.startRun(player: Player, stage: number?): boolean
 	local reward = StageConfig.getBloxReward(targetStage)
 	local run = buildRun(targetStage, reward, os.clock())
 	runs[player] = run
-	BlockService.enterStage(player, targetStage)
+
+	-- 모델 배치를 통지보다 먼저 한다. 클라는 통지를 받은 뒤 블록을 찾으므로 순서가 반대면
+	-- 첫 타격에서 모델을 못 찾고 지나간다.
+	local snapshot = BlockService.enterStage(player, targetStage)
+	BlockSpawner.spawnForStage(player, targetStage, snapshot)
+
 	notifyRunState(player, run, true, "start")
 
 	return true
@@ -309,7 +315,9 @@ function ChallengeService.advance(player: Player, source: string?): boolean
 	local nextReward = StageConfig.getBloxReward(nextStage)
 	local nextRun = buildRun(nextStage, nextReward, os.clock())
 	runs[player] = nextRun
-	BlockService.enterStage(player, nextStage)
+
+	local snapshot = BlockService.enterStage(player, nextStage)
+	BlockSpawner.spawnForStage(player, nextStage, snapshot)
 
 	-- 성공 로그를 추가한 이유: 거부만 로깅하면 자동 진행 모드가 붙었을 때 "몇 층에서 몇 층으로,
 	-- 어느 경로로 넘어갔는가"가 아무 데도 안 남는다. 자동 진행은 벽 통과 없이 서버가 연속으로

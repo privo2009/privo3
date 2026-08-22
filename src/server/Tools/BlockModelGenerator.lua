@@ -1,5 +1,12 @@
 --!strict
--- ⚠️ 개발 도구다. 게임 런타임에 실행되지 않는다 (Bootstrap 등 어디서도 require하지 않음).
+-- ⚠️ 대부분 개발 도구다. generate / generateAndSave / generateAllPresets / previewLayout은
+-- 게임 런타임에 실행되지 않는다 — Studio 커맨드 바 전용이다.
+--
+-- 예외 두 개: getOrCreateTemplate와 moveModelCenterTo는 Systems/BlockSpawner가 런타임에
+-- 쓴다. 층마다 블록 모델을 실제로 배치하는 쪽이 필요로 하는 게 정확히 이 둘이라
+-- (템플릿 확보 + 레이아웃 좌표에 중심 맞추기) 같은 로직을 복사하는 대신 공개했다.
+-- getOrCreateTemplate가 ServerStorage.BlockModels를 먼저 뒤지므로, 디자인 담당이 넣어둔
+-- 모델이 있으면 그게 그대로 게임에 쓰인다 — 이 경로를 살리는 것이 공개한 주된 이유다.
 -- Studio 커맨드 바에서 한 번 실행해서 모델을 만들고, 그 결과(ServerStorage.BlockModels 밑에
 -- 생성된 Model)를 저장(파일 → 저장, 혹은 원하는 위치로 드래그)해서 실제 게임에 쓴다.
 --
@@ -173,7 +180,7 @@ end
 -- materialName에 해당하는 블록 템플릿을 구한다. ServerStorage.BlockModels에 이미 저장된
 -- 게 있으면 그걸 쓰고(디자인 담당이 손댄 버전을 그대로 미리보기에 반영하기 위함), 없으면
 -- 미리보기 전용으로 즉석에서 하나 만든다 (ServerStorage에 저장하지 않음).
-local function getOrCreateTemplate(materialName: string, cubeSize: number?): Model
+function BlockModelGenerator.getOrCreateTemplate(materialName: string, cubeSize: number?): Model
 	local folder = ServerStorage:FindFirstChild("BlockModels")
 	if folder ~= nil then
 		for _, child in ipairs(folder:GetChildren()) do
@@ -195,7 +202,7 @@ end
 -- 기준으로 단순히 PivotTo(CFrame.new(targetPosition))을 하면 블록이 모서리만큼 밀려나
 -- BlockService의 레이아웃 좌표(블록 "중심" 기준)와 어긋난다. 그래서 실제 바운딩박스
 -- 중심을 기준으로 델타를 계산해서 옮긴다.
-local function moveModelCenterTo(model: Model, targetPosition: Vector3)
+function BlockModelGenerator.moveModelCenterTo(model: Model, targetPosition: Vector3)
 	local currentCenter = model:GetBoundingBox().Position
 	local delta = targetPosition - currentCenter
 	model:PivotTo(model:GetPivot() + delta)
@@ -227,13 +234,13 @@ function BlockModelGenerator.previewLayout(count: number, materialName: string, 
 	local resolvedCubeSize = cubeSize or BlockLayoutConfig.CUBE_SIZE
 	local resolvedYOffset = yOffset or (BlockLayoutConfig.GRID_SIZE * resolvedCubeSize) / 2
 
-	local template = getOrCreateTemplate(materialName, cubeSize)
+	local template = BlockModelGenerator.getOrCreateTemplate(materialName, cubeSize)
 	local isTemporaryTemplate = template.Parent == nil
 
 	for i, position in ipairs(positions) do
 		local clone = template:Clone()
 		clone.Name = string.format("Preview_%d", i)
-		moveModelCenterTo(clone, Vector3.new(position.X, position.Y + resolvedYOffset, position.Z))
+		BlockModelGenerator.moveModelCenterTo(clone, Vector3.new(position.X, position.Y + resolvedYOffset, position.Z))
 		clone.Parent = folder
 	end
 

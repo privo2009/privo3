@@ -11,6 +11,7 @@
 -- (CLAUDE.md "4. 파편·파티클은 클라이언트 전용"). 파편 상한 200·풀링·물리 금지는
 -- ChunkBreaker와 ParticlePool 안에 이미 들어 있으므로 이 파일은 그 계약을 건드리지 않는다.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
@@ -22,15 +23,15 @@ local ChunkBreaker = require(script.Parent.Parent.Effects.ChunkBreaker)
 
 -- ===== 블록 모델을 찾는 계약 =============================================================
 --
--- ⚠️ 아직 성립하지 않는 계약이다. 지금 서버는 블록 모델을 월드에 만들지 않는다
---    (BlockService는 "Instance를 생성하지 않는다"고 못박은 순수 데이터 모듈이고,
---     BlockModelGenerator는 개발 도구다). 그래서 이 파일은 신호를 받아도 붙일 모델이 없어
---    연출을 건너뛴다 — 아래 경고가 그 상태를 알려준다.
+-- 배치하는 쪽은 Server/Systems/BlockSpawner.lua다. 계약은 네 가지:
+--   1. 블록 모델들이 Workspace.Blocks 아래에 있다
+--   2. 그 안에서 다시 UserId 이름의 플레이어별 폴더로 갈린다
+--   3. 모델마다 BlockIndex 어트리뷰트 = BlockChange.index
+--   4. 모델마다 Seed 어트리뷰트 = 서버가 그 블록에 부여한 파괴 순서 시드
 --
--- 모델을 실제로 배치하는 단계에서 이 세 가지만 맞춰주면 그때부터 바로 붙는다:
---   1. 블록 모델들을 Workspace.Blocks 폴더 아래에 둔다
---   2. 모델마다 BlockIndex 어트리뷰트 = BlockChange.index
---   3. 모델마다 Seed 어트리뷰트 = 서버가 그 블록에 부여한 파괴 순서 시드
+-- 2번이 필요한 이유: 블록은 플레이어별이다(BlockService가 blockSets[player]로 들고 있고,
+-- 같은 index라도 A는 50% B는 100%일 수 있다). 서버가 만든 모델은 전원에게 복제되므로
+-- 폴더로 안 가르면 BlockIndex=1인 모델이 접속자 수만큼 보여서 자기 것을 고를 수 없다.
 --
 -- 시드만 어트리뷰트로 받는 이유: 나머지는 클라가 이미 알고 있다. 총 큐브 수는
 -- BlockLayoutConfig, 블록 1개의 maxHp는 StageConfig.getHp(stage)로 나온다. 시드만
@@ -56,7 +57,13 @@ local function findBlockModel(index: number): Model?
 		return nil
 	end
 
-	for _, child in ipairs(container:GetChildren()) do
+	-- 내 폴더만 본다. 다른 플레이어의 블록도 같은 컨테이너 아래에 복제되어 있다.
+	local mine = container:FindFirstChild(tostring(Players.LocalPlayer.UserId))
+	if mine == nil then
+		return nil
+	end
+
+	for _, child in ipairs(mine:GetChildren()) do
 		if child:IsA("Model") and child:GetAttribute(BLOCK_INDEX_ATTRIBUTE) == index then
 			return child
 		end
@@ -75,9 +82,10 @@ local function getHandle(index: number): ChunkBreaker.ChunkBreakerHandle?
 		if not warnedMissing[index] then
 			warnedMissing[index] = true
 			warn(string.format(
-				"[RemoteReceiver] 블록 %d의 모델을 못 찾았다. Workspace.%s 아래에 %s=%d인 Model이 필요하다. 연출 생략.",
+				"[RemoteReceiver] 블록 %d의 모델을 못 찾았다. Workspace.%s.%d 아래에 %s=%d인 Model이 필요하다. 연출 생략.",
 				index,
 				BLOCK_CONTAINER_NAME,
+				Players.LocalPlayer.UserId,
 				BLOCK_INDEX_ATTRIBUTE,
 				index
 			))
