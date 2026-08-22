@@ -26,10 +26,13 @@
 | `Data/MigrationsTests.server.lua` | 20 | schemaVersion 마이그레이션·멱등성 |
 | `Systems/CurrencyServiceTests.server.lua` | 38 | 재화 단일 게이트·롤백 |
 | `Systems/BlockServiceTests.server.lua` | 30 | 배치·데미지 오버플로우·클리어 |
-| `Systems/ChallengeServiceTests.server.lua` | 35 | 타이머·보상 갱신·진입점 거부 |
-| **합계** | **291** | |
+| `Systems/ChallengeServiceTests.server.lua` | 51 | 타이머·보상 갱신·진입점 거부·source 식별 |
+| **합계** | **307** | |
 
-최근 갱신: 25층 벽 막기 작업으로 ChallengeService 19 → 35, Config 11 → 13.
+최근 갱신: source 인자 추가 작업으로 ChallengeService 38 → 51.
+표에 적혀 있던 35는 실측 38과 어긋난 값이었다. 25층 벽 막기 작업 때 3개가 추가됐는데
+표를 갱신하지 않은 것으로 보인다. 2026-08-22 Studio Play 실측으로 전 항목을 대조해 확정했다
+— 어긋난 것은 이 한 줄뿐이고 나머지 8개 파일은 표와 실측이 일치한다.
 
 자동 테스트가 없는 것:
 - `Effects/ChunkBreaker` 등 클라 시각 연출 — `ChunkBreakerDemo.client.lua`로 육안 확인

@@ -206,6 +206,86 @@ do
 	end
 end
 
+-- 7. source 인자 (Phase 4-2-a 선행) — 로깅·식별 목적이므로 동작은 하나도 안 바뀌어야 한다 ------
+--
+-- source는 반드시 선택 인자다. 위 1~6번(기존 케이스)이 전부 단일 인자로 호출하고 있고
+-- 그대로 통과하는 것 자체가 하위 호환의 1차 증거지만, 여기서 같은 상황을 source 유무로
+-- 나란히 굴려서 반환값·런 상태가 동일한지 직접 대조한다.
+--
+-- reason 문자열("challenge_cashout_" .. source)까지는 여기서 못 본다 — 가짜 Player에는
+-- 프로필이 없어 CurrencyService가 그 앞에서 거부하기 때문이다. 그래서 reason에 들어가는
+-- 조각인 normalizeSource를 순수 함수로 따로 검증한다.
+
+do
+	check("source가 nil이면 unknown", pure.normalizeSource(nil) == "unknown")
+	check("source가 빈 문자열이어도 unknown (reason이 _로 끝나는 것 방지)", pure.normalizeSource("") == "unknown")
+	check("source를 넘기면 그대로 쓴다", pure.normalizeSource("cashout_pad") == "cashout_pad")
+end
+
+do
+	-- 7-1. 미클리어 거부 경로: source 유무로 반환값이 갈리지 않는다.
+	local noSource = { Name = "SourceCompatPlayer", UserId = 999996 }
+	local withSource = { Name = "SourceTaggedPlayer", UserId = 999995 }
+
+	ChallengeService.startRun(noSource :: any, 1)
+	ChallengeService.startRun(withSource :: any, 1)
+
+	local advanceNo = ChallengeService.advance(noSource :: any)
+	local advanceWith = ChallengeService.advance(withSource :: any, "auto_advance")
+	check("미클리어 advance는 source 없이도 거부", advanceNo == false)
+	check("미클리어 advance는 source를 넘겨도 똑같이 거부", advanceWith == advanceNo)
+
+	local cashoutNo, rewardNo = ChallengeService.cashout(noSource :: any)
+	local cashoutWith, rewardWith = ChallengeService.cashout(withSource :: any, "cashout_pad")
+	check("미클리어 cashout은 source 없이도 거부", cashoutNo == false and rewardNo == nil)
+	check("미클리어 cashout은 source를 넘겨도 똑같이 거부", cashoutWith == cashoutNo and rewardWith == rewardNo)
+
+	local stateNo = ChallengeService.getRunState(noSource :: any)
+	local stateWith = ChallengeService.getRunState(withSource :: any)
+	check(
+		"거부 후 런 상태가 source 유무와 무관하게 동일",
+		stateNo ~= nil and stateWith ~= nil and stateNo.stage == stateWith.stage and stateNo.cleared == stateWith.cleared and stateNo.canAdvance == stateWith.canAdvance
+	)
+
+	ChallengeService.abandonRun(noSource :: any)
+	ChallengeService.abandonRun(withSource :: any)
+end
+
+do
+	-- 7-2. 성공 경로: source를 붙여도 층 전환 결과가 같다. 자동 진행 모드가 벽 없이
+	--       직접 호출하게 될 경로를 미리 태워보는 것이기도 하다.
+	local fakePlayer = { Name = "SourceAdvancePlayer", UserId = 999994 }
+
+	ChallengeService.startRun(fakePlayer :: any, 1)
+	ChallengeService.applyDamage(fakePlayer :: any, Vector3.new(0, 0, 0), BigNum.new(1, 200))
+
+	local advanceOk = ChallengeService.advance(fakePlayer :: any, "auto_advance")
+	check("클리어 후 advance는 source를 넘겨도 성공", advanceOk == true)
+
+	local after = ChallengeService.getRunState(fakePlayer :: any)
+	check("source를 넘겨도 다음 층으로 정상 전환 (stage=2, 미클리어)", after ~= nil and after.stage == 2 and after.cleared == false)
+	check("보상은 새 스테이지 값으로 갱신 (source와 무관)", after ~= nil and BigNum.eq(after.reward, StageConfig.getBloxReward(2)))
+
+	ChallengeService.abandonRun(fakePlayer :: any)
+end
+
+do
+	-- 7-3. cashout의 "실패해도 런을 남긴다" 계약이 source를 붙여도 그대로인지.
+	--       가짜 Player는 프로필이 없어 CurrencyService에서 막히므로 실패 경로가 재현된다.
+	local fakePlayer = { Name = "SourceCashoutPlayer", UserId = 999993 }
+
+	ChallengeService.startRun(fakePlayer :: any, 1)
+	ChallengeService.applyDamage(fakePlayer :: any, Vector3.new(0, 0, 0), BigNum.new(1, 200))
+
+	local cashoutOk, reward = ChallengeService.cashout(fakePlayer :: any, "cashout_pad")
+	check("source를 붙인 cashout도 재화 계층에서 막힌다 (프로필 없음)", cashoutOk == false and reward == nil)
+
+	local after = ChallengeService.getRunState(fakePlayer :: any)
+	check("지급 실패해도 런은 클리어 상태로 남는다 (재시도 가능 계약 유지)", after ~= nil and after.stage == 1 and after.cleared == true)
+
+	ChallengeService.abandonRun(fakePlayer :: any)
+end
+
 print(string.format("[ChallengeServiceTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[ChallengeServiceTests] %d test(s) failed", failed))

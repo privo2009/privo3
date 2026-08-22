@@ -104,6 +104,18 @@ local function canCashout(run: RunState): boolean
 	return run.cleared
 end
 
+-- 호출 경로 식별용. advance/cashout은 지금은 발판·벽만 호출하지만, 자동 수령 게임패스(Phase 8)와
+-- 자동 진행 모드가 나중에 같은 함수를 직접 호출한다. 그때 "이 거부가 어디서 났나"를 로그만 보고
+-- 알 수 있어야 호출부를 역추적하지 않는다. 선택 인자이므로 안 넘기면 "unknown"이다.
+-- 빈 문자열까지 unknown으로 접는 이유: CurrencyService의 reason은 비어 있으면 안 되는데,
+-- "challenge_cashout_"로 끝나는 reason은 assert를 통과하면서 로그만 망가뜨린다.
+local function normalizeSource(source: string?): string
+	if type(source) == "string" and #source > 0 then
+		return source
+	end
+	return "unknown"
+end
+
 -- 테스트 전용 통로. 공개 API 계약이 아니므로 이 밖에서는 쓰지 말 것.
 ChallengeService._pure = {
 	buildRun = buildRun,
@@ -113,6 +125,7 @@ ChallengeService._pure = {
 	resolveRunOutcome = resolveRunOutcome,
 	canAdvanceFrom = canAdvanceFrom,
 	canCashout = canCashout,
+	normalizeSource = normalizeSource,
 }
 
 -- ===== 공개 API (Player 상태 보관) ======================================================
@@ -195,15 +208,16 @@ end
 -- 현재 정의된 마지막 층에서는 진행 벽이 열리지 않으므로 여기서 정상 거부한다.
 -- StageConfig.getWorld는 없는 월드에 assert로 터지는데, 그건 "있어선 안 될 상태"를 잡는
 -- 장치지 유저가 25층을 깬 정상 상황을 다룰 자리가 아니다. 터뜨리지 않고 false를 돌려준다.
-function ChallengeService.advance(player: Player): boolean
+function ChallengeService.advance(player: Player, source: string?): boolean
+	local src = normalizeSource(source)
 	local run = runs[player]
 	if run == nil then
-		warn(string.format("[ChallengeService] advance 실패: %s(%d) 활성 런 없음", player.Name, player.UserId))
+		warn(string.format("[ChallengeService] advance 실패: %s(%d) 활성 런 없음 (source=%s)", player.Name, player.UserId, src))
 		return false
 	end
 
 	if not run.cleared then
-		warn(string.format("[ChallengeService] advance 거부: %s(%d) 아직 클리어 안 됨 (stage=%d)", player.Name, player.UserId, run.stage))
+		warn(string.format("[ChallengeService] advance 거부: %s(%d) 아직 클리어 안 됨 (stage=%d, source=%s)", player.Name, player.UserId, run.stage, src))
 		return false
 	end
 
@@ -211,7 +225,7 @@ function ChallengeService.advance(player: Player): boolean
 
 	if not canAdvanceFrom(run, StageConfig.hasStage(nextStage)) then
 		-- 에러가 아니라 설계된 종착점이다. WorldConfig에 다음 월드가 추가되면 저절로 풀린다.
-		warn(string.format("[ChallengeService] advance 거부: %s(%d) 최종 층 도달 (stage=%d) - 스테이지 %d를 담당하는 월드가 WorldConfig에 없음. 진행 벽 비활성, 수령만 가능", player.Name, player.UserId, run.stage, nextStage))
+		warn(string.format("[ChallengeService] advance 거부: %s(%d) 최종 층 도달 (stage=%d, source=%s) - 스테이지 %d를 담당하는 월드가 WorldConfig에 없음. 진행 벽 비활성, 수령만 가능", player.Name, player.UserId, run.stage, src, nextStage))
 		return false
 	end
 
@@ -219,27 +233,39 @@ function ChallengeService.advance(player: Player): boolean
 	runs[player] = buildRun(nextStage, nextReward, os.clock())
 	BlockService.enterStage(player, nextStage)
 
+	-- 성공 로그를 추가한 이유: 거부만 로깅하면 자동 진행 모드가 붙었을 때 "몇 층에서 몇 층으로,
+	-- 어느 경로로 넘어갔는가"가 아무 데도 안 남는다. 자동 진행은 벽 통과 없이 서버가 연속으로
+	-- 호출하므로 유저 조작이라는 육안 단서조차 없어서, 층이 튀거나 멈춘 버그를 재현 없이는
+	-- 못 쫓는다. 층 전환 1회당 한 줄이라 수동 진행(20초에 1회)에서는 부담이 없고, 자동 진행에서
+	-- 과하면 이 줄만 지우면 된다 — 판정에는 관여하지 않는다.
+	print(string.format("[ChallengeService] advance: %s(%d) stage %d -> %d (source=%s)", player.Name, player.UserId, run.stage, nextStage, src))
+
 	return true
 end
 
 -- 클리어 상태에서만 보상을 지급하고 런을 끝낸다.
-function ChallengeService.cashout(player: Player): (boolean, BigNumber?)
+function ChallengeService.cashout(player: Player, source: string?): (boolean, BigNumber?)
+	local src = normalizeSource(source)
 	local run = runs[player]
 	if run == nil then
-		warn(string.format("[ChallengeService] cashout 실패: %s(%d) 활성 런 없음", player.Name, player.UserId))
+		warn(string.format("[ChallengeService] cashout 실패: %s(%d) 활성 런 없음 (source=%s)", player.Name, player.UserId, src))
 		return false, nil
 	end
 
 	-- 진행 벽이 막힌 최종 층에서도 이 게이트는 그대로 통과한다. 수령은 벽 상태와 무관하다.
 	if not canCashout(run) then
-		warn(string.format("[ChallengeService] cashout 거부: %s(%d) 아직 클리어 안 됨 (stage=%d)", player.Name, player.UserId, run.stage))
+		warn(string.format("[ChallengeService] cashout 거부: %s(%d) 아직 클리어 안 됨 (stage=%d, source=%s)", player.Name, player.UserId, run.stage, src))
 		return false, nil
 	end
 
 	local reward = run.currentReward
-	local ok = CurrencyService.add(player, "blox", reward, "challenge_cashout")
+	-- reason에 경로를 박아두면 재화 로그(CurrencyService)만 봐도 발판 수령인지 자동 수령인지
+	-- 갈라진다. 재화 누수 추적은 CurrencyService 로그 한 곳에서 하기로 했으므로(CLAUDE.md 2번),
+	-- 그쪽에 경로가 남아야 한다.
+	local ok = CurrencyService.add(player, "blox", reward, "challenge_cashout_" .. src)
 	if not ok then
 		-- CurrencyService가 이미 거부 사유를 로깅했다. 런은 유지해서(날리지 않고) 재시도 가능하게 둔다.
+		warn(string.format("[ChallengeService] cashout 실패: %s(%d) 지급 거부됨 (stage=%d, source=%s) - 런 유지, 재시도 가능", player.Name, player.UserId, run.stage, src))
 		return false, nil
 	end
 
