@@ -105,7 +105,8 @@ check("PetConfig.getNextTier: 최고 등급은 nil", function()
 end)
 
 check("AssetConfig: btn_yellow의 9-slice 여백이 사방 24px로 균일", function()
-	-- 균일하지 않으면 9-slice 전제가 깨지고, SliceCheck의 "높이 48 = 상하 마진 합" 판정 근거도 무너진다.
+	-- 균일하지 않으면 9-slice 전제가 깨지고, 최소 크기 제약(높이 48 = 상하 마진 합)의 근거도 무너진다.
+	-- (G1 실측 근거는 `docs/UI_HANDOFF.md` "G1 — 버튼 9-slice > 최소 크기 제약")
 	local button = AssetConfig.Buttons.yellow
 	local left = button.slice.Min.X
 	local top = button.slice.Min.Y

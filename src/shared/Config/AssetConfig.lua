@@ -25,7 +25,7 @@ local Buttons: { [string]: ButtonAsset } = {
 		size = Vector2.new(192, 64),
 		slice = Rect.new(24, 24, 168, 40), -- 사방 24px 여백 (192-168 = 24, 64-40 = 24)
 		uploaded = "2026-08-23",
-		version = 2, -- 지환 제작본 v2 (파일명 btn_yellow_2.png)
+		version = 2, -- 지환 제작본 v2 (assets/ui/btn_yellow.png)
 	},
 }
 
