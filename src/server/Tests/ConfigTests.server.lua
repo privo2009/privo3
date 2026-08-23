@@ -13,6 +13,7 @@ local ShopConfig = require(Config.ShopConfig)
 local AuraConfig = require(Config.AuraConfig)
 local TitleConfig = require(Config.TitleConfig)
 local PetConfig = require(Config.PetConfig)
+local AssetConfig = require(Config.AssetConfig)
 
 local passed = 0
 local failed = 0
@@ -53,6 +54,10 @@ end)
 
 check("PetConfig.validate", function()
 	return PetConfig.validate()
+end)
+
+check("AssetConfig.validate", function()
+	return AssetConfig.validate()
 end)
 
 -- 각 모듈이 실제로 사용 가능한 값을 돌려주는지 스모크 테스트 --------------------
@@ -97,6 +102,16 @@ end)
 
 check("PetConfig.getNextTier: 최고 등급은 nil", function()
 	return PetConfig.getNextTier(4) == nil and PetConfig.getNextTier(1) == 2
+end)
+
+check("AssetConfig: btn_yellow의 9-slice 여백이 사방 24px로 균일", function()
+	-- 균일하지 않으면 9-slice 전제가 깨지고, SliceCheck의 "높이 48 = 상하 마진 합" 판정 근거도 무너진다.
+	local button = AssetConfig.Buttons.yellow
+	local left = button.slice.Min.X
+	local top = button.slice.Min.Y
+	local right = button.size.X - button.slice.Max.X
+	local bottom = button.size.Y - button.slice.Max.Y
+	return left == 24 and top == 24 and right == 24 and bottom == 24
 end)
 
 print(string.format("[ConfigTests] %d passed, %d failed", passed, failed))

@@ -20,16 +20,16 @@
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
-| `Tests/ConfigTests.server.lua` | 13 | 모든 Config의 validate + 스모크 |
+| `Tests/ConfigTests.server.lua` | 15 | 모든 Config의 validate + 스모크 |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Data/SchemaTests.server.lua` | 31 | 프로필 스키마 검증 |
 | `Data/MigrationsTests.server.lua` | 20 | schemaVersion 마이그레이션·멱등성 |
 | `Systems/CurrencyServiceTests.server.lua` | 38 | 재화 단일 게이트·롤백 |
 | `Systems/BlockServiceTests.server.lua` | 30 | 배치·데미지 오버플로우·클리어 |
 | `Systems/ChallengeServiceTests.server.lua` | 51 | 타이머·보상 갱신·진입점 거부·source 식별 |
-| **합계** | **315** | |
+| **합계** | **317** | |
 
-최근 갱신: RemoteEvent 배선(Phase 4-2-a)으로 BigNum 88 → 96 (toRatio 8케이스 추가).
+최근 갱신: AssetConfig 신설(G1 검증)로 Config 13 → 15 (validate + 9-slice 여백 스모크).
 직전 갱신: source 인자 추가 작업으로 ChallengeService 38 → 51.
 표에 적혀 있던 35는 실측 38과 어긋난 값이었다. 25층 벽 막기 작업 때 3개가 추가됐는데
 표를 갱신하지 않은 것으로 보인다. 2026-08-22 Studio Play 실측으로 전 항목을 대조해 확정했다
