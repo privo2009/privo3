@@ -14,6 +14,13 @@ local AuraConfig = require(Config.AuraConfig)
 local TitleConfig = require(Config.TitleConfig)
 local PetConfig = require(Config.PetConfig)
 local AssetConfig = require(Config.AssetConfig)
+local ClickPadConfig = require(Config.ClickPadConfig)
+
+-- BigNum.pow는 log10 경유라 마지막 자리에 부동소수점 잡음이 남는다. 기대값 비교는
+-- 상대오차로 한다 (BigNum의 유효자리는 12자리이므로 1e-9면 충분히 빡빡하다).
+local function approxEq(actual: BigNum.BigNumber, expected: BigNum.BigNumber): boolean
+	return math.abs(BigNum.toRatio(actual, expected) - 1) < 1e-9
+end
 
 local passed = 0
 local failed = 0
@@ -58,6 +65,10 @@ end)
 
 check("AssetConfig.validate", function()
 	return AssetConfig.validate()
+end)
+
+check("ClickPadConfig.validate", function()
+	return ClickPadConfig.validate()
 end)
 
 -- 각 모듈이 실제로 사용 가능한 값을 돌려주는지 스모크 테스트 --------------------
@@ -113,6 +124,51 @@ check("AssetConfig: btn_yellow의 9-slice 여백이 사방 24px로 균일", func
 	local right = button.size.X - button.slice.Max.X
 	local bottom = button.size.Y - button.slice.Max.Y
 	return left == 24 and top == 24 and right == 24 and bottom == 24
+end)
+
+
+check("ClickPadConfig: 월드1 패드24 파워 = 8.39M (1 × 2^23)", function()
+	return approxEq(ClickPadConfig.getPadPower(1, 24), BigNum.new(8.388608, 6))
+end)
+
+check("ClickPadConfig: 월드1 패드24 해금 조건 = 1.13T (bloxBase × 36 × 3^22)", function()
+	return approxEq(ClickPadConfig.getPadUnlock(1, 24), BigNum.new(1.129718145924, 12))
+end)
+
+check("ClickPadConfig: 패드1은 조건이 0이라 항상 열려 있다", function()
+	local zero = BigNum.new(0, 0)
+	return BigNum.eq(ClickPadConfig.getPadUnlock(1, 1), zero)
+		and ClickPadConfig.isUnlocked(1, 1, zero) == true
+end)
+
+check("ClickPadConfig: lifetimeBlox 0이면 해금 개수 1", function()
+	-- 패드2 조건은 bloxBase × 36이므로 0으로는 절대 열리지 않는다.
+	return ClickPadConfig.getUnlockedPadCount(1, BigNum.new(0, 0)) == 1
+		and ClickPadConfig.isUnlocked(1, 2, BigNum.new(0, 0)) == false
+end)
+
+check("ClickPadConfig: 해금 개수는 조건을 만족하는 최고 인덱스까지 늘어난다", function()
+	-- 패드3 조건에 딱 맞춘 값이면 3개, 거기서 조금 모자라면 2개여야 한다.
+	local pad3 = ClickPadConfig.getPadUnlock(1, 3)
+	local justUnder = BigNum.mul(pad3, BigNum.new(9.9, -1)) -- 조건의 99%
+	return ClickPadConfig.getUnlockedPadCount(1, pad3) == 3
+		and ClickPadConfig.getUnlockedPadCount(1, justUnder) == 2
+end)
+
+check("StageConfig: BLOCK_COUNT_STEPS는 월드 안에서 감소하지 않는다", function()
+	-- validate()가 표를 직접 보지만, 여기서는 실제 getBlockCount 결과로도 확인한다.
+	-- 개수가 줄면 총HP 증가율이 블록당 증가율보다 작아져 곡선 규약 1이 총HP 축에서 깨진다.
+	for _, world in pairs(WorldConfig.Worlds) do
+		local prev = StageConfig.getBlockCount(world.stageRange[1])
+		for stage = world.stageRange[1] + 1, world.stageRange[2] do
+			local count = StageConfig.getBlockCount(stage)
+			if count < prev then
+				return false
+			end
+			prev = count
+		end
+	end
+	return true
 end)
 
 print(string.format("[ConfigTests] %d passed, %d failed", passed, failed))

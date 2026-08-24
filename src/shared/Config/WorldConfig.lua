@@ -12,6 +12,21 @@ export type GrowthSegment = {
 	growth: number, -- 이 구간에서 스테이지 1칸당 곱해지는 배율
 }
 
+-- 월드 하나의 클릭 파워 패드 세트. 패드는 스테이지가 아니라 월드 단위로 갈린다
+-- (DESIGN.md 3. 클릭 파워). 계산은 여기 두지 않고 Config/ClickPadConfig.lua가 한다 —
+-- WorldConfig는 데이터, 계산은 별도 모듈이라는 StageConfig와 같은 분리다.
+export type ClickPadSet = {
+	count: number, -- 패드 개수
+	basePower: BigNumber, -- 패드 1의 클릭 파워
+	powerGrowth: number, -- 패드 한 칸당 파워 배율
+	-- 패드 2의 해금 조건 = bloxBase × 이 값.
+	-- ⚠️ 절대값으로 박지 말 것. bloxBase는 4-2-f 튜닝 대상(확정값인지 임시값인지 아직
+	-- 미정)이라, 조건을 절대값으로 넣으면 bloxBase를 건드리는 순간 패드 곡선이 조용히
+	-- 어긋난다. 배수로 두면 bloxBase가 움직여도 "보상 몇 판어치"라는 의미가 유지된다.
+	unlockMultiplier: number,
+	unlockGrowth: number, -- 패드 한 칸당 해금 조건 배율
+}
+
 export type WorldDef = {
 	id: number,
 	name: string,
@@ -23,6 +38,7 @@ export type WorldDef = {
 	bloxGrowthSegments: { GrowthSegment }, -- 구간별 보상 배율. stageRange를 빈틈/중복 없이 덮어야 함
 	eggPacks: { number }, -- PetConfig.Eggs 인덱스
 	auraPacks: { number }, -- AuraConfig.Packs 인덱스
+	clickPadSet: ClickPadSet,
 }
 
 local WorldConfig = {}
@@ -51,6 +67,15 @@ local Worlds: { [number]: WorldDef } = {
 		},
 		eggPacks = { 1, 2, 3 },
 		auraPacks = { 1, 2, 3, 4, 5 },
+		-- 클릭 파워 패드 24개. 파워는 패드당 2배(1 → 8.39M), 해금 조건은 패드당 3배로
+		-- 파워보다 가파르다 — 뒤 패드일수록 "한 칸 더"의 대가가 커져야 방치 시간이 의미를 갖는다.
+		clickPadSet = {
+			count = 24,
+			basePower = BigNum.new(1, 0), -- 1
+			powerGrowth = 2.0,
+			unlockMultiplier = 36, -- 패드2 조건 = bloxBase × 36 (= 1층 보상 36판어치)
+			unlockGrowth = 3.0,
+		},
 	},
 }
 
@@ -108,6 +133,20 @@ local function validateCurveContract(worldId: number, world: WorldDef)
 	end
 end
 
+-- 클릭 파워 패드 세트의 값 정합성. 곡선 자체(파워·조건이 인덱스에 대해 순증가하는지)는
+-- ClickPadConfig.validate가 실제 계산 결과로 확인한다 — 여기서는 그 계산이 성립할 수 있는
+-- 입력인지만 본다.
+local function validateClickPadSet(worldId: number, world: WorldDef)
+	local set = world.clickPadSet
+	assert(type(set) == "table", string.format("WorldConfig: 월드 %d의 clickPadSet이 없음", worldId))
+	assert(set.count >= 1, string.format("WorldConfig: 월드 %d의 clickPadSet.count(%s)는 1 이상이어야 함", worldId, tostring(set.count)))
+	assert(BigNum.gt(set.basePower, BigNum.new(0, 0)), string.format("WorldConfig: 월드 %d의 clickPadSet.basePower는 0보다 커야 함", worldId))
+	-- growth가 1 이하면 뒤 패드가 앞 패드보다 약하거나 같아져서 패드를 늘리는 의미가 없다.
+	assert(set.powerGrowth > 1, string.format("WorldConfig: 월드 %d의 clickPadSet.powerGrowth(%.2f)는 1보다 커야 함", worldId, set.powerGrowth))
+	assert(set.unlockGrowth > 1, string.format("WorldConfig: 월드 %d의 clickPadSet.unlockGrowth(%.2f)는 1보다 커야 함", worldId, set.unlockGrowth))
+	assert(set.unlockMultiplier > 0, string.format("WorldConfig: 월드 %d의 clickPadSet.unlockMultiplier(%.2f)는 0보다 커야 함", worldId, set.unlockMultiplier))
+end
+
 function WorldConfig.validate(): boolean
 	local ids = {}
 	for id in pairs(Worlds) do
@@ -133,6 +172,7 @@ function WorldConfig.validate(): boolean
 		assert(type(world.material) == "string" and #world.material > 0, string.format("WorldConfig: 월드 %d의 material이 비어있음", id))
 		assert(#world.eggPacks > 0, string.format("WorldConfig: 월드 %d의 eggPacks가 비어있음", id))
 		assert(#world.auraPacks > 0, string.format("WorldConfig: 월드 %d의 auraPacks가 비어있음", id))
+		validateClickPadSet(id, world)
 
 		expectedStart = endStage + 1
 	end

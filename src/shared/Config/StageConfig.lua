@@ -106,7 +106,36 @@ function StageConfig.getBlockCount(stage: number): number
 	return math.min(BLOCK_COUNT_STEPS[#BLOCK_COUNT_STEPS].count, MAX_BLOCK_COUNT)
 end
 
+-- 블록 개수가 월드 안에서 감소하지 않는지 확인한다.
+--
+-- WorldConfig.validateCurveContract는 블록당 HP 증가율만 검사한다.
+-- 이것이 총HP 축(실제 난이도 축)의 곡선 규약 1까지 보장하는 근거가
+-- "월드 안에서 블록 개수가 줄지 않는다"는 전제다. 개수가 줄면
+-- 총HP 증가율이 블록당 증가율보다 작아져 규약 1이 조용히 깨진다.
+-- 월드 전환 시 개수가 줄어드는 것(7→4)은 이 검사 대상이 아니다 —
+-- 성장 세그먼트가 월드별로 끊기므로 월드를 넘는 증가율 자체가 없다.
+--
+-- BLOCK_COUNT_STEPS는 월드 안의 층 번호(worldFloor)로 색인되므로 이 표 하나만 보면
+-- 모든 월드가 덮인다. validate() 본문 루프는 스테이지를 띄엄띄엄 샘플링해서 구간 경계를
+-- 건너뛸 수 있으므로, 감소 검사는 샘플이 아니라 표를 직접 본다.
+local function validateBlockCountMonotonic()
+	local prevCount: number? = nil
+	for i, step in ipairs(BLOCK_COUNT_STEPS) do
+		if prevCount ~= nil then
+			assert(step.count >= prevCount, string.format(
+				"StageConfig: BLOCK_COUNT_STEPS[%d]의 개수(%d)가 이전 구간(%d)보다 적음 — 월드 안에서 블록 개수가 줄면 곡선 규약 1이 총HP 축에서 깨진다",
+				i,
+				step.count,
+				prevCount
+			))
+		end
+		prevCount = step.count
+	end
+end
+
 function StageConfig.validate(): boolean
+	validateBlockCountMonotonic()
+
 	for _, world in pairs(WorldConfig.Worlds) do
 		local startStage, endStage = world.stageRange[1], world.stageRange[2]
 		local step = math.max(1, math.floor((endStage - startStage) / 10))

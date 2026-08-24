@@ -72,8 +72,8 @@ local function reportWorld(worldId: number, world: WorldConfig.WorldDef)
 	local startStage, endStage = world.stageRange[1], world.stageRange[2]
 
 	print(string.format("\n===== 월드 %d (%s) : %d~%d층 =====", worldId, world.name, startStage, endStage))
-	print("  층 |     블록HP |       총HP |       보상 | 벽 | 보상/총HP")
-	print("  ---+------------+------------+------------+----+-----------")
+	print("  층 |     블록HP |       총HP |       보상 | 블록 | 보상/총HP")
+	print("  ---+------------+------------+------------+------+-----------")
 
 	local firstRebirthStage: number? = nil
 	local prevRatio: number? = nil
@@ -96,7 +96,7 @@ local function reportWorld(worldId: number, world: WorldConfig.WorldDef)
 			firstRebirthStage = stage
 		end
 
-		print(string.format("  %2d | %10s | %10s | %10s | %2d | %9s", stage, Formatter.format(hp), Formatter.format(total), Formatter.format(reward), blocks, formatPow10(ratio)))
+		print(string.format("  %2d | %10s | %10s | %10s |  %2d  | %9s", stage, Formatter.format(hp), Formatter.format(total), Formatter.format(reward), blocks, formatPow10(ratio)))
 	end
 
 	-- 전 구간 요약 ------------------------------------------------------------
