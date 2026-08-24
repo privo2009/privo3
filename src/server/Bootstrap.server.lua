@@ -12,6 +12,23 @@ local ProfileManager = require(script.Parent.Data.ProfileManager)
 -- 환경변수 대신 코드 상단 플래그로 on/off. false면 VERIFY_MODE 블록은 전혀 실행되지 않는다.
 local VERIFY_MODE = false
 
+-- ── 개발용 플래그: KEEP_RUN_ALIVE ─────────────────────────────────────────────
+-- 위치: 이 파일(src/server/Bootstrap.server.lua) 상단, 바로 이 줄.
+-- 사용처: 아래 VERIFY_CHALLENGE 블록의 맨 끝 한 곳뿐이다(검증이 전부 끝난 뒤).
+-- ⚠️ Studio에서 켜고 끄는 값이 아니다. 이 줄을 코드에서 고치고 Rojo sync 해야 반영된다.
+--    (ChunkBreakerDemo.client.lua의 DEMO_ENABLED와 같은 패턴)
+--
+-- 왜 필요한가: VERIFY_CHALLENGE는 startRun → 전 블록 파괴 → cashout을 한 프레임에
+-- 끝낸다. 그래서 런이 살아 있는 시간이 0이고, 클라는 세 RunStateChanged를 같은 프레임에
+-- 받아 마지막 상태(active=false)로 끝난다. LocalBlocks가 서 있는 순간이 없으니
+-- 2인 접속에서 "상대 블록이 안 보이는가"도, timeLeft가 도는지도 눈으로 볼 수 없다.
+--
+-- true면 검증이 전부 끝난 뒤 startRun을 한 번 더 불러 런을 살려둔다. 검증 지급은
+-- 그대로 둔다 — 이미 source="bootstrap_verify"로 실제 플레이 데이터와 구분된다.
+-- 살려둔 런은 20초 뒤 ChallengeService의 만료 루프가 걷어가고, 그때 클라에
+-- reason=timeout이 찍힌다.
+local KEEP_RUN_ALIVE = false
+
 print("[Bootstrap] ProfileManager.init() 호출 시작")
 ProfileManager.init()
 print("[Bootstrap] ProfileManager.init() 호출 완료")
@@ -143,6 +160,21 @@ if VERIFY_CHALLENGE then
 
 		if not ok then
 			warn(string.format("[Bootstrap][VERIFY_CHALLENGE] %s: 검증 중 에러 - %s", player.Name, tostring(err)))
+		end
+
+		-- ⚠️ 여기부터가 KEEP_RUN_ALIVE 전용. 위 검증 로직은 한 글자도 건드리지 않는다 —
+		-- 검증이 무엇을 통과시켰는지가 바뀌면 안 되므로 뒤에 붙이기만 한다.
+		-- 검증 pcall 바깥이라 검증이 중간에 멈췄어도(스냅샷 없음·클리어 실패·에러) 런은
+		-- 세운다. 그 상태를 눈으로 보려는 것이 이 플래그의 목적이다.
+		-- startRun이 내부에서 BlockService.enterStage를 다시 부르고 seeds까지 실어
+		-- 통지하므로, 서버 블록과 클라 LocalBlocks가 둘 다 다시 선다.
+		if KEEP_RUN_ALIVE then
+			local restartOk = ChallengeService.startRun(player, 1)
+			print(string.format(
+				"[Bootstrap][KEEP_RUN_ALIVE] %s 검증 후 런 재시작 = %s (20초 뒤 timeout 예정)",
+				player.Name,
+				tostring(restartOk)
+			))
 		end
 	end)
 end

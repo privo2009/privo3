@@ -73,10 +73,30 @@ export type BlockDamagedPayload = { BlockChange }
 -- "cashout" / "timeout" / "abandon"). 이번 단계의 검증이 Studio Play 육안 확인이라
 -- 클라 print에 사유가 찍혀야 배선이 맞는지 읽을 수 있고, 나중에 HUD가 종료 연출을
 -- 갈라 쓸 때도 이 값이 기준이 된다. 선택 필드를 못 만드니 항상 채운다.
+-- seeds는 이번 전이로 새로 만들어진 블록 세트의 파괴 순서 시드다 (블록 i의 시드 = seeds[i]).
+-- 클라가 블록 모델을 직접 만들기 때문에 필요하다 (4-2-a2). 나머지 재료는 클라가 이미 안다 —
+-- 개수는 StageConfig.getBlockCount(state.stage), 좌표는 BlockLayout.computeLayout(개수),
+-- maxHp는 StageConfig.getHp(state.stage)로 나온다. 시드만 서버가 진입 때 무작위로 뽑는
+-- 값이라 전달이 필요하다.
+--
+-- 왜 채널을 따로 파지 않고 여기 실었는가: 시드는 stage 없이는 의미가 없다. 클라가 모델을
+-- 세우려면 (stage → 개수 → 좌표)와 시드가 동시에 있어야 하는데, 채널이 갈리면 클라가 둘을
+-- 조인하며 도착 순서를 보장해야 한다. 한 payload에 있으면 짝이 어긋날 수가 없다. 발화
+-- 시점도 완전히 겹친다 — 블록 세트가 새로 생기는 순간이 곧 런 상태가 전이하는 순간이다.
+-- 채널을 2개로 가른 기준은 빈도인데(위 참고) 시드는 저빈도 쪽에만 붙으므로 그 기준도 산다.
+--
+-- ⚠️ 새 블록 세트가 없는 전이(cleared / cashout / timeout / abandon)에서는 **빈 배열**을
+--    싣는다. 선택 필드로 만들면 안 된다 — nil인 키는 직렬화에서 통째로 사라져서 수신부가
+--    다른 형태를 받는다(위 제약 2번). 클라는 어차피 active이고 stage가 바뀐 전이에서만
+--    이 값을 읽으므로, 나머지 전이에서 비어 있는 것이 정상이다.
+--
+--    직렬화 제약 3가지를 다 만족한다: 1..n 연속 정수 배열이고(1번), 항상 채워 보내며(2번),
+--    원소는 Random:NextInteger가 준 정수라 inf/nan이 될 수 없다(3번).
 export type RunStateChangedPayload = {
 	active: boolean,
 	reason: string,
 	state: RunStateView,
+	seeds: { number },
 }
 
 export type Channels = {

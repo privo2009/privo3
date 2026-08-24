@@ -4,44 +4,50 @@
 --
 -- 하는 일:
 --   BlockDamaged    → 블록별 HP를 ChunkBreaker에 넘겨 파편 연출을 돌린다
---   RunStateChanged → print만 한다. HUD는 Phase 6이고 여기서 UI를 만들지 않는다
---                     (다만 스테이지 번호는 아래 maxHp 역산에 필요해서 기억해둔다)
+--   RunStateChanged → 새 층이면 블록 모델을 만든다. 그 외에는 print만 한다 —
+--                     HUD는 Phase 6이고 여기서 UI를 만들지 않는다
+--                     (스테이지 번호는 maxHp 역산에도 쓰이므로 기억해둔다)
 --
 -- 서버가 보내는 것은 블록 HP뿐이다. 큐브 개수·파괴 순서는 전부 이쪽에서 역산한다
 -- (CLAUDE.md "4. 파편·파티클은 클라이언트 전용"). 파편 상한 200·풀링·물리 금지는
 -- ChunkBreaker와 ParticlePool 안에 이미 들어 있으므로 이 파일은 그 계약을 건드리지 않는다.
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
+local BlockLayout = require(ReplicatedStorage.Shared.BlockLayout)
 local BlockLayoutConfig = require(ReplicatedStorage.Shared.Config.BlockLayoutConfig)
+local BlockModelBuilder = require(ReplicatedStorage.Shared.BlockModelBuilder)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local ChunkBreaker = require(script.Parent.Parent.Effects.ChunkBreaker)
 
--- ===== 블록 모델을 찾는 계약 =============================================================
+-- ===== 블록 모델은 클라가 만든다 (4-2-a2) ==============================================
 --
--- 배치하는 쪽은 Server/Systems/BlockSpawner.lua다. 계약은 네 가지:
---   1. 블록 모델들이 Workspace.Blocks 아래에 있다
---   2. 그 안에서 다시 UserId 이름의 플레이어별 폴더로 갈린다
---   3. 모델마다 BlockIndex 어트리뷰트 = BlockChange.index
---   4. 모델마다 Seed 어트리뷰트 = 서버가 그 블록에 부여한 파괴 순서 시드
+-- 예전에는 서버(BlockSpawner)가 모델을 만들어 전원에게 복제했고, 이 파일은 Workspace에서
+-- 자기 것을 찾기만 했다. 그 방식은 2인 이상이면 블록이 같은 자리에 겹쳤다.
 --
--- 2번이 필요한 이유: 블록은 플레이어별이다(BlockService가 blockSets[player]로 들고 있고,
--- 같은 index라도 A는 50% B는 100%일 수 있다). 서버가 만든 모델은 전원에게 복제되므로
--- 폴더로 안 가르면 BlockIndex=1인 모델이 접속자 수만큼 보여서 자기 것을 고를 수 없다.
+-- 지금은 각 클라가 자기 블록만 만든다. 레퍼런스 게임과 같은 방식이다 — 스테이지는 전원이
+-- 공유하고 다른 플레이어의 캐릭터는 보이지만, 그가 부수는 블록은 아예 보이지 않는다.
+-- 얻는 것:
+--   - 서버 블록 파트가 0이 된다 (30명 × 7블록 × 64큐브 = 13,440파트가 사라진다)
+--   - 내 화면에 내 것만 있으므로 UserId 폴더도, 개인 구역도, 좌표 오프셋도 필요 없다
+--   - 좌표를 원점 고정으로 둘 수 있다 — 겹칠 대상이 없다 (BlockLayout.lua 상단 참고)
 --
--- 시드만 어트리뷰트로 받는 이유: 나머지는 클라가 이미 알고 있다. 총 큐브 수는
--- BlockLayoutConfig, 블록 1개의 maxHp는 StageConfig.getHp(stage)로 나온다. 시드만
--- 서버가 진입 때 무작위로 뽑는 값이라 전달이 필요하다. 채널을 하나 더 파지 않고
--- 어트리뷰트로 보내는 쪽을 골랐다 — 블록마다 한 번 정해지면 안 바뀌는 값이라
--- 매 타격 payload에 실을 이유가 없다.
+-- 만드는 데 필요한 재료 4가지 중 3개는 클라가 이미 안다:
+--   개수   StageConfig.getBlockCount(stage)
+--   좌표   BlockLayout.computeLayout(개수)     ← 서버 판정 좌표와 같은 함수다
+--   maxHp  StageConfig.getHp(stage)
+--   시드   서버가 진입 때 무작위로 뽑는 값이라 이것만 전달된다
+--          → RunStateChanged payload의 seeds (근거는 Remotes.lua 주석)
+--
+-- ⚠️ CanCollide = true로 둔다.
+--    자동 공격이 근접이라 블록 앞까지 걸어가야 하고, 부딪혀 멈추는 것이 사거리를 몸으로
+--    알려준다. 모델이 클라 소유라 유저가 CanCollide를 끄고 통과할 수 있지만 실익이 없다 —
+--    통과해봐야 진행은 벽으로만 되고 데미지는 서버가 계산한다. 방어 코드를 넣지 않는다.
 
-local BLOCK_CONTAINER_NAME = "Blocks"
-local BLOCK_INDEX_ATTRIBUTE = "BlockIndex"
-local SEED_ATTRIBUTE = "Seed"
+local BLOCK_CONTAINER_NAME = "LocalBlocks"
 
 local TOTAL_CUBES = BlockLayoutConfig.GRID_SIZE ^ 3
 
@@ -49,26 +55,94 @@ local channels = Remotes.getClient()
 
 local currentStage: number? = nil
 local handles: { [number]: ChunkBreaker.ChunkBreakerHandle } = {}
+local models: { [number]: Model } = {}
+local currentSeeds: { number } = {}
 local warnedMissing: { [number]: boolean } = {}
 
-local function findBlockModel(index: number): Model?
-	local container = Workspace:FindFirstChild(BLOCK_CONTAINER_NAME)
-	if container == nil then
-		return nil
+-- 내 블록만 담는 로컬 폴더. 클라가 만든 것이라 서버에도 다른 플레이어에게도 안 보인다.
+local function getContainer(): Folder
+	local existing = Workspace:FindFirstChild(BLOCK_CONTAINER_NAME)
+	if existing ~= nil then
+		return existing :: Folder
 	end
 
-	-- 내 폴더만 본다. 다른 플레이어의 블록도 같은 컨테이너 아래에 복제되어 있다.
-	local mine = container:FindFirstChild(tostring(Players.LocalPlayer.UserId))
-	if mine == nil then
-		return nil
+	local folder = Instance.new("Folder")
+	folder.Name = BLOCK_CONTAINER_NAME
+	folder.Parent = Workspace
+	return folder
+end
+
+-- ===== 템플릿 캐시 =====================================================================
+--
+-- 재질별로 한 번만 확보하고 계속 복제해 쓴다. 캐시가 없으면 층 전환마다 64파트짜리
+-- 템플릿을 새로 만들고 버리게 된다 — 만들자마자 3~7번 복제하고 원본을 지우는 꼴이다.
+--
+-- ReplicatedStorage.BlockModels에 디자인 담당이 넣어둔 모델이 있으면 그것이 잡히고
+-- (Parent가 그 폴더), 없으면 즉석 생성본이 잡힌다(Parent가 nil). 어느 쪽이든 그대로
+-- 들고 있으면 된다 — Parent가 nil인 모델도 Clone은 정상 동작하고, 화면에 안 나오므로
+-- 오히려 템플릿으로 적합하다. 폴더에 있는 원본은 절대 Destroy하지 않는다.
+local templates: { [string]: Model } = {}
+
+local function getTemplate(materialName: string): Model
+	local cached = templates[materialName]
+	if cached ~= nil then
+		return cached
 	end
 
-	for _, child in ipairs(mine:GetChildren()) do
-		if child:IsA("Model") and child:GetAttribute(BLOCK_INDEX_ATTRIBUTE) == index then
-			return child
-		end
+	local template = BlockModelBuilder.getOrCreateTemplate(materialName)
+	templates[materialName] = template
+	return template
+end
+
+-- 이전 층의 모델을 전부 지운다. 층 전환과 런 종료 양쪽에서 부른다.
+--
+-- 풀링하지 않는다. 층마다 3~7개를 Destroy하고 다시 Clone한다 — 파편은 초당 수백 개라
+-- 풀링이 필수지만(CLAUDE.md 규칙 4) 블록은 20초에 한 번 3~7개다. 그리고 이미 재사용하고
+-- 있다: 64개 큐브를 매번 Instance.new로 만드는 게 아니라 템플릿 하나를 Clone한다.
+-- 재사용하면 오히려 깨진다 — ChunkBreaker가 큐브의 Transparency/CanCollide를 바꿔 숨기므로,
+-- 부서진 모델을 다시 쓰면 다음 층에서 이미 숨겨진 큐브가 그대로 보인다.
+local function clearModels()
+	for _, model in pairs(models) do
+		model:Destroy()
 	end
-	return nil
+	models = {}
+	handles = {}
+	currentSeeds = {}
+	warnedMissing = {}
+end
+
+-- 이번 층의 블록 모델을 세운다. 좌표는 서버가 판정에 쓰는 것과 같은 함수로 구하고
+-- (BlockLayout.computeLayout), 시드만 서버가 보낸 것을 쓴다.
+local function buildModels(stage: number, seeds: { number })
+	clearModels()
+
+	local count = StageConfig.getBlockCount(stage)
+
+	if #seeds ~= count then
+		-- 시드 개수가 블록 개수와 다르면 어느 블록의 순서가 밀렸는지 알 수 없다.
+		-- 조용히 어긋난 연출을 보여주느니 경고하고 만들지 않는다.
+		warn(string.format(
+			"[RemoteReceiver] stage %d: 시드 %d개인데 블록은 %d개다. 모델을 만들지 않는다.",
+			stage,
+			#seeds,
+			count
+		))
+		return
+	end
+
+	currentSeeds = seeds
+
+	local positions = BlockLayout.computeLayout(count)
+	local template = getTemplate(StageConfig.getWorld(stage).material)
+	local container = getContainer()
+
+	for i = 1, count do
+		local model = template:Clone()
+		model.Name = string.format("Block_%d", i)
+		BlockModelBuilder.moveModelCenterTo(model, positions[i] + Vector3.new(0, BlockLayout.GROUND_Y_OFFSET, 0))
+		model.Parent = container
+		models[i] = model
+	end
 end
 
 local function getHandle(index: number): ChunkBreaker.ChunkBreakerHandle?
@@ -77,27 +151,20 @@ local function getHandle(index: number): ChunkBreaker.ChunkBreakerHandle?
 		return existing
 	end
 
-	local model = findBlockModel(index)
+	local model = models[index]
 	if model == nil then
 		if not warnedMissing[index] then
 			warnedMissing[index] = true
-			warn(string.format(
-				"[RemoteReceiver] 블록 %d의 모델을 못 찾았다. Workspace.%s.%d 아래에 %s=%d인 Model이 필요하다. 연출 생략.",
-				index,
-				BLOCK_CONTAINER_NAME,
-				Players.LocalPlayer.UserId,
-				BLOCK_INDEX_ATTRIBUTE,
-				index
-			))
+			warn(string.format("[RemoteReceiver] 블록 %d의 모델이 없다. 연출 생략.", index))
 		end
 		return nil
 	end
 
-	local seed = model:GetAttribute(SEED_ATTRIBUTE)
+	local seed = currentSeeds[index]
 	if type(seed) ~= "number" then
 		if not warnedMissing[index] then
 			warnedMissing[index] = true
-			warn(string.format("[RemoteReceiver] 블록 %d 모델에 %s 어트리뷰트가 없다. 연출 생략.", index, SEED_ATTRIBUTE))
+			warn(string.format("[RemoteReceiver] 블록 %d의 시드가 없다. 연출 생략.", index))
 		end
 		return nil
 	end
@@ -143,18 +210,18 @@ channels.runStateChanged.OnClientEvent:Connect(function(payload: Remotes.RunStat
 	local state = payload.state
 
 	if payload.active and state.stage ~= currentStage then
-		-- 새 층이다. 이전 층의 핸들은 그 층의 모델·시드에 묶여 있으므로 버린다.
-		-- (핸들은 큐브를 숨기기만 하고 Instance를 만들지 않으므로 버려도 남는 게 없다)
-		handles = {}
-		warnedMissing = {}
+		-- 새 층이다. 이전 층 모델을 전부 지우고 이번 층 것을 세운다.
+		-- 핸들도 같이 버려진다 — 그 층의 모델·시드에 묶여 있던 것이라 재사용할 수 없다.
+		buildModels(state.stage, payload.seeds)
 	end
 
 	if payload.active then
 		currentStage = state.stage
 	else
+		-- 런이 끝났다. 모델은 남겨둔다 — 유저가 수령 발판과 진행 벽을 고르는 동안
+		-- 부서진 블록이 그대로 있는 것이 자연스럽다. 다음 층에 진입하면 그때 치운다.
+		-- (예전 서버 방식의 "생성 직전에만 제거한다"와 같은 규칙이다)
 		currentStage = nil
-		handles = {}
-		warnedMissing = {}
 	end
 
 	-- HUD는 Phase 6이다. 여기서는 배선이 맞는지 눈으로 확인할 수 있게 찍기만 한다.

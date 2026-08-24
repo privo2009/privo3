@@ -28,7 +28,6 @@ local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 local CurrencyService = require(script.Parent.CurrencyService)
 local BlockService = require(script.Parent.BlockService)
-local BlockSpawner = require(script.Parent.BlockSpawner)
 local GameTypes = require(ReplicatedStorage.Shared.GameTypes)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
@@ -176,7 +175,10 @@ end
 
 -- active=false는 "이 런은 끝났고 state는 끝나는 순간의 스냅샷"이라는 뜻이다.
 -- nil을 보낼 수 없어서 이렇게 표현한다 (근거는 Remotes.lua의 RunStateChangedPayload 주석).
-local function notifyRunState(player: Player, run: RunState, active: boolean, reason: string)
+-- seeds: 이번 전이로 새 블록 세트가 생겼으면 그 시드 목록, 아니면 빈 배열.
+-- 클라가 블록 모델을 직접 만들기 때문에 필요하다 (4-2-a2). 빈 배열을 쓰는 이유와
+-- 채널을 따로 파지 않은 이유는 Remotes.lua의 RunStateChangedPayload 주석에 있다.
+local function notifyRunState(player: Player, run: RunState, active: boolean, reason: string, seeds: { number }?)
 	if not isRealPlayer(player) then
 		return
 	end
@@ -185,8 +187,19 @@ local function notifyRunState(player: Player, run: RunState, active: boolean, re
 		active = active,
 		reason = reason,
 		state = buildView(run),
+		seeds = seeds or {},
 	}
 	channels.runStateChanged:FireClient(player, payload)
+end
+
+-- 스냅샷에서 시드만 뽑아 배열로 만든다. 순서는 블록 index 순서 그대로다 — 클라가
+-- computeLayout(count)으로 만든 좌표 배열과 같은 순서로 맞물려야 한다.
+local function seedsOf(snapshot: { BlockService.BlockSnapshotEntry }): { number }
+	local seeds: { number } = {}
+	for i, entry in ipairs(snapshot) do
+		seeds[i] = entry.seed
+	end
+	return seeds
 end
 
 -- 고빈도 채널. 서버는 블록 HP만 보낸다 — 큐브 개수는 클라가 HP 비율로 역산한다
@@ -238,12 +251,11 @@ function ChallengeService.startRun(player: Player, stage: number?): boolean
 	local run = buildRun(targetStage, reward, os.clock())
 	runs[player] = run
 
-	-- 모델 배치를 통지보다 먼저 한다. 클라는 통지를 받은 뒤 블록을 찾으므로 순서가 반대면
-	-- 첫 타격에서 모델을 못 찾고 지나간다.
+	-- 블록 세트를 먼저 만들고 그 시드를 통지에 실어 보낸다. 클라는 이 통지를 받고서야
+	-- 모델을 세우므로(4-2-a2), 시드가 같은 payload에 있어야 첫 타격 전에 모델이 선다.
 	local snapshot = BlockService.enterStage(player, targetStage)
-	BlockSpawner.spawnForStage(player, targetStage, snapshot)
 
-	notifyRunState(player, run, true, "start")
+	notifyRunState(player, run, true, "start", seedsOf(snapshot))
 
 	return true
 end
@@ -317,7 +329,6 @@ function ChallengeService.advance(player: Player, source: string?): boolean
 	runs[player] = nextRun
 
 	local snapshot = BlockService.enterStage(player, nextStage)
-	BlockSpawner.spawnForStage(player, nextStage, snapshot)
 
 	-- 성공 로그를 추가한 이유: 거부만 로깅하면 자동 진행 모드가 붙었을 때 "몇 층에서 몇 층으로,
 	-- 어느 경로로 넘어갔는가"가 아무 데도 안 남는다. 자동 진행은 벽 통과 없이 서버가 연속으로
@@ -327,7 +338,7 @@ function ChallengeService.advance(player: Player, source: string?): boolean
 	print(string.format("[ChallengeService] advance: %s(%d) stage %d -> %d (source=%s)", player.Name, player.UserId, run.stage, nextStage, src))
 
 	-- 새 층의 런이 시작된 것이므로 startRun과 같은 성격의 전이다.
-	notifyRunState(player, nextRun, true, "advance")
+	notifyRunState(player, nextRun, true, "advance", seedsOf(snapshot))
 
 	return true
 end

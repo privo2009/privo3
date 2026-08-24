@@ -20,9 +20,9 @@ local Players = game:GetService("Players")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local BlockShuffle = require(ReplicatedStorage.Shared.BlockShuffle)
+local BlockLayout = require(ReplicatedStorage.Shared.BlockLayout)
 local Schema = require(script.Parent.Parent.Data.Schema)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
-local BlockLayoutConfig = require(ReplicatedStorage.Shared.Config.BlockLayoutConfig)
 local GameTypes = require(ReplicatedStorage.Shared.GameTypes)
 
 type BigNumber = BigNum.BigNumber
@@ -57,61 +57,14 @@ type BlockSet = {
 local BlockService = {}
 
 -- ===== 배치 좌표 (순수) ==============================================================
--- DESIGN.md: 1~4 중앙 사각 / 5~8 원형 / 9~16 이중 원(안8+바깥8), 16칸 미리 배치 후 슬라이스.
--- 반지름은 BlockLayoutConfig.BLOCK_SPAN(블록 실제 크기) × 배율로만 계산한다 — 여기에
--- studs 절대값을 직접 하드코딩하지 않는다 (CLAUDE.md: 밸런싱 수치는 Config로).
--- 배율 산출 근거는 BlockLayoutConfig.lua에 있다.
-
-local SQUARE_RADIUS = BlockLayoutConfig.BLOCK_SPAN * BlockLayoutConfig.SQUARE_RADIUS_MULT
-local CIRCLE_RADIUS = BlockLayoutConfig.BLOCK_SPAN * BlockLayoutConfig.CIRCLE_RADIUS_MULT
-local INNER_RING_RADIUS = BlockLayoutConfig.BLOCK_SPAN * BlockLayoutConfig.INNER_RING_MULT
-local OUTER_RING_RADIUS = BlockLayoutConfig.BLOCK_SPAN * BlockLayoutConfig.OUTER_RING_MULT
-
--- count개 점을 반지름 radius인 원 위에 angleOffsetDeg부터 균등 배치한다.
-local function ring(count: number, radius: number, angleOffsetDeg: number): { Vector3 }
-	local positions = {}
-	for i = 1, count do
-		local angle = math.rad(angleOffsetDeg + (i - 1) * (360 / count))
-		positions[i] = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
-	end
-	return positions
-end
-
--- 모듈 로드 시 한 번만 계산되는 고정 슬롯 풀. 스테이지 진입마다 다시 만들지 않는다.
-local SQUARE_SLOTS = ring(4, SQUARE_RADIUS, 45) -- 사각형 = 4점 균등 원 배치와 동일
-local CIRCLE_SLOTS = ring(8, CIRCLE_RADIUS, 0)
-local DOUBLE_RING_SLOTS = (function()
-	local inner = ring(8, INNER_RING_RADIUS, 0)
-	local outer = ring(8, OUTER_RING_RADIUS, 22.5) -- 안쪽 점 사이사이에 오도록 오프셋
-	local combined = {}
-	for i, pos in ipairs(inner) do
-		combined[i] = pos
-	end
-	for i, pos in ipairs(outer) do
-		combined[8 + i] = pos
-	end
-	return combined
-end)()
-
--- count(1~16)에 맞는 고정 슬롯 풀에서 앞 count개만 잘라 반환한다.
-local function computeLayout(count: number): { Vector3 }
-	assert(count >= 1 and count <= 16, "computeLayout: count는 1~16 사이여야 함")
-
-	local slots: { Vector3 }
-	if count <= 4 then
-		slots = SQUARE_SLOTS
-	elseif count <= 8 then
-		slots = CIRCLE_SLOTS
-	else
-		slots = DOUBLE_RING_SLOTS
-	end
-
-	local positions = {}
-	for i = 1, count do
-		positions[i] = slots[i]
-	end
-	return positions
-end
+-- 계산 자체는 Shared/BlockLayout.lua에 있다. 4-2-a2에서 블록 렌더링이 클라로 넘어가면서
+-- 클라도 같은 좌표를 계산해야 해서 나갔다 — 좌표를 전송하지 않고 양쪽이 count 하나로
+-- 각자 구한다. 좌표가 원점 고정인 이유(플레이어별 오프셋을 붙이면 안 되는 이유)도
+-- 그 파일 상단에 있다.
+--
+-- 여기서 별칭만 잡는 이유: 아래 buildBlockSet과 _pure 노출이 이 이름을 그대로 쓰고 있고,
+-- BlockServiceTests가 _pure.computeLayout을 호출한다. 호출부를 건드리지 않는다.
+local computeLayout = BlockLayout.computeLayout
 
 -- ===== 블록 세트 생성 (순수) ============================================================
 
