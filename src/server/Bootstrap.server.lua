@@ -1,6 +1,6 @@
 --!strict
 -- 임시 부트스트랩. 정식 서버 진입점으로 대체 예정이며, 그때 이 파일 자체를 들어낸다.
--- ⚠️ 이 파일 전체가 임시 파일이다. 아래 VERIFY_CHALLENGE 블록과 개발용 플래그들이
+-- ⚠️ 이 파일 전체가 임시 파일이다. 아래 VERIFY_CHALLENGE 블록과 KEEP_RUN_ALIVE 플래그가
 -- 그 성격이고, 상단의 [Bootstrap][VERIFY] 읽기 print만 상시 유지 대상이다.
 --
 -- 프로필 로드/저장 왕복을 검증하던 VERIFY_MODE 블록은 삭제했다 (Phase 4-2-b).
@@ -14,27 +14,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ProfileManager = require(script.Parent.Data.ProfileManager)
 local CurrencyService = require(script.Parent.Systems.CurrencyService)
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
-local ClickPadConfig = require(ReplicatedStorage.Shared.Config.ClickPadConfig)
-
--- ── 개발용 플래그: LIFETIME_BLOX_FIXUP ────────────────────────────────────────
--- 위치: 이 파일 상단, 바로 이 줄. Studio에서 켜는 값이 아니다 — 코드를 고치고 Rojo sync
--- 해야 반영된다 (KEEP_RUN_ALIVE와 같은 패턴).
---
--- 왜 있는가: 삭제된 VERIFY_MODE 블록이 CurrencyService를 우회해 blox만 5000으로 대입해서,
--- lifetimeBlox가 32에 머문 프로필이 하나 생겼다. 패드2 조건이 36이라 4 차이로 막혀
--- 패드 기능을 아무것도 확인할 수 없는 상태였다. 이 보정은 그 프로필을 테스트 가능한
--- 지점까지 올린다 — blox 5000 복원이 목적이 아니다.
---
--- 1000을 넣으면 lifetimeBlox = 1032가 되어 패드 5까지 열린다
--- (unlock(5)=972 ≤ 1032 < unlock(6)=2916). 세팅 방식(낮은 패드 밟으면 내려감),
--- 잠김 warn, 로드 시 클램프를 전부 눈으로 확인할 수 있는 범위다.
---
--- ⚠️ 1회성이다. 확인이 끝나면 이 플래그와 fixupLifetimeBlox를 통째로 지운다.
--- 지우기 전까지 매 Play마다 누적되지 않도록 아래 함수가 스스로 조건을 건다.
-local LIFETIME_BLOX_FIXUP = true
-
--- 보정량. 위 주석의 "패드 5까지"가 이 값에 달려 있으므로 같이 읽을 것.
-local FIXUP_AMOUNT = { m = 1, e = 3 } -- 1000
 
 -- ── 개발용 플래그: KEEP_RUN_ALIVE ─────────────────────────────────────────────
 -- 위치: 이 파일(src/server/Bootstrap.server.lua) 상단, 바로 이 줄.
@@ -64,49 +43,12 @@ print("[Bootstrap] ProfileManager.init() 호출 완료")
 local PadService = require(script.Parent.Systems.PadService)
 PadService.init()
 
--- lifetimeBlox 1회성 보정 (LIFETIME_BLOX_FIXUP 참고).
---
--- ⚠️ 반드시 CurrencyService.add를 통과한다. profile.Data.lifetimeBlox를 직접 대입하면
--- 이 보정 자체가 바로 위에서 지운 VERIFY_MODE와 같은 종류의 우회가 된다 —
--- 오염을 만든 방식으로 오염을 고치는 셈이다. add에 blox를 넣으면 lifetimeBlox는
--- CurrencyService가 같은 updates 묶음으로 함께 올린다(CurrencyService.lua:72).
---
--- ⚠️ 누적 방지: 플래그를 켜둔 채 Play를 반복해도 한 번만 먹도록, lifetimeBlox가 아직
--- FIXUP_AMOUNT에 못 미치는 프로필에만 적용한다. 보정 후에는 1032가 되어 다음 Play에서
--- 건너뛴다. 플래그를 끄는 것을 잊어도 1000씩 쌓이지 않는다 — 사람 기억에 맡기지 않는다.
---
--- 기준을 "패드 2 해금 여부(36)"로 잡지 않은 이유: 같은 Play의 VERIFY_CHALLENGE cashout이
--- 32를 먼저 지급하면 32+32=64로 패드 2가 열려버려서, 정작 필요한 이 보정이 건너뛰어진다.
--- 두 PlayerAdded 핸들러의 실행 순서는 보장되지 않으므로 조건이 그 순서에 걸리면 안 된다.
-local function fixupLifetimeBlox(player: Player, profile: any)
-	local before = BigNum.deserialize(profile.Data.lifetimeBlox)
-
-	if BigNum.gte(before, BigNum.deserialize(FIXUP_AMOUNT)) then
-		print(string.format(
-			"[Bootstrap][FIXUP] %s 보정 불필요 - lifetimeBlox=%s 가 이미 보정량 이상 (해금 패드 %d개)",
-			player.Name,
-			BigNum.tostring(before),
-			ClickPadConfig.getUnlockedPadCount(1, before)
-		))
-		return
-	end
-
-	local ok, newBlox = CurrencyService.add(player, "blox", BigNum.deserialize(FIXUP_AMOUNT), "dev_lifetime_blox_fixup")
-	if not ok then
-		warn(string.format("[Bootstrap][FIXUP] %s 보정 실패 - CurrencyService.add가 거부", player.Name))
-		return
-	end
-
-	local after = BigNum.deserialize(profile.Data.lifetimeBlox)
-	print(string.format(
-		"[Bootstrap][FIXUP] %s lifetimeBlox %s -> %s (blox=%s, 해금 패드 %d개)",
-		player.Name,
-		BigNum.tostring(before),
-		BigNum.tostring(after),
-		BigNum.tostring(newBlox),
-		ClickPadConfig.getUnlockedPadCount(1, after)
-	))
-end
+-- 클릭 입력 수신을 연다 (4-2-b).
+-- ⚠️ 순서: PadService.init() 뒤여야 한다. 클릭 1회의 힘은 PadService.getClickPower가
+-- 정하므로, 패드가 서기 전에 클릭이 들어오면 전부 패드 1 파워로 처리된다.
+-- (getClickPower는 상태가 없으면 1로 답한다 — 조용히 틀린 값이 나가는 경로다)
+local ClickService = require(script.Parent.Systems.ClickService)
+ClickService.init()
 
 -- 프로필 읽기 print. 검증용 임시 코드가 아니라 상시 유지 대상이다.
 --
@@ -133,10 +75,6 @@ Players.PlayerAdded:Connect(function(player: Player)
 		tostring(lb.m),
 		tostring(lb.e)
 	))
-
-	if LIFETIME_BLOX_FIXUP then
-		fixupLifetimeBlox(player, profile)
-	end
 end)
 
 -- ⚠️ 임시 검증 코드. ChallengeService가 BlockService/CurrencyService를 올바른 순서·값으로

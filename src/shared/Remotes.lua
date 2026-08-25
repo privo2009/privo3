@@ -1,13 +1,27 @@
 --!strict
--- 서버 → 클라 RemoteEvent 채널의 정의와 접근 통로. Phase 4-2-a 배선의 1단계.
+-- RemoteEvent 채널의 정의와 접근 통로. Phase 4-2-a 배선의 1단계.
 -- 이 모듈은 "통로를 만들고 이름·타입을 한곳에 모으는 것"까지만 한다.
--- FireClient / OnClientEvent 같은 발신·수신 코드는 여기 넣지 않는다 (다음 단계).
+-- FireClient / OnClientEvent 같은 발신·수신 코드는 여기 넣지 않는다.
 --
--- 채널을 2개로 나눈 이유:
---   BlockDamaged    고빈도. 타격마다 발화 (근접 자동 공격이라 초당 여러 번)
---   RunStateChanged 저빈도. 런 상태가 전이될 때만 발화 (런당 두세 번)
+-- 채널을 나눈 이유:
+--   BlockDamaged    서버→클라. 고빈도. 타격마다 발화 (근접 자동 공격이라 초당 여러 번)
+--   RunStateChanged 서버→클라. 저빈도. 런 상태가 전이될 때만 발화 (런당 두세 번)
+--   ClickInput      클라→서버. 클릭 배치 통지 (4-2-b)
+--   ClickRejected   서버→클라. 상한에 걸려 버려진 클릭이 있음 (4-2-b)
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
+--
+-- ===== 클라 → 서버 방향은 성격이 다르다 (중요) =========================================
+--
+-- ClickInput이 이 프로젝트 최초의 클라→서버 채널이다. 서버→클라 채널과 지켜야 할 것이
+-- 다르므로, 이 방향의 채널을 추가할 때는 아래를 그대로 따를 것:
+--
+--   1. payload는 전부 검증 대상이다 (CLAUDE.md 3). 클라가 보낸 값은 "요청"이지
+--      "사실"이 아니다. 서버가 타입·범위·빈도를 모두 다시 잰다
+--   2. 결과값(증가할 힘, 받을 보상 같은 것)을 payload에 담지 말 것. 서버가 자기
+--      상태에서 직접 구한다. 클라는 "무슨 일이 있었다"까지만 말한다
+--   3. 1회당 1발화 금지. 클라가 주기로 모아 보내고 서버가 그 주기 안의 양을 자른다
+--      (CLAUDE.md 금지 사항 "자동 롤 시 롤 1회당 RemoteEvent (배치 처리할 것)"와 같은 이유)
 --
 -- ===== BigNum 값이 RemoteEvent를 건너는 문제 (중요) =====================================
 -- 결론: 변환 지점이 필요 없다. 받은 테이블을 BigNum 함수에 그대로 넘기면 된다.
@@ -26,7 +40,7 @@
 --   1. 테이블 키가 전부 문자열이거나 전부 1..n 연속 정수여야 한다
 --      → BlockChange 배열은 연속 배열, 각 원소는 문자열 키뿐
 --   2. 값이 nil이면 그 키가 통째로 사라진다
---      → 아래 두 payload 타입에는 선택 필드가 없다. 나중에 `foo: number?` 같은 필드를
+--      → 아래 payload 타입 어디에도 선택 필드가 없다. 나중에 `foo: number?` 같은 필드를
 --        추가하면 그 순간 이 계약이 깨지므로, 추가할 거면 기본값을 채워 보낼 것
 --   3. m/e에 inf나 nan이 들어가면 안 된다
 --      → BigNum.normalize를 거친 값은 유한하다. 원본이 프로필/Config에서 온 값이면
@@ -45,6 +59,8 @@ local Remotes = {}
 Remotes.FOLDER_NAME = "Remotes"
 Remotes.BLOCK_DAMAGED = "BlockDamaged"
 Remotes.RUN_STATE_CHANGED = "RunStateChanged"
+Remotes.CLICK_INPUT = "ClickInput"
+Remotes.CLICK_REJECTED = "ClickRejected"
 
 -- ===== payload 타입 ====================================================================
 --
@@ -99,9 +115,45 @@ export type RunStateChangedPayload = {
 	seeds: { number },
 }
 
+-- ClickInput: 클라가 한 배치 주기 동안 모은 클릭 (클라 → 서버).
+--
+-- ⚠️ count는 "이만큼 눌렀다는 주장"이지 확정된 사실이 아니다. 서버(ClickService)가
+--    타입·범위를 다시 재고, 자기 슬라이딩 윈도우로 초당 상한까지 잘라낸다.
+--
+-- ⚠️ 여기에 "증가할 힘"을 담지 말 것. 힘은 서버가 PadService.getClickPower(player)로
+--    직접 구한다. 클라가 파워를 실어 보내면 그 값이 곧 힘이 되므로 검증이 불가능해진다.
+--
+-- 왜 그냥 숫자가 아니라 테이블인가: 나중에 필드가 붙어도(예: 입력 종류) 발신·수신부의
+--    인자 개수가 안 바뀐다. 선택 필드는 못 만드니 붙일 때 항상 채워 보내면 된다.
+--
+-- 왜 count를 아예 빼지 않는가: 배치가 성립하려면 "몇 번인지"가 반드시 건너와야 한다.
+--    빼면 1클릭당 1발화가 되어 위 3번 금지에 정면으로 걸린다. 대신 이 값은 신뢰되지
+--    않는다 — 상한 판정은 전적으로 서버 윈도우가 한다. 클라가 count=9999를 보내도
+--    통과하는 건 그 순간 윈도우에 남은 자리(최대 10)뿐이다.
+export type ClickInputPayload = {
+	count: number,
+}
+
+-- ClickRejected: 상한에 걸려 버려진 클릭이 있었다 (서버 → 클라).
+--
+-- Phase 6에서 "최대 속도! 자동 클리커로 더 빠르게" 안내가 뜨는 자리다. 지금은 채널과
+-- payload 형태만 확정하고 클라는 print만 한다 — 나중에 payload를 다시 뜯지 않기 위함이다.
+--   limitPerSec  서버가 적용 중인 초당 상한. 안내 문구에 숫자를 박지 않으려면 필요하다
+--   dropped      직전 통지 이후 버려진 클릭 수. 얼마나 심하게 막혔는지를 나타낸다
+-- 둘 다 항상 채운다 (선택 필드 금지 — nil인 키는 직렬화에서 사라진다).
+--
+-- ⚠️ 이 통지 자체도 빈도 제한을 받는다. 상한에 걸린 유저는 계속 걸려 있으므로 매번
+--    보내면 통지가 곧 부하가 된다. 억제 주기는 ClickService에 있다.
+export type ClickRejectedPayload = {
+	limitPerSec: number,
+	dropped: number,
+}
+
 export type Channels = {
 	blockDamaged: RemoteEvent,
 	runStateChanged: RemoteEvent,
+	clickInput: RemoteEvent,
+	clickRejected: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -152,6 +204,8 @@ function Remotes.getServer(): Channels
 	local channels: Channels = {
 		blockDamaged = ensureEvent(folder, Remotes.BLOCK_DAMAGED),
 		runStateChanged = ensureEvent(folder, Remotes.RUN_STATE_CHANGED),
+		clickInput = ensureEvent(folder, Remotes.CLICK_INPUT),
+		clickRejected = ensureEvent(folder, Remotes.CLICK_REJECTED),
 	}
 	cached = channels
 	return channels
@@ -188,6 +242,8 @@ function Remotes.getClient(): Channels
 	local channels: Channels = {
 		blockDamaged = waitFor(folder, Remotes.BLOCK_DAMAGED) :: RemoteEvent,
 		runStateChanged = waitFor(folder, Remotes.RUN_STATE_CHANGED) :: RemoteEvent,
+		clickInput = waitFor(folder, Remotes.CLICK_INPUT) :: RemoteEvent,
+		clickRejected = waitFor(folder, Remotes.CLICK_REJECTED) :: RemoteEvent,
 	}
 	cached = channels
 	return channels
