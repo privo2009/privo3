@@ -44,6 +44,15 @@ local PAD_WORLD_ID = 1
 -- 잠긴 패드에서는 warn이 그만큼 쏟아진다.
 local TOUCH_DEBOUNCE_SEC = 0.5
 
+-- 같은 패드를 다시 "알리기"까지의 최소 간격(초).
+-- 디바운스(위)는 처리 간격이고 이건 로그 간격이다 — 둘은 목적이 다르므로 값도 따로 둔다.
+-- 패드 위에 가만히 서 있으면 디바운스를 통과한 밟기가 TOUCH_DEBOUNCE_SEC마다 한 번씩
+-- 계속 들어온다. 그것까지 매번 알리면 서 있는 동안 초당 2줄이 쌓여서 정작 봐야 할
+-- "선택 변경"과 "잠김"이 파묻힌다.
+-- 값의 근거: 서 있는 동안의 재밟기 간격은 항상 TOUCH_DEBOUNCE_SEC(0.5초)이므로 그보다
+-- 넉넉히 크면 서 있는 내내 조용하다. 3초는 "패드를 실제로 떠났다가 돌아왔다"에 가까운 하한이다.
+local NOTIFY_QUIET_SEC = 3.0
+
 local PAD_CONTAINER_NAME = "ClickPads"
 
 -- ===== 순수 로직 (Player/Instance 의존 없음) ===========================================
@@ -168,7 +177,14 @@ local function handleTouch(player: Player, index: number)
 		states[player] = state
 	end
 
-	local nextState, result = applyTouch(state, PAD_WORLD_ID, index, readLifetimeBlox(profile), os.clock())
+	local now = os.clock()
+
+	-- 이번 밟기를 "알릴지" 판단하는 재료. applyTouch가 상태를 갈아치우기 전에 읽어야 한다.
+	-- 참이면 패드에서 발을 떼지 않고 계속 서 있는 중이라는 뜻이다 (NOTIFY_QUIET_SEC 참고).
+	local restingOnSamePad = state.lastTouchIndex == index
+		and (now - state.lastTouchAt) < NOTIFY_QUIET_SEC
+
+	local nextState, result = applyTouch(state, PAD_WORLD_ID, index, readLifetimeBlox(profile), now)
 	states[player] = nextState
 
 	if result == "debounced" then
@@ -176,27 +192,48 @@ local function handleTouch(player: Player, index: number)
 	end
 
 	if result == "locked" then
-		warn(string.format(
-			"[PadService] %s(%d) 잠긴 패드 %d 밟음 - 무시 (필요 lifetimeBlox=%s)",
-			player.Name,
-			player.UserId,
-			index,
-			BigNum.tostring(ClickPadConfig.getPadUnlock(PAD_WORLD_ID, index))
-		))
+		-- 잠김 warn은 유지한다 — 유저가 다음 목표를 확인하는 신호다.
+		-- 다만 잠긴 패드 위에 서 있는 동안 같은 warn을 반복하지는 않는다.
+		if not restingOnSamePad then
+			warn(string.format(
+				"[PadService] %s(%d) 잠긴 패드 %d 밟음 - 무시 (필요 lifetimeBlox=%s)",
+				player.Name,
+				player.UserId,
+				index,
+				BigNum.tostring(ClickPadConfig.getPadUnlock(PAD_WORLD_ID, index))
+			))
+		end
 		return
 	end
 
-	-- 선택이 실제로 바뀐 경우에만 저장한다. 같은 패드를 다시 밟는 것은 상태 변화가 아니다.
-	if nextState.selectedIndex ~= state.selectedIndex then
+	-- ⚠️ 로그 조건과 저장 조건은 일부러 다르다. 다시 하나로 합치지 말 것.
+	--
+	-- 저장은 "선택이 바뀐 경우에만" — 같은 값을 다시 쓰는 것은 불필요한 프로필 쓰기다.
+	-- 로그는 밟을 때마다 — 기본 selectedIndex가 1이라, 스폰에서 처음 만나는 패드 1을 밟으면
+	-- 1 -> 1이 되어 "바뀐 경우" 조건이 거짓이 된다. 패드 1은 해금 조건이 0이라 잠김 warn도
+	-- 없다. 두 조건이 붙어 있던 동안 정상 동작인데 서버 로그가 완전히 조용해서, 패드가
+	-- 아예 안 먹는 것으로 오진했다. 밟았다는 사실 자체가 확인돼야 한다.
+	local changed = nextState.selectedIndex ~= state.selectedIndex
+	if changed then
 		profile.Data.progress.selectedPadIndex = nextState.selectedIndex
-		print(string.format(
-			"[PadService] %s(%d) 패드 %d 선택 (파워=%s)",
-			player.Name,
-			player.UserId,
-			nextState.selectedIndex,
-			BigNum.tostring(ClickPadConfig.getPadPower(PAD_WORLD_ID, nextState.selectedIndex))
-		))
 	end
+
+	-- 서 있는 동안의 "재확인"만 조용히 넘긴다.
+	-- ⚠️ changed는 restingOnSamePad보다 우선한다. 잠긴 패드 위에 서 있는 채로 lifetimeBlox가
+	-- 조건을 넘기는 경우(방치형이므로 실제로 일어난다) 발을 떼지 않고도 선택이 바뀌는데,
+	-- 이때는 서 있는 중이어도 반드시 알려야 한다.
+	if not changed and restingOnSamePad then
+		return
+	end
+
+	print(string.format(
+		"[PadService] %s(%d) 패드 %d %s (파워=%s)",
+		player.Name,
+		player.UserId,
+		nextState.selectedIndex,
+		if changed then "선택" else "재확인 - 이미 선택된 패드",
+		BigNum.tostring(ClickPadConfig.getPadPower(PAD_WORLD_ID, nextState.selectedIndex))
+	))
 end
 
 -- 패드 파트 하나를 만든다.

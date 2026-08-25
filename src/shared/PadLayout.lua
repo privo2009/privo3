@@ -36,7 +36,8 @@ PadLayout.AXIS = Vector3.new(0, 0, -1)
 -- 현재 축이 Z이므로 기준은 PAD_SIZE.Z(=8)이고, 12는 그 1.5배다.
 PadLayout.PITCH = 12
 
--- 패드 윗면이 지면(Y=0)에 오도록 중심을 반 칸 띄운다.
+-- 패드 아랫면이 지면(Y=0)에 닿도록 중심을 반 칸 띄운다 — 중심 y=0.5, 윗면 y=1이 되어
+-- 패드가 지면 위에 얹힌다(밟고 지나가는 물건이므로 이게 맞는 동작이다).
 -- BlockLayout.GROUND_Y_OFFSET과 같은 계산이고 같은 이유다 (그대로 두면 절반이 바닥에 묻힌다).
 PadLayout.GROUND_Y_OFFSET = PadLayout.PAD_SIZE.Y / 2
 
