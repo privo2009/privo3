@@ -46,7 +46,7 @@ do
 	check("new()는 매번 독립된 깊은 복사본을 반환함", b.blox.m == 0)
 end
 
-check("Schema.VERSION == 2 (v2: upgrades.radius 제거)", Schema.VERSION == 2)
+check("Schema.VERSION == 3 (v3: progress.selectedPadIndex 추가)", Schema.VERSION == 3)
 check("LIMITS.MAX_DRONES == 5", Schema.LIMITS.MAX_DRONES == 5)
 check("LIMITS.MAX_PET_SLOTS == 6", Schema.LIMITS.MAX_PET_SLOTS == 6)
 check("LIMITS.MAX_AURA_PACKS == 5", Schema.LIMITS.MAX_AURA_PACKS == 5)
@@ -110,6 +110,22 @@ do
 	data.progress.maxStage = 0
 	local ok, errors = Schema.validate(data)
 	check("validate 실패: maxStage=0", not ok and errorsContain(errors, "maxStage"))
+end
+
+do
+	local data = Schema.new()
+	data.progress.selectedPadIndex = 0
+	local ok, errors = Schema.validate(data)
+	check("validate 실패: selectedPadIndex=0", not ok and errorsContain(errors, "selectedPadIndex"))
+end
+
+do
+	-- 상한(clickPadSet.count)은 여기서 검사하지 않는다 — Schema는 Config를 몰라야 한다.
+	-- 범위 초과는 PadService가 로드 시 클램프한다 (PadServiceTests 6번 항목).
+	local data = Schema.new()
+	data.progress.selectedPadIndex = 9999
+	local ok = Schema.validate(data)
+	check("validate 통과: selectedPadIndex 상한은 Schema의 책임이 아님", ok)
 end
 
 do

@@ -20,7 +20,7 @@ end
 
 -- 1. 기본 -----------------------------------------------------------------
 
-check("Migrations.CURRENT == 2 (v1->v2 변환 1개 등록됨: upgrades.radius 제거)", Migrations.CURRENT == 2)
+check("Migrations.CURRENT == 3 (변환 2개 등록됨: radius 제거 / selectedPadIndex 추가)", Migrations.CURRENT == 3)
 
 -- 2. v1 -> v2 실제 마이그레이션: upgrades.radius 필드 제거 -------------------------------
 -- 데미지 오버플로우 도입으로 파괴 반경 개념이 없어져서 생긴 실제 마이그레이션(Migrations[1]).
@@ -33,7 +33,8 @@ do
 	local ok, err = Migrations.run(data)
 
 	check("v1->v2: 변환 성공", ok, err)
-	check("v1->v2: schemaVersion이 2로 갱신됨", data.schemaVersion == 2)
+	-- run()은 등록된 변환을 CURRENT까지 전부 태운다. v2에서 멈추지 않는다.
+	check("v1->최신: schemaVersion이 CURRENT로 갱신됨", data.schemaVersion == Migrations.CURRENT)
 	check("v1->v2: upgrades.radius가 제거됨", data.upgrades.radius == nil)
 	check(
 		"v1->v2: 다른 upgrades 필드는 그대로 유지됨",
@@ -46,7 +47,7 @@ do
 	-- Migrations[1]이 type(data.upgrades) == "table" 가드 없이 짜여있으면 여기서 죽는다.
 	local data = { schemaVersion = 1 }
 	local ok, err = Migrations.run(data)
-	check("v1->v2: upgrades 테이블이 없어도 안 죽고 통과", ok and data.schemaVersion == 2, err)
+	check("v1->최신: upgrades 테이블이 없어도 안 죽고 통과", ok and data.schemaVersion == Migrations.CURRENT, err)
 end
 
 -- 3. 동일 버전 통과 ------------------------------------------------------------

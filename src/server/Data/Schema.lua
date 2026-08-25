@@ -6,7 +6,7 @@
 
 local Schema = {}
 
-Schema.VERSION = 2 -- v2: upgrades.radius 필드 제거 (데미지 오버플로우 도입, DESIGN.md 2장/7장)
+Schema.VERSION = 3 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드, Phase 4-2-b)
 
 -- 구조적 상한값. DESIGN.md 5/6/9장 수치와 같지만 Schema는 Config를 몰라야 하므로 별도로 둔다.
 -- TODO: Phase 8 전후로 ShopConfig/PetConfig/AuraConfig와 단일 출처로 합칠 것 (지금은 중복 관리).
@@ -67,6 +67,11 @@ local function buildTemplate()
 			maxStage = 1, -- 환생 시 초기화. 워프 + 드론 기준
 			currentWorld = 1,
 			unlockedWorlds = 1,
+			-- 밟아서 선택한 클릭 파워 패드. **인덱스**를 저장한다 — 파워값을 저장하면
+			-- WorldConfig.clickPadSet을 튜닝했을 때 옛 값이 프로필에 박혀서 곡선이 어긋난다.
+			-- 상한(clickPadSet.count)과 해금 조건은 Config를 알아야 검사할 수 있으므로
+			-- 여기서는 "1 이상의 정수"까지만 본다. 실제 클램프는 PadService가 로드 시 한다.
+			selectedPadIndex = 1,
 		},
 
 		upgrades = {
@@ -187,6 +192,9 @@ function Schema.validate(data: any): (boolean, { string })
 			addError(errors, "progress.currentWorld/unlockedWorlds가 number가 아님")
 		elseif progress.unlockedWorlds < progress.currentWorld then
 			addError(errors, "progress.unlockedWorlds는 currentWorld 이상이어야 함")
+		end
+		if type(progress.selectedPadIndex) ~= "number" or progress.selectedPadIndex % 1 ~= 0 or progress.selectedPadIndex < 1 then
+			addError(errors, "progress.selectedPadIndex는 1 이상의 정수여야 함")
 		end
 	else
 		addError(errors, "progress 테이블이 없음")

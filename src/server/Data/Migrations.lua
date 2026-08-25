@@ -27,6 +27,24 @@ Migrations[1] = function(data)
 	return data
 end
 
+-- v2 -> v3: 클릭 파워 패드 도입으로 progress.selectedPadIndex가 생김 (Phase 4-2-b).
+-- 기존 프로필은 아무 패드도 밟은 적이 없으므로 패드 1(조건 0, 항상 해금)로 채운다.
+--
+-- profile:Reconcile()도 템플릿 기준으로 누락 필드를 채우지만 여기에 따로 쓴다:
+-- ProfileManager의 로드 순서가 Migrations.run -> Reconcile이라 마이그레이션 시점에는
+-- 아직 필드가 없고, 무엇보다 "이 버전에서 무엇이 생겼는가"가 Reconcile에는 안 남는다.
+Migrations[2] = function(data)
+	if type(data.progress) ~= "table" then
+		-- progress 자체가 없는(비정상) 데이터. 여기서 만들지 않는다 — Reconcile이 템플릿
+		-- 통째로 채우고, 그래도 안 되면 Schema.validate가 잡아서 킥한다.
+		return data
+	end
+	if data.progress.selectedPadIndex == nil then
+		data.progress.selectedPadIndex = 1
+	end
+	return data
+end
+
 -- data.schemaVersion부터 Migrations.CURRENT까지 등록된 변환 함수를 순서대로 적용하고
 -- data.schemaVersion을 최종 버전으로 갱신한다. data는 in-place로 수정된다.
 --

@@ -33,6 +33,13 @@ print("[Bootstrap] ProfileManager.init() 호출 시작")
 ProfileManager.init()
 print("[Bootstrap] ProfileManager.init() 호출 완료")
 
+-- 클릭 파워 패드를 Workspace에 세운다.
+-- ⚠️ 순서: 반드시 ProfileManager.init() 뒤여야 한다. PadService.init()이 내부에서
+-- ProfileManager.onLoaded로 로드 훅을 거는데, 그 전에 부르면 이미 접속해 있던 플레이어의
+-- 로드 통지를 놓쳐서 selectedPadIndex 클램프가 건너뛰어진다.
+local PadService = require(script.Parent.Systems.PadService)
+PadService.init()
+
 -- 읽기 print는 VERIFY_MODE와 무관하게 항상 나온다 (검증 2단계: 저장된 값 확인용).
 -- VERIFY_MODE로 막는 건 blox를 직접 대입하는 쓰기 부분뿐이다.
 Players.PlayerAdded:Connect(function(player: Player)
