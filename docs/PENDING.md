@@ -105,5 +105,5 @@ docs/UI_HANDOFF.md      "문서 갱신" 줄 자체가 없다  ← 더 나쁘다
 
 | 해소일 | 항목 | 커밋 |
 |---|---|---|
-| 2026-08-26 | 테스트 개수 정적 카운트 미대조 (393) | (이번커밋) — Play 실측 424로 ROADMAP 표 교체 |
-| 2026-08-26 | `LevelConfig` · `SpeedService` Play 미검증 | (이번커밋) — `2ebdc32` / `026f875` 검증 완료 |
+| 2026-08-26 | 테스트 개수 정적 카운트 미대조 (393) | `6f4fdb3` — Play 실측 424로 ROADMAP 표 교체 |
+| 2026-08-26 | `LevelConfig` · `SpeedService` Play 미검증 | `6f4fdb3` — `2ebdc32` / `026f875` 검증 완료 |
