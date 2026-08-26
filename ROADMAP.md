@@ -20,30 +20,37 @@
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
-| `Tests/ConfigTests.server.lua` | 22 | 모든 Config의 validate + 스모크 |
+| `Tests/ConfigTests.server.lua` | 30 | 모든 Config의 validate + 스모크 |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
-| `Data/SchemaTests.server.lua` | 31 | 프로필 스키마 검증 |
+| `Data/SchemaTests.server.lua` | 33 | 프로필 스키마 검증 |
 | `Data/MigrationsTests.server.lua` | 20 | schemaVersion 마이그레이션·멱등성 |
 | `Systems/CurrencyServiceTests.server.lua` | 38 | 재화 단일 게이트·롤백 |
 | `Systems/BlockServiceTests.server.lua` | 30 | 배치·데미지 오버플로우·클리어 |
 | `Systems/ChallengeServiceTests.server.lua` | 51 | 타이머·보상 갱신·진입점 거부·source 식별 |
 | `Systems/ClickServiceTests.server.lua` | 38 | 입력 위생·초당 상한 윈도우·통지 억제·자동 경로 |
 | `Systems/PadServiceTests.server.lua` | 31 | 패드 배치·해금 경계·디바운스·세팅/클램프 |
-| **합계** | **393** | |
+| `Systems/SpeedServiceTests.server.lua` | 21 | 요청값 클램프·입력 위생·환생 하향·최대치 상승 불변 |
+| **합계** | **424** | |
 
-최근 갱신: 4-2-b 완료분 반영. ConfigTests는 ClickPadConfig.validate + 패드 스모크 5개
-+ BLOCK_COUNT_STEPS 1개로 15 → 22. `ClickServiceTests`(38) · `PadServiceTests`(31)는
-파일이 새로 생겼는데 표에 행 자체가 없었다 — 두 행을 추가해 합계 317 → 393.
-이 세 값은 소스 파일의 `check(` 호출을 직접 센 정적 실측이다 (루프 안의 호출은
-반복 횟수만큼 곱해서 셈: PadService의 `computeLayout` 루프 2개 × 3회 = 6).
-나머지 6개 파일은 이번에 세지 않았고 2026-08-22 Studio Play 실측값을 그대로 둔다.
-⚠️ 다음 Studio Play 때 세 값을 런타임 출력과 대조할 것.
+최근 갱신: **2026-08-26 Studio Play 런타임 실측.** 424 passed / 0 failed.
+표의 전 행을 실측 출력으로 갈아끼웠다 — 이제 정적 추정값은 하나도 남아 있지 않다.
 
-직전 갱신: AssetConfig 신설(G1 검증)로 Config 13 → 15 (validate + 9-slice 여백 스모크).
+이번 실측으로 드러난 어긋남:
+
+```
+ConfigTests    22 → 30   4-2-c LevelConfig 케이스 8개 (정적 카운트와 일치)
+SchemaTests    31 → 33   ⚠️ 이번 작업과 무관하게 표가 2 뒤처져 있었다
+SpeedServiceTests   21   신규 행 (정적 카운트와 일치)
+합계          393 → 424
+```
+
+⚠️ 직전 갱신에서 예상한 합계는 422였고 실측은 424였다. 어긋난 2는
+`SchemaTests`에서 나왔다 — 그때 세지 않고 08-22 값을 그대로 둔 6개 파일 중 하나다.
+**세지 않은 행이 곧 어긋나는 행이다.** 다음에도 일부만 세고 나머지를 물려받지 말 것.
+
+직전 갱신: 4-2-b 완료분 반영으로 `ClickServiceTests`(38) · `PadServiceTests`(31)
+두 행을 추가해 317 → 393 (당시 정적 카운트).
 그 직전: source 인자 추가 작업으로 ChallengeService 38 → 51.
-표에 적혀 있던 35는 실측 38과 어긋난 값이었다. 25층 벽 막기 작업 때 3개가 추가됐는데
-표를 갱신하지 않은 것으로 보인다. 2026-08-22 Studio Play 실측으로 전 항목을 대조해 확정했다
-— 어긋난 것은 이 한 줄뿐이고 나머지 8개 파일은 표와 실측이 일치한다.
 
 자동 테스트가 없는 것:
 - `Effects/ChunkBreaker` 등 클라 시각 연출 — `ChunkBreakerDemo.client.lua`로 육안 확인

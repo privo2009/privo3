@@ -71,27 +71,9 @@ docs/UI_HANDOFF.md      "문서 갱신" 줄 자체가 없다  ← 더 나쁘다
   Touched 시점에 개인 해금 여부를 판정한다 (→ ROADMAP 4-2-a2 / 4-2-b).
 - 4-2-d ~ 4-2-f의 `[착수 전 확정]` 3개 (ROADMAP 표 참조).
   4-2-c는 이번 세션에 확정됐다
-- **테스트 393은 소스의 `check(` 호출을 센 정적 값이다.** 6개 파일은
-  08-22 실측값을 그대로 뒀다. Studio Play 런타임 출력과 미대조
-- **4-2-c 커밋 2개가 Studio Play 미검증이다** (RC 사용 중이라 Play 불가).
-  다음 Play에서 확인할 것:
-  ```
-  LevelConfig    [ConfigTests] 30 passed
-  SpeedService   [SpeedServiceTests] 21 passed
-  전체 합계       422
-  캐릭터 스폰 시 WalkSpeed가 실제로 세팅되는지 (순수 층 밖이라 육안 확인)
-  ```
-  개수는 전부 정적 카운트이므로 런타임 출력과 어긋날 수 있다.
-  어긋나면 런타임 실측값으로 ROADMAP 표를 고치고 "최근 갱신"에 명시한다.
-  ⚠️ ROADMAP 표는 아직 393에 멈춰 있다 — 정적 카운트를 겹쳐 얹지 않으려고
-  일부러 두었다. 다음 Play 출력으로 한 번에 맞춘다
-- **Prompt 3 (Remotes 커스텀 스피드 채널) 미착수.** 클라 입력이 서버에 닿는 층이라
-  Play 없이는 배선 확인이 불가능해 의도적으로 멈췄다.
-  RC 종료 후 Play로 아래를 확인한 뒤 착수한다:
-  ```
-  [ConfigTests] 30 / [SpeedServiceTests] 21 / 전체 422
-  캐릭터 스폰 시 WalkSpeed 실제 세팅
-  ```
+- **Prompt 3 (Remotes 커스텀 스피드 채널) 미착수.** 4-2-c의 마지막 조각이다.
+  선행 검증은 끝났다 — 2026-08-26 Play에서 424 passed / 0 failed, WalkSpeed 세팅도 확인.
+  이제 착수 가능하다.
 - **4-2-d 착수 시 필수:** `RebirthService`가 환생 처리 마지막에
   `SpeedService.onRebirth(player)`를 반드시 호출한다.
   함수는 있으나 호출자가 없다. 빠지면 세션 값이 새 최대를 초과한 채 남는다
@@ -115,3 +97,13 @@ docs/UI_HANDOFF.md      "문서 갱신" 줄 자체가 없다  ← 더 나쁘다
 | `ChunkBreakerDemo` | 수신부 검증 완료 — 지금 가능 |
 
 ---
+
+## 해소 기록
+
+지운 항목은 여기에 한 줄로 남긴다. 어디서 해소됐는지 추적할 수 없으면
+"정말 끝난 것"과 "잊힌 것"이 구분되지 않는다.
+
+| 해소일 | 항목 | 커밋 |
+|---|---|---|
+| 2026-08-26 | 테스트 개수 정적 카운트 미대조 (393) | (이번커밋) — Play 실측 424로 ROADMAP 표 교체 |
+| 2026-08-26 | `LevelConfig` · `SpeedService` Play 미검증 | (이번커밋) — `2ebdc32` / `026f875` 검증 완료 |

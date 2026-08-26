@@ -216,8 +216,10 @@ end
 
 -- 결과 ------------------------------------------------------------------------------------
 
-if failed == 0 then
-	print(string.format("[ClickServiceTests] %d passed", passed))
-else
-	warn(string.format("[ClickServiceTests] %d passed, %d FAILED", passed, failed))
+-- 출력 형식은 다른 테스트 파일과 동일하게 맞춘다 — 통과·실패 개수를 항상 함께 찍는다.
+-- 전에는 통과 시 개수만 찍어서, 로그를 훑을 때 "실패 0"인지 "실패 항목이 안 찍힌 것"인지
+-- 구분되지 않았다.
+print(string.format("[ClickServiceTests] %d passed, %d failed", passed, failed))
+if failed > 0 then
+	error(string.format("[ClickServiceTests] %d test(s) failed", failed))
 end

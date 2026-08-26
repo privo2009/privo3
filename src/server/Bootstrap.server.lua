@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ProfileManager = require(script.Parent.Data.ProfileManager)
 local CurrencyService = require(script.Parent.Systems.CurrencyService)
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
+local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
 
 -- ── 개발용 플래그: KEEP_RUN_ALIVE ─────────────────────────────────────────────
 -- 위치: 이 파일(src/server/Bootstrap.server.lua) 상단, 바로 이 줄.
@@ -82,6 +83,41 @@ Players.PlayerAdded:Connect(function(player: Player)
 		tostring(b.e),
 		tostring(lb.m),
 		tostring(lb.e)
+	))
+
+	-- WalkSpeed 실측 print. 위 lifetimeBlox print와 같은 성격이라 **상시 유지**한다.
+	-- 1회성 검증 코드가 아니다 — 4-2-c Remotes 배선 후에도 같은 자리에서 확인한다.
+	--
+	-- 왜 필요한가: `[SpeedService] 초기화 완료`는 init()이 돌았다는 것만 말한다.
+	-- CharacterAdded가 실제로 Humanoid.WalkSpeed를 세팅했는지는 아무 흔적이 없고,
+	-- 속도는 UI가 없어서 화면으로도 확인이 안 된다. 세팅이 통째로 빠져도 캐릭터는
+	-- 로블록스 기본값 16으로 멀쩡히 걸어다니므로 증상이 나타나지 않는다.
+	--
+	-- ⚠️ 커맨드 바에서 require로 확인하지 말 것. 커맨드 바는 별도 require 캐시를 써서
+	-- 서버가 들고 있는 것과 다른 모듈 인스턴스를 잡는다 — states 테이블이 비어 보인다.
+	--
+	-- 기대값: 힘 0(신규 프로필은 1) → 레벨 0 → max 16 → WalkSpeed 16.
+	-- 어긋나면 그 자체가 정보다. 셋을 함께 찍는 이유가 그것이다 —
+	-- WalkSpeed만 찍으면 "세팅이 안 된 16"과 "세팅된 16"이 구분되지 않는다.
+	local character = player.Character or player.CharacterAdded:Wait()
+
+	-- ⚠️ 한 프레임 양보한다. SpeedService도 같은 CharacterAdded에 걸려 있는데 두 핸들러의
+	-- 실행 순서는 보장되지 않는다. 양보하지 않으면 SpeedService가 세팅하기 *전*의 값을
+	-- 읽을 수 있고, 레벨 0에서는 그 값이 기본값 16이라 정상 출력과 구분이 안 된다.
+	task.wait()
+
+	local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
+	if humanoid == nil then
+		warn(string.format("[Bootstrap][VERIFY] %s: Humanoid 없음 - WalkSpeed 확인 불가", player.Name))
+		return
+	end
+
+	print(string.format(
+		"[Bootstrap][VERIFY] %s WalkSpeed=%.1f max=%.1f level=%d",
+		player.Name,
+		humanoid.WalkSpeed,
+		SpeedService.getMaxSpeed(player),
+		LevelConfig.getLevel(CurrencyService.get(player, "strength") or BigNum.new(0, 0))
 	))
 end)
 
