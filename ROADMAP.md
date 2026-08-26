@@ -20,7 +20,7 @@
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
-| `Tests/ConfigTests.server.lua` | 30 | 모든 Config의 validate + 스모크 |
+| `Tests/ConfigTests.server.lua` | 57 | 모든 Config의 validate + 스모크 |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Data/SchemaTests.server.lua` | 33 | 프로필 스키마 검증 |
 | `Data/MigrationsTests.server.lua` | 20 | schemaVersion 마이그레이션·멱등성 |
@@ -31,10 +31,20 @@
 | `Systems/PadServiceTests.server.lua` | 31 | 패드 배치·해금 경계·디바운스·세팅/클램프 |
 | `Systems/SpeedServiceTests.server.lua` | 21 | 요청값 클램프·입력 위생·환생 하향·최대치 상승 불변 |
 | `Systems/SpeedRequestServiceTests.server.lua` | 32 | 요청 빈도 상한·폐기·로그 억제·응답 payload |
-| **합계** | **456** | |
+| **합계** | **483** | |
 
-최근 갱신: **2026-08-26 Studio Play 런타임 실측.** 456 passed / 0 failed.
-4-2-c Prompt 3 완료분으로 `SpeedRequestServiceTests`(32) 행을 추가해 424 → 456.
+최근 갱신: **2026-08-26 Studio Play 런타임 실측.** 483 passed / 0 failed.
+4-2-d Prompt 1(RebirthConfig · StrengthMultiplier)로 `ConfigTests` 30 → 57.
+
+이번엔 정적 카운트와 실측이 일치했다. 어긋났던 세 번은 전부 **다른 작업 중에
+늘어난 행을 나중에 추정한 경우**였고, 이번은 테스트를 직접 세며 쓴 행이다.
+규칙은 "정적 금지"가 아니라 **"작성자 본인이 세지 않은 행은 표에 올리지 않는다"**다.
+
+⚠️ 합계 483은 13개 행을 더한 값이다. **총합을 찍는 스크립트는 없다** —
+각 테스트 파일이 자기 줄만 찍는다. 한 행이 통째로 빠져도 로그에는 아무 흔적이 없으므로,
+갱신할 때는 반드시 행 수(13)와 합계를 함께 대조할 것.
+
+직전 갱신: 4-2-c Prompt 3 완료분으로 `SpeedRequestServiceTests`(32) 행을 추가해 424 → 456.
 
 ⚠️ 이 행도 정적 카운트가 어긋났다 — 소스의 `check(` 호출은 30이었고 실측은 32다.
 **세 번째다.** 정적 추정값을 표에 올리지 말고, 올렸으면 다음 Play에서 반드시 갈아끼울 것.
@@ -340,6 +350,16 @@ schemaVersion을 올릴 일이 없다 (→ `DESIGN.md` "커스텀 스피드").
 #### 4-2-d. RebirthService
 
 **검증**: 환생 후 배수가 정확히 적용된다.
+
+**[확정됨]** 1000 미만 환생은 거부한다(`RebirthConfig.canRebirth`).
+거부는 사유 코드 문자열을 반환하고 표시 문구는 UI가 매핑한다 —
+이 규약은 4-2-e 워프의 블럭스 부족 거부에도 그대로 쓴다.
+
+**[확정됨]** 환생 배수는 **획득량**에 곱한다(보유 힘 아님).
+곱셈은 힘 지급 게이트 한 곳에서만 하고 결합은 `StrengthMultiplier.compute`가 맡는다.
+근거 → `DESIGN.md` "3. 화폐와 배수"
+
+**진행 상태** — Prompt 1(순수 계층) 완료. Prompt 2(RebirthService 본체) 대기.
 
 #### 4-2-e. WarpService
 
