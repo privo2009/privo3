@@ -23,4 +23,7 @@ desktop.ini
 
 # Rojo 생성물
 sourcemap.json
+
+# 세션 로그 (Rojo 생성물 아님. 위 블록과 함께 지우지 말 것)
+# 세션을 넘어 살아야 하는 것은 docs/PENDING.md 로 간다 — CLAUDE.md 참조
 HANDOFF/
