@@ -143,4 +143,6 @@ Play 검증 전에 Rojo 플러그인 창에서 Connect / Disconnect 상태를 �
 |---|---|---|
 | 2026-08-26 | 테스트 개수 정적 카운트 미대조 (393) | `6f4fdb3` — Play 실측 424로 ROADMAP 표 교체 |
 | 2026-08-26 | `LevelConfig` · `SpeedService` Play 미검증 | `6f4fdb3` — `2ebdc32` / `026f875` 검증 완료 |
-| 2026-08-26 | Prompt 3 (Remotes 커스텀 스피드 채널) 미착수 | 4-2-c 완료 — `SpeedRequestService` + `SpeedInput` |
+| 2026-08-26 | Prompt 3 (Remotes 커스텀 스피드 채널) 미착수 | `e00508f` — 4-2-c 완료. Play 456 passed |
+| 2026-08-26 | 스폰 직후 WalkSpeed가 최대치와 어긋나는 창(1.5초) | `a419809` — 스폰·프로필 로드 두 훅으로 폐쇄 |
+| 2026-08-26 | `SpeedRequestServiceTests` 정적 카운트(30) 미대조 | `e00508f` — Play 실측 32로 ROADMAP 표 교체 |
