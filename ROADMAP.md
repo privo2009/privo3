@@ -314,6 +314,9 @@ maxStage    환생 시 리셋. 드론 전용. 워프는 참조하지 않음
 **[확정됨]** 레벨 = 힘의 지수 (N=1). 최대속도는 상한 클램프.
 수치와 근거 → `DESIGN.md` "레벨"
 
+**진행 상태** — `LevelConfig` · `SpeedService` 완료.
+Remotes 배선 미착수 (Play 검증 대기).
+
 #### 4-2-d. RebirthService
 
 **검증**: 환생 후 배수가 정확히 적용된다.
