@@ -71,12 +71,23 @@ docs/UI_HANDOFF.md      "문서 갱신" 줄 자체가 없다  ← 더 나쁘다
   Touched 시점에 개인 해금 여부를 판정한다 (→ ROADMAP 4-2-a2 / 4-2-b).
 - 4-2-d ~ 4-2-f의 `[착수 전 확정]` 3개 (ROADMAP 표 참조).
   4-2-c는 이번 세션에 확정됐다
-- **Prompt 3 (Remotes 커스텀 스피드 채널) 미착수.** 4-2-c의 마지막 조각이다.
-  선행 검증은 끝났다 — 2026-08-26 Play에서 424 passed / 0 failed, WalkSpeed 세팅도 확인.
-  이제 착수 가능하다.
-- **4-2-d 착수 시 필수:** `RebirthService`가 환생 처리 마지막에
-  `SpeedService.onRebirth(player)`를 반드시 호출한다.
-  함수는 있으나 호출자가 없다. 빠지면 세션 값이 새 최대를 초과한 채 남는다
+- **4-2-d 착수 시 필수 — 두 가지.**
+
+  ⚠️ `RebirthService`는 환생 처리 마지막에 `SpeedService.onRebirth(player)`를
+  **반드시 호출한다.** 함수는 있으나 호출자가 없다. 빠지면 세션 값이 새 최대를
+  초과한 채 남는다 — 레벨 40에서 환생하면 최대치가 56 → 16으로 떨어지는데
+  56으로 계속 다니게 된다. 발판 깊이 관통이 열리는 방향이다.
+
+  ⚠️ **이 호출은 `SpeedRequestService`를 거치지 않는다.** 빈도 상한(초당 5회)은
+  클라 입력 경로에만 있고, 서버 호출은 그 상한에 걸리면 안 된다 —
+  **파일을 둘로 나눈 이유가 이것이다.** 환생 처리가 `SpeedRequestService.handleRequest`를
+  부르는 형태로 쓰면 그 순간 서버 재적용이 클라 상한의 지배를 받는다.
+
+  ⚠️ 환생은 **재화를 전액 소모하는 경로**다. `CurrencyService` 단일 게이트를 반드시
+  통과할 것 (CLAUDE.md 절대 규칙 2). `profile.blox`를 직접 건드리는 우회는
+  한 줄이면 만들어지고, 실제로 그 우회 한 줄에서 lifetimeBlox 오진 사건이 났다
+  (Bootstrap VERIFY_MODE가 blox를 직접 대입해 lifetimeBlox가 따라 오르지 않았고,
+  "패드2가 안 열린다"로 잘못 진단했다).
 - **자동 진행 모드 구현 시점** — 4-2인지 Phase 8인지 미정
 - **17~25층 세그먼트 7.0** — 정적 검토 완료 (2026-08-26). 1순위 후보 **9.0, 미적용.**
   4-2-f 진입 시 세그먼트 값보다 **17층 절벽**을 먼저 본다
@@ -88,6 +99,22 @@ docs/UI_HANDOFF.md      "문서 갱신" 줄 자체가 없다  ← 더 나쁘다
 
 ---
 
+## 함정 — Play 검증 전에 확인할 것
+
+미결도 잔재도 아니지만 세션을 넘어 살아야 한다. 여기 걸리면 **검증 결과 자체가 거짓이 된다** —
+"고쳤는데 로그가 그대로다"로 시간을 태우는 대신 이 두 줄을 먼저 본다.
+
+⚠️ **"Rojo 연결 성공!"(Hello:1)은 연결 증거가 아니다.**
+place 파일에 남아 있는 스크립트라 **미연결 상태에서도 찍힌다.**
+Play 검증 전에 Rojo 플러그인 창에서 Connect / Disconnect 상태를 눈으로 확인할 것.
+실제로 이 로그를 믿고 옛 코드를 두 번 검증한 적이 있다 (2026-08-26).
+
+⚠️ **여러 PC에서 작업할 때:** Claude Code가 고친 파일이 Studio에 닿으려면
+그 PC에서 `git pull` → `rojo serve` 재시작이 필요하다.
+**커밋·푸시가 됐다고 Studio가 최신인 것이 아니다.**
+
+---
+
 ## 잔재 (삭제 가능)
 
 | 대상 | 삭제 가능 시점 |
@@ -95,6 +122,15 @@ docs/UI_HANDOFF.md      "문서 갱신" 줄 자체가 없다  ← 더 나쁘다
 | `Workspace/_OldBlocks` | Spawner 검증 완료 — 지금 가능 |
 | `SliceCheck.client.lua` | G1 통과 후 |
 | `ChunkBreakerDemo` | 수신부 검증 완료 — 지금 가능 |
+| `SpeedInputBoot`의 `VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
+
+⚠️ `VERIFY_ENABLED`는 **지금 지우지 말 것.** 2026-08-26 Play에서 왕복을 확인해
+목적은 다했고 `false`로 꺼 뒀지만, UI가 없는 동안 이 채널이 살아 있는지 확인할
+**유일한 수단**이다. 4-2-d 작업 중 채널이 깨져도 알 방법이 없다 — 배선이 끊겨도
+캐릭터는 최대속도로 멀쩡히 걸어다니므로 증상이 나타나지 않는다.
+확인이 필요하면 그 줄만 `true`로 바꾼다.
+
+(Bootstrap VERIFY print의 `req=` · `last=` 필드는 **상시 유지**다. 잔재가 아니다)
 
 ---
 
@@ -107,3 +143,4 @@ docs/UI_HANDOFF.md      "문서 갱신" 줄 자체가 없다  ← 더 나쁘다
 |---|---|---|
 | 2026-08-26 | 테스트 개수 정적 카운트 미대조 (393) | `6f4fdb3` — Play 실측 424로 ROADMAP 표 교체 |
 | 2026-08-26 | `LevelConfig` · `SpeedService` Play 미검증 | `6f4fdb3` — `2ebdc32` / `026f875` 검증 완료 |
+| 2026-08-26 | Prompt 3 (Remotes 커스텀 스피드 채널) 미착수 | 4-2-c 완료 — `SpeedRequestService` + `SpeedInput` |

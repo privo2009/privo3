@@ -30,8 +30,19 @@
 -- 그대로 유지된다. 그래서 아래 지점에서 반드시 재적용한다:
 --
 --   캐릭터 스폰   CharacterAdded — 접속·사망·리스폰이 전부 여기를 탄다
+--   프로필 로드   ProfileManager.onLoaded — 스폰이 로드보다 빠를 수 있다 (아래 참고)
 --   환생          onRebirth() — 최대치가 내려가는 유일한 지점
 --   힘 변동       주기 검사가 매 틱 최대치를 다시 계산한다 (아래 참고)
+--
+-- ⚠️ 스폰과 프로필 로드 **둘 다** 필요하다. 하나만으로는 창이 남는다:
+-- 캐릭터 스폰이 프로필 로드보다 빠를 수 있고(실측 17ms 차), 그때 힘을 읽으면 nil이라
+-- 레벨 0·최대 16으로 계산된 값이 얹힌다. 스폰 훅만 있으면 그 틀린 값이 주기 검사가
+-- 한 바퀴 돌 때까지(최대 CHECK_INTERVAL_SEC) 유지된다.
+-- 반대로 로드 훅만 있으면 사망·리스폰이 통째로 빠진다 — 그때는 로드가 다시 일어나지 않는다.
+--
+-- ⚠️ 이 창을 "무해하다"고 넘기지 말 것. 지금은 방향이 위쪽(16 → 18)이라 손해뿐이지만,
+-- 환생 직후에는 반대로 뒤집힌다. 레벨 40에서 환생하면 최대치가 56 → 16으로 급락하는데
+-- 세션 값이 남아 그 창 동안 56으로 다니게 된다 — 발판 깊이 관통이 열리는 방향이다.
 --
 -- 힘 변동마다 즉시 세팅하지 않는 이유: 클릭은 초당 최대 30회(OP 자동 클리커)라 클릭당
 -- 세팅을 걸면 초당 30번 WalkSpeed를 쓴다. 레벨은 지수 기반이라 자릿수가 바뀔 때만 움직이므로
@@ -45,6 +56,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
 local CurrencyService = require(script.Parent.CurrencyService)
+local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 
 type BigNumber = BigNum.BigNumber
 
@@ -70,6 +82,11 @@ local CHECK_INTERVAL_SEC = 1.5
 -- 10초인 이유: 이 로그의 용도는 "이 플레이어가 속도를 만지고 있다"는 사실 통지이지 횟수
 -- 집계가 아니다. 억제된 동안의 횟수는 누적해서 다음 로그에 함께 싣는다.
 local VIOLATION_LOG_QUIET_SEC = 10.0
+
+-- 스폰 직후 Humanoid가 캐릭터에 붙기를 기다리는 상한(초).
+-- 넘기면 그 스폰의 즉시 적용만 포기하고 주기 검사에 맡긴다 — 영원히 매달린 코루틴을
+-- 남기지 않는 것이 이 상한의 목적이다. 정상 스폰에서는 0~1프레임이면 붙는다.
+local HUMANOID_WAIT_SEC = 5
 
 -- ===== 순수 로직 (Player/Instance 의존 없음) ===========================================
 
@@ -322,16 +339,47 @@ function SpeedService.init()
 	end
 	initialized = true
 
+	-- 스폰 시 즉시 1회 적용한다. reapply는 Humanoid가 있어야 값을 얹으므로, 아직
+	-- 안 붙었으면 붙을 때까지 기다린다.
+	--
+	-- ⚠️ 기다림은 task.spawn 안에서만 한다. CharacterAdded 핸들러에서 직접 기다리면
+	-- 같은 이벤트에 걸린 다른 시스템의 핸들러까지 그만큼 밀린다.
+	-- ⚠️ 기다린 뒤 player.Character를 다시 확인한다. 기다리는 사이에 또 죽어서 캐릭터가
+	-- 갈렸을 수 있고, 그러면 이미 사라진 Humanoid에 얹게 된다.
+	local function applyOnSpawn(player: Player, character: Model)
+		if character:FindFirstChildOfClass("Humanoid") ~= nil then
+			SpeedService.reapply(player)
+			return
+		end
+
+		task.spawn(function()
+			local humanoid = character:WaitForChild("Humanoid", HUMANOID_WAIT_SEC)
+			if humanoid == nil then
+				warn(string.format(
+					"[SpeedService] %s(%d) Humanoid 대기 타임아웃 - 스폰 즉시 적용 건너뜀 (주기 검사가 맡는다)",
+					player.Name,
+					player.UserId
+				))
+				return
+			end
+			if player.Character ~= character then
+				return
+			end
+			SpeedService.reapply(player)
+		end)
+	end
+
 	local function bindCharacter(player: Player)
-		player.CharacterAdded:Connect(function()
+		player.CharacterAdded:Connect(function(character: Model)
 			-- 캐릭터 스폰은 접속·사망·리스폰이 전부 지나는 지점이다. Humanoid가 기본
 			-- WalkSpeed(16)로 새로 만들어지므로 여기서 반드시 다시 얹어야 한다.
-			SpeedService.reapply(player)
+			applyOnSpawn(player, character)
 		end)
 
 		-- init()보다 스폰이 먼저 끝난 경우(핫리로드·Play 재시작)를 위해 한 번 즉시 적용한다.
-		if player.Character ~= nil then
-			SpeedService.reapply(player)
+		local character = player.Character
+		if character ~= nil then
+			applyOnSpawn(player, character)
 		end
 	end
 
@@ -339,6 +387,16 @@ function SpeedService.init()
 		bindCharacter(player)
 	end
 	Players.PlayerAdded:Connect(bindCharacter)
+
+	-- 프로필 로드 직후 재적용. 스폰이 로드보다 빨랐을 때 얹혀 있는 "힘 nil = 레벨 0" 값을
+	-- 여기서 바로 덮는다 (파일 상단 "재적용 계약" 참고).
+	--
+	-- ⚠️ 이미 로드가 끝난 플레이어에게는 이 콜백이 오지 않는다 (onLoaded는 등록 이후의
+	-- 로드만 통지한다). 그 경우는 바로 위 GetPlayers() 순회의 즉시 적용이 덮는다 —
+	-- 로드가 이미 끝났으니 그쪽은 올바른 힘으로 계산된다. 두 경로가 서로의 빈틈이다.
+	ProfileManager.onLoaded(function(player: Player)
+		SpeedService.reapply(player)
+	end)
 
 	-- 나간 플레이어의 세션 값을 지운다. 안 지우면 Player 인스턴스가 이 테이블에 영구히
 	-- 붙잡혀 있게 된다 (PadService.states와 같은 이유).
