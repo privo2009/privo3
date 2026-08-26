@@ -1,6 +1,6 @@
 # 개발 로드맵
 
-문서 갱신: 2026-08-22
+문서 갱신: 2026-08-26
 
 ## 원칙
 - 아래에서 위로 쌓는다. BigNum이 흔들리면 전부 무너진다
@@ -20,17 +20,27 @@
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
-| `Tests/ConfigTests.server.lua` | 15 | 모든 Config의 validate + 스모크 |
+| `Tests/ConfigTests.server.lua` | 22 | 모든 Config의 validate + 스모크 |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Data/SchemaTests.server.lua` | 31 | 프로필 스키마 검증 |
 | `Data/MigrationsTests.server.lua` | 20 | schemaVersion 마이그레이션·멱등성 |
 | `Systems/CurrencyServiceTests.server.lua` | 38 | 재화 단일 게이트·롤백 |
 | `Systems/BlockServiceTests.server.lua` | 30 | 배치·데미지 오버플로우·클리어 |
 | `Systems/ChallengeServiceTests.server.lua` | 51 | 타이머·보상 갱신·진입점 거부·source 식별 |
-| **합계** | **317** | |
+| `Systems/ClickServiceTests.server.lua` | 38 | 입력 위생·초당 상한 윈도우·통지 억제·자동 경로 |
+| `Systems/PadServiceTests.server.lua` | 31 | 패드 배치·해금 경계·디바운스·세팅/클램프 |
+| **합계** | **393** | |
 
-최근 갱신: AssetConfig 신설(G1 검증)로 Config 13 → 15 (validate + 9-slice 여백 스모크).
-직전 갱신: source 인자 추가 작업으로 ChallengeService 38 → 51.
+최근 갱신: 4-2-b 완료분 반영. ConfigTests는 ClickPadConfig.validate + 패드 스모크 5개
++ BLOCK_COUNT_STEPS 1개로 15 → 22. `ClickServiceTests`(38) · `PadServiceTests`(31)는
+파일이 새로 생겼는데 표에 행 자체가 없었다 — 두 행을 추가해 합계 317 → 393.
+이 세 값은 소스 파일의 `check(` 호출을 직접 센 정적 실측이다 (루프 안의 호출은
+반복 횟수만큼 곱해서 셈: PadService의 `computeLayout` 루프 2개 × 3회 = 6).
+나머지 6개 파일은 이번에 세지 않았고 2026-08-22 Studio Play 실측값을 그대로 둔다.
+⚠️ 다음 Studio Play 때 세 값을 런타임 출력과 대조할 것.
+
+직전 갱신: AssetConfig 신설(G1 검증)로 Config 13 → 15 (validate + 9-slice 여백 스모크).
+그 직전: source 인자 추가 작업으로 ChallengeService 38 → 51.
 표에 적혀 있던 35는 실측 38과 어긋난 값이었다. 25층 벽 막기 작업 때 3개가 추가됐는데
 표를 갱신하지 않은 것으로 보인다. 2026-08-22 Studio Play 실측으로 전 항목을 대조해 확정했다
 — 어긋난 것은 이 한 줄뿐이고 나머지 8개 파일은 표와 실측이 일치한다.
@@ -281,10 +291,10 @@ maxStage    환생 시 리셋. 드론 전용. 워프는 참조하지 않음
 번호를 a와 b 사이에 끼운 이유: 4-2-a에서 드러났고 4-2-b의 선행 조건이라 그 사이가
 제자리인데, b~f를 밀면 다른 절의 참조(`Phase 4-2-f` 등)가 같이 어긋난다.
 
-#### 4-2-b. 클릭 파워 패드
+#### 4-2-b. 클릭 파워 패드 ✅ 완료
 
 힘 성장의 주 수단. 이것이 없으면 `RebirthService` 검증이 불가능하다.
-`WorldConfig`에 패드 세트 필드를 추가한다.
+`WorldConfig`에 패드 세트 필드(`clickPadSet`)를 추가했다.
 
 **[확정됨]** 월드1 24개 / 시작 파워 1 / 시작 조건 36 × bloxBase.
 파워는 세팅 방식(누적 아님). 수치와 근거 → `DESIGN.md` "클릭 파워 패드"
@@ -293,15 +303,15 @@ maxStage    환생 시 리셋. 드론 전용. 워프는 참조하지 않음
 ⚠️ 선행 조건 4-2-a2는 완료됐다. 블록이 클라 렌더링이 되면서 개인 구역이 불필요해졌고,
    패드도 공용 파트 한 세트로 두고 서버가 Touched 시점에 개인 해금 여부를 판정한다.
 
-구현 시 함께 정할 것 — 선택 패드 저장 방식, 펀치 속도 / 자동 클릭 주기
-(→ `DESIGN.md` "클릭 파워 패드 > 미결")
+**[확정됨]** 선택 패드 저장 방식, 펀치 속도 / 자동 클릭 주기
+→ `DESIGN.md` "클릭 파워 패드"
 
 #### 4-2-c. 레벨 + 커스텀 스피드
 
 `WalkSpeed` 서버 권위 검증.
 
-**[착수 전 확정]** `레벨 = floor(힘 지수 ÷ N)` 의 N값
-— 패드 곡선이 확정돼야 힘의 도달 범위를 알 수 있다.
+**[확정됨]** 레벨 = 힘의 지수 (N=1). 최대속도는 상한 클램프.
+수치와 근거 → `DESIGN.md` "레벨"
 
 #### 4-2-d. RebirthService
 
