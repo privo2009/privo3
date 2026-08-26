@@ -50,6 +50,14 @@ PadService.init()
 local ClickService = require(script.Parent.Systems.ClickService)
 ClickService.init()
 
+-- 이동속도 서버 권위를 연다 (4-2-c).
+-- ⚠️ 순서: ProfileManager.init() 뒤여야 한다. 최대치는 힘에서 나오고 힘은 프로필에 있어서,
+-- 프로필이 없으면 CurrencyService.get이 nil을 주고 전원이 기본 속도로 시작한다.
+-- (SpeedService는 nil을 힘 0으로 보고 넘어간다 — 조용히 틀린 값이 나가는 경로다)
+-- PadService/ClickService와의 선후는 상관없다. 서로 읽는 값이 없다.
+local SpeedService = require(script.Parent.Systems.SpeedService)
+SpeedService.init()
+
 -- 프로필 읽기 print. 검증용 임시 코드가 아니라 상시 유지 대상이다.
 --
 -- ⚠️ lifetimeBlox를 지우지 말 것. 이 값은 클릭 파워 패드 해금(ClickPadConfig)과
