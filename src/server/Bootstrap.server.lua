@@ -59,6 +59,12 @@ ClickService.init()
 local SpeedService = require(script.Parent.Systems.SpeedService)
 SpeedService.init()
 
+-- 커스텀 스피드 요청 수신을 연다 (4-2-c Prompt 3).
+-- ⚠️ 순서: SpeedService.init() 뒤여야 한다. 이 채널은 setCustomSpeed를 부르는 것이
+-- 전부이고, 최대치 계산과 Humanoid 세팅은 전부 SpeedService 쪽에 있다.
+local SpeedRequestService = require(script.Parent.Systems.SpeedRequestService)
+SpeedRequestService.init()
+
 -- 프로필 읽기 print. 검증용 임시 코드가 아니라 상시 유지 대상이다.
 --
 -- ⚠️ lifetimeBlox를 지우지 말 것. 이 값은 클릭 파워 패드 해금(ClickPadConfig)과
@@ -96,9 +102,24 @@ Players.PlayerAdded:Connect(function(player: Player)
 	-- ⚠️ 커맨드 바에서 require로 확인하지 말 것. 커맨드 바는 별도 require 캐시를 써서
 	-- 서버가 들고 있는 것과 다른 모듈 인스턴스를 잡는다 — states 테이블이 비어 보인다.
 	--
-	-- 기대값: 힘 0(신규 프로필은 1) → 레벨 0 → max 16 → WalkSpeed 16.
-	-- 어긋나면 그 자체가 정보다. 셋을 함께 찍는 이유가 그것이다 —
-	-- WalkSpeed만 찍으면 "세팅이 안 된 16"과 "세팅된 16"이 구분되지 않는다.
+	-- 판정 기준: **WalkSpeed == max**. 값이 몇이냐가 아니라 둘이 같으냐가 전부다.
+	-- (2026-08-26) 스폰 즉시 적용이 들어가면서 기준이 이걸로 바뀌었다. 그 전에는
+	-- 스폰 직후 최대 1.5초 동안 WalkSpeed(16) ≠ max가 정상이었고, 주기 검사가 한 바퀴
+	-- 돈 뒤에야 맞았다. 이제 그 창이 없으므로 **스폰 직후에 이미 같아야 한다.**
+	-- 어긋나면 SpeedService의 스폰 훅 또는 프로필 로드 훅 중 하나가 끊긴 것이다.
+	--
+	-- level까지 함께 찍는 이유: WalkSpeed만 찍으면 "세팅이 안 된 16"과 "세팅된 16"이
+	-- 구분되지 않는다. 레벨 0에서는 max도 16이라 셋이 전부 같아야 정상이다.
+	--
+	-- req=적용/폐기 last=마지막적용값 — 커스텀 스피드 요청 경로의 관측 지점이다 (4-2-c).
+	-- 상시 유지 대상이며, 이유는 WalkSpeed를 찍는 이유와 같다: 이 채널에는 UI가 없어서
+	-- (Phase 6) 배선이 통째로 끊겨도 캐릭터는 최대속도로 멀쩡히 걸어다닌다. 증상이 없다.
+	--
+	-- ⚠️ 첫 스폰에서는 항상 0/0 last=0.0이다. 그게 정상이고, 이 값이 쓸모를 갖는 순간은
+	--    **요청을 보낸 뒤 죽거나 리스폰했을 때**다. 그때도 0/0이면 요청이 서버에 한 번도
+	--    닿지 않은 것이고, applied가 늘었는데 last가 0이면 setCustomSpeed까지는 갔으나
+	--    값이 전부 거부된 것이다 — 두 고장이 이 한 줄에서 갈린다.
+	--    (집계는 세션 메모리이고 퇴장 시 지워진다. 재접속하면 다시 0/0이다)
 	local character = player.Character or player.CharacterAdded:Wait()
 
 	-- ⚠️ 한 프레임 양보한다. SpeedService도 같은 CharacterAdded에 걸려 있는데 두 핸들러의
@@ -112,12 +133,16 @@ Players.PlayerAdded:Connect(function(player: Player)
 		return
 	end
 
+	local speedStats = SpeedRequestService.getStats(player)
 	print(string.format(
-		"[Bootstrap][VERIFY] %s WalkSpeed=%.1f max=%.1f level=%d",
+		"[Bootstrap][VERIFY] %s WalkSpeed=%.1f max=%.1f level=%d req=%d/%d last=%.1f (스폰 직후)",
 		player.Name,
 		humanoid.WalkSpeed,
 		SpeedService.getMaxSpeed(player),
-		LevelConfig.getLevel(CurrencyService.get(player, "strength") or BigNum.new(0, 0))
+		LevelConfig.getLevel(CurrencyService.get(player, "strength") or BigNum.new(0, 0)),
+		speedStats.applied,
+		speedStats.dropped,
+		speedStats.last
 	))
 end)
 

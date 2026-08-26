@@ -8,13 +8,15 @@
 --   RunStateChanged 서버→클라. 저빈도. 런 상태가 전이될 때만 발화 (런당 두세 번)
 --   ClickInput      클라→서버. 클릭 배치 통지 (4-2-b)
 --   ClickRejected   서버→클라. 상한에 걸려 버려진 클릭이 있음 (4-2-b)
+--   SpeedRequest    클라→서버. 커스텀 스피드 요청 (4-2-c)
+--   SpeedApplied    서버→클라. 실제 적용된 속도 + 현재 최대치 (4-2-c)
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --
 -- ===== 클라 → 서버 방향은 성격이 다르다 (중요) =========================================
 --
--- ClickInput이 이 프로젝트 최초의 클라→서버 채널이다. 서버→클라 채널과 지켜야 할 것이
--- 다르므로, 이 방향의 채널을 추가할 때는 아래를 그대로 따를 것:
+-- ClickInput이 이 프로젝트 최초의 클라→서버 채널이고, SpeedRequest가 두 번째다.
+-- 서버→클라 채널과 지켜야 할 것이 다르므로, 이 방향의 채널을 추가할 때는 아래를 그대로 따를 것:
 --
 --   1. payload는 전부 검증 대상이다 (CLAUDE.md 3). 클라가 보낸 값은 "요청"이지
 --      "사실"이 아니다. 서버가 타입·범위·빈도를 모두 다시 잰다
@@ -61,6 +63,8 @@ Remotes.BLOCK_DAMAGED = "BlockDamaged"
 Remotes.RUN_STATE_CHANGED = "RunStateChanged"
 Remotes.CLICK_INPUT = "ClickInput"
 Remotes.CLICK_REJECTED = "ClickRejected"
+Remotes.SPEED_REQUEST = "SpeedRequest"
+Remotes.SPEED_APPLIED = "SpeedApplied"
 
 -- ===== payload 타입 ====================================================================
 --
@@ -149,11 +153,58 @@ export type ClickRejectedPayload = {
 	dropped: number,
 }
 
+-- SpeedRequest: 유저가 정한 이동속도 요청 (클라 → 서버).
+--
+-- 값의 성격은 **절대값**이다. 비율도 배수도 아니고 "이 속도로 다니고 싶다"는 studs/s다.
+-- 유저는 숫자를 직접 입력한다(프리셋 없음 — 레퍼런스 방식). 그래서 최대치를 모르는 채로
+-- 100을 넣는 일이 정상 경로에 포함된다.
+--
+-- ⚠️ 이 값은 "요청"이지 "적용된 속도"가 아니다. 규약 2번(결과값 금지)이 여기서 특히
+--    중요하다 — 클라가 "이 속도로 세팅됨"을 보내는 형태로 바꾸면 그 순간 클라가 자기
+--    속도를 스스로 정하게 된다. 실제 적용값은 서버가 min(요청, 최대치)로 정하고
+--    SpeedApplied로 되돌려준다.
+--
+-- ⚠️ 서버는 이 값의 타입·nan·inf·0 이하를 전부 다시 잰다(SpeedService.sanitizeRequest).
+--    클라가 자체 검증을 하더라도 그것이 서버 검증을 대체하지 않는다.
+--
+-- 왜 숫자 하나가 아니라 테이블인가: ClickInputPayload와 같은 이유다. 나중에 필드가 붙어도
+-- 발신·수신부의 인자 개수가 안 바뀐다.
+--
+-- ⚠️ 저장하지 않는다. 커스텀 스피드는 세션 메모리뿐이므로 이 채널이 생겨도
+--    schemaVersion을 올릴 일이 없다 (SpeedService.lua "저장하지 않는다" 절).
+export type SpeedRequestPayload = {
+	speed: number,
+}
+
+-- SpeedApplied: 실제로 적용된 속도와 그때의 최대치 (서버 → 클라).
+--
+-- 왜 필요한가: 유저가 100을 입력해도 최대치가 18이면 18이 적용된다. 이 통지가 없으면
+-- 클라 UI는 100을 표시한 채로 남고, 유저는 자기가 100으로 다니는 줄 안다.
+-- Phase 6 UI가 이 값을 받아 입력칸을 실제값으로 되돌린다.
+--
+-- ⚠️ 거부된 요청(숫자 아님 · nan · inf · 0 이하)에도 보낸다. 거부야말로 클라 표시가
+--    어긋나 있는 경우이므로, 그때 아무것도 안 보내면 잘못된 값이 화면에 남는다.
+--    그 경우 speed에는 **지금 실제로 적용 중인 값**이 실린다(요청값이 아니다).
+--
+-- maxSpeed를 함께 싣는 이유: 클라가 최대치를 스스로 계산하려면 힘과 LevelConfig가 필요한데
+-- 힘은 서버 프로필에 있다. 그리고 최대치는 레벨업으로 오르므로 요청 시점마다 다르다 —
+-- 클라가 캐시해 둔 값으로 안내 문구를 만들면 조용히 어긋난다.
+--
+-- 둘 다 항상 채운다 (선택 필드 금지 — nil인 키는 직렬화에서 통째로 사라진다).
+-- 둘 다 유한한 양수다: speed는 sanitizeRequest를 통과한 값이거나 현재 적용값이고,
+-- maxSpeed는 LevelConfig가 상한을 씌운 값이라 inf가 될 수 없다(직렬화 제약 3번).
+export type SpeedAppliedPayload = {
+	speed: number,
+	maxSpeed: number,
+}
+
 export type Channels = {
 	blockDamaged: RemoteEvent,
 	runStateChanged: RemoteEvent,
 	clickInput: RemoteEvent,
 	clickRejected: RemoteEvent,
+	speedRequest: RemoteEvent,
+	speedApplied: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -206,6 +257,8 @@ function Remotes.getServer(): Channels
 		runStateChanged = ensureEvent(folder, Remotes.RUN_STATE_CHANGED),
 		clickInput = ensureEvent(folder, Remotes.CLICK_INPUT),
 		clickRejected = ensureEvent(folder, Remotes.CLICK_REJECTED),
+		speedRequest = ensureEvent(folder, Remotes.SPEED_REQUEST),
+		speedApplied = ensureEvent(folder, Remotes.SPEED_APPLIED),
 	}
 	cached = channels
 	return channels
@@ -244,6 +297,8 @@ function Remotes.getClient(): Channels
 		runStateChanged = waitFor(folder, Remotes.RUN_STATE_CHANGED) :: RemoteEvent,
 		clickInput = waitFor(folder, Remotes.CLICK_INPUT) :: RemoteEvent,
 		clickRejected = waitFor(folder, Remotes.CLICK_REJECTED) :: RemoteEvent,
+		speedRequest = waitFor(folder, Remotes.SPEED_REQUEST) :: RemoteEvent,
+		speedApplied = waitFor(folder, Remotes.SPEED_APPLIED) :: RemoteEvent,
 	}
 	cached = channels
 	return channels

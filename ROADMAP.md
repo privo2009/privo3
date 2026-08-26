@@ -30,10 +30,16 @@
 | `Systems/ClickServiceTests.server.lua` | 38 | 입력 위생·초당 상한 윈도우·통지 억제·자동 경로 |
 | `Systems/PadServiceTests.server.lua` | 31 | 패드 배치·해금 경계·디바운스·세팅/클램프 |
 | `Systems/SpeedServiceTests.server.lua` | 21 | 요청값 클램프·입력 위생·환생 하향·최대치 상승 불변 |
-| **합계** | **424** | |
+| `Systems/SpeedRequestServiceTests.server.lua` | 32 | 요청 빈도 상한·폐기·로그 억제·응답 payload |
+| **합계** | **456** | |
 
-최근 갱신: **2026-08-26 Studio Play 런타임 실측.** 424 passed / 0 failed.
-표의 전 행을 실측 출력으로 갈아끼웠다 — 이제 정적 추정값은 하나도 남아 있지 않다.
+최근 갱신: **2026-08-26 Studio Play 런타임 실측.** 456 passed / 0 failed.
+4-2-c Prompt 3 완료분으로 `SpeedRequestServiceTests`(32) 행을 추가해 424 → 456.
+
+⚠️ 이 행도 정적 카운트가 어긋났다 — 소스의 `check(` 호출은 30이었고 실측은 32다.
+**세 번째다.** 정적 추정값을 표에 올리지 말고, 올렸으면 다음 Play에서 반드시 갈아끼울 것.
+
+직전 갱신: 2026-08-26 Play 실측으로 표의 전 행을 갈아끼움 (393 → 424).
 
 이번 실측으로 드러난 어긋남:
 
@@ -314,15 +320,22 @@ maxStage    환생 시 리셋. 드론 전용. 워프는 참조하지 않음
 **[확정됨]** 선택 패드 저장 방식, 펀치 속도 / 자동 클릭 주기
 → `DESIGN.md` "클릭 파워 패드"
 
-#### 4-2-c. 레벨 + 커스텀 스피드
+#### 4-2-c. 레벨 + 커스텀 스피드 ✅ 완료
 
 `WalkSpeed` 서버 권위 검증.
 
 **[확정됨]** 레벨 = 힘의 지수 (N=1). 최대속도는 상한 클램프.
 수치와 근거 → `DESIGN.md` "레벨"
 
-**진행 상태** — `LevelConfig` · `SpeedService` 완료.
-Remotes 배선 미착수 (Play 검증 대기).
+**진행 상태** — 완료 (2026-08-26 Play 검증). `LevelConfig` · `SpeedService` · Remotes 배선.
+
+커스텀 스피드 채널 2개(`SpeedRequest` / `SpeedApplied`)와 수신부
+`SpeedRequestService`, 클라 송신부 `SpeedInput`까지 붙었다.
+값은 **절대값**이고 **세션 메모리뿐**이다 — 프로필에 저장하지 않으므로
+schemaVersion을 올릴 일이 없다 (→ `DESIGN.md` "커스텀 스피드").
+
+⚠️ UI는 없다. Phase 6에서 `SpeedInput.request()`를 부르는 입력칸이 붙는다.
+그때까지 요청 경로의 관측 지점은 Bootstrap VERIFY print의 `req=` 필드다.
 
 #### 4-2-d. RebirthService
 
