@@ -20,8 +20,9 @@
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
-| `Tests/ConfigTests.server.lua` | 57 | 모든 Config의 validate + 스모크 |
+| `Tests/ConfigTests.server.lua` | 58 | 모든 Config의 validate + 스모크 |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
+| `Tests/WarpConfigTests.server.lua` | 31 | 워프 비용 곡선(지수·단조)·순수성·거부 사유 3종 |
 | `Data/SchemaTests.server.lua` | 33 | 프로필 스키마 검증 |
 | `Data/MigrationsTests.server.lua` | 20 | schemaVersion 마이그레이션·멱등성 |
 | `Systems/CurrencyServiceTests.server.lua` | 51 | 재화 단일 게이트·롤백·rebirths |
@@ -32,18 +33,25 @@
 | `Systems/SpeedServiceTests.server.lua` | 21 | 요청값 클램프·입력 위생·환생 하향·최대치 상승 불변 |
 | `Systems/SpeedRequestServiceTests.server.lua` | 32 | 요청 빈도 상한·폐기·로그 억제·응답 payload |
 | `Systems/RebirthServiceTests.server.lua` | 66 | 거부 시 부작용 0·순서·누적·부분 실패 ※ |
-| **합계** | **562** | |
+| **합계** | **594** | |
 
 ※ `RebirthServiceTests`는 **7개 check를 묶은 헬퍼(`checkUntouched`)를 3번 호출**한다.
 정적 세기에는 그 7개가 한 번만 잡히고 런타임에는 21번 돈다 — 정적 53, 실측 66이
 어긋나는 것이 **정상**이다. 파라미터화 루프와 같은 구조이므로 이 행은 실측만 믿을 것.
 
-최근 갱신: **2026-08-27 Studio Play 런타임 실측.** 562 passed / 0 failed (14개 행).
-4-2-d로 `RebirthServiceTests`(66) 행 추가, `CurrencyServiceTests` 38 → 51.
+최근 갱신: **2026-08-28 Studio Play 런타임 실측.** 594 passed / 0 failed (15개 행).
+4-2-e Prompt 1로 `WarpConfigTests`(31) 행 추가, `ConfigTests` 57 → 58.
 
-⚠️ 합계 562는 14개 행을 더한 값이다. **총합을 찍는 스크립트는 없다** —
+⚠️ `ConfigTests`가 1 오른 것은 새 케이스를 쓴 게 아니라 `WarpConfig.validate` 한 줄이
+그 파일에 들어갔기 때문이다. Config가 늘 때마다 이 행이 같이 오르는 것이 정상이다 —
+새 Config를 만들고 이 행이 그대로면 `validate()`가 아무데서도 안 도는 것이다.
+
+⚠️ 합계 594는 15개 행을 더한 값이다. **총합을 찍는 스크립트는 없다** —
 각 테스트 파일이 자기 줄만 찍는다. 한 행이 통째로 빠져도 로그에는 아무 흔적이 없으므로,
-갱신할 때는 반드시 행 수(14)와 합계를 함께 대조할 것.
+갱신할 때는 반드시 행 수(15)와 합계를 함께 대조할 것.
+
+직전 갱신: 2026-08-27 실측 562 (14개 행).
+4-2-d로 `RebirthServiceTests`(66) 행 추가, `CurrencyServiceTests` 38 → 51.
 
 직전 갱신: 2026-08-26 실측 483 (13개 행). 4-2-d Prompt 1로 `ConfigTests` 30 → 57.
 
@@ -391,6 +399,27 @@ Prompt 1(순수 계층) · Prompt 2(RebirthService 본체) · Prompt 3(Bootstrap
 
 ⚠️ 남은 것은 지수의 밑과 기준값이다. 이건 4-2-f 실측 튜닝 대상이라
 지금 정하지 않는다 — 근거 없는 수치가 코드에 박힌다.
+
+**진행 상태** — Prompt 1(순수 계층) ✅ 완료 (2026-08-28 Play 검증, `8f243e2`).
+`Shared/Config/WarpConfig.lua` + `Tests/WarpConfigTests.server.lua`.
+Prompt 2(WarpService) · Prompt 3(배선)는 **미착수.**
+
+`cost(목표층)`은 수식이고 `canWarp(보유블럭스, 목표층)`이 정책이다. 범위 밖 층은
+`cost`에서 값이 나오고 `canWarp`이 거부한다 — 상한은 숫자가 아니라
+`StageConfig.hasStage`를 통해 `WorldConfig`에서 파생되므로 월드 2가 추가되면
+코드 수정 없이 상한이 따라 올라간다.
+
+거부 사유 3종(`invalid_stage` · `stage_out_of_range` · `insufficient_blox`)은
+`WarpConfig`에 정의한다. 4-2-d와 달리 Config가 사유를 갖는 이유: 워프는 셋 중 둘이
+블럭스와 무관하게 stage만 보고 판정되므로, 판정 주체와 사유 이름이 갈라지면
+사유를 하나 늘릴 때 두 파일을 고쳐야 한다. Prompt 2의 `WarpService`는 재공개만 한다.
+
+⚠️ **Prompt 2 착수 시 필수.** `WarpService`는 검증되지 않은 입력에 `cost`를 직접
+부르지 않는다. 반드시 `canWarp`을 먼저 통과시키고 그 반환값으로 받은 비용을 쓴다.
+목표층은 Phase 6 UI에서 오고 클라가 보낸 값은 전부 검증 대상이다
+(CLAUDE.md 절대 규칙 3). `cost`는 nil·소수·0·음수에 `error`를 던지지만
+`canWarp`은 같은 입력을 `invalid_stage`로 접는다 —
+사유 코드로 접혀야 할 것이 서버 에러가 되면 안 된다.
 
 #### 4-2-f. 실측 튜닝
 
