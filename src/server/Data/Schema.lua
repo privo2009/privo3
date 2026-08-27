@@ -64,7 +64,7 @@ local function buildTemplate()
 		rebirths = newBigNum(0, 0), -- = 힘 배수
 
 		progress = {
-			maxStage = 1, -- 환생 시 초기화. 워프 + 드론 기준
+			maxStage = 1, -- 환생 시 초기화. 드론 전용. 워프는 참조하지 않는다
 			currentWorld = 1,
 			unlockedWorlds = 1,
 			-- 밟아서 선택한 클릭 파워 패드. **인덱스**를 저장한다 — 파워값을 저장하면

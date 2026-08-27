@@ -5,6 +5,13 @@
 -- 대상 재화:
 --   strength    — 힘. 환생(rebirth) 시 CurrencyService.set으로 초기화됨
 --   blox        — 블럭스. add로 증가할 때마다 lifetimeBlox(환생 진척도)도 동일량 증가
+--   rebirths    — 환생 배수. add로만 늘고 줄지 않는다 (4-2-d)
+--
+-- ⚠️ lifetimeBlox는 여기 없다. 그건 blox add에 딸려 오르는 파생 필드이지 직접 증감 대상이
+--    아니다. 목록에 넣으면 blox를 거치지 않고 진척도만 올리는 경로가 생긴다.
+--    rebirths는 반대다 — DESIGN "3. 화폐와 배수 > 환생"이 못박은 대로 **역산 불가능한
+--    독립 필드**이므로(누적 블럭스 파생값으로 두면 환생 버튼을 누를 이유가 사라진다)
+--    직접 증감 대상이 맞다.
 --
 -- 순수 계산 로직(applyAdd/applySubtract/applySet/applyUpdatesWithRollback)은 profile이나
 -- Player 없이 {[string]: BigNumber} 형태의 data 테이블만으로 동작하도록 분리했다.
@@ -25,6 +32,7 @@ local CurrencyService = {}
 local CURRENCIES: { [string]: boolean } = {
 	strength = true,
 	blox = true,
+	rebirths = true,
 }
 CurrencyService.CURRENCIES = CURRENCIES
 
@@ -64,6 +72,9 @@ local function applyAdd(currency: string, data: { [string]: any }, amount: any):
 
 	local updates: { [string]: BigNumber } = { [currency] = BigNum.add(current, amount) }
 
+	-- ⚠️ lifetimeBlox 연동은 blox 전용이다. strength·rebirths는 이 분기를 타지 않는다 —
+	-- 환생은 lifetimeBlox를 유지해야 하고(패드 해금 기준), rebirths add가 진척도를
+	-- 올리면 환생할수록 패드가 저절로 열린다.
 	if currency == "blox" then
 		local currentLifetime = data.lifetimeBlox
 		if not Schema.isBigNum(currentLifetime) then

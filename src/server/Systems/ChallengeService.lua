@@ -26,6 +26,7 @@ local RunService = game:GetService("RunService")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
+local Schema = require(script.Parent.Parent.Data.Schema)
 local CurrencyService = require(script.Parent.CurrencyService)
 local BlockService = require(script.Parent.BlockService)
 local GameTypes = require(ReplicatedStorage.Shared.GameTypes)
@@ -286,6 +287,9 @@ function ChallengeService.applyDamage(player: Player, originPosition: Vector3, d
 		run.cleared = true
 		run.frozenTimeLeft = computeTimeLeft(run.startedAt, os.clock(), StageConfig.CHALLENGE_TIMER_SEC)
 
+		-- ⚠️ progress.maxStage를 대입하는 두 지점 중 하나다. 나머지 하나는 이 파일 아래쪽의
+		-- resetMaxStage()이고, 그쪽이 환생용 되돌리기다. 한쪽만 고치면 "올라가긴 하는데
+		-- 안 내려간다"(또는 그 반대)가 되므로 둘을 함께 볼 것.
 		local profile = ProfileManager.get(player)
 		if profile ~= nil then
 			profile.Data.progress.maxStage = computeNewMaxStage(profile.Data.progress.maxStage, run.stage)
@@ -385,6 +389,52 @@ function ChallengeService.abandonRun(player: Player): boolean
 	end
 	runs[player] = nil
 	notifyRunState(player, run, false, "abandon")
+	return true
+end
+
+-- ===== 진행도 되돌리기 창구 ===========================================================
+--
+-- ⚠️ 이 절의 함수들은 **환생을 모른다.** 이름에 rebirth를 넣지 말 것 — 이 서비스는
+-- "챌린지 진행도를 시작 지점으로 되돌린다"까지만 알고, 왜 되돌리는지는 호출자 몫이다.
+-- 여기 있는 이유는 소유 때문이다: progress.* 를 쓰는 코드가 이 파일뿐이라, 밖에서
+-- 직접 대입하면 대입 지점이 흩어져서 "어디서 바뀌었나"를 추적할 수 없게 된다.
+--
+-- ⚠️ 둘 다 yield하지 않는다. 호출자(환생)가 재화를 읽고 차감하는 사이에 이 함수들을
+-- 부르는데, 여기서 한 번이라도 yield하면 그 사이 cashout이 끼어들어 차감액이 어긋난다.
+-- 프로필 저장·task.wait을 여기에 넣지 말 것.
+--
+-- 초기값은 Schema.new()에서 가져온다. 1을 적어두면 템플릿을 바꿨을 때 여기만 옛 값으로
+-- 남는다 — 되돌리기가 "시작 상태로"가 아니라 "1로"가 되는 순간 의미가 갈린다.
+-- ⚠️ getTemplate()이 아니라 new()를 쓴다. getTemplate()은 단일 원본을 그대로 주므로
+--    거기서 꺼낸 값을 프로필에 넣으면 템플릿과 참조를 공유하게 된다.
+
+-- maxStage를 시작 상태로 되돌린다. 프로필이 없으면 false.
+function ChallengeService.resetMaxStage(player: Player): boolean
+	local profile = ProfileManager.get(player)
+	if profile == nil then
+		return false
+	end
+
+	profile.Data.progress.maxStage = Schema.new().progress.maxStage
+	return true
+end
+
+-- currentWorld를 시작 상태로 되돌린다. 프로필이 없으면 false.
+--
+-- ⚠️ unlockedWorlds는 건드리지 않는다. 그건 영구 진행이다 — 되돌리면 이미 연 월드를
+-- 다시 열어야 하고, Schema.validate의 "unlockedWorlds >= currentWorld"도 깨진다.
+--
+-- ⚠️ 지금은 실질적으로 no-op이다. currentWorld를 쓰는 코드가 아직 없어서 값이 항상 1이다.
+-- 그래도 두는 이유: 스테이지가 1로 돌아가는데 currentWorld만 남으면 시작 힘으로 상위 월드
+-- 스펙을 상대하게 된다. 월드 2가 생기는 순간 실재하는 사고이고, 그때 이 호출이 빠져 있으면
+-- 증상이 "환생하면 게임이 안 된다"로 나타나 원인을 찾기 어렵다.
+function ChallengeService.resetCurrentWorld(player: Player): boolean
+	local profile = ProfileManager.get(player)
+	if profile == nil then
+		return false
+	end
+
+	profile.Data.progress.currentWorld = Schema.new().progress.currentWorld
 	return true
 end
 

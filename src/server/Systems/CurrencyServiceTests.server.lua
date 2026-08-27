@@ -29,14 +29,93 @@ local function freshData()
 		strength = BigNum.new(1, 0), -- 1
 		blox = BigNum.new(5, 1), -- 50
 		lifetimeBlox = BigNum.new(5, 1), -- 50
+		rebirths = BigNum.new(3, 0), -- 3. 0이 아닌 값으로 둬야 "가산인가 덮어쓰기인가"가 갈린다
 	}
 end
+
+-- reason assert는 공개 API에만 있어서 _pure로는 못 잰다. 프로필 없이도 assert까지는
+-- 도달하므로(ProfileManager.get보다 먼저 걸린다) 가짜 Player 테이블로 확인한다.
+local fakePlayer = { Name = "TestPlayer", UserId = 1 }
 
 -- 1. CURRENCIES 목록 ------------------------------------------------------------------
 
 check("CURRENCIES.strength == true", CurrencyService.CURRENCIES.strength == true)
 check("CURRENCIES.blox == true", CurrencyService.CURRENCIES.blox == true)
 check("CURRENCIES.lifetimeBlox는 없음 (직접 증감 대상 아님)", CurrencyService.CURRENCIES.lifetimeBlox == nil)
+check("CURRENCIES.rebirths == true (4-2-d)", CurrencyService.CURRENCIES.rebirths == true)
+
+-- ===== rebirths (4-2-d) ==============================================================
+--
+-- ⚠️ 여기서 지키려는 것은 "rebirths가 lifetimeBlox를 건드리지 않는다"이다.
+-- 건드리면 환생할수록 진척도가 저절로 올라 클릭 파워 패드가 공짜로 열린다
+-- (lifetimeBlox는 패드 해금 기준이다 — ClickPadConfig).
+
+do
+	local data = freshData()
+	local before = data.lifetimeBlox
+	local ok, updates = pure.applyAdd("rebirths", data, BigNum.new(2, 0)) -- +2
+
+	check("rebirths add: ok == true", ok == true)
+	check(
+		"rebirths add: 3 + 2 == 5 (덮어쓰기가 아니라 가산)",
+		ok and updates ~= nil and BigNum.eq(updates.rebirths, BigNum.new(5, 0)),
+		ok and updates and BigNum.tostring(updates.rebirths) or "no updates"
+	)
+	check(
+		"rebirths add: updates에 lifetimeBlox 키가 아예 없다",
+		ok and updates ~= nil and updates.lifetimeBlox == nil
+	)
+	check("rebirths add: data.lifetimeBlox 원본도 그대로", BigNum.eq(data.lifetimeBlox, before))
+end
+
+do
+	-- blox add는 반대로 lifetimeBlox가 따라 올라야 한다. 위 케이스와 짝이다 —
+	-- 한쪽만 있으면 "연동을 통째로 지웠다"가 통과해 버린다.
+	local data = freshData()
+	local ok, updates = pure.applyAdd("blox", data, BigNum.new(1, 1)) -- +10
+	check(
+		"대조: blox add는 lifetimeBlox가 따라 오른다",
+		ok and updates ~= nil and updates.lifetimeBlox ~= nil and BigNum.eq(updates.lifetimeBlox, BigNum.new(6, 1))
+	)
+end
+
+do
+	-- 환생은 rebirths를 줄이지 않지만, 목록에 올린 이상 subtract/set도 같은 규약이어야 한다.
+	local data = freshData()
+	local ok, updates = pure.applySubtract("rebirths", data, BigNum.new(1, 0))
+	check("rebirths subtract도 lifetimeBlox를 건드리지 않는다", ok and updates ~= nil and updates.lifetimeBlox == nil)
+
+	local setOk, setUpdates = pure.applySet("rebirths", data, BigNum.new(9, 0))
+	check("rebirths set도 lifetimeBlox를 건드리지 않는다", setOk and setUpdates ~= nil and setUpdates.lifetimeBlox == nil)
+end
+
+do
+	-- reason assert. 빈 문자열이 통과하면 로그에 "rebirth_"로 끝나는 반쪽 reason이 남는다.
+	local emptyOk = pcall(function()
+		CurrencyService.add(fakePlayer :: any, "rebirths", BigNum.new(1, 0), "")
+	end)
+	check("rebirths add: 빈 reason은 assert로 막힌다", emptyOk == false)
+
+	local nilOk = pcall(function()
+		CurrencyService.add(fakePlayer :: any, "rebirths", BigNum.new(1, 0), nil :: any)
+	end)
+	check("rebirths add: nil reason은 assert로 막힌다", nilOk == false)
+
+	-- reason이 정상이면 assert를 지나 "프로필 없음" 경로로 간다 (에러가 아니라 false 반환).
+	local callOk, result = pcall(function()
+		return (CurrencyService.add(fakePlayer :: any, "rebirths", BigNum.new(1, 0), "rebirth_test"))
+	end)
+	check("rebirths add: 정상 reason은 assert를 통과한다", callOk == true)
+	check("rebirths add: 프로필이 없으면 에러가 아니라 false", callOk and result == false)
+end
+
+do
+	-- 목록에 없는 이름은 여전히 막혀야 한다. rebirths를 넣으면서 문이 열린 게 아닌지 확인한다.
+	local ok = pcall(function()
+		CurrencyService.get(fakePlayer :: any, "lifetimeBlox")
+	end)
+	check("lifetimeBlox는 여전히 CurrencyService로 접근 불가", ok == false)
+end
 
 -- 2. applyAdd: 정상 증가 ---------------------------------------------------------------
 

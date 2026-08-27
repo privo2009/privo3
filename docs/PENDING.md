@@ -72,6 +72,14 @@ docs/UI_HANDOFF.md      "문서 갱신" 줄 자체가 없다  ← 더 나쁘다
 - 4-2-e · 4-2-f의 `[착수 전 확정]` 2개 (ROADMAP 각 절 참조).
   4-2-d 항목은 ROADMAP에 적힌 적이 없었다 — 2026-08-26에 두 건(거부 규약 ·
   배수 적용 대상)을 확정해 ROADMAP 4-2-d 절에 적었다.
+- **4-2-d Prompt 2 Play 미검증** — RC 환경이라 Play를 돌리지 못한 채 커밋했다 (`__HASH__`).
+  다음 Studio Play에서 반드시 확인할 것:
+    · 각 테스트 파일의 `[XxxTests] N passed` 줄 전부, 행 수 14
+    · ROADMAP 테스트 표를 실측으로 갈아끼우기
+      (`RebirthServiceTests` 신규 행 / `CurrencyServiceTests` 38 → 실측)
+  ⚠️ 이것이 해소되기 전에 Prompt 3(Bootstrap 배선)로 넘어가지 말 것.
+     두 번째 미검증 레이어가 된다.
+
 - **4-2-d 착수 시 필수 — 두 가지.**
 
   ⚠️ `RebirthService`는 환생 처리 마지막에 `SpeedService.onRebirth(player)`를
