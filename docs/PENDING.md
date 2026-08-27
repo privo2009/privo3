@@ -72,13 +72,29 @@ docs/UI_HANDOFF.md      "문서 갱신" 줄 자체가 없다  ← 더 나쁘다
 - 4-2-e · 4-2-f의 `[착수 전 확정]` 2개 (ROADMAP 각 절 참조).
   4-2-d 항목은 ROADMAP에 적힌 적이 없었다 — 2026-08-26에 두 건(거부 규약 ·
   배수 적용 대상)을 확정해 ROADMAP 4-2-d 절에 적었다.
-- **4-2-d Prompt 2 Play 미검증** — RC 환경이라 Play를 돌리지 못한 채 커밋했다 (`80154ed`).
-  다음 Studio Play에서 반드시 확인할 것:
+- **4-2-d Prompt 2·3 Play 미검증** — RC 환경이라 Play를 돌리지 못한 채 커밋했다.
+  **미검증 레이어가 2개다** (`80154ed` 본체 / `__HASH__` 배선).
+
+  다음 Studio Play에서 확인할 것:
     · 각 테스트 파일의 `[XxxTests] N passed` 줄 전부, 행 수 14
     · ROADMAP 테스트 표를 실측으로 갈아끼우기
       (`RebirthServiceTests` 신규 행 / `CurrencyServiceTests` 38 → 실측)
-  ⚠️ 이것이 해소되기 전에 Prompt 3(Bootstrap 배선)로 넘어가지 말 것.
-     두 번째 미검증 레이어가 된다.
+    · `[RebirthService] 환생 준비 완료` 줄이 뜨는가 (배선이 살아 있다는 증거)
+
+  **⚠️ Play 실패 시 절차 — 이 순서를 지킬 것:**
+    1) `Bootstrap.server.lua`의 `REBIRTH_WIRING_ENABLED = false` → 다시 Play
+    2) 여전히 실패 → **Prompt 2 레이어**(RebirthService 본체)가 원인
+       통과 → **Prompt 3 배선**이 원인
+    3) 원인이 갈린 뒤에 고친다. **갈리기 전에 코드를 고치지 말 것** —
+       두 레이어를 동시에 만지면 무엇이 고친 것인지 알 수 없게 된다
+
+  환생이 실물에서 도는지는 `REBIRTH_VERIFY_ENABLED = true`로 따로 켠다.
+  ⚠️ 그 블록은 실제 프로필에 blox·strength를 지급한다(CurrencyService 경유).
+     blox 지급은 lifetimeBlox를 함께 올리므로 **그 계정의 클릭 파워 패드가 열린다.**
+     되돌릴 수 없다. 켜기 전에 알고 켤 것.
+
+  ⚠️ 이것이 해소되기 전에 **4-2-e(워프)로 넘어가지 말 것.**
+     레이어가 3개가 되면 플래그 하나로 원인을 가를 수 없다.
 
 - **4-2-d 착수 시 필수 — 두 가지.**
 
@@ -132,6 +148,8 @@ Play 검증 전에 Rojo 플러그인 창에서 Connect / Disconnect 상태를 �
 | `SliceCheck.client.lua` | G1 통과 후 |
 | `ChunkBreakerDemo` | 수신부 검증 완료 — 지금 가능 |
 | `SpeedInputBoot`의 `VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
+| `Bootstrap`의 `REBIRTH_WIRING_ENABLED` | 4-2-d 양쪽 Play 검증 완료 후 |
+| `Bootstrap`의 `REBIRTH_VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
 
 ⚠️ `VERIFY_ENABLED`는 **지금 지우지 말 것.** 2026-08-26 Play에서 왕복을 확인해
 목적은 다했고 `false`로 꺼 뒀지만, UI가 없는 동안 이 채널이 살아 있는지 확인할

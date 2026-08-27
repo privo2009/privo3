@@ -65,6 +65,37 @@ SpeedService.init()
 local SpeedRequestService = require(script.Parent.Systems.SpeedRequestService)
 SpeedRequestService.init()
 
+-- ── 개발용 플래그: REBIRTH_WIRING_ENABLED ────────────────────────────────────────
+-- 위치: 이 파일, 바로 이 줄. Studio에서 켜고 끄는 값이 아니다 — 코드에서 고치고
+-- Rojo sync 해야 반영된다 (ChunkBreakerDemo의 DEMO_ENABLED와 같은 패턴).
+--
+-- 4-2-d Prompt 2(RebirthService 본체)와 Prompt 3(이 배선)이 둘 다
+-- Play 미검증 상태로 커밋됐다. Play가 실패하면 이 플래그를 false로
+-- 바꿔 다시 돌린다 — 그래도 실패하면 원인은 2번 레이어, 통과하면 3번이다.
+-- 코드를 읽으며 추측하는 대신 한 줄로 원인을 가르기 위한 것이다.
+-- 양쪽 Play 검증이 끝나면 이 플래그는 제거 대상이다 (docs/PENDING.md 잔재).
+--
+-- ⚠️ 이 플래그는 **런타임 배선만** 가른다. RebirthServiceTests는 별도 Script라
+--    Bootstrap을 거치지 않고 RebirthService를 직접 require한다 — 그래서 플래그를
+--    꺼도 테스트는 그대로 돈다. 여기가 어긋나면(플래그가 테스트까지 끄면)
+--    끄고 다시 돌려도 원인이 안 갈려서 이 플래그의 목적 자체가 사라진다.
+local REBIRTH_WIRING_ENABLED = true
+
+if REBIRTH_WIRING_ENABLED then
+	-- 환생을 연다 (4-2-d).
+	-- ⚠️ 순서: CurrencyService · ChallengeService · SpeedService가 전부 준비된 뒤여야 한다.
+	-- 환생은 그 셋을 한 흐름 안에서 순서대로 부르는 오케스트레이터이고, 스스로 계산하는
+	-- 것이 거의 없다. 특히 SpeedService.init() 뒤가 아니면 환생 마지막의 속도 재적용이
+	-- CharacterAdded 배선 없는 상태로 나가서, 힘은 내려갔는데 WalkSpeed는 옛 값으로
+	-- 남는다 — UI가 없으므로 그 어긋남은 화면에 아무 흔적을 남기지 않는다.
+	-- (ClickService.init()이 PadService.init() 뒤여야 했던 것과 같은 종류의 의존이다)
+	--
+	-- SpeedRequestService와의 선후는 상관없다. 환생은 그 파일을 거치지 않는다 —
+	-- 빈도 상한은 클라 입력 경로 전용이고 서버 재적용이 걸리면 안 되기 때문이다.
+	local RebirthService = require(script.Parent.Systems.RebirthService)
+	RebirthService.init()
+end
+
 -- 프로필 읽기 print. 검증용 임시 코드가 아니라 상시 유지 대상이다.
 --
 -- ⚠️ lifetimeBlox를 지우지 말 것. 이 값은 클릭 파워 패드 해금(ClickPadConfig)과
@@ -145,6 +176,130 @@ Players.PlayerAdded:Connect(function(player: Player)
 		speedStats.last
 	))
 end)
+
+-- ⚠️ 임시 검증 코드 (4-2-d). 환생이 **실물에서** 도는지 확인하는 유일한 지점이다.
+-- 기본값은 false다 — 필요할 때만 켠다.
+--
+-- 왜 필요한가: RebirthServiceTests는 deps 이음매로 onRebirth의 **호출 순서**만 잰다.
+-- 실제 Humanoid.WalkSpeed가 내려가는지는 그 방식으로 볼 수 없다. 그게 이 블록이
+-- 존재하는 이유이고, 아래 출력에서 WalkSpeed를 절대 빼지 말 것 —
+-- docs/PENDING.md가 경고한 "레벨 40에서 환생하면 최대치가 56 → 16으로 떨어지는데
+-- 56으로 계속 다닌다"가 정확히 이 사각이다. 숫자가 안 내려가면 배선이 끊긴 것이고,
+-- UI가 없으므로 다른 증상은 전혀 나타나지 않는다.
+--
+-- ⚠️ 이 블록은 **실제 프로필을 바꾼다.** 환생시키려면 블럭스가 필요하고, 힘이 내려가는
+--    것을 보려면 레벨이 0보다 커야 해서 둘 다 지급한다. 지급은 전부 CurrencyService를
+--    통과한다 — profile.blox 직접 대입은 금지다(그 우회 한 줄이 lifetimeBlox 오진을
+--    낳았고, 이번엔 rebirths까지 얽혀 있어 오진 범위가 더 넓다).
+--    ⚠️ blox add는 lifetimeBlox를 함께 올린다(설계대로). 그래서 이 블록을 켜면 그 계정의
+--    클릭 파워 패드가 열린다. 되돌릴 수 없으니 켜기 전에 알고 켤 것.
+--
+-- ⚠️ source는 "bootstrap_verify"다. 실제 수령·환생과 로그에서 구분돼야 한다
+--    (08-23 세션에 cashout에 같은 처리를 한 선례가 있다).
+--
+-- Phase 6 UI가 붙으면 이 블록 전체 삭제 (docs/PENDING.md 잔재).
+local REBIRTH_VERIFY_ENABLED = false
+
+if REBIRTH_WIRING_ENABLED and REBIRTH_VERIFY_ENABLED then
+	local RebirthService = require(script.Parent.Systems.RebirthService)
+	local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
+
+	-- 지급량. 환생이 거부되지 않을 만큼의 블럭스와, 레벨이 0보다 커져 속도 하락이
+	-- 눈에 보일 만큼의 힘.
+	-- ⚠️ 힘 1e20 → 레벨 20 → 최대속도 36. 환생 후 힘 1 → 레벨 0 → 16이 되어야 한다.
+	--    두 값이 같게 나오면(둘 다 16) 그건 지급이 안 됐거나 재적용이 끊긴 것이다.
+	local VERIFY_BLOX = BigNum.fromNumber(RebirthConfig.BLOX_PER_REBIRTH * 3)
+	local VERIFY_STRENGTH = BigNum.new(1, 20)
+
+	local function fmt(bn): string
+		if bn == nil then
+			return "nil"
+		end
+		return BigNum.tostring(bn)
+	end
+
+	Players.PlayerAdded:Connect(function(player: Player)
+		local profile = ProfileManager.waitFor(player, 10)
+		if profile == nil then
+			warn(string.format("[Bootstrap][REBIRTH_VERIFY] %s: 프로필 로드 타임아웃 - 검증 중단", player.Name))
+			return
+		end
+
+		local character = player.Character or player.CharacterAdded:Wait()
+		local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
+		if humanoid == nil then
+			warn(string.format("[Bootstrap][REBIRTH_VERIFY] %s: Humanoid 없음 - WalkSpeed 확인 불가", player.Name))
+			return
+		end
+		local hum: Humanoid = humanoid
+
+		-- ⚠️ task.delay로 띄운다. 같은 PlayerAdded에 걸린 아래 VERIFY_CHALLENGE 블록이
+		-- 런을 세우고 cashout까지 끝낼 시간을 준다 — 두 블록이 섞이면 로그를 읽을 수
+		-- 없고, 환생이 그 런을 중간에 걷어가서 무엇을 본 것인지도 흐려진다.
+		-- 여기서 기다리는 것은 이 코루틴뿐이고, 기다림은 rebirth() **호출 전**에
+		-- 끝난다 — 그 함수 안의 무-yield 계약과는 무관하다.
+		task.delay(3, function()
+			if player.Parent == nil or hum.Parent == nil then
+				return
+			end
+
+			local function snapshot(label: string)
+				local strength = CurrencyService.get(player, "strength")
+				print(string.format(
+					"[Bootstrap][REBIRTH_VERIFY] %s %s - blox=%s strength=%s rebirths=%s level=%d max=%.1f WalkSpeed=%.1f",
+					player.Name,
+					label,
+					fmt(CurrencyService.get(player, "blox")),
+					fmt(strength),
+					fmt(CurrencyService.get(player, "rebirths")),
+					LevelConfig.getLevel(strength or BigNum.new(0, 0)),
+					SpeedService.getMaxSpeed(player),
+					hum.WalkSpeed
+				))
+			end
+
+			-- 환생 조건을 만들어 준다. 이미 충분하면 건너뛴다.
+			if not CurrencyService.canAfford(player, "blox", VERIFY_BLOX) then
+				CurrencyService.add(player, "blox", VERIFY_BLOX, "bootstrap_verify_grant")
+			end
+			CurrencyService.add(player, "strength", VERIFY_STRENGTH, "bootstrap_verify_grant")
+
+			-- 지급이 WalkSpeed에 반영될 시간을 준다. SpeedService의 주기 검사가 한 바퀴
+			-- 돌아야 힘 상승이 속도에 얹힌다(클릭당 세팅을 피한 설계 — SpeedService 상단).
+			-- 이걸 건너뛰면 "환생 전 WalkSpeed"가 지급 전 값으로 찍혀서 하락 폭이 가짜가 된다.
+			task.wait(2)
+
+			snapshot("환생 전")
+
+			local ok, result = RebirthService.rebirth(player, "bootstrap_verify")
+
+			if ok then
+				print(string.format(
+					"[Bootstrap][REBIRTH_VERIFY] %s rebirth 성공 - gained=%s total=%s",
+					player.Name,
+					fmt(result.gained),
+					fmt(result.total)
+				))
+			else
+				warn(string.format(
+					"[Bootstrap][REBIRTH_VERIFY] %s rebirth 거부 - 사유=%s",
+					player.Name,
+					tostring(result)
+				))
+			end
+
+			snapshot("환생 후")
+
+			-- 판정 기준을 로그에 함께 남긴다. 숫자만 보고 나중에 해석하지 않기 위함이다.
+			print(string.format(
+				"[Bootstrap][REBIRTH_VERIFY] %s 판정: WalkSpeed가 환생 전보다 내려갔어야 한다. 같으면 SpeedService.onRebirth 배선이 끊긴 것 (max=%.1f WalkSpeed=%.1f)",
+				player.Name,
+				SpeedService.getMaxSpeed(player),
+				hum.WalkSpeed
+			))
+		end)
+	end)
+end
 
 -- ⚠️ 임시 검증 코드. ChallengeService가 BlockService/CurrencyService를 올바른 순서·값으로
 -- 배선했는지 — 특히 cashout()이 CurrencyService.add까지 실제로 도달해서 blox를 지급하는지 —

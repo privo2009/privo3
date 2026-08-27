@@ -359,7 +359,16 @@ schemaVersion을 올릴 일이 없다 (→ `DESIGN.md` "커스텀 스피드").
 곱셈은 힘 지급 게이트 한 곳에서만 하고 결합은 `StrengthMultiplier.compute`가 맡는다.
 근거 → `DESIGN.md` "3. 화폐와 배수"
 
-**진행 상태** — Prompt 1(순수 계층) 완료. Prompt 2(RebirthService 본체) 대기.
+**진행 상태** — Prompt 1(순수 계층) · Prompt 2(RebirthService 본체) ·
+Prompt 3(Bootstrap 배선) 완료. **⚠️ Prompt 2·3은 Play 미검증이다** (RC 환경).
+
+진입점(3D 파트 · Remote)은 아직 없다. 환생을 부르는 경로는 Bootstrap의
+`REBIRTH_VERIFY_ENABLED` 블록 하나뿐이고, 진입점은 Phase 6 UI 또는 별도 파트
+작업에서 붙인다 — 지금 만들면 디자인 담당 에셋 명세가 없어 임시 파트가 굳는다.
+
+⚠️ **4-2-e(워프)로 넘어가기 전에 Play 검증을 끝낼 것.** 미검증 레이어가 2개인
+상태이고, 3개가 겹치면 플래그 하나로 원인을 가를 수 없다.
+절차 → `docs/PENDING.md` "미결".
 
 #### 4-2-e. WarpService
 

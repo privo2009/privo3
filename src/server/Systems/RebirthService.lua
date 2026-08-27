@@ -263,6 +263,32 @@ function RebirthService.rebirth(player: Player, source: string?): (boolean, any)
 	return runRebirth(REAL, player, source)
 end
 
+local initialized = false
+
+-- 환생을 연다.
+--
+-- ⚠️ 순서: CurrencyService · ChallengeService · SpeedService가 전부 준비된 뒤에 부른다
+-- (Bootstrap의 호출 지점 주석 참고). 그 셋을 검사하지는 않는다 — 서로 init 상태를
+-- 물어보는 API가 없고, 만들면 서비스끼리 준비 여부를 캐묻는 결합이 새로 생긴다.
+--
+-- ⚠️ 지금은 진입점이 없다. 환생을 실제로 부르는 경로는 Bootstrap의 VERIFY 블록 하나뿐이고,
+-- 3D 파트나 Remote는 이번 단계에서 만들지 않았다 — 디자인 담당 에셋 명세가 없는 상태에서
+-- 임시 파트를 세우면 그게 굳는다. 진입점은 Phase 6 UI 또는 별도 파트 작업에서 붙인다.
+-- 그래서 이 함수는 지금 로그 한 줄이 전부다. 그럼에도 두는 이유는 그 진입점이 붙을 자리를
+-- 한 곳으로 정해두기 위해서다 — 없으면 호출부가 각자 RebirthService를 require하게 된다.
+function RebirthService.init()
+	if initialized then
+		warn("[RebirthService] init()이 이미 호출된 상태 - 중복 호출 무시")
+		return
+	end
+	initialized = true
+
+	print(string.format(
+		"[RebirthService] 환생 준비 완료 (배수 1당 %d 블럭스, 진입점은 아직 없음)",
+		RebirthConfig.BLOX_PER_REBIRTH
+	))
+end
+
 -- 지금 환생하면 얻을 배수. 거부 여부만 보려면 canRebirth를 쓴다.
 -- ⚠️ 읽기 전용이다. UI 표시용이며 이 값을 근거로 바깥에서 재화를 건드리지 말 것 —
 -- 판정은 rebirth() 안에서 다시 한다.
