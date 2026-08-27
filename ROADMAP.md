@@ -33,22 +33,28 @@
 | `Systems/SpeedServiceTests.server.lua` | 21 | 요청값 클램프·입력 위생·환생 하향·최대치 상승 불변 |
 | `Systems/SpeedRequestServiceTests.server.lua` | 32 | 요청 빈도 상한·폐기·로그 억제·응답 payload |
 | `Systems/RebirthServiceTests.server.lua` | 66 | 거부 시 부작용 0·순서·누적·부분 실패 ※ |
-| **합계** | **594** | |
+| `Systems/WarpServiceTests.server.lua` | 73 | 거부 시 차감 0·차감이 런 시작보다 먼저·부분 실패 3종 ※ |
+| **합계** | **667** | |
 
-※ `RebirthServiceTests`는 **7개 check를 묶은 헬퍼(`checkUntouched`)를 3번 호출**한다.
-정적 세기에는 그 7개가 한 번만 잡히고 런타임에는 21번 돈다 — 정적 53, 실측 66이
-어긋나는 것이 **정상**이다. 파라미터화 루프와 같은 구조이므로 이 행은 실측만 믿을 것.
+※ 두 행 다 **헬퍼가 check를 여러 번 부른다.** `RebirthServiceTests`는 7개 check를 묶은
+`checkUntouched`를 3번 호출하고(정적 53, 실측 66), `WarpServiceTests`는 3개 check를 묶은
+`checkRejectedCleanly`를 거부 케이스마다 부른다. 정적 세기에는 헬퍼 안의 check가 한 번만
+잡히고 런타임에는 호출 횟수만큼 돈다 — 어긋나는 것이 **정상**이다.
+파라미터화 루프와 같은 구조이므로 이 두 행은 실측만 믿을 것.
 
-최근 갱신: **2026-08-28 Studio Play 런타임 실측.** 594 passed / 0 failed (15개 행).
+최근 갱신: **2026-08-28 Studio Play 런타임 실측.** 667 passed / 0 failed (16개 행).
+4-2-e Prompt 2로 `WarpServiceTests`(73) 행 추가.
+
+⚠️ 합계 667은 16개 행을 더한 값이다. **총합을 찍는 스크립트는 없다** —
+각 테스트 파일이 자기 줄만 찍는다. 한 행이 통째로 빠져도 로그에는 아무 흔적이 없으므로,
+갱신할 때는 반드시 행 수(16)와 합계를 함께 대조할 것.
+
+직전 갱신: 2026-08-28 실측 594 (15개 행).
 4-2-e Prompt 1로 `WarpConfigTests`(31) 행 추가, `ConfigTests` 57 → 58.
 
 ⚠️ `ConfigTests`가 1 오른 것은 새 케이스를 쓴 게 아니라 `WarpConfig.validate` 한 줄이
 그 파일에 들어갔기 때문이다. Config가 늘 때마다 이 행이 같이 오르는 것이 정상이다 —
 새 Config를 만들고 이 행이 그대로면 `validate()`가 아무데서도 안 도는 것이다.
-
-⚠️ 합계 594는 15개 행을 더한 값이다. **총합을 찍는 스크립트는 없다** —
-각 테스트 파일이 자기 줄만 찍는다. 한 행이 통째로 빠져도 로그에는 아무 흔적이 없으므로,
-갱신할 때는 반드시 행 수(15)와 합계를 함께 대조할 것.
 
 직전 갱신: 2026-08-27 실측 562 (14개 행).
 4-2-d로 `RebirthServiceTests`(66) 행 추가, `CurrencyServiceTests` 38 → 51.
@@ -272,6 +278,22 @@ maxStage    환생 시 리셋. 드론 전용. 워프는 참조하지 않음
 
 착수 순서대로. 앞이 뒤의 선행 조건이다.
 
+```
+a  진입점 배선          ◐  서비스 쪽만. 3D 파트 배선 미착수
+a2 블록 렌더링 클라 이관 ✅
+b  클릭 파워 패드        ✅
+c  레벨 + 커스텀 스피드  ✅
+d  RebirthService       ✅  2026-08-27 Play 검증
+e  WarpService          ✅  2026-08-28 Play 검증
+f  실측 튜닝            ← 다음
+```
+
+⚠️ `a`가 ◐인 이유: `cashout()` · `advance()`는 완성됐지만 그것을 **부르는 3D 파트가
+없다.** `Touched → cashout/advance` 연결이 코드 어디에도 없고, `PadService`의 `Touched`는
+클릭 파워 패드 전용이다. 수령 발판·진행 벽 파트는 디자인 담당 에셋 대기 중이다
+(→ `docs/PENDING.md` "신규 — 수령 발판 · 진행 벽 최소 깊이").
+d·e의 "진입점 없음"과 같은 상태이며, 셋 다 Phase 6 UI 또는 파트 작업에서 함께 붙는다.
+
 각 항목의 **[착수 전 확정]** 은 설계가 덜 끝난 부분이다. 지금은 근거가 없어
 정할 수 없고, 해당 모듈 구현 직전에 정한다. 미리 찍어두면 근거 없는 수치가
 코드에 박힌다.
@@ -363,7 +385,7 @@ schemaVersion을 올릴 일이 없다 (→ `DESIGN.md` "커스텀 스피드").
 ⚠️ UI는 없다. Phase 6에서 `SpeedInput.request()`를 부르는 입력칸이 붙는다.
 그때까지 요청 경로의 관측 지점은 Bootstrap VERIFY print의 `req=` 필드다.
 
-#### 4-2-d. RebirthService
+#### 4-2-d. RebirthService ✅ 완료
 
 **검증**: 환생 후 배수가 정확히 적용된다.
 
@@ -384,7 +406,7 @@ Prompt 1(순수 계층) · Prompt 2(RebirthService 본체) · Prompt 3(Bootstrap
 `REBIRTH_VERIFY_ENABLED` 블록 하나뿐이고, 진입점은 Phase 6 UI 또는 별도 파트
 작업에서 붙인다 — 지금 만들면 디자인 담당 에셋 명세가 없어 임시 파트가 굳는다.
 
-#### 4-2-e. WarpService
+#### 4-2-e. WarpService ✅ 완료
 
 **[확정됨]** 절대 기준 `cost(목표층)`. 현재 위치를 참조하지 않는 순수 함수다.
 비용은 지수.
@@ -400,9 +422,23 @@ Prompt 1(순수 계층) · Prompt 2(RebirthService 본체) · Prompt 3(Bootstrap
 ⚠️ 남은 것은 지수의 밑과 기준값이다. 이건 4-2-f 실측 튜닝 대상이라
 지금 정하지 않는다 — 근거 없는 수치가 코드에 박힌다.
 
-**진행 상태** — Prompt 1(순수 계층) ✅ 완료 (2026-08-28 Play 검증, `8f243e2`).
-`Shared/Config/WarpConfig.lua` + `Tests/WarpConfigTests.server.lua`.
-Prompt 2(WarpService) · Prompt 3(배선)는 **미착수.**
+**진행 상태** — ✅ 3단계 전부 완료 (2026-08-28 Play 검증).
+
+```
+Prompt 1  순수 계층   8f243e2   Shared/Config/WarpConfig.lua + WarpConfigTests
+Prompt 2  서비스      76223f6   Server/Systems/WarpService.lua + WarpServiceTests
+Prompt 3  배선        04c9dfd   Bootstrap의 WARP_VERIFY 블록 (검증 전용)
+```
+
+검증 근거: **차감분 900 = `cost(3)` 일치, 런이 3층에 섬(`cleared=false timeLeft=20.0`).**
+클라 `RunStateChanged`가 `stage=3 reward=7.29`로 따라붙었고 이 값이 `CurveReport`의
+3층 보상과 일치한다 — **stage 숫자만 바꾼 것이 아니라 목표층의 진짜 런이 섰다는 증거다.**
+전체 667 passed / 0 failed 유지(Bootstrap 수정이 다른 VERIFY 블록에 영향 없음).
+
+진입점은 **아직 없다.** 워프를 부르는 경로는 Bootstrap의 `WARP_VERIFY_ENABLED` 블록
+하나뿐이고, 목표층은 그 안에 하드코딩(3층)돼 있다. 3D 파트나 Remote는 만들지 않았다 —
+진입점은 Phase 6 UI(텔레포트 버튼 → 스테이지 선택창)에 붙인다
+(4-2-d 환생과 같은 판단이다).
 
 `cost(목표층)`은 수식이고 `canWarp(보유블럭스, 목표층)`이 정책이다. 범위 밖 층은
 `cost`에서 값이 나오고 `canWarp`이 거부한다 — 상한은 숫자가 아니라
@@ -414,7 +450,7 @@ Prompt 2(WarpService) · Prompt 3(배선)는 **미착수.**
 블럭스와 무관하게 stage만 보고 판정되므로, 판정 주체와 사유 이름이 갈라지면
 사유를 하나 늘릴 때 두 파일을 고쳐야 한다. Prompt 2의 `WarpService`는 재공개만 한다.
 
-⚠️ **Prompt 2 착수 시 필수.** `WarpService`는 검증되지 않은 입력에 `cost`를 직접
+⚠️ **호출자 계약 (Prompt 2에서 지켰다).** `WarpService`는 검증되지 않은 입력에 `cost`를 직접
 부르지 않는다. 반드시 `canWarp`을 먼저 통과시키고 그 반환값으로 받은 비용을 쓴다.
 목표층은 Phase 6 UI에서 오고 클라가 보낸 값은 전부 검증 대상이다
 (CLAUDE.md 절대 규칙 3). `cost`는 nil·소수·0·음수에 `error`를 던지지만

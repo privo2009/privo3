@@ -84,6 +84,15 @@ docs/UI_HANDOFF.md      "문서 갱신" 줄 자체가 없다  ← 더 나쁘다
   후반 워프를 사치품으로 두려는 의도인지 과한지는 4-2-f에서 판단한다.
   한쪽만 건드리면 후반 비용이 눈에 보이는 것보다 훨씬 크게 움직인다.
   (근거 → `src/shared/Config/WarpConfig.lua` 상단 주석)
+- **워프 후 1초 동결** — 미구현. `WalkSpeed` 직접 대입은 `SpeedService` 폴링(1.5초)이
+  조용히 되돌리고 로그도 남기지 않는다(0은 최대치 이하라 "반영 지연"으로 분류된다).
+
+  ⚠️ 동결 1초 < 주기 1.5초라 **타이밍에 따라 먹히기도 하고 아니기도 한다** —
+  넣었으면 재현되지 않는 버그가 됐다. `setCustomSpeed(player, 0)`도 안 된다:
+  `sanitizeRequest`가 `value <= 0`을 거부한다.
+  안전하게 넣으려면 `SpeedService`에 폴링이 스킵할 동결 플래그가 필요한데,
+  그 파일은 Play 검증이 끝났으므로 열면 미검증 레이어가 다시 생긴다.
+  (근거 → `src/server/Systems/WarpService.lua` 상단 "동결은 넣지 않았다")
 - **4-2-d 착수 시 필수 — 두 가지.**
 
   ⚠️ `RebirthService`는 환생 처리 마지막에 `SpeedService.onRebirth(player)`를
@@ -109,6 +118,17 @@ docs/UI_HANDOFF.md      "문서 갱신" 줄 자체가 없다  ← 더 나쁘다
 - `CurveReport` Studio 검증 — 리포트는 출력되나 수치 검산 미완
 - **`timeLeft` 동결 확인** — Bootstrap이 즉시 클리어해서 항상 20.0.
   실제 플레이에서 중간 클리어 시 제대로 얼어붙는지 미확인
+- **`CurrencyService` 로그 오독** — 다음 정리 세션 후보.
+  `subtract`/`add` 로그가 `<증감액> -> <결과값>` 형식인데 화살표 때문에
+  `<이전값> -> <이후값>`으로 읽힌다.
+
+  ```
+  subtract: blox 9.000000e+2 -> 9.040000e+2    ← 1804에서 900을 뺀 904다
+  ```
+
+  실질 피해는 없다 — 검산은 호출자 쪽(Bootstrap의 "차감분 vs 비용" 줄)이 한다.
+  다만 **로그를 근거로 디버깅할 때 오진 위험**이 있다.
+  ⚠️ 지금 열지 않는다. `CurrencyService`는 Play 검증이 끝난 파일이다.
 
 ---
 
@@ -138,6 +158,7 @@ Play 검증 전에 Rojo 플러그인 창에서 Connect / Disconnect 상태를 �
 | `SpeedInputBoot`의 `VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
 | `Bootstrap`의 `REBIRTH_WIRING_ENABLED` | **조건 충족 — 지금 삭제 가능** (2026-08-27 검증 완료) |
 | `Bootstrap`의 `REBIRTH_VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
+| `Bootstrap`의 `WARP_VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
 
 ⚠️ `VERIFY_ENABLED`는 **지금 지우지 말 것.** 2026-08-26 Play에서 왕복을 확인해
 목적은 다했고 `false`로 꺼 뒀지만, UI가 없는 동안 이 채널이 살아 있는지 확인할
@@ -153,6 +174,12 @@ Play 검증 전에 Rojo 플러그인 창에서 Connect / Disconnect 상태를 �
 ⚠️ `REBIRTH_VERIFY_ENABLED`를 켜면 접속 계정의 프로필이 **되돌릴 수 없게 바뀐다.**
 blox 지급이 `lifetimeBlox`를 함께 올려 클릭 파워 패드가 열린다. 켠 뒤 반드시 `false`로
 되돌릴 것 — 켠 채로 커밋하면 접속하는 모든 계정에 적용된다.
+
+⚠️ `WARP_VERIFY_ENABLED`도 **완전히 같다.** 워프 비용을 대기 위해 blox 1800을 지급하고,
+그만큼 `lifetimeBlox`가 되돌릴 수 없게 오른다. 켠 뒤 반드시 `false`로 되돌릴 것 —
+켠 채로 커밋하면 접속하는 모든 계정에 적용된다.
+Phase 6 UI까지 남기는 이유도 같다: UI가 없는 동안 워프가 실물에서 도는지 확인할
+**유일한 수단**이다. 목표층은 그 블록 안에 하드코딩(3층)돼 있다.
 
 (Bootstrap VERIFY print의 `req=` · `last=` 필드는 **상시 유지**다. 잔재가 아니다)
 
@@ -173,3 +200,4 @@ blox 지급이 `lifetimeBlox`를 함께 올려 클릭 파워 패드가 열린다
 | 2026-08-27 | 4-2-d Prompt 2·3 Play 미검증 (레이어 2개) | `80154ed` + `846482b` — 562 passed / 0 failed (14행). REBIRTH_VERIFY 점등에서 WalkSpeed 36.0 → 16.0, max와 일치 |
 | 2026-08-27 | 4-2-e 워프 비용 기준점 미확정 | `88e782e` — 절대 기준 `cost(목표층)`으로 확정 |
 | 2026-08-28 | 4-2-e 진입점·run 재시작 미결 (3개 중 2개) | 세션 결정 — 진입점은 UI(텔레포트 버튼→스테이지 선택창)이나 이번 Phase엔 구현 안 함, 서비스 레이어만 우선(4-2-d 패턴). run은 stage 변경 + `ChallengeService.startRun` 재사용으로 재시작 확정 |
+| 2026-08-28 | 4-2-e WarpService 3레이어 미검증 | `04c9dfd` — Play 667 passed / 0 failed. 차감분 900 = `cost(3)` 일치, run stage=3 확인 |
