@@ -74,30 +74,6 @@ docs/UI_HANDOFF.md      "문서 갱신" 줄 자체가 없다  ← 더 나쁘다
   4-2-e(워프 비용 기준점)는 2026-08-27에 절대 기준으로 확정됐다.
   4-2-d 항목은 ROADMAP에 적힌 적이 없었다 — 2026-08-26에 두 건(거부 규약 ·
   배수 적용 대상)을 확정해 ROADMAP 4-2-d 절에 적었다.
-- **4-2-d Prompt 2·3 Play 미검증** — RC 환경이라 Play를 돌리지 못한 채 커밋했다.
-  **미검증 레이어가 2개다** (`80154ed` 본체 / `846482b` 배선).
-
-  다음 Studio Play에서 확인할 것:
-    · 각 테스트 파일의 `[XxxTests] N passed` 줄 전부, 행 수 14
-    · ROADMAP 테스트 표를 실측으로 갈아끼우기
-      (`RebirthServiceTests` 신규 행 / `CurrencyServiceTests` 38 → 실측)
-    · `[RebirthService] 환생 준비 완료` 줄이 뜨는가 (배선이 살아 있다는 증거)
-
-  **⚠️ Play 실패 시 절차 — 이 순서를 지킬 것:**
-    1) `Bootstrap.server.lua`의 `REBIRTH_WIRING_ENABLED = false` → 다시 Play
-    2) 여전히 실패 → **Prompt 2 레이어**(RebirthService 본체)가 원인
-       통과 → **Prompt 3 배선**이 원인
-    3) 원인이 갈린 뒤에 고친다. **갈리기 전에 코드를 고치지 말 것** —
-       두 레이어를 동시에 만지면 무엇이 고친 것인지 알 수 없게 된다
-
-  환생이 실물에서 도는지는 `REBIRTH_VERIFY_ENABLED = true`로 따로 켠다.
-  ⚠️ 그 블록은 실제 프로필에 blox·strength를 지급한다(CurrencyService 경유).
-     blox 지급은 lifetimeBlox를 함께 올리므로 **그 계정의 클릭 파워 패드가 열린다.**
-     되돌릴 수 없다. 켜기 전에 알고 켤 것.
-
-  ⚠️ 이것이 해소되기 전에 **4-2-e(워프)로 넘어가지 말 것.**
-     레이어가 3개가 되면 플래그 하나로 원인을 가를 수 없다.
-
 - **4-2-d 착수 시 필수 — 두 가지.**
 
   ⚠️ `RebirthService`는 환생 처리 마지막에 `SpeedService.onRebirth(player)`를
@@ -150,7 +126,7 @@ Play 검증 전에 Rojo 플러그인 창에서 Connect / Disconnect 상태를 �
 | `SliceCheck.client.lua` | G1 통과 후 |
 | `ChunkBreakerDemo` | 수신부 검증 완료 — 지금 가능 |
 | `SpeedInputBoot`의 `VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
-| `Bootstrap`의 `REBIRTH_WIRING_ENABLED` | 4-2-d 양쪽 Play 검증 완료 후 |
+| `Bootstrap`의 `REBIRTH_WIRING_ENABLED` | **조건 충족 — 지금 삭제 가능** (2026-08-27 검증 완료) |
 | `Bootstrap`의 `REBIRTH_VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
 
 ⚠️ `VERIFY_ENABLED`는 **지금 지우지 말 것.** 2026-08-26 Play에서 왕복을 확인해
@@ -158,6 +134,15 @@ Play 검증 전에 Rojo 플러그인 창에서 Connect / Disconnect 상태를 �
 **유일한 수단**이다. 4-2-d 작업 중 채널이 깨져도 알 방법이 없다 — 배선이 끊겨도
 캐릭터는 최대속도로 멀쩡히 걸어다니므로 증상이 나타나지 않는다.
 확인이 필요하면 그 줄만 `true`로 바꾼다.
+
+⚠️ `REBIRTH_WIRING_ENABLED`는 삭제 조건이 충족됐지만 **이번 세션에는 지우지 않았다.**
+4-2-d 마감 커밋의 코드 변경을 최소로 두려는 것이고, 다음 정리 세션에서 지운다.
+`REBIRTH_VERIFY_ENABLED` 블록은 Phase 6 UI까지 남는다 — 그때까지 환생이 실물에서
+도는지 확인할 유일한 수단이다.
+
+⚠️ `REBIRTH_VERIFY_ENABLED`를 켜면 접속 계정의 프로필이 **되돌릴 수 없게 바뀐다.**
+blox 지급이 `lifetimeBlox`를 함께 올려 클릭 파워 패드가 열린다. 켠 뒤 반드시 `false`로
+되돌릴 것 — 켠 채로 커밋하면 접속하는 모든 계정에 적용된다.
 
 (Bootstrap VERIFY print의 `req=` · `last=` 필드는 **상시 유지**다. 잔재가 아니다)
 
@@ -175,3 +160,5 @@ Play 검증 전에 Rojo 플러그인 창에서 Connect / Disconnect 상태를 �
 | 2026-08-26 | Prompt 3 (Remotes 커스텀 스피드 채널) 미착수 | `e00508f` — 4-2-c 완료. Play 456 passed |
 | 2026-08-26 | 스폰 직후 WalkSpeed가 최대치와 어긋나는 창(1.5초) | `a419809` — 스폰·프로필 로드 두 훅으로 폐쇄 |
 | 2026-08-26 | `SpeedRequestServiceTests` 정적 카운트(30) 미대조 | `e00508f` — Play 실측 32로 ROADMAP 표 교체 |
+| 2026-08-27 | 4-2-d Prompt 2·3 Play 미검증 (레이어 2개) | `80154ed` + `846482b` — 562 passed / 0 failed (14행). REBIRTH_VERIFY 점등에서 WalkSpeed 36.0 → 16.0, max와 일치 |
+| 2026-08-27 | 4-2-e 워프 비용 기준점 미확정 | `88e782e` — 절대 기준 `cost(목표층)`으로 확정 |

@@ -24,25 +24,33 @@
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Data/SchemaTests.server.lua` | 33 | 프로필 스키마 검증 |
 | `Data/MigrationsTests.server.lua` | 20 | schemaVersion 마이그레이션·멱등성 |
-| `Systems/CurrencyServiceTests.server.lua` | 38 | 재화 단일 게이트·롤백 |
+| `Systems/CurrencyServiceTests.server.lua` | 51 | 재화 단일 게이트·롤백·rebirths |
 | `Systems/BlockServiceTests.server.lua` | 30 | 배치·데미지 오버플로우·클리어 |
 | `Systems/ChallengeServiceTests.server.lua` | 51 | 타이머·보상 갱신·진입점 거부·source 식별 |
 | `Systems/ClickServiceTests.server.lua` | 38 | 입력 위생·초당 상한 윈도우·통지 억제·자동 경로 |
 | `Systems/PadServiceTests.server.lua` | 31 | 패드 배치·해금 경계·디바운스·세팅/클램프 |
 | `Systems/SpeedServiceTests.server.lua` | 21 | 요청값 클램프·입력 위생·환생 하향·최대치 상승 불변 |
 | `Systems/SpeedRequestServiceTests.server.lua` | 32 | 요청 빈도 상한·폐기·로그 억제·응답 payload |
-| **합계** | **483** | |
+| `Systems/RebirthServiceTests.server.lua` | 66 | 거부 시 부작용 0·순서·누적·부분 실패 ※ |
+| **합계** | **562** | |
 
-최근 갱신: **2026-08-26 Studio Play 런타임 실측.** 483 passed / 0 failed.
-4-2-d Prompt 1(RebirthConfig · StrengthMultiplier)로 `ConfigTests` 30 → 57.
+※ `RebirthServiceTests`는 **7개 check를 묶은 헬퍼(`checkUntouched`)를 3번 호출**한다.
+정적 세기에는 그 7개가 한 번만 잡히고 런타임에는 21번 돈다 — 정적 53, 실측 66이
+어긋나는 것이 **정상**이다. 파라미터화 루프와 같은 구조이므로 이 행은 실측만 믿을 것.
 
-이번엔 정적 카운트와 실측이 일치했다. 어긋났던 세 번은 전부 **다른 작업 중에
-늘어난 행을 나중에 추정한 경우**였고, 이번은 테스트를 직접 세며 쓴 행이다.
-규칙은 "정적 금지"가 아니라 **"작성자 본인이 세지 않은 행은 표에 올리지 않는다"**다.
+최근 갱신: **2026-08-27 Studio Play 런타임 실측.** 562 passed / 0 failed (14개 행).
+4-2-d로 `RebirthServiceTests`(66) 행 추가, `CurrencyServiceTests` 38 → 51.
 
-⚠️ 합계 483은 13개 행을 더한 값이다. **총합을 찍는 스크립트는 없다** —
+⚠️ 합계 562는 14개 행을 더한 값이다. **총합을 찍는 스크립트는 없다** —
 각 테스트 파일이 자기 줄만 찍는다. 한 행이 통째로 빠져도 로그에는 아무 흔적이 없으므로,
-갱신할 때는 반드시 행 수(13)와 합계를 함께 대조할 것.
+갱신할 때는 반드시 행 수(14)와 합계를 함께 대조할 것.
+
+직전 갱신: 2026-08-26 실측 483 (13개 행). 4-2-d Prompt 1로 `ConfigTests` 30 → 57.
+
+⚠️ 그때 "정적 카운트와 실측이 일치했다"고 적었는데, 그 규칙을 그대로 적용하면 안 된다.
+소스의 `check(` 줄 수는 **함수 정의 줄 1개를 포함**하고 **헬퍼 호출 배수를 반영하지 않는다.**
+이번에 두 행 다 그 이유로 어긋났다 — `RebirthServiceTests` 53→66(헬퍼 3회 호출),
+`CurrencyServiceTests` 52→51(정의 줄). 규칙은 여전히 **실측만 표에 올린다**이다.
 
 직전 갱신: 4-2-c Prompt 3 완료분으로 `SpeedRequestServiceTests`(32) 행을 추가해 424 → 456.
 
@@ -359,16 +367,14 @@ schemaVersion을 올릴 일이 없다 (→ `DESIGN.md` "커스텀 스피드").
 곱셈은 힘 지급 게이트 한 곳에서만 하고 결합은 `StrengthMultiplier.compute`가 맡는다.
 근거 → `DESIGN.md` "3. 화폐와 배수"
 
-**진행 상태** — Prompt 1(순수 계층) · Prompt 2(RebirthService 본체) ·
-Prompt 3(Bootstrap 배선) 완료. **⚠️ Prompt 2·3은 Play 미검증이다** (RC 환경).
+**진행 상태** — ✅ 완료 (2026-08-27 Play 검증).
+Prompt 1(순수 계층) · Prompt 2(RebirthService 본체) · Prompt 3(Bootstrap 배선).
+
+검증 근거: **REBIRTH_VERIFY 1회 점등 — WalkSpeed 36.0 → 16.0, max와 일치. 배선 정상.**
 
 진입점(3D 파트 · Remote)은 아직 없다. 환생을 부르는 경로는 Bootstrap의
 `REBIRTH_VERIFY_ENABLED` 블록 하나뿐이고, 진입점은 Phase 6 UI 또는 별도 파트
 작업에서 붙인다 — 지금 만들면 디자인 담당 에셋 명세가 없어 임시 파트가 굳는다.
-
-⚠️ **4-2-e(워프)로 넘어가기 전에 Play 검증을 끝낼 것.** 미검증 레이어가 2개인
-상태이고, 3개가 겹치면 플래그 하나로 원인을 가를 수 없다.
-절차 → `docs/PENDING.md` "미결".
 
 #### 4-2-e. WarpService
 
