@@ -417,3 +417,180 @@ if VERIFY_CHALLENGE then
 		end
 	end)
 end
+
+-- ⚠️ 임시 검증 코드 (4-2-e). 워프가 **실물에서** 도는지 확인하는 유일한 지점이다.
+-- 기본값은 false다 — 필요할 때만 켠다.
+--
+-- 왜 필요한가: WarpServiceTests는 deps 이음매로 "차감했는가 / 순서가 맞는가"만 잰다.
+-- 실제 CurrencyService가 프로필의 blox를 진짜로 깎는지, ChallengeService가 목표 층에
+-- 런을 진짜로 세우는지는 그 방식으로 볼 수 없다 — 가짜 Player 테이블이면
+-- ProfileManager.get이 nil을 주므로 모든 경로가 "프로필 없음" 한 갈래로 끝난다.
+-- (VERIFY_CHALLENGE 블록이 존재하는 이유와 같은 제약이다)
+--
+-- ⚠️ 이 블록은 **실제 프로필을 바꾼다.** 워프하려면 블럭스가 필요해서 지급한다.
+--    지급은 전부 CurrencyService를 통과한다 — profile.blox 직접 대입은 금지다
+--    (CLAUDE.md 절대 규칙 2. 그 우회 한 줄이 lifetimeBlox 오진을 낳은 전례가 있다).
+--    ⚠️ blox add는 lifetimeBlox를 함께 올린다(설계대로). 그래서 이 블록을 켜면 그 계정의
+--    클릭 파워 패드가 열린다. 되돌릴 수 없으니 켜기 전에 알고 켤 것.
+--    (REBIRTH_VERIFY_ENABLED에 붙은 경고와 완전히 같은 성격이다)
+--
+-- ⚠️ source는 "bootstrap_verify"다. 실제 워프와 로그에서 구분돼야 한다.
+--
+-- Phase 6 UI(텔레포트 버튼 → 스테이지 선택창)가 붙으면 이 블록 전체 삭제
+-- (docs/PENDING.md 잔재).
+local WARP_VERIFY_ENABLED = false
+
+-- 워프할 목표 층.
+--
+-- ⚠️ 1층으로 두지 말 것. 위 VERIFY_CHALLENGE 블록이 이미 1층에 런을 세우므로,
+-- 워프도 1층으로 가면 getRunState().stage == 1이 **어느 블록 때문인지 구분되지 않는다.**
+-- 그러면 이 검증이 아무것도 증명하지 못한다. "1층에서 두 칸 건너뛰었다"가 보여야 한다.
+--
+-- 3층인 이유: 비용이 cost(s) = TEMP_COST_BASE × TEMP_COST_RATIO^(s-1)로 층당 3배씩
+-- 오르므로 높일수록 지급액이 커지고 lifetimeBlox 오염 폭도 함께 커진다.
+-- 1층과 구분되는 가장 싼 층 중에서 "건너뛴 것이 눈에 보이는" 값으로 골랐다.
+local WARP_VERIFY_TARGET_STAGE = 3
+
+if WARP_VERIFY_ENABLED then
+	-- ReplicatedStorage / BigNum / CurrencyService는 파일 상단에서 이미 require했다.
+	local WarpService = require(script.Parent.Systems.WarpService)
+	local WarpConfig = require(ReplicatedStorage.Shared.Config.WarpConfig)
+	local ChallengeService = require(script.Parent.Systems.ChallengeService)
+
+	-- ⚠️ VERIFY_CHALLENGE와 같은 {m=, e=} 형태다. BigNum.tostring을 쓰지 않는 이유:
+	-- 이 블록의 판정은 "차감분 == 비용"의 **정확한 일치**이고, 어긋났을 때 원인은
+	-- 십중팔구 정밀도(유효자리 12)다. tostring은 그 순간 필요한 정보를 지운다.
+	local function fmtBigNum(bn): string
+		if bn == nil then
+			return "nil"
+		end
+		return string.format("{m=%s, e=%s}", tostring(bn.m), tostring(bn.e))
+	end
+
+	local WARP_COST = WarpConfig.cost(WARP_VERIFY_TARGET_STAGE)
+
+	-- 지급액 = 비용 × 2.
+	-- ⚠️ 비용과 정확히 같은 액수를 주지 말 것. 그러면 차감 후 잔액이 0이 되는데,
+	-- "정확히 비용만큼 뺐다"와 "그냥 0으로 밀었다"가 구분되지 않는다. 2배를 주면
+	-- 잔액이 비용만큼 남아 둘이 갈린다.
+	-- ⚠️ 큰 값(1e300 등)으로 주지 말 것. 잔액과 비용의 지수 차가 13을 넘으면 sub 결과가
+	-- 원래 값과 같아져(CLAUDE.md 정밀도 계약) 차감분이 0으로 찍힌다 —
+	-- 검산이 통과가 아니라 무의미해진다. WarpServiceTests에서 실제로 밟았던 함정이다.
+	local WARP_VERIFY_GRANT = BigNum.mul(WARP_COST, BigNum.fromNumber(2))
+
+	Players.PlayerAdded:Connect(function(player: Player)
+		local profile = ProfileManager.waitFor(player, 10)
+		if profile == nil then
+			warn(string.format("[Bootstrap][WARP_VERIFY] %s: 프로필 로드 타임아웃 - 검증 중단", player.Name))
+			return
+		end
+
+		-- ⚠️ task.delay로 띄운다. 같은 PlayerAdded에 걸린 VERIFY_CHALLENGE(즉시)와
+		-- REBIRTH_VERIFY(약 5초)가 끝날 시간을 준다. 섞이면 로그를 읽을 수 없고,
+		-- 특히 환생은 blox를 0으로 만들므로 그 뒤에 지급이 일어나야 액수가 예측된다.
+		-- 여기서 기다리는 것은 이 코루틴뿐이고, 기다림은 warp() **호출 전**에 끝난다 —
+		-- 그 함수 안의 무-yield 계약과는 무관하다.
+		task.delay(6, function()
+			if player.Parent == nil then
+				return
+			end
+
+			local ok, err = pcall(function()
+				-- 1. 워프 조건을 만들어 준다.
+				-- ⚠️ **이미 충분하면 지급하지 않는다.** Play를 여러 번 돌리는 동안
+				-- PlayerAdded마다 누적 지급되면 lifetimeBlox가 계속 올라 클릭 파워 패드
+				-- 해금 상태가 검증할 때마다 달라진다. 어느 쪽으로 갔는지 로그에 남긴다 —
+				-- 남기지 않으면 잔액이 왜 그 값인지 나중에 역추적할 수 없다.
+				if CurrencyService.canAfford(player, "blox", WARP_COST) then
+					print(string.format(
+						"[Bootstrap][WARP_VERIFY] %s 지급 건너뜀 - 잔액이 이미 비용 이상 (blox=%s cost=%s)",
+						player.Name,
+						fmtBigNum(CurrencyService.get(player, "blox")),
+						fmtBigNum(WARP_COST)
+					))
+				else
+					CurrencyService.add(player, "blox", WARP_VERIFY_GRANT, "bootstrap_verify_grant")
+					print(string.format(
+						"[Bootstrap][WARP_VERIFY] %s 지급 실행 - %s (lifetimeBlox도 함께 올랐다)",
+						player.Name,
+						fmtBigNum(WARP_VERIFY_GRANT)
+					))
+				end
+
+				-- 2. 워프 전 상태 기록.
+				local bloxBefore = CurrencyService.get(player, "blox")
+				local runBefore = ChallengeService.getRunState(player)
+				print(string.format(
+					"[Bootstrap][WARP_VERIFY] %s 워프 전 - blox=%s stage=%s cost(%d)=%s",
+					player.Name,
+					fmtBigNum(bloxBefore),
+					runBefore and tostring(runBefore.stage) or "런 없음",
+					WARP_VERIFY_TARGET_STAGE,
+					fmtBigNum(WARP_COST)
+				))
+
+				-- 3. 워프. ⚠️ ok=false여도 Bootstrap이 죽으면 안 된다 —
+				-- 사유 코드가 무엇인지가 이 검증의 결과 중 하나다.
+				local warpOk, result = WarpService.warp(player, WARP_VERIFY_TARGET_STAGE, "bootstrap_verify")
+
+				if warpOk then
+					print(string.format(
+						"[Bootstrap][WARP_VERIFY] %s warp(%d) 성공 - 차감액=%s",
+						player.Name,
+						WARP_VERIFY_TARGET_STAGE,
+						fmtBigNum(result)
+					))
+				else
+					warn(string.format(
+						"[Bootstrap][WARP_VERIFY] %s warp(%d) 거부 - 사유=%s",
+						player.Name,
+						WARP_VERIFY_TARGET_STAGE,
+						tostring(result)
+					))
+				end
+
+				-- 4. 워프 후 blox와 차감분 검산.
+				-- VERIFY_CHALLENGE의 "증가분 vs 보상액"을 뒤집은 것이다 (워프는 감소).
+				local bloxAfter = CurrencyService.get(player, "blox")
+				print(string.format("[Bootstrap][WARP_VERIFY] %s 워프 후 blox=%s", player.Name, fmtBigNum(bloxAfter)))
+
+				if warpOk and bloxBefore ~= nil and bloxAfter ~= nil then
+					local delta = BigNum.sub(bloxBefore, bloxAfter)
+					local matches = BigNum.eq(delta, WARP_COST)
+					print(string.format(
+						"[Bootstrap][WARP_VERIFY] %s 차감분=%s vs 비용=%s -> %s",
+						player.Name,
+						fmtBigNum(delta),
+						fmtBigNum(WARP_COST),
+						matches and "일치" or "불일치"
+					))
+				else
+					warn(string.format(
+						"[Bootstrap][WARP_VERIFY] %s: 워프 실패 또는 값 누락 - 차감분 비교 불가",
+						player.Name
+					))
+				end
+
+				-- 5. 런이 목표 층에 실제로 섰는가.
+				-- ⚠️ 이 줄이 이 블록의 핵심이다. 차감만 맞고 런이 안 서면 유저는 블럭스만
+				-- 잃는다. 그 상태는 WarpServiceTests가 볼 수 없다 — 거기서는 startRun이
+				-- 기록용 함수라 "불렸다"까지만 확인된다.
+				local runAfter = ChallengeService.getRunState(player)
+				local stageOk = runAfter ~= nil and runAfter.stage == WARP_VERIFY_TARGET_STAGE
+				print(string.format(
+					"[Bootstrap][WARP_VERIFY] %s 판정: 런이 %d층에 섰는가 -> %s (stage=%s cleared=%s timeLeft=%.1f)",
+					player.Name,
+					WARP_VERIFY_TARGET_STAGE,
+					stageOk and "일치" or "불일치",
+					runAfter and tostring(runAfter.stage) or "런 없음",
+					runAfter and tostring(runAfter.cleared) or "-",
+					runAfter and runAfter.timeLeft or 0
+				))
+			end)
+
+			if not ok then
+				warn(string.format("[Bootstrap][WARP_VERIFY] %s: 검증 중 에러 - %s", player.Name, tostring(err)))
+			end
+		end)
+	end)
+end
