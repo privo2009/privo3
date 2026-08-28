@@ -11,6 +11,9 @@
 --
 -- ⚠️ 반경 값(92.8)을 이 파일에 숫자로 적지 않는다. AttackConfig에서 받아 쓴다 —
 -- 적으면 마진을 튜닝했을 때(4-2-f) Config는 따라가는데 테스트만 옛 값에서 깨진다.
+--
+-- ⚠️ 경계 검사가 왜 "정확히 반경"이 아니라 float32 이웃으로 재는지는
+-- 아래 "경계를 float32 이웃으로 재는 이유" 참고. 2026-08-28 Play 실측 근거가 거기 있다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -40,6 +43,55 @@ local RADIUS = AttackConfig.getRadius()
 -- 원점에서 정확히 distance만큼 떨어진 위치. 축은 아무거나 좋다 — 판정은 거리만 본다.
 local function positionAt(distance: number): Vector3
 	return ORIGIN + Vector3.new(distance, 0, 0)
+end
+
+-- ===== 경계를 float32 이웃으로 재는 이유 ==============================================
+--
+-- **정확히 반경 거리인 점은 런타임에 존재하지 않는다.** `Vector3` 성분은 float32인데
+-- `getRadius()`는 float64를 주기 때문이다. 반경을 Vector3에 넣으면 float32 격자로 올림돼
+-- 반경보다 커지고, 그 값으로는 당연히 사거리 밖 판정이 난다.
+--
+-- 2026-08-28 Play 실측 (이 파일에 임시 프로브를 넣어 찍은 값):
+--
+--   getRadius() 원본 double   92.799999999999997
+--   Vector3에 넣었다 뺀 값     92.800003051757812
+--   차이                      3.0517578153421709e-06   ← 소수점 6째 자리에서 갈린다
+--   isInRange(잰 거리)        false
+--   isInRange(반경 double)    true      ← isInRange에는 결함이 없다
+--
+-- ⚠️ 그래서 "정확히 반경으로 재라"고 되돌리지 말 것. 그건 도달 불가능한 점을 찍는 것이고,
+-- 실패의 원인은 판정 로직이 아니라 **테스트가 요구한 입력이 표현 불가능**했던 것이다.
+-- 대신 반경을 감싸는 **float32 두 이웃**으로 잰다. 런타임이 실제로 도달할 수 있는 가장
+-- 가까운 두 점이므로 "경계는 이하" 계약은 실질적으로 그대로 검증된다 — 축소가 아니다.
+--
+-- ⚠️ 4-2-f에서 걸릴 함정 — 이웃값을 상수로 적지 말 것.
+-- 범인은 마진 배율이 아니라 `OUTER_RING_MULT = 3.8`이다. `BLOCK_SPAN(16) × 3.8 = 60.8`의
+-- `.8`이 이진수로 떨어지지 않아, **마진을 무엇으로 바꿔도 반경에 `.8`이 남는다.**
+-- 즉 4-2-f에서 마진만 튜닝해도 이 테스트가 이유 없이 색을 바꿀 수 있었다.
+-- 아래처럼 `getRadius()`에서 파생시키면 반경이 어디로 움직이든 이웃도 따라가므로 그 문제가
+-- 사라진다. (반경 값을 이 파일에 숫자로 적지 않는 것과 같은 이유다 — 파일 상단 참고)
+
+-- 런타임과 같은 경로로 값을 float32 격자에 재운다. Vector3 성분이 float32라는 사실
+-- 자체를 이용하는 것이라, 별도의 비트 조작 없이 "실제로 저장되는 값"을 그대로 얻는다.
+local function snapToFloat32(value: number): number
+	return Vector3.new(value, 0, 0).X
+end
+
+-- 반경 자리의 float32 격자 간격. `math.frexp`는 지수를 **정확히** 준다 —
+-- `math.log(x, 2)`는 2의 거듭제곱 근처에서 한 칸 어긋날 수 있어 쓰지 않는다.
+local _, RADIUS_EXPONENT = math.frexp(RADIUS)
+local FLOAT32_GAP = 2 ^ (RADIUS_EXPONENT - 24) -- float32 유효숫자 24비트
+
+-- 반경을 감싸는 두 격자점. 재운 값이 반경보다 큰지 작은지는 반올림 방향에 달렸으므로
+-- (튜닝하면 뒤집힐 수 있다) 양쪽을 다 다룬다.
+local RADIUS_SNAPPED = snapToFloat32(RADIUS)
+local RADIUS_BELOW, RADIUS_ABOVE
+if RADIUS_SNAPPED > RADIUS then
+	RADIUS_ABOVE = RADIUS_SNAPPED
+	RADIUS_BELOW = RADIUS_SNAPPED - FLOAT32_GAP
+else
+	RADIUS_BELOW = RADIUS_SNAPPED
+	RADIUS_ABOVE = RADIUS_SNAPPED + FLOAT32_GAP
 end
 
 local STRENGTH = BigNum.new(5, 3) -- 5000
@@ -99,14 +151,50 @@ do
 end
 
 do
-	-- 경계. 정확히 반경 거리는 사거리 **안**이다 (AttackConfig.isInRange가 소유하는 규약).
+	-- 파생 자체를 먼저 검증한다. 이게 없으면 반경을 튜닝했을 때 이웃 계산이 깨져도
+	-- **엉뚱한 점을 재면서 초록으로 통과**한다 — 아래 두 경계 검사가 의미를 잃는다.
+	check(
+		"경계 파생 — 아래 이웃이 float32 격자 위에 있다",
+		snapToFloat32(RADIUS_BELOW) == RADIUS_BELOW,
+		string.format("%.17g", RADIUS_BELOW)
+	)
+	check(
+		"경계 파생 — 위 이웃이 float32 격자 위에 있다",
+		snapToFloat32(RADIUS_ABOVE) == RADIUS_ABOVE,
+		string.format("%.17g", RADIUS_ABOVE)
+	)
+	check(
+		"경계 파생 — 두 이웃이 반경을 감싼다 (아래 <= 반경 < 위)",
+		RADIUS_BELOW <= RADIUS and RADIUS > RADIUS_BELOW - FLOAT32_GAP and RADIUS_ABOVE > RADIUS,
+		string.format("%.17g <= %.17g < %.17g", RADIUS_BELOW, RADIUS, RADIUS_ABOVE)
+	)
+end
+
+do
+	-- 경계 안쪽. 반경 바로 아래 float32는 사거리 **안**이다
+	-- (AttackConfig.isInRange가 소유하는 "경계는 이하" 규약).
 	local w = newWorld()
-	w.position = positionAt(RADIUS)
+	w.position = positionAt(RADIUS_BELOW)
 	local outcome = pure.runPunch(depsFor(w) :: any, fakePlayer)
 
 	check(
-		"정확히 반경 거리 — 때린다 (경계는 이하)",
+		"경계 — 반경 바로 아래 float32는 때린다 (경계는 이하)",
 		#w.damageCalls == 1 and outcome.result == AttackService.RESULT_OK,
+		outcome.result
+	)
+end
+
+do
+	-- 경계 바깥쪽. 한 칸만 넘어가도 사거리 밖이어야 한다.
+	-- 위아래 두 점이 붙어 있어야 "경계가 정확히 여기"라는 것이 검증된다 —
+	-- 한쪽만 재면 판정선이 어디로 밀려도 통과한다.
+	local w = newWorld()
+	w.position = positionAt(RADIUS_ABOVE)
+	local outcome = pure.runPunch(depsFor(w) :: any, fakePlayer)
+
+	check(
+		"경계 — 반경 바로 위 float32는 때리지 않는다",
+		#w.damageCalls == 0 and outcome.result == AttackService.RESULT_OUT_OF_RANGE,
 		outcome.result
 	)
 end
@@ -250,16 +338,69 @@ end
 do
 	check("클러스터 원점은 (0,0,0)이다", ORIGIN == Vector3.new(0, 0, 0), tostring(ORIGIN))
 
-	-- 원점은 방향과 무관하다. 어느 축으로 나가도 같은 거리면 같은 판정이어야 한다.
-	local inside = newWorld()
-	inside.position = ORIGIN + Vector3.new(0, 0, RADIUS)
-	pure.runPunch(depsFor(inside) :: any, fakePlayer)
+end
 
-	local outside = newWorld()
-	outside.position = ORIGIN + Vector3.new(0, 0, RADIUS + 1)
-	pure.runPunch(depsFor(outside) :: any, fakePlayer)
+-- ===== 방향 독립성 ===================================================================
+--
+-- 판정은 거리만 본다. 어느 축으로 나가도 같은 거리면 같은 결과여야 한다.
+--
+-- ⚠️ **경계 거리를 쓰지 않는다.** 경계에서 재면 위 float32 문제와 섞여, 방향 때문에
+-- 깨진 것인지 경계 때문에 깨진 것인지 구분할 수 없다. 경계는 위 두 검사가 전담한다.
+-- (옛 검사는 이 둘을 한 단언에 섞어 놓았고, 실제로 경계 쪽이 깨지면서 이름과 다른
+--  이유로 실패했다. 그리고 X 결과와 Z 결과를 비교한 적이 없어 방향 독립성을 직접
+--  검증하지도 않았다 — 그래서 나눴다.)
 
-	check("판정은 방향이 아니라 거리만 본다", #inside.damageCalls == 1 and #outside.damageCalls == 0)
+do
+	-- 세 축을 같은 거리로 재서 **서로 비교한다.** 축마다 따로 단언하면 셋이 나란히
+	-- 틀렸을 때 통과한다 — 비교가 있어야 "방향이 결과를 바꾸지 않는다"가 검증된다.
+	local function measureAxes(distance: number)
+		local offsets = {
+			X = Vector3.new(distance, 0, 0),
+			Y = Vector3.new(0, distance, 0),
+			Z = Vector3.new(0, 0, distance),
+		}
+
+		local out: { [string]: { calls: number, result: string, distance: number } } = {}
+		for axis, offset in pairs(offsets) do
+			local w = newWorld()
+			w.position = ORIGIN + offset
+			local outcome = pure.runPunch(depsFor(w) :: any, fakePlayer)
+			out[axis] = {
+				calls = #w.damageCalls,
+				result = outcome.result,
+				distance = outcome.distance or -1,
+			}
+		end
+		return out
+	end
+
+	-- 사거리 한참 안쪽 / 한참 바깥쪽. 둘 다 경계에서 멀리 떨어뜨린다.
+	local inside = measureAxes(RADIUS / 2)
+	local outside = measureAxes(RADIUS * 2)
+
+	check(
+		"방향 독립 — 세 축이 같은 거리를 같은 값으로 잰다",
+		inside.X.distance == inside.Y.distance and inside.Y.distance == inside.Z.distance,
+		string.format("X=%.17g Y=%.17g Z=%.17g", inside.X.distance, inside.Y.distance, inside.Z.distance)
+	)
+
+	check(
+		"방향 독립 — 사거리 안이면 세 축 모두 때린다",
+		inside.X.calls == 1 and inside.Y.calls == 1 and inside.Z.calls == 1,
+		string.format("X=%d Y=%d Z=%d", inside.X.calls, inside.Y.calls, inside.Z.calls)
+	)
+
+	check(
+		"방향 독립 — 사거리 밖이면 세 축 모두 안 때린다",
+		outside.X.calls == 0 and outside.Y.calls == 0 and outside.Z.calls == 0,
+		string.format("X=%d Y=%d Z=%d", outside.X.calls, outside.Y.calls, outside.Z.calls)
+	)
+
+	check(
+		"방향 독립 — 세 축이 같은 결과 코드를 낸다",
+		inside.X.result == inside.Z.result and outside.X.result == outside.Z.result,
+		string.format("안=%s/%s 밖=%s/%s", inside.X.result, inside.Z.result, outside.X.result, outside.Z.result)
+	)
 end
 
 do
