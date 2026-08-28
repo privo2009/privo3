@@ -67,25 +67,6 @@ SpeedService.init()
 local SpeedRequestService = require(script.Parent.Systems.SpeedRequestService)
 SpeedRequestService.init()
 
--- ── 개발용 플래그: ATTACK_WIRING_ENABLED ─────────────────────────────────────────
--- 위치: 이 파일, 바로 이 줄. Studio에서 켜고 끄는 값이 아니다 — 코드에서 고치고
--- Rojo sync 해야 반영된다 (REBIRTH_WIRING_ENABLED와 같은 패턴).
---
--- 4-2-e2는 **서비스(AttackService)와 배선(이 파일)이 한 커밋에 들어갔다.**
--- 되돌릴 단위가 없으므로 RC에서 문제가 났을 때 원인을 코드로 읽어 추측하게 된다.
--- 이 플래그를 끄고 다시 돌려서, 그래도 문제가 남으면 서비스 밖이고 사라지면 이 배선이다 —
--- 한 줄로 원인을 가르기 위한 것이다.
---
--- ⚠️ 이 플래그는 **런타임 배선만** 가른다. AttackServiceTests는 별도 Script라
---    Bootstrap을 거치지 않고 AttackService를 직접 require한다 — 그래서 플래그를 꺼도
---    테스트는 그대로 돈다. 여기가 어긋나면(플래그가 테스트까지 끄면) 끄고 다시 돌려도
---    원인이 안 갈려서 이 플래그의 목적 자체가 사라진다.
---
--- ⚠️ 끄면 **블록에 데미지가 전혀 들어가지 않는다.** 힘 → 데미지 경로가 이것뿐이라
---    VERIFY_CHALLENGE의 런은 20초 뒤 timeout으로 끝난다. 그게 정상 동작이다.
---    양쪽 Play 검증이 끝나면 이 플래그는 제거 대상이다 (docs/PENDING.md 잔재).
-local ATTACK_WIRING_ENABLED = true
-
 -- AttackService가 몇 번 때리는지 지켜보는 시간(초). VERIFY_CHALLENGE 전용이다.
 -- 펀치 주기(0.5초)보다 넉넉해야 몇 대는 들어간 뒤에 클리어 여부를 본다.
 local ATTACK_OBSERVE_SEC = 3
@@ -94,17 +75,15 @@ local ATTACK_OBSERVE_SEC = 3
 -- 이 루프는 값을 만들지 않고 마지막 결과만 들여다보므로 촘촘할 이유가 없다.
 local ATTACK_VERIFY_POLL_SEC = 0.5
 
-if ATTACK_WIRING_ENABLED then
-	-- 근접 자동 공격을 연다 (4-2-e2).
-	-- ⚠️ 순서: CurrencyService(힘 조회) · ChallengeService(런 상태·applyDamage)가 준비된
-	-- 뒤여야 한다. 둘 다 모듈 로드 시점에 준비되므로 여기가 그 뒤다.
-	-- SpeedService와의 선후는 상관없다 — 서로 읽는 값이 없다.
-	--
-	-- ⚠️ init()이 서버 단일 루프를 띄운다. 이 줄이 빠지면 루프가 아예 안 돌고,
-	-- 증상은 "블록을 때려도 안 부서진다" 하나뿐이라 원인이 보이지 않는다.
-	local AttackService = require(script.Parent.Systems.AttackService)
-	AttackService.init()
-end
+-- 근접 자동 공격을 연다 (4-2-e2).
+-- ⚠️ 순서: CurrencyService(힘 조회) · ChallengeService(런 상태·applyDamage)가 준비된
+-- 뒤여야 한다. 둘 다 모듈 로드 시점에 준비되므로 여기가 그 뒤다.
+-- SpeedService와의 선후는 상관없다 — 서로 읽는 값이 없다.
+--
+-- ⚠️ init()이 서버 단일 루프를 띄운다. 이 줄이 빠지면 루프가 아예 안 돌고,
+-- 증상은 "블록을 때려도 안 부서진다" 하나뿐이라 원인이 보이지 않는다.
+local AttackService = require(script.Parent.Systems.AttackService)
+AttackService.init()
 
 -- ── 개발용 플래그: REBIRTH_WIRING_ENABLED ────────────────────────────────────────
 -- 위치: 이 파일, 바로 이 줄. Studio에서 켜고 끄는 값이 아니다 — 코드에서 고치고
@@ -221,40 +200,38 @@ Players.PlayerAdded:Connect(function(player: Player)
 	--
 	-- ⚠️ 매 틱 찍지 않는다. 펀치는 초당 2회라 그대로 찍으면 다른 로그가 전부 묻힌다.
 	-- **결과 코드가 바뀔 때만** 찍는다 — 상태 전이가 관심사이지 매회의 값이 아니다.
-	if ATTACK_WIRING_ENABLED then
-		local AttackService = require(script.Parent.Systems.AttackService)
+	local AttackService = require(script.Parent.Systems.AttackService)
 
-		task.spawn(function()
-			local lastResult: string? = nil
+	task.spawn(function()
+		local lastResult: string? = nil
 
-			while player.Parent ~= nil do
-				task.wait(ATTACK_VERIFY_POLL_SEC)
+		while player.Parent ~= nil do
+			task.wait(ATTACK_VERIFY_POLL_SEC)
 
-				local outcome = AttackService.getLastOutcome(player)
-				if outcome ~= nil and outcome.result ~= lastResult then
-					lastResult = outcome.result
+			local outcome = AttackService.getLastOutcome(player)
+			if outcome ~= nil and outcome.result ~= lastResult then
+				lastResult = outcome.result
 
-					-- 배수는 AttackService가 모른다(힘 트랙이다). 여기서 직접 만든다 —
-					-- 클릭 지급이 쓰는 것과 **같은 compute**를 태워야 값이 갈리지 않는다.
-					local mult = StrengthMultiplier.compute({
-						rebirths = CurrencyService.get(player, "rebirths"),
-					})
+				-- 배수는 AttackService가 모른다(힘 트랙이다). 여기서 직접 만든다 —
+				-- 클릭 지급이 쓰는 것과 **같은 compute**를 태워야 값이 갈리지 않는다.
+				local mult = StrengthMultiplier.compute({
+					rebirths = CurrencyService.get(player, "rebirths"),
+				})
 
-					print(string.format(
-						"[Bootstrap][ATTACK] %s result=%s dist=%s/%.1f (%s) dmg=%s mult=%s str=%s",
-						player.Name,
-						outcome.result,
-						outcome.distance and string.format("%.1f", outcome.distance) or "-",
-						AttackConfig.getRadius(),
-						outcome.distance and (AttackConfig.isInRange(outcome.distance) and "in" or "out") or "-",
-						outcome.damage and BigNum.tostring(outcome.damage) or "-",
-						BigNum.tostring(mult),
-						BigNum.tostring(CurrencyService.get(player, "strength") or BigNum.new(0, 0))
-					))
-				end
+				print(string.format(
+					"[Bootstrap][ATTACK] %s result=%s dist=%s/%.1f (%s) dmg=%s mult=%s str=%s",
+					player.Name,
+					outcome.result,
+					outcome.distance and string.format("%.1f", outcome.distance) or "-",
+					AttackConfig.getRadius(),
+					outcome.distance and (AttackConfig.isInRange(outcome.distance) and "in" or "out") or "-",
+					outcome.damage and BigNum.tostring(outcome.damage) or "-",
+					BigNum.tostring(mult),
+					BigNum.tostring(CurrencyService.get(player, "strength") or BigNum.new(0, 0))
+				))
 			end
-		end)
-	end
+		end
+	end)
 
 	local speedStats = SpeedRequestService.getStats(player)
 	print(string.format(

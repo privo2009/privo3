@@ -20,9 +20,10 @@
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
-| `Tests/ConfigTests.server.lua` | 58 | 모든 Config의 validate + 스모크 |
+| `Tests/ConfigTests.server.lua` | 59 | 모든 Config의 validate + 스모크 |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Tests/WarpConfigTests.server.lua` | 31 | 워프 비용 곡선(지수·단조)·순수성·거부 사유 3종 |
+| `Tests/AttackConfigTests.server.lua` | 38 | 펀치 속도·판정 반경 파생·경계(이하) ※※ |
 | `Data/SchemaTests.server.lua` | 33 | 프로필 스키마 검증 |
 | `Data/MigrationsTests.server.lua` | 20 | schemaVersion 마이그레이션·멱등성 |
 | `Systems/CurrencyServiceTests.server.lua` | 51 | 재화 단일 게이트·롤백·rebirths |
@@ -34,7 +35,8 @@
 | `Systems/SpeedRequestServiceTests.server.lua` | 32 | 요청 빈도 상한·폐기·로그 억제·응답 payload |
 | `Systems/RebirthServiceTests.server.lua` | 66 | 거부 시 부작용 0·순서·누적·부분 실패 ※ |
 | `Systems/WarpServiceTests.server.lua` | 73 | 거부 시 차감 0·차감이 런 시작보다 먼저·부분 실패 3종 ※ |
-| **합계** | **667** | |
+| `Systems/AttackServiceTests.server.lua` | 41 | 반경 밖 미호출·이중 계산 방지·경계(float32 이웃)·방향 독립 |
+| **합계** | **747** | |
 
 ※ 두 행 다 **헬퍼가 check를 여러 번 부른다.** `RebirthServiceTests`는 7개 check를 묶은
 `checkUntouched`를 3번 호출하고(정적 53, 실측 66), `WarpServiceTests`는 3개 check를 묶은
@@ -42,12 +44,26 @@
 잡히고 런타임에는 호출 횟수만큼 돈다 — 어긋나는 것이 **정상**이다.
 파라미터화 루프와 같은 구조이므로 이 두 행은 실측만 믿을 것.
 
-최근 갱신: **2026-08-28 Studio Play 런타임 실측.** 667 passed / 0 failed (16개 행).
-4-2-e Prompt 2로 `WarpServiceTests`(73) 행 추가.
+※※ **`AttackConfigTests`(38)만 합계에서 역산한 값이다.** 실측으로 받은 것은 총계
+747 / 18개 파일 / 0 failed와 `AttackServiceTests` 41이고, 나머지는 직전 실측(667)에
+`ConfigTests` +1(`AttackConfig.validate`가 그 파일에 들어갔다 — 아래 ⚠️ 참고)을 더해
+남는 값을 이 행에 넣었다. **다음 Play 때 이 파일이 찍는 자기 줄로 38을 확인할 것.**
+합계와 행 수는 실측이므로 표 전체가 틀어지지는 않지만, 이 한 행은 아직 눈으로 본 값이 아니다.
 
-⚠️ 합계 667은 16개 행을 더한 값이다. **총합을 찍는 스크립트는 없다** —
+최근 갱신: **2026-08-28 Studio Play 런타임 실측.** 747 passed / 0 failed (18개 행).
+4-2-e2로 `AttackConfigTests`(38) · `AttackServiceTests`(41) 두 행 추가, `ConfigTests` 58 → 59.
+
+⚠️ `AttackServiceTests`가 32 → 41로 오른 것은 케이스를 늘린 게 아니라 **나눈 것**이다.
+경계 검사를 float32 이웃 두 점(반경 바로 아래 = 안 / 바로 위 = 밖)으로 쪼개고 그 파생을
+검증하는 3건을 붙였으며, "방향이 아니라 거리만 본다"에 섞여 있던 경계 검사를 떼어내
+방향 독립성을 세 축 비교로 따로 세웠다 (→ 4-2-e2 "**[확정됨]** float32 경계").
+
+⚠️ 합계 747은 18개 행을 더한 값이다. **총합을 찍는 스크립트는 없다** —
 각 테스트 파일이 자기 줄만 찍는다. 한 행이 통째로 빠져도 로그에는 아무 흔적이 없으므로,
-갱신할 때는 반드시 행 수(16)와 합계를 함께 대조할 것.
+갱신할 때는 반드시 행 수(18)와 합계를 함께 대조할 것.
+
+직전 갱신: 2026-08-28 실측 667 (16개 행).
+4-2-e Prompt 2로 `WarpServiceTests`(73) 행 추가.
 
 직전 갱신: 2026-08-28 실측 594 (15개 행).
 4-2-e Prompt 1로 `WarpConfigTests`(31) 행 추가, `ConfigTests` 57 → 58.
@@ -285,8 +301,8 @@ b  클릭 파워 패드        ✅
 c  레벨 + 커스텀 스피드  ✅
 d  RebirthService       ✅  2026-08-27 Play 검증 (잔여 1건 — 아래 참조)
 e  WarpService          ✅  2026-08-28 Play 검증
-e2 근접 자동 공격        ✗  미착수 ← 다음. f의 선행 조건
-f  실측 튜닝            ✗  착수 불가 (e2 없이는 성공률을 계산할 수 없다)
+e2 근접 자동 공격        ✅  2026-08-28 Play 검증 (747 passed / 0 failed)
+f  실측 튜닝            ✗  미착수 ← 다음. **선행 조건 해소됨**
 ```
 
 ⚠️ `a`가 ◐인 이유: `cashout()` · `advance()`는 완성됐지만 그것을 **부르는 3D 파트가
@@ -487,7 +503,30 @@ Prompt 3  배선        04c9dfd   Bootstrap의 WARP_VERIFY 블록 (검증 전용
 `canWarp`은 같은 입력을 `invalid_stage`로 접는다 —
 사유 코드로 접혀야 할 것이 서버 에러가 되면 안 된다.
 
-#### 4-2-e2. 근접 자동 공격 (AttackService) — 구현 완료 · **Play 미검증**
+#### 4-2-e2. 근접 자동 공격 (AttackService) ✅ 완료
+
+**2026-08-28 RC Play 검증 완료. 747 passed / 0 failed (18개 파일).**
+
+검증된 것:
+
+```
+힘 → 데미지 경로    실물에서 돈다. dmg = str (5.513000e+3)
+                    펀치 속도가 1회 데미지에 곱해지지 않았다 — 이중 계산 없음
+timeLeft 동결       처음 관측됐다. 20.0이 아니라 17.9 / 19.9 / 19.8
+                    HUGE_DAMAGE 제거로 중간 클리어가 실제로 발생했다
+환생 배수           클릭 획득량에 붙는다. mult=1.000000e+1 (rebirths=9)
+                    클릭 1회 배치 +80 / 2회 배치 +160 — 배치당 통과 횟수에 비례
+판정 반경           동작한다. dist=4.3~6.0 (in), result=ok
+배선                초기화 로그와 result 전이(ok → cleared → no_run) 확인
+cashout             증가분 = 보상액 일치, 런 종료 확인
+```
+
+⚠️ **아직 관측되지 않은 것 — `result=out_of_range`를 실물에서 보지 못했다.**
+테스트로는 덮여 있으나 Play에서 캐릭터를 반경 밖으로 걸어나가게 한 적이 없다.
+**거리 폴링을 택한 근거 자체**이므로 한 번은 실물 확인이 필요하다 —
+반경이 아레나를 덮어버리면 "이름만 거리 폴링인 상시 발동"이 되고, 그것을 가르는 것은
+이 로그 한 줄뿐이다. Phase 6 UI 진입 시 또는 다음 Play 기회에 확인한다
+(→ `docs/PENDING.md`).
 
 ⚠️ **이 작업은 지금까지 어느 Phase에도 배정된 적이 없다.**
 4-2-b가 펀치 속도 수치만 **[확정됨]** 으로 정하고 구현 절을 만들지 않았고,
@@ -562,6 +601,34 @@ Bootstrap `VERIFY_CHALLENGE` 한 곳뿐이고 넘기는 값은 힘과 무관한 
 
 ⚠️ 마진은 파워 1 · `bloxBase = 1`과 **같은 성격의 임시값**이다.
 4-2-f 실측 튜닝 대상이다 — 확정값으로 취급하지 말 것.
+
+##### [확정됨] float32 경계 — 정확히 반경인 점은 런타임에 존재하지 않는다 (2026-08-28)
+
+RC Play에서 `AttackServiceTests` 경계 케이스 2건이 실패했고, 임시 프로브로 원인을 확정했다.
+
+```
+getRadius() 원본 double   92.799999999999997
+Vector3에 넣었다 뺀 값     92.800003051757812
+차이                      3.05e-06
+isInRange(잰 거리)        false
+isInRange(반경 double)    true      ← 판정 함수에는 결함이 없다
+```
+
+**Roblox `Vector3` 성분은 float32이고 `AttackConfig.getRadius()`는 float64다.**
+반경을 `Vector3`에 넣으면 float32 격자로 올림되어 반경보다 커진다.
+즉 **테스트가 런타임에서 표현 불가능한 점을 찍고 있었다** — 코드 결함이 아니었다.
+해법은 경계를 **float32 이웃 두 점**(반경 바로 아래 = 안 / 바로 위 = 밖)으로 재정의하는 것.
+런타임이 도달 가능한 가장 가까운 두 점이라 "경계는 이하" 계약은 그대로 검증된다.
+
+⚠️ **4-2-f에서 걸릴 함정 — 범인은 마진이 아니라 `OUTER_RING_MULT`다.**
+`BLOCK_SPAN × 3.8 = 60.8`의 `.8`이 이진수로 떨어지지 않아 **마진 배율을 무엇으로 바꿔도
+반경에 `.8`이 남는다.** 이웃값을 상수로 적었다면 마진을 튜닝할 때마다 이 테스트가
+이유 없이 색을 바꿨을 것이다. `getRadius()`에서 파생시켰으므로 **이제 그런 일은 없다.**
+
+⚠️ 검토했으나 택하지 않은 것 — 다시 제안하지 말 것:
+제곱 비교(순서를 보존하므로 이 실패를 못 고친다) · 경계를 피하고 안/밖만 재기(검증 축소) ·
+`isInRange`에 ε 허용치(`AttackConfig` 상단이 경계하는 "부동소수가 판정을 정하는 자리"를
+코드로 들이는 것) · `OUTER_RING_MULT` 조정(테스트를 위해 게임 밸런스를 바꾸는 것).
 
 ##### [확정됨] Config 위치 — AttackConfig 신설 (2026-08-28)
 
@@ -683,22 +750,25 @@ result=no_changes            → 하류가 거부했다
 
 #### 4-2-f. 실측 튜닝
 
-⚠️ **착수 불가 (2026-08-28 조사).** 성공률 `p = f(힘, 총HP, 20초)`에서
-**이번엔 `f`가 없다.** 힘을 20초간의 데미지로 바꾸는 경로가 코드에 존재하지 않는다.
+✅ **착수 가능 (2026-08-28).** 성공률 `p = f(힘, 총HP, 20초)`의 `f`가 채워졌고
+**실물에서 도는 것까지 확인됐다.**
 
 ```
 클릭 → 힘        ✅ ClickService
-힘 → 데미지      ❌ 없음
+힘 → 데미지      ✅ AttackService (4-2-e2. Play 검증 완료)
 데미지 → 블록    ✅ BlockService (오버플로우 포함)
 ```
 
-`ChallengeService.applyDamage`의 실호출자는 Bootstrap `VERIFY_CHALLENGE` 한 곳뿐이고
-넘기는 값은 `HUGE_DAMAGE = BigNum.new(1, 999)` — 힘과 무관한 상수다.
-**즉 지금까지의 챌린지 검증은 전부 "즉시 클리어"였다.**
-선행 **4-2-e2(근접 자동 공격)** 를 먼저 세운다.
+⚠️ Phase 3-5가 여기로 이월된 이유는 "힘 항이 비어 있다"였고, 그 뒤 4-2-e2 조사에서
+"힘을 데미지로 바꾸는 함수가 없다"로 한 번 바뀌었다. **두 조건 모두 해소됐다** —
+`dmg = str`이 Play 로그에 찍혔고 중간 클리어(`timeLeft` 동결)가 실제로 발생했다.
 
-⚠️ Phase 3-5가 여기로 이월된 이유는 "힘 항이 비어 있다"였다. 힘 항은 채워졌지만
-이번엔 그 힘을 데미지로 바꾸는 함수가 없다. **선행 조건이 바뀐 것이지 해소된 것이 아니다.**
+⚠️ 남아 있는 것은 **[착수 전 확정]** 의 `bloxBase = 1` 하나이며, 선행 조건과는 별개다.
+값을 정하는 문제이지 경로가 없는 문제가 아니다.
+
+⚠️ **측정 전에 힘을 초기화할 것.** 힘이 프로필에 누적돼 있으면 1층이 0.1초에 끝난다
+(2026-08-28 관측: `str=5513`, `timeLeft=19.8`). 이전 세션의 클릭이 측정값을 오염시킨다
+(→ `docs/PENDING.md`).
 
 성공률 데이터를 보고 HP/보상 커브를 조정한다.
 Phase 4-1의 수치는 레퍼런스 기반 후보값이다 (→ Phase 3-5에서 이월된 작업).
