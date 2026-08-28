@@ -135,6 +135,13 @@ docs/UI_HANDOFF.md      "문서 갱신" 줄 자체가 없다  ← 더 나쁘다
   타이머가 돌 시간이 없다. **근접 자동 공격(ROADMAP 4-2-e2)이 구현되면
   실제 중간 클리어가 발생해** 이 항목을 비로소 검증할 수 있게 된다.
   그때까지는 이 값이 20.0인 것이 고장이 아니라 정상이다.
+
+  ✅ **그 전제가 사라졌다 — `0c389d0`에서 `HUGE_DAMAGE`를 제거했다.**
+  이제 블록은 `AttackService`가 0.5초마다 실제 데미지로 깎으므로 중간 클리어가
+  발생하고 `timeLeft`가 그 시점에 얼어붙어야 한다. **관측 가능해졌다 — RC Play 대기.**
+  ⚠️ 위 "20.0이면 정상"은 이제 성립하지 않는다. Play에서 20.0이 그대로 나오면
+  그때는 진짜 고장이거나 캐릭터가 반경 밖이라 한 대도 안 맞은 것이다
+  (`[ATTACK]` 줄의 `out_of_range`가 둘을 가른다).
 - **근접 자동 공격 미구현** — **힘 → 데미지 경로가 통째로 없다.**
   `ChallengeService.applyDamage`의 실호출자는 Bootstrap `VERIFY_CHALLENGE`
   한 곳뿐이고, 넘기는 값은 힘과 무관한 상수다.
@@ -161,6 +168,30 @@ docs/UI_HANDOFF.md      "문서 갱신" 줄 자체가 없다  ← 더 나쁘다
     (지급이 `lifetimeBlox`를 되돌릴 수 없게 올린다 — 아래 "잔재" 경고 참고)
 
   (근거 → `src/server/Systems/ClickService.lua` `computeGain`)
+- **`CurrencyService.add`의 프로필 검사가 방어선이다** — 기록해 둘 사실.
+  프로필 로드 전 클릭은 **배수 없이 지급되는 것이 아니라 아예 지급되지 않는다.**
+
+  ```
+  클라 게이트          없음 (ClickInput.client.lua는 시작 즉시 0.2초마다 송신)
+  PadService           프로필을 요구하지 않는다 (state 없으면 패드1로 접는다)
+  CurrencyService.add  ProfileManager.get이 nil → warn + return false  ← 여기서 막힌다
+  ```
+
+  ⚠️ 막는 것이 `PadService`가 아니라 **지급 게이트**라는 것이 요점이다.
+  나중에 "프로필 없으면 큐에 쌓아뒀다 나중에 지급"이 들어가면 **그 순간
+  배수 없는 지급 창이 열린다.** 지금은 없다. (2026-08-28 조사)
+- **`PadLayout`의 `ARENA_RADIUS` 중복** — 다음 정리 세션 후보.
+  `PadLayout.lua`가 `BlockLayout.lua`와 같은 식(`BLOCK_SPAN × OUTER_RING_MULT
+  + BLOCK_SPAN/2`)을 다시 쓴다. `d153228`에서 만든 `BlockLayout.OUTER_RADIUS`로
+  정리 가능하다. 4-2-e2 수정 범위 밖이라 지금 열지 않았다.
+- **`DESIGN.md` 펀치 속도 절 분리** — "클릭 파워 패드" 절이 펀치 속도를
+  수동 클릭 상한과 나란히 담고 있다. **트랙이 다르다** — 수동 클릭 상한 10/sec은
+  힘 트랙의 오토마우스 방어선(수익 모델 상수)이고 펀치 속도 2/sec는 블록 공격
+  트랙의 밸런스 값이다. 펀치 속도를 별도 절로 뺀다.
+
+  ⚠️ 코드 쪽 정본은 이미 옮겨졌다(`Shared/Config/AttackConfig.lua`, `d153228`)
+  ROADMAP 4-2-b의 포인터도 그쪽을 가리키도록 고쳤다. **남은 것은 DESIGN 본문뿐이다.**
+  절을 옮기는 작업이라 문서 커밋에 섞지 않았다.
 - **`CurrencyService` 로그 오독** — 다음 정리 세션 후보.
   `subtract`/`add` 로그가 `<증감액> -> <결과값>` 형식인데 화살표 때문에
   `<이전값> -> <이후값>`으로 읽힌다.
@@ -202,6 +233,7 @@ Play 검증 전에 Rojo 플러그인 창에서 Connect / Disconnect 상태를 �
 | `Bootstrap`의 `REBIRTH_WIRING_ENABLED` | **조건 충족 — 지금 삭제 가능** (2026-08-27 검증 완료) |
 | `Bootstrap`의 `REBIRTH_VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
 | `Bootstrap`의 `WARP_VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
+| `Bootstrap`의 `ATTACK_WIRING_ENABLED` | **RC Play 검증 완료 후** |
 
 ⚠️ `VERIFY_ENABLED`는 **지금 지우지 말 것.** 2026-08-26 Play에서 왕복을 확인해
 목적은 다했고 `false`로 꺼 뒀지만, UI가 없는 동안 이 채널이 살아 있는지 확인할
@@ -223,6 +255,14 @@ blox 지급이 `lifetimeBlox`를 함께 올려 클릭 파워 패드가 열린다
 켠 채로 커밋하면 접속하는 모든 계정에 적용된다.
 Phase 6 UI까지 남기는 이유도 같다: UI가 없는 동안 워프가 실물에서 도는지 확인할
 **유일한 수단**이다. 목표층은 그 블록 안에 하드코딩(3층)돼 있다.
+
+⚠️ `ATTACK_WIRING_ENABLED`는 **성격이 다르다.** 위 둘은 "실물에서 도는지 보는 수단"이라
+Phase 6까지 남지만, 이건 **원인을 가르는 스위치**다. 서비스(`AttackService`)와
+배선(Bootstrap)이 한 커밋(`0c389d0`)에 들어가 되돌릴 단위가 없어서, RC에서 문제가 나면
+이 플래그를 끄고 다시 돌려 서비스 밖인지 이 배선인지 가른다.
+**검증이 끝나면 존재 이유가 사라진다** — Phase 6까지 끌고 갈 물건이 아니다.
+⚠️ 끄면 블록에 데미지가 전혀 들어가지 않는다(힘 → 데미지 경로가 이것뿐이다).
+런은 20초 뒤 timeout으로 끝나며 그게 정상 동작이다.
 
 (Bootstrap VERIFY print의 `req=` · `last=` 필드는 **상시 유지**다. 잔재가 아니다)
 
