@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local ClickPadConfig = require(ReplicatedStorage.Shared.Config.ClickPadConfig)
+local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 local ClickService = require(script.Parent.ClickService)
 
 local pure = ClickService._pure
@@ -29,6 +30,10 @@ end
 local LIMIT = pure.MANUAL_CLICK_LIMIT
 local WINDOW = pure.WINDOW_SEC
 local WORLD_ID = 1
+
+-- 배수가 없는 상태(환생 0회). compute가 돌려주는 값을 그대로 쓴다 —
+-- BigNum.new(1, 0)을 직접 적으면 "배수 없음"의 정의가 두 곳이 된다.
+local NO_MULTIPLIER = StrengthMultiplier.compute(nil)
 
 -- 시각은 os.clock()을 쓰지 않는다. 순수 함수라 now를 인자로 받으므로 테스트가
 -- 시간을 직접 정한다 — 실제 시계에 의존하면 윈도우 만료 검증에 sleep이 필요해진다.
@@ -118,7 +123,7 @@ end
 
 do
 	local pad5Power = ClickPadConfig.getPadPower(WORLD_ID, 5)
-	local gain = pure.computeGain(pad5Power, 3)
+	local gain = pure.computeGain(pad5Power, 3, NO_MULTIPLIER)
 
 	-- 패드5 파워는 basePower(1) × powerGrowth(2)^4 = 16. 3회면 48이다.
 	-- 절대값 48을 그대로 쓰지 않고 파워 × 3으로도 함께 확인한다 — Config를 튜닝하면
@@ -134,18 +139,89 @@ do
 
 	check(
 		"패드1 클릭 1회 → 힘 1 (basePower 그대로)",
-		BigNum.eq(pure.computeGain(ClickPadConfig.getPadPower(WORLD_ID, 1), 1), BigNum.new(1, 0))
+		BigNum.eq(pure.computeGain(ClickPadConfig.getPadPower(WORLD_ID, 1), 1, NO_MULTIPLIER), BigNum.new(1, 0))
 	)
 	check(
 		"통과 0회면 증가량 0",
-		BigNum.eq(pure.computeGain(ClickPadConfig.getPadPower(WORLD_ID, 5), 0), BigNum.new(0, 0))
+		BigNum.eq(pure.computeGain(ClickPadConfig.getPadPower(WORLD_ID, 5), 0, NO_MULTIPLIER), BigNum.new(0, 0))
 	)
 
 	-- 상한까지 눌러도 raw number로 새지 않는지. 패드24는 파워가 8.39e6이다.
-	local pad24Gain = pure.computeGain(ClickPadConfig.getPadPower(WORLD_ID, 24), LIMIT)
+	local pad24Gain = pure.computeGain(ClickPadConfig.getPadPower(WORLD_ID, 24), LIMIT, NO_MULTIPLIER)
 	check(
 		"패드24 상한만큼 클릭해도 BigNum 형태 유지",
 		type(pad24Gain) == "table" and type(pad24Gain.m) == "number" and type(pad24Gain.e) == "number"
+	)
+end
+
+-- 4b. 환생 배수가 획득량에 곱해진다 (4-2-d 잔여 배선) ---------------------------------------
+--
+-- ⚠️ 이 블록이 막는 사고: compute의 호출자가 0이라 환생을 몇 번 하든 클릭당 힘이
+-- 그대로였다. 배수가 없어도 힘은 멀쩡히 오르므로 **플레이로는 발견되지 않는다** —
+-- 그래서 테스트가 유일한 관측 지점이다. 이 케이스들을 지우지 말 것.
+--
+-- ⚠️ 기대 배수를 1 + rebirths로 직접 계산하지 않는다. compute를 태워서 만든다 —
+-- 여기서 식을 다시 쓰면 그 순간 이 테스트는 "compute가 맞는가"가 아니라
+-- "내가 적은 식이 맞는가"를 재게 되고, compute가 바뀌어도 안 깨진다.
+
+do
+	local padPower = ClickPadConfig.getPadPower(WORLD_ID, 5)
+	local CLICKS = 3
+	local base = pure.computeGain(padPower, CLICKS, NO_MULTIPLIER)
+
+	-- (1) 회귀 방지: 환생 0회면 배선 전과 완전히 같은 값이어야 한다.
+	local zeroMultiplier = StrengthMultiplier.compute({ rebirths = BigNum.new(0, 0) })
+	check(
+		"rebirths 0 — 획득량이 배선 전과 동일",
+		BigNum.eq(pure.computeGain(padPower, CLICKS, zeroMultiplier), BigNum.mul(padPower, BigNum.fromNumber(CLICKS))),
+		BigNum.tostring(pure.computeGain(padPower, CLICKS, zeroMultiplier))
+	)
+	check("rebirths 0의 배수는 1이다", BigNum.eq(zeroMultiplier, BigNum.new(1, 0)), BigNum.tostring(zeroMultiplier))
+
+	-- (2) 양수 환생: 배수만큼 커진다. 배수 자체는 compute에서 받아온다.
+	local rebirths = BigNum.fromNumber(4)
+	local multiplier = StrengthMultiplier.compute({ rebirths = rebirths })
+	local boosted = pure.computeGain(padPower, CLICKS, multiplier)
+
+	check(
+		"rebirths 4 — 획득량이 배수만큼 커진다",
+		BigNum.eq(boosted, BigNum.mul(base, multiplier)),
+		string.format("%s (배수 %s)", BigNum.tostring(boosted), BigNum.tostring(multiplier))
+	)
+	check("rebirths 4의 배수는 5다 (1 + rebirths)", BigNum.eq(multiplier, BigNum.new(5, 0)), BigNum.tostring(multiplier))
+	check("배수가 붙으면 실제로 더 커진다", BigNum.gt(boosted, base))
+
+	-- (3) 배수는 **획득량에만** 붙는다. 보유 힘에 붙지 않는다.
+	-- computeGain의 인자에 보유 힘이 아예 없다는 것이 구조적 증거지만, 그것만으로는
+	-- "인자가 늘어나도 안 깨지는" 테스트가 된다. 그래서 값으로도 확인한다:
+	-- 획득량은 (패드파워 × 횟수)에만 비례하고, 보유 힘이 얼마든 결과가 같아야 한다.
+	check(
+		"배수는 획득량에만 적용된다 — 결과가 패드파워 × 횟수 × 배수와 정확히 일치",
+		BigNum.eq(boosted, BigNum.mul(BigNum.mul(padPower, BigNum.fromNumber(CLICKS)), multiplier))
+	)
+
+	-- 보유 힘은 computeGain의 **인자가 아니다.** 누군가 보유 힘을 받아 곱하도록
+	-- 바꾸면 인자가 4개로 늘고 여기서 잡힌다. 값 검사만으로는 그 변경을 못 본다 —
+	-- 새 인자를 nil로 받으면 기존 등식이 그대로 성립하기 때문이다.
+	check(
+		"computeGain의 인자는 3개다 (보유 힘이 들어올 자리가 없다)",
+		debug.info(pure.computeGain, "a") == 3,
+		tostring(debug.info(pure.computeGain, "a"))
+	)
+
+	-- (4) 통과 0회면 배수가 아무리 커도 0이다. 배수가 0을 1로 만들면 안 된다.
+	local bigMultiplier = StrengthMultiplier.compute({ rebirths = BigNum.new(1, 100) })
+	check(
+		"통과 0회면 배수가 커도 획득량 0",
+		BigNum.eq(pure.computeGain(padPower, 0, bigMultiplier), BigNum.new(0, 0))
+	)
+
+	-- (5) 큰 배수에서도 BigNum 형태를 유지한다 (raw number로 새지 않는다).
+	local huge = pure.computeGain(ClickPadConfig.getPadPower(WORLD_ID, 24), LIMIT, bigMultiplier)
+	check(
+		"큰 배수에서도 BigNum 형태 유지",
+		type(huge) == "table" and type(huge.m) == "number" and type(huge.e) == "number" and huge.m == huge.m,
+		BigNum.tostring(huge)
 	)
 end
 

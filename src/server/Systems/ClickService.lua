@@ -4,7 +4,7 @@
 -- 하는 일:
 --   1. 클라가 배치로 보낸 클릭 수를 받는다 (ClickInput 채널)
 --   2. 슬라이딩 윈도우로 초당 상한을 넘는 분을 버린다
---   3. 통과분 × PadService.getClickPower(player) 만큼 힘을 올린다
+--   3. 통과분 × PadService.getClickPower(player) × 힘 배수 만큼 힘을 올린다
 --   4. 버려진 분이 있으면 ClickRejected로 알린다 (억제됨)
 --
 -- ===== 판정은 전부 서버다 (CLAUDE.md 3) ================================================
@@ -23,6 +23,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 local CurrencyService = require(script.Parent.CurrencyService)
 local PadService = require(script.Parent.PadService)
 
@@ -161,14 +162,33 @@ local function passAll(state: ClickState, count: number): (ClickState, number, n
 	return state, count, 0
 end
 
--- 힘 증가량 = 통과 횟수 × 현재 패드 파워.
+-- 힘 지급액 = 패드 파워 × 통과 횟수 × 힘 배수.
+--
 -- ⚠️ 반드시 BigNum으로 곱한다. 패드 24는 파워가 8.39e6이고 환생·게임패스 배수가 붙으면
 -- 그 위로 더 간다. raw number로 곱하면 언젠가 조용히 정밀도가 깨진다 (CLAUDE.md 1).
-local function computeGain(padPower: BigNumber, accepted: number): BigNumber
+--
+-- ⚠️ **이 프로젝트에서 힘에 배수를 곱하는 유일한 지점이다** (CLAUDE.md 절대 규칙 2와
+-- 같은 취지 — 곱셈 지점이 흩어지면 하나가 빠져도 조용히 어긋난다).
+-- 힘은 blox와 달리 감사 로그가 없어서 발견이 늦다. 실제로 4-2-d에서 배선을 빠뜨렸고,
+-- **환생을 몇 번 하든 클릭당 힘이 그대로였는데 아무 증상도 나타나지 않았다** —
+-- 배수가 없어도 힘은 멀쩡히 오르기 때문이다. 플레이로는 영영 발견되지 않는다.
+--
+-- ⚠️ multiplier를 선택 인자로 만들지 말 것. 위 사고가 정확히 "곱셈이 조용히 빠지는"
+-- 형태였고, 선택 인자는 그 실패를 그대로 재현한다. 빠뜨리면 BigNum.mul이 즉시
+-- 터지도록 필수로 둔다 — 조용히 틀리는 것보다 시끄럽게 멈추는 쪽이 낫다.
+--
+-- ⚠️ 배수 **계산식**은 여기 없다. StrengthMultiplier.compute가 결합을 맡고 이 함수는
+-- 결과를 곱하기만 한다. 식을 여기에 복제하면 단일 진실 원천이 깨진다 —
+-- Phase 7·8에서 아우라·펫·게임패스 배수가 붙을 때 이쪽만 옛 식으로 남는다.
+--
+-- ⚠️ 배수는 **획득량**에 곱한다. 보유 힘에 곱하지 않는다
+-- (ROADMAP 4-2-d [확정됨], 근거 → DESIGN.md "3. 화폐와 배수").
+-- 보유 힘에 곱하면 클릭 한 번에 전체 힘이 배수만큼 뛰어 지수 폭주가 된다.
+local function computeGain(padPower: BigNumber, accepted: number, multiplier: BigNumber): BigNumber
 	if accepted <= 0 then
 		return BigNum.new(0, 0)
 	end
-	return BigNum.mul(padPower, BigNum.fromNumber(accepted))
+	return BigNum.mul(BigNum.mul(padPower, BigNum.fromNumber(accepted)), multiplier)
 end
 
 -- 지금 ClickRejected를 보내도 되는지 판단하고, 보낸다면 그 사실을 상태에 기록한다.
@@ -246,7 +266,17 @@ function ClickService.processClicks(player: Player, count: number, source: strin
 	states[player] = nextState
 
 	if accepted > 0 then
-		local gain = computeGain(PadService.getClickPower(player), accepted)
+		-- 힘 배수. ⚠️ 결합은 StrengthMultiplier가 맡는다 — 여기서 1 + rebirths 같은
+		-- 식을 직접 쓰지 말 것. 프로필이 없으면 get이 nil을 주고 compute가 그것을
+		-- "배수 없음"(1)으로 접는다. 에러가 아니라 정상 경로다(신규·로드 전 상태).
+		--
+		-- ⚠️ 이 줄은 수동·자동 분기가 **합류한 뒤**에 있다. 위 if/else는 상한 검사만
+		-- 가르고 지급은 한 갈래로 모이므로, 자동 클리커(Phase 8)도 같은 배수를 받는다.
+		-- 분기 안으로 옮기지 말 것 — 그 순간 두 경로의 배수가 갈릴 수 있다.
+		local multiplier = StrengthMultiplier.compute({
+			rebirths = CurrencyService.get(player, "rebirths"),
+		})
+		local gain = computeGain(PadService.getClickPower(player), accepted, multiplier)
 		-- 실패해도(프로필 미로드 등) 윈도우는 되돌리지 않는다. 윈도우가 재는 것은
 		-- "입력이 얼마나 빨리 들어왔는가"이지 "지급이 성공했는가"가 아니다.
 		-- CurrencyService가 실패 사유를 자체 warn으로 남긴다.
