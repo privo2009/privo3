@@ -78,7 +78,9 @@ LevelConfig.DEPTH_SOURCES = {
 		end,
 	},
 	-- TODO(4-2-c 이후): 수령 발판 / 진행 벽 파트가 생기면 여기에 추가한다.
-	-- 지환 전달 명세는 HANDOFF "신규 — 수령 발판 · 진행 벽 최소 깊이".
+	-- 지환 전달 명세는 docs/UI_ASSET_SPEC.md "5-1. 수령 발판 · 진행 벽 — 최소 깊이".
+	-- (HANDOFF/를 가리키던 옛 포인터를 고쳤다 — 그 폴더는 .gitignore 대상이라
+	--  커밋 이력에 없고 참조 대상이 될 수 없다)
 } :: { DepthSource }
 
 -- 등록된 파트 중 가장 얕은 깊이(studs).

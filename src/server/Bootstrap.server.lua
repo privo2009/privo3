@@ -85,36 +85,18 @@ local ATTACK_VERIFY_POLL_SEC = 0.5
 local AttackService = require(script.Parent.Systems.AttackService)
 AttackService.init()
 
--- ── 개발용 플래그: REBIRTH_WIRING_ENABLED ────────────────────────────────────────
--- 위치: 이 파일, 바로 이 줄. Studio에서 켜고 끄는 값이 아니다 — 코드에서 고치고
--- Rojo sync 해야 반영된다 (ChunkBreakerDemo의 DEMO_ENABLED와 같은 패턴).
+-- 환생을 연다 (4-2-d).
+-- ⚠️ 순서: CurrencyService · ChallengeService · SpeedService가 전부 준비된 뒤여야 한다.
+-- 환생은 그 셋을 한 흐름 안에서 순서대로 부르는 오케스트레이터이고, 스스로 계산하는
+-- 것이 거의 없다. 특히 SpeedService.init() 뒤가 아니면 환생 마지막의 속도 재적용이
+-- CharacterAdded 배선 없는 상태로 나가서, 힘은 내려갔는데 WalkSpeed는 옛 값으로
+-- 남는다 — UI가 없으므로 그 어긋남은 화면에 아무 흔적을 남기지 않는다.
+-- (ClickService.init()이 PadService.init() 뒤여야 했던 것과 같은 종류의 의존이다)
 --
--- 4-2-d Prompt 2(RebirthService 본체)와 Prompt 3(이 배선)이 둘 다
--- Play 미검증 상태로 커밋됐다. Play가 실패하면 이 플래그를 false로
--- 바꿔 다시 돌린다 — 그래도 실패하면 원인은 2번 레이어, 통과하면 3번이다.
--- 코드를 읽으며 추측하는 대신 한 줄로 원인을 가르기 위한 것이다.
--- 양쪽 Play 검증이 끝나면 이 플래그는 제거 대상이다 (docs/PENDING.md 잔재).
---
--- ⚠️ 이 플래그는 **런타임 배선만** 가른다. RebirthServiceTests는 별도 Script라
---    Bootstrap을 거치지 않고 RebirthService를 직접 require한다 — 그래서 플래그를
---    꺼도 테스트는 그대로 돈다. 여기가 어긋나면(플래그가 테스트까지 끄면)
---    끄고 다시 돌려도 원인이 안 갈려서 이 플래그의 목적 자체가 사라진다.
-local REBIRTH_WIRING_ENABLED = true
-
-if REBIRTH_WIRING_ENABLED then
-	-- 환생을 연다 (4-2-d).
-	-- ⚠️ 순서: CurrencyService · ChallengeService · SpeedService가 전부 준비된 뒤여야 한다.
-	-- 환생은 그 셋을 한 흐름 안에서 순서대로 부르는 오케스트레이터이고, 스스로 계산하는
-	-- 것이 거의 없다. 특히 SpeedService.init() 뒤가 아니면 환생 마지막의 속도 재적용이
-	-- CharacterAdded 배선 없는 상태로 나가서, 힘은 내려갔는데 WalkSpeed는 옛 값으로
-	-- 남는다 — UI가 없으므로 그 어긋남은 화면에 아무 흔적을 남기지 않는다.
-	-- (ClickService.init()이 PadService.init() 뒤여야 했던 것과 같은 종류의 의존이다)
-	--
-	-- SpeedRequestService와의 선후는 상관없다. 환생은 그 파일을 거치지 않는다 —
-	-- 빈도 상한은 클라 입력 경로 전용이고 서버 재적용이 걸리면 안 되기 때문이다.
-	local RebirthService = require(script.Parent.Systems.RebirthService)
-	RebirthService.init()
-end
+-- SpeedRequestService와의 선후는 상관없다. 환생은 그 파일을 거치지 않는다 —
+-- 빈도 상한은 클라 입력 경로 전용이고 서버 재적용이 걸리면 안 되기 때문이다.
+local RebirthService = require(script.Parent.Systems.RebirthService)
+RebirthService.init()
 
 -- 프로필 읽기 print. 검증용 임시 코드가 아니라 상시 유지 대상이다.
 --
@@ -269,7 +251,10 @@ end)
 -- Phase 6 UI가 붙으면 이 블록 전체 삭제 (docs/PENDING.md 잔재).
 local REBIRTH_VERIFY_ENABLED = false
 
-if REBIRTH_WIRING_ENABLED and REBIRTH_VERIFY_ENABLED then
+if REBIRTH_VERIFY_ENABLED then
+	-- ⚠️ 위에 같은 이름의 파일 스코프 로컬이 있지만 여기서 다시 require한다.
+	-- 이 블록은 Phase 6 UI에서 **통째로 삭제**될 물건이라 바깥 로컬에 기대지 않는다
+	-- (기대면 지울 때 바깥 배선까지 살펴야 한다). 모듈은 캐시되므로 비용은 없다.
 	local RebirthService = require(script.Parent.Systems.RebirthService)
 	local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
 

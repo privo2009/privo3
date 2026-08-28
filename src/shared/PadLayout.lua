@@ -21,6 +21,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local BlockLayout = require(ReplicatedStorage.Shared.BlockLayout)
 local BlockLayoutConfig = require(ReplicatedStorage.Shared.Config.BlockLayoutConfig)
 
 local PadLayout = {}
@@ -42,10 +43,17 @@ PadLayout.PITCH = 12
 PadLayout.GROUND_Y_OFFSET = PadLayout.PAD_SIZE.Y / 2
 
 -- 블록 아레나가 차지하는 반지름 = 가장 바깥 링 + 블록 반 칸.
--- BlockLayoutConfig에서 유도한다 — 여기에 studs 절대값을 직접 쓰면 아레나 반지름을 튜닝했을 때
--- 패드가 블록 안으로 파고들어도 아무도 모른다 (CLAUDE.md: 수치는 Config 한 곳에서).
-local ARENA_RADIUS = BlockLayoutConfig.BLOCK_SPAN * BlockLayoutConfig.OUTER_RING_MULT
-	+ BlockLayoutConfig.BLOCK_SPAN / 2
+-- 여기에 studs 절대값을 직접 쓰면 아레나 반지름을 튜닝했을 때 패드가 블록 안으로
+-- 파고들어도 아무도 모른다 (CLAUDE.md: 수치는 Config 한 곳에서).
+--
+-- ⚠️ 최외곽 링 계산식을 여기서 다시 쓰지 않는다. `BlockLayout.OUTER_RADIUS`가 정본이고
+-- 그 주석이 "식은 한 곳에만 있어야 한다"고 못박는다. 예전에는 이 파일이
+-- `BLOCK_SPAN × OUTER_RING_MULT`를 자기 식으로 다시 계산했고, 그러면 BlockLayout에서
+-- 최외곽 계산 방식을 바꿨을 때 **여기만 옛 식으로 남는다.**
+--
+-- ⚠️ `OUTER_RADIUS`는 블록 **중심**까지의 거리다. 아레나가 차지하는 폭은 바깥면 기준이라
+-- `BLOCK_SPAN/2`를 더한다 (`AttackConfig.getArenaRadius`가 반경을 잡는 방식과 같다).
+local ARENA_RADIUS = BlockLayout.OUTER_RADIUS + BlockLayoutConfig.BLOCK_SPAN / 2
 
 -- 아레나 가장자리와 패드 1 사이 여유. 블록 한 변만큼 띄운다.
 local START_GAP = BlockLayoutConfig.BLOCK_SPAN
