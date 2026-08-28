@@ -271,6 +271,6 @@ Phase 6 UI까지 남기는 이유도 같다: UI가 없는 동안 워프가 실�
 | 2026-08-28 | `Bootstrap`의 `REBIRTH_WIRING_ENABLED` (잔재) | `af1957e` — 삭제 조건은 08-27 충족분. 배선은 유지 |
 | 2026-08-28 | `AttackConfig` · `LevelConfig`의 죽은 포인터 2곳 | `af1957e` — 둘 다 `docs/UI_ASSET_SPEC.md` "5-1"로. LevelConfig 쪽은 gitignore 대상인 `HANDOFF/`를 가리켜 원래도 틀렸다 |
 | 2026-08-28 | `CurrencyService` 로그 오독 (`<증감액> -> <결과값>`) | `19d6ec8` — 화살표 제거, `amount=` / `result=` 라벨. 포맷 문자열 한 줄만 변경 |
-| 2026-08-28 | `UI_ASSET_SPEC.md` §5 표의 hex 복사 | `TBD3` — 참조로 교체. 대조 결과 네 값 모두 `docs/UI.md`와 일치했다 (어긋나기 전에 뺐다) |
-| 2026-08-28 | `docs/UI.md` 이동 속도 자릿수 불일치 | `TBD3` — 예시를 실제 범위로, 칸은 4자리 유지 + 좁히지 말라는 근거 명시 |
-| 2026-08-28 | ROADMAP 4-2-a의 "`ChunkBreakerDemo` 대체 배선" (이미 끝난 일이 할 일로 남아 있었다) | `TBD3` — `RemoteReceiver.client.lua` 존재·동작 확인 후 완료 처리 |
+| 2026-08-28 | `UI_ASSET_SPEC.md` §5 표의 hex 복사 | `0d70478` — 참조로 교체. 대조 결과 네 값 모두 `docs/UI.md`와 일치했다 (어긋나기 전에 뺐다) |
+| 2026-08-28 | `docs/UI.md` 이동 속도 자릿수 불일치 | `0d70478` — 예시를 실제 범위로, 칸은 4자리 유지 + 좁히지 말라는 근거 명시 |
+| 2026-08-28 | ROADMAP 4-2-a의 "`ChunkBreakerDemo` 대체 배선" (이미 끝난 일이 할 일로 남아 있었다) | `0d70478` — `RemoteReceiver.client.lua` 존재·동작 확인 후 완료 처리 |
