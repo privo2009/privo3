@@ -15,6 +15,8 @@ local ProfileManager = require(script.Parent.Data.ProfileManager)
 local CurrencyService = require(script.Parent.Systems.CurrencyService)
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
+local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
+local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 
 -- ── 개발용 플래그: KEEP_RUN_ALIVE ─────────────────────────────────────────────
 -- 위치: 이 파일(src/server/Bootstrap.server.lua) 상단, 바로 이 줄.
@@ -64,6 +66,45 @@ SpeedService.init()
 -- 전부이고, 최대치 계산과 Humanoid 세팅은 전부 SpeedService 쪽에 있다.
 local SpeedRequestService = require(script.Parent.Systems.SpeedRequestService)
 SpeedRequestService.init()
+
+-- ── 개발용 플래그: ATTACK_WIRING_ENABLED ─────────────────────────────────────────
+-- 위치: 이 파일, 바로 이 줄. Studio에서 켜고 끄는 값이 아니다 — 코드에서 고치고
+-- Rojo sync 해야 반영된다 (REBIRTH_WIRING_ENABLED와 같은 패턴).
+--
+-- 4-2-e2는 **서비스(AttackService)와 배선(이 파일)이 한 커밋에 들어갔다.**
+-- 되돌릴 단위가 없으므로 RC에서 문제가 났을 때 원인을 코드로 읽어 추측하게 된다.
+-- 이 플래그를 끄고 다시 돌려서, 그래도 문제가 남으면 서비스 밖이고 사라지면 이 배선이다 —
+-- 한 줄로 원인을 가르기 위한 것이다.
+--
+-- ⚠️ 이 플래그는 **런타임 배선만** 가른다. AttackServiceTests는 별도 Script라
+--    Bootstrap을 거치지 않고 AttackService를 직접 require한다 — 그래서 플래그를 꺼도
+--    테스트는 그대로 돈다. 여기가 어긋나면(플래그가 테스트까지 끄면) 끄고 다시 돌려도
+--    원인이 안 갈려서 이 플래그의 목적 자체가 사라진다.
+--
+-- ⚠️ 끄면 **블록에 데미지가 전혀 들어가지 않는다.** 힘 → 데미지 경로가 이것뿐이라
+--    VERIFY_CHALLENGE의 런은 20초 뒤 timeout으로 끝난다. 그게 정상 동작이다.
+--    양쪽 Play 검증이 끝나면 이 플래그는 제거 대상이다 (docs/PENDING.md 잔재).
+local ATTACK_WIRING_ENABLED = true
+
+-- AttackService가 몇 번 때리는지 지켜보는 시간(초). VERIFY_CHALLENGE 전용이다.
+-- 펀치 주기(0.5초)보다 넉넉해야 몇 대는 들어간 뒤에 클리어 여부를 본다.
+local ATTACK_OBSERVE_SEC = 3
+
+-- [ATTACK] 관측 print의 폴링 주기(초). 펀치 주기(0.5초)보다 길게 둔다 —
+-- 이 루프는 값을 만들지 않고 마지막 결과만 들여다보므로 촘촘할 이유가 없다.
+local ATTACK_VERIFY_POLL_SEC = 0.5
+
+if ATTACK_WIRING_ENABLED then
+	-- 근접 자동 공격을 연다 (4-2-e2).
+	-- ⚠️ 순서: CurrencyService(힘 조회) · ChallengeService(런 상태·applyDamage)가 준비된
+	-- 뒤여야 한다. 둘 다 모듈 로드 시점에 준비되므로 여기가 그 뒤다.
+	-- SpeedService와의 선후는 상관없다 — 서로 읽는 값이 없다.
+	--
+	-- ⚠️ init()이 서버 단일 루프를 띄운다. 이 줄이 빠지면 루프가 아예 안 돌고,
+	-- 증상은 "블록을 때려도 안 부서진다" 하나뿐이라 원인이 보이지 않는다.
+	local AttackService = require(script.Parent.Systems.AttackService)
+	AttackService.init()
+end
 
 -- ── 개발용 플래그: REBIRTH_WIRING_ENABLED ────────────────────────────────────────
 -- 위치: 이 파일, 바로 이 줄. Studio에서 켜고 끄는 값이 아니다 — 코드에서 고치고
@@ -162,6 +203,57 @@ Players.PlayerAdded:Connect(function(player: Player)
 	if humanoid == nil then
 		warn(string.format("[Bootstrap][VERIFY] %s: Humanoid 없음 - WalkSpeed 확인 불가", player.Name))
 		return
+	end
+
+
+	-- ===== [ATTACK] 관측 (4-2-e2). 상시 유지 대상이다 =====================================
+	--
+	-- ⚠️ 잔재가 아니다. req= · last= 필드와 같은 성격이고 같은 이유로 있다:
+	-- 이 경로에는 UI가 없어서(Phase 6) 배선이 끊겨도 화면에 아무 흔적이 없다.
+	--
+	-- ⚠️ **이 세 값이 이번 RC 검증의 전부다.** 3레이어(배수 배선 / 반경 판정 / 펀치 루프)를
+	-- 한 번에 보는 Play라 "딜이 안 들어간다" 하나에 후보가 넷이다:
+	--   배수 미배선   mult= 이 1.00인데 환생을 했다     → StrengthMultiplier 경로
+	--   반경 판정     result=out_of_range               → 캐릭터가 멀리 있다 (정상일 수 있다)
+	--   펀치 루프     줄 자체가 안 찍힌다               → AttackService.init 배선
+	--   applyDamage   result=no_changes                 → 하류가 거부했다
+	-- 이 필드들이 없으면 넷을 코드로 읽어 추측하게 된다.
+	--
+	-- ⚠️ 매 틱 찍지 않는다. 펀치는 초당 2회라 그대로 찍으면 다른 로그가 전부 묻힌다.
+	-- **결과 코드가 바뀔 때만** 찍는다 — 상태 전이가 관심사이지 매회의 값이 아니다.
+	if ATTACK_WIRING_ENABLED then
+		local AttackService = require(script.Parent.Systems.AttackService)
+
+		task.spawn(function()
+			local lastResult: string? = nil
+
+			while player.Parent ~= nil do
+				task.wait(ATTACK_VERIFY_POLL_SEC)
+
+				local outcome = AttackService.getLastOutcome(player)
+				if outcome ~= nil and outcome.result ~= lastResult then
+					lastResult = outcome.result
+
+					-- 배수는 AttackService가 모른다(힘 트랙이다). 여기서 직접 만든다 —
+					-- 클릭 지급이 쓰는 것과 **같은 compute**를 태워야 값이 갈리지 않는다.
+					local mult = StrengthMultiplier.compute({
+						rebirths = CurrencyService.get(player, "rebirths"),
+					})
+
+					print(string.format(
+						"[Bootstrap][ATTACK] %s result=%s dist=%s/%.1f (%s) dmg=%s mult=%s str=%s",
+						player.Name,
+						outcome.result,
+						outcome.distance and string.format("%.1f", outcome.distance) or "-",
+						AttackConfig.getRadius(),
+						outcome.distance and (AttackConfig.isInRange(outcome.distance) and "in" or "out") or "-",
+						outcome.damage and BigNum.tostring(outcome.damage) or "-",
+						BigNum.tostring(mult),
+						BigNum.tostring(CurrencyService.get(player, "strength") or BigNum.new(0, 0))
+					))
+				end
+			end
+		end)
 	end
 
 	local speedStats = SpeedRequestService.getStats(player)
@@ -329,8 +421,6 @@ if VERIFY_CHALLENGE then
 		end
 
 		local ok, err = pcall(function()
-			local HUGE_DAMAGE = BigNum.new(1, 999) -- 10^999. 어떤 스테이지 HP보다도 압도적으로 큼
-
 			-- 1. startRun(player, 1)
 			local startOk = ChallengeService.startRun(player, 1)
 			print(string.format("[Bootstrap][VERIFY_CHALLENGE] %s startRun(1) = %s", player.Name, tostring(startOk)))
@@ -342,9 +432,22 @@ if VERIFY_CHALLENGE then
 				return
 			end
 
-			for _, block in ipairs(snapshot) do
-				ChallengeService.applyDamage(player, block.position, HUGE_DAMAGE)
-			end
+			print(string.format("[Bootstrap][VERIFY_CHALLENGE] %s 블록 %d개 배치됨 - 데미지는 AttackService가 넣는다", player.Name, #snapshot))
+
+			-- AttackService가 몇 번 때릴 시간을 준다.
+			-- ⚠️ 여기서 데미지를 직접 넣지 않는다 (4-2-e2). 예전에는 HUGE_DAMAGE(10^999)를
+			-- 모든 블록에 꽂아 한 프레임에 클리어시켰는데, 그러면 **새 공격 경로가 도는지
+			-- 보이지 않는다** — 블록이 이미 없어진 뒤에 AttackService가 돌기 때문이다.
+			-- timeLeft가 항상 20.0이었던 것도 이 때문이다 (→ docs/PENDING.md).
+			--
+			-- ⚠️ 그렇다고 이 블록을 통째로 끄지도 않는다. 끄면 startRun·getSnapshot·cashout
+			-- 이라는 기존 진입점 검증이 관측 밖으로 나간다. 런을 세우는 데까지가 이 블록의
+			-- 몫이고, 부수는 것은 AttackService가 한다.
+			--
+			-- 그래서 아래 클리어 검사는 **캐릭터가 반경 안에 있을 때만** 통과한다.
+			-- 반경 밖이면 클리어 실패로 빠지는 것이 정상이고, 그때는 [ATTACK] 줄의
+			-- out_of_range가 이유를 말해준다.
+			task.wait(ATTACK_OBSERVE_SEC)
 
 			local runStateAfterClear = ChallengeService.getRunState(player)
 			local cleared = runStateAfterClear ~= nil and runStateAfterClear.cleared
