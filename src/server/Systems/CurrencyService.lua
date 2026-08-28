@@ -164,9 +164,21 @@ CurrencyService._pure = {
 -- ===== 공개 API =====================================================================
 
 -- 재화 증감 로깅. 지금은 print/warn이지만 나중에 Analytics 이벤트 전송으로 교체할 지점이다.
+--
+-- ⚠️ **화살표를 다시 넣지 말 것.** 예전 형식은 `%s %s -> %s`(재화 / 인자 / 결과)였는데,
+-- 화살표가 `<이전값> -> <이후값>`으로 읽혀서 실제로 오독됐다:
+--
+--   subtract: blox 9.000000e+2 -> 9.040000e+2    ← 1804에서 900을 뺀 904다
+--
+-- 이전값은 애초에 이 함수에 넘어오지도 않는다. 화살표가 있는 한 어떤 표기를 써도
+-- "왼쪽에서 오른쪽으로 변했다"로 읽히므로, 화살표를 빼고 **두 필드에 이름을 붙였다.**
+-- 4-2-f는 이 로그를 계속 들여다보는 실측 튜닝 세션이라 한 번의 오독이 시간을 태운다.
+--
+-- `amount`는 add/subtract에서는 증감액이고 `set`에서는 세팅할 값이다 —
+-- 어느 쪽인지는 `opName`이 말해주므로 이름을 op마다 바꾸지 않는다.
 local function logChange(opName: string, player: Player, currency: string, amount: BigNumber, newValue: BigNumber, reason: string)
 	print(string.format(
-		"[CurrencyService] %s: %s(%d) %s %s -> %s (reason=%s)",
+		"[CurrencyService] %s: %s(%d) %s amount=%s result=%s (reason=%s)",
 		opName,
 		player.Name,
 		player.UserId,
