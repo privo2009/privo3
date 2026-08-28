@@ -157,85 +157,6 @@ G1(btn_yellow) 진행 중. **U2 진입 시점에 전달한다.**
 
 ---
 
-## 정리 세션 대기 — ✅ 선행 조건 충족. 다음 세션에서 한 번에
-
-여기 모인 것은 **지금 할 수 없어서가 아니라 지금 하면 안 되던 것들**이었다.
-대부분이 **Play 검증이 끝난 파일을 다시 여는 일**이고, 4-2-e2 3커밋이 미검증인 동안
-레이어를 더 쌓으면 Play에서 무엇이 깨졌을 때 원인 후보가 그만큼 늘어나기 때문이었다.
-**하나같이 급하지 않다** — 주석 한 줄, 로그 형식, 중복 계산식이다.
-
-✅ **선행 조건이었던 RC Play 검증이 끝났다 (2026-08-28, 747 passed / 0 failed).**
-아래 항목은 이제 전부 착수 가능하다. **다음 세션에서 한 번에 처리한다** —
-따로따로 열면 같은 파일을 여러 번 만지게 된다.
-
-⚠️ 그럼에도 **이번 4-2-e2 종료 커밋에서는 `ATTACK_WIRING_ENABLED` 하나만 처리했다.**
-그 커밋의 코드 변경을 Bootstrap 한 곳으로 묶어 두려는 것이고, 나머지를 같이 넣으면
-"완료 처리 커밋"과 "정리 커밋"이 섞여 되돌릴 단위가 없어진다.
-
-| 대상 | 무엇을 | 비고 |
-|---|---|---|
-| `PadLayout`의 `ARENA_RADIUS` 중복 | `BlockLayout.OUTER_RADIUS`로 정리 | 착수 가능 |
-| `CurrencyService` 로그 오독 | 화살표 형식 교체 | 착수 가능 |
-| `AttackConfig` · `LevelConfig` 포인터 2곳 | 사라진 PENDING 절 이름 교체 | 착수 가능 |
-| `Bootstrap`의 `REBIRTH_WIRING_ENABLED` | 삭제 | 착수 가능. Bootstrap을 여는 김에 함께 |
-| `UI_ASSET_SPEC.md` §5 표의 hex 복사 | 참조로 교체 | **U2 전달 전이 마감. 아래 ⚠️** |
-| `docs/UI.md` 이동 속도 자릿수 | 예시·규격 확정 | U3/G4 실측과 함께 본다 |
-
-### 각 항목 상세
-
-**`PadLayout`의 `ARENA_RADIUS` 중복.**
-`PadLayout.lua`가 `BlockLayout.lua`와 같은 식(`BLOCK_SPAN × OUTER_RING_MULT + BLOCK_SPAN/2`)을
-다시 쓴다. `d153228`에서 만든 `BlockLayout.OUTER_RADIUS`로 정리 가능하다.
-4-2-e2 수정 범위 밖이라 그때 열지 않았다.
-
-**`CurrencyService` 로그 오독.**
-`subtract`/`add` 로그가 `<증감액> -> <결과값>` 형식인데 화살표 때문에
-`<이전값> -> <이후값>`으로 읽힌다.
-
-```
-subtract: blox 9.000000e+2 -> 9.040000e+2    ← 1804에서 900을 뺀 904다
-```
-
-실질 피해는 없다 — 검산은 호출자 쪽(Bootstrap의 "차감분 vs 비용" 줄)이 한다.
-다만 **로그를 근거로 디버깅할 때 오진 위험**이 있다.
-
-**사라진 PENDING 절을 가리키는 포인터 2곳.**
-`2e1d4b3`에서 "지환 쪽" 절을 재구성하면서 `신규 — 수령 발판 · 진행 벽 최소 깊이`라는
-절 이름이 없어졌다. 내용은 `docs/UI_ASSET_SPEC.md` "5-1"로 갔다.
-
-```
-ROADMAP.md                          고침 (bc56d46)
-src/shared/Config/AttackConfig.lua  ⚠️ 미수정 — 코드 파일
-src/shared/Config/LevelConfig.lua   ⚠️ 미수정 — "HANDOFF"로 적혀 있어 원래도 틀렸다
-```
-
-**`REBIRTH_WIRING_ENABLED` 삭제.**
-삭제 조건은 2026-08-27에 이미 충족됐다. 남은 이유는 순전히 커밋 단위 문제였다 —
-Bootstrap을 여는 것이 미검증 커밋을 다시 만지는 일이었기 때문이다.
-그 전제가 사라졌으므로 다음 세션에서 지운다.
-
-⚠️ **같은 파일의 `ATTACK_WIRING_ENABLED`는 이미 제거됐다** (4-2-e2 종료 커밋).
-그때 이것도 같이 지울 수 있었지만 **일부러 두었다** — 종료 커밋의 코드 변경을
-"검증이 끝나서 존재 이유가 사라진 것" 하나로 좁히기 위해서다.
-`REBIRTH_WIRING_ENABLED`는 그와 무관한 4-2-d 잔재이므로 정리 커밋 몫이다.
-
-**`UI_ASSET_SPEC.md` §5 표가 `docs/UI.md`의 hex를 복사해 두고 있다.**
-참조로 바꿔야 한다. 이 프로젝트의 복사본 금지 규칙(CLAUDE.md)에 정면으로 걸린다.
-
-⚠️ **이 항목만 성격이 다르다 — 코드가 아니라 지환의 PNG에 직접 반영되는 값이다.**
-색이 어긋난 채로 전달되면 **에셋을 다시 만들어야 한다.** 화면 개수가 어긋났을 때는
-문서만 고치면 됐지만 이쪽은 제작물이 버려진다. 비용이 다르다.
-**전달(U2 진입) 전에는 반드시 해소할 것** — Play 검증과는 다른 시계로 움직인다.
-
-**`docs/UI.md` 이동 속도 자릿수.**
-"1. 화면 목록 > 힘 · 레벨 · 속도 블록"이 예시를 `"277 / 최대 277"`, 규격을 **3~4자리**로
-적어 뒀는데, `MAX_WALK_SPEED`는 발판 깊이 8에서 유도된 **80**이라 실제로는 2자리다
-(`DESIGN.md` "레벨 > MAX_WALK_SPEED는 상수가 아니다").
-칸을 넓게 잡아 두는 것은 안전한 방향이고(잘리지 않는다) 발판 깊이를 키우면 상한도
-올라가므로 3~4자리가 영영 틀린 값은 아니다. U3(더미 HUD) / G4 실측에서 함께 확정한다.
-
----
-
 ## 함정 — Play 검증 전에 확인할 것
 
 미결도 잔재도 아니지만 세션을 넘어 살아야 한다. 여기 걸리면 **검증 결과 자체가 거짓이 된다** —
@@ -256,19 +177,27 @@ Play 검증 전에 Rojo 플러그인 창에서 Connect / Disconnect 상태를 �
 
 | 대상 | 삭제 가능 시점 |
 |---|---|
-| `Workspace/_OldBlocks` | 조건 충족. **Rojo가 관리하지 않는다 — Studio에서 손으로 지운다** (아래 ⚠️) |
+| `Workspace/_OldBlocks` | 조건 충족. **코드로는 못 지운다 — Studio 수동 작업** (아래 ⚠️) |
 | `SliceCheck.client.lua` | G1 통과 후 |
 | `ChunkBreakerDemo` | 수신부 검증 완료. **단 RC Play 이후** (아래 ⚠️) |
 | `SpeedInputBoot`의 `VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
-| `Bootstrap`의 `REBIRTH_WIRING_ENABLED` | **조건 충족 — 지금 삭제 가능** (2026-08-27 검증 완료) |
 | `Bootstrap`의 `REBIRTH_VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
 | `Bootstrap`의 `WARP_VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
 
-⚠️ **`Workspace/_OldBlocks`는 Claude Code가 지울 수 없다** (2026-08-28 확인).
-`default.project.json`에 `Workspace` 매핑이 없어서 이 오브젝트는 **place 파일 안에만
-존재한다.** 저장소 전체 검색에서 참조는 이 표 한 줄뿐이고 코드 참조는 0건이므로
-**지워도 안전하지만, 실제 삭제는 Studio에서 사람이 해야 하는 수동 작업이다.**
-지우기 전까지 이 줄을 내리지 않는다 — 내리면 "지운 것"과 "지웠다고 적은 것"이 갈린다.
+⚠️ **`Workspace/_OldBlocks`는 코드로 지울 수 없다. 사람이 Studio에서 지워야 한다**
+(2026-08-28 재확인). 정리 세션에서 처리되지 않고 계속 남는 이유가 이것이다 —
+**미룬 것이 아니라 처리 수단이 다르다.**
+
+```
+default.project.json 에 Workspace 매핑이 없다
+  → 이 오브젝트는 place 파일 안에만 존재한다
+  → Rojo가 관리하지 않는다 = Claude Code도 git도 손댈 수 없다
+  → Studio에서 우클릭 Delete. 그것뿐이다
+```
+
+저장소 전체 검색에서 참조는 이 표 한 줄뿐이고 **코드 참조는 0건**이라 지워도 안전하다.
+⚠️ 실제로 지우기 전까지 이 줄을 내리지 않는다 — 내리면 "지운 것"과 "지웠다고 적은 것"이
+갈린다. 다음에 Studio를 여는 사람이 처리하고 그때 이 줄을 내린다.
 
 ⚠️ **`ChunkBreakerDemo`는 RC Play 전에 지우지 말 것** (2026-08-28 재판단).
 파일은 `DEMO_ENABLED = false`로 꺼져 있고 코드 참조는 0건이지만, 문서 참조가
@@ -287,10 +216,10 @@ Play 검증 전에 Rojo 플러그인 창에서 Connect / Disconnect 상태를 �
 캐릭터는 최대속도로 멀쩡히 걸어다니므로 증상이 나타나지 않는다.
 확인이 필요하면 그 줄만 `true`로 바꾼다.
 
-⚠️ `REBIRTH_WIRING_ENABLED`는 삭제 조건이 충족됐지만 **이번 세션에는 지우지 않았다.**
-4-2-d 마감 커밋의 코드 변경을 최소로 두려는 것이고, 다음 정리 세션에서 지운다.
-`REBIRTH_VERIFY_ENABLED` 블록은 Phase 6 UI까지 남는다 — 그때까지 환생이 실물에서
-도는지 확인할 유일한 수단이다.
+✅ `REBIRTH_WIRING_ENABLED`는 **제거됐다** (2026-08-28 `af1957e`, 해소 기록 참고).
+`ATTACK_WIRING_ENABLED`와 함께 Bootstrap에서 사라졌고 배선은 둘 다 남아 있다.
+⚠️ `REBIRTH_VERIFY_ENABLED` 블록은 **Phase 6 UI까지 남는다** — 이름이 비슷하지만
+성격이 다르다. 그때까지 환생이 실물에서 도는지 확인할 유일한 수단이다.
 
 ⚠️ `REBIRTH_VERIFY_ENABLED`를 켜면 접속 계정의 프로필이 **되돌릴 수 없게 바뀐다.**
 blox 지급이 `lifetimeBlox`를 함께 올려 클릭 파워 패드가 열린다. 켠 뒤 반드시 `false`로
@@ -337,4 +266,11 @@ Phase 6 UI까지 남기는 이유도 같다: UI가 없는 동안 워프가 실�
 | 2026-08-28 | `StrengthMultiplier` 배선 완료 · Play 미검증 | `4fceb7e` — 검증은 2026-08-28 RC Play. `mult=1.000000e+1` (rebirths=9), 클릭 1회 배치 +80 / 2회 +160 |
 | 2026-08-28 | `timeLeft` 동결 확인 (항상 20.0이라 관측 불가였다) | `0c389d0` — `HUGE_DAMAGE` 제거로 중간 클리어 발생. Play에서 17.9 / 19.9 / 19.8 관측 |
 | 2026-08-28 | 4-2-e2 3커밋 Play 미검증 (`4fceb7e` / `d153228` / `0c389d0`) | 2026-08-28 RC Play — **747 passed / 0 failed (18개 파일).** 경계 실패 2건은 `49f815e`에서 해소 |
-| 2026-08-28 | `Bootstrap`의 `ATTACK_WIRING_ENABLED` (잔재) | 이번 커밋 — RC 검증 완료로 존재 이유 소멸. 플래그와 분기만 제거하고 배선은 유지 |
+| 2026-08-28 | `Bootstrap`의 `ATTACK_WIRING_ENABLED` (잔재) | `d276e95` — RC 검증 완료로 존재 이유 소멸. 플래그와 분기만 제거하고 배선은 유지 |
+| 2026-08-28 | `PadLayout`의 `ARENA_RADIUS` 중복 | `af1957e` — `BlockLayout.OUTER_RADIUS`로 교체. **비트 동일**(68.8), 패드1 88.8 / 패드24 364.8 실측 유지 |
+| 2026-08-28 | `Bootstrap`의 `REBIRTH_WIRING_ENABLED` (잔재) | `af1957e` — 삭제 조건은 08-27 충족분. 배선은 유지 |
+| 2026-08-28 | `AttackConfig` · `LevelConfig`의 죽은 포인터 2곳 | `af1957e` — 둘 다 `docs/UI_ASSET_SPEC.md` "5-1"로. LevelConfig 쪽은 gitignore 대상인 `HANDOFF/`를 가리켜 원래도 틀렸다 |
+| 2026-08-28 | `CurrencyService` 로그 오독 (`<증감액> -> <결과값>`) | `19d6ec8` — 화살표 제거, `amount=` / `result=` 라벨. 포맷 문자열 한 줄만 변경 |
+| 2026-08-28 | `UI_ASSET_SPEC.md` §5 표의 hex 복사 | `TBD3` — 참조로 교체. 대조 결과 네 값 모두 `docs/UI.md`와 일치했다 (어긋나기 전에 뺐다) |
+| 2026-08-28 | `docs/UI.md` 이동 속도 자릿수 불일치 | `TBD3` — 예시를 실제 범위로, 칸은 4자리 유지 + 좁히지 말라는 근거 명시 |
+| 2026-08-28 | ROADMAP 4-2-a의 "`ChunkBreakerDemo` 대체 배선" (이미 끝난 일이 할 일로 남아 있었다) | `TBD3` — `RemoteReceiver.client.lua` 존재·동작 확인 후 완료 처리 |

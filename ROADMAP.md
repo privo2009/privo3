@@ -327,7 +327,12 @@ d·e의 "진입점 없음"과 같은 상태이며, 셋 다 Phase 6 UI 또는 파
 
 - 서버 런 상태(`run.cleared`)로 판정. Touched는 신호일 뿐 권한이 아니다
 - 런당 1회 처리 보장 (`run.settled` 플래그, 발판·벽 공유)
-- `ChunkBreakerDemo`를 대체할 서버→클라 RemoteEvent 배선
+- ~~`ChunkBreakerDemo`를 대체할 서버→클라 RemoteEvent 배선~~ ✅ **완료**
+  — `src/client/Net/RemoteReceiver.client.lua`가 존재하고 동작한다.
+  2026-08-28 Play 로그에 `RunStateChanged` 수신이 찍혔다.
+  ⚠️ 배선이 끝났다고 `ChunkBreakerDemo`가 지워지는 것은 아니다 —
+  3-2에 자동 테스트가 없어 그 파일이 **클라 연출의 유일한 육안 확인 수단**이다
+  (→ `docs/PENDING.md` 잔재)
 
 ⚠️ `cashout()`은 Touched 없이도 호출 가능해야 한다.
    자동 수령 게임패스와 자동 진행 모드가 나중에 직접 호출한다.
