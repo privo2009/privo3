@@ -275,4 +275,4 @@ Phase 6까지 남지만, 이건 **원인을 가르는 스위치**다. 서비스(
 | 2026-08-27 | 4-2-e 워프 비용 기준점 미확정 | `88e782e` — 절대 기준 `cost(목표층)`으로 확정 |
 | 2026-08-28 | 4-2-e 진입점·run 재시작 미결 (3개 중 2개) | 세션 결정 — 진입점은 UI(텔레포트 버튼→스테이지 선택창)이나 이번 Phase엔 구현 안 함, 서비스 레이어만 우선(4-2-d 패턴). run은 stage 변경 + `ChallengeService.startRun` 재사용으로 재시작 확정 |
 | 2026-08-28 | 4-2-e WarpService 3레이어 미검증 | `04c9dfd` — Play 667 passed / 0 failed. 차감분 900 = `cost(3)` 일치, run stage=3 확인 |
-| 2026-08-28 | 전달 문서 3종 갱신 날짜 미갱신 (UI.md · UI_ASSET_SPEC.md 08-22, UI_HANDOFF.md 날짜 줄 없음) | `TBD` — 셋 다 2026-08-28. `UI_HANDOFF.md`에 날짜 줄 신설 |
+| 2026-08-28 | 전달 문서 3종 갱신 날짜 미갱신 (UI.md · UI_ASSET_SPEC.md 08-22, UI_HANDOFF.md 날짜 줄 없음) | `2e1d4b3` — 셋 다 2026-08-28. `UI_HANDOFF.md`에 날짜 줄 신설 |
