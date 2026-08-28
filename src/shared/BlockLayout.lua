@@ -85,6 +85,17 @@ function BlockLayout.computeLayout(count: number): { Vector3 }
 	return positions
 end
 
+-- 가장 바깥 링의 반지름(블록 **중심**까지). 최대 배치(이중 원)의 최외곽이며 count와
+-- 무관하다 — 바깥 링은 로드 시 고정 슬롯 풀로 미리 서고 computeLayout은 앞에서부터
+-- 자를 뿐이다. 그래서 "최대 배치의 최외곽"을 알려고 개수 16을 알 필요가 없다.
+--
+-- 여기 둔 이유: GROUND_Y_OFFSET과 같다. 이 값을 필요로 하는 쪽(근접 판정 반경 —
+-- Config/AttackConfig)이 BLOCK_SPAN × OUTER_RING_MULT를 자기 파일에서 다시 계산하면,
+-- 여기서 최외곽 계산 방식을 바꿨을 때 그쪽만 옛 식으로 남는다. 식은 한 곳에만 있어야 한다.
+--
+-- ⚠️ 블록 **바깥면**이 아니라 중심까지의 거리다. 표면까지 필요하면 BLOCK_SPAN/2를 더한다.
+BlockLayout.OUTER_RADIUS = OUTER_RING_RADIUS
+
 -- 레이아웃 좌표는 전부 Y=0(수평면)이라 그대로 쓰면 블록 절반이 바닥에 묻힌다.
 -- 블록 바닥이 Y=0에 오도록 중심을 반 칸 띄우는 값 — 모델을 세우는 쪽이 더해서 쓴다.
 -- 여기 둔 이유: 클라 렌더링(RemoteReceiver)과 개발용 미리보기(previewLayout)가 같은 값을

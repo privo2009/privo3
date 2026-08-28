@@ -18,6 +18,7 @@ local ClickPadConfig = require(Config.ClickPadConfig)
 local LevelConfig = require(Config.LevelConfig)
 local RebirthConfig = require(Config.RebirthConfig)
 local WarpConfig = require(Config.WarpConfig)
+local AttackConfig = require(Config.AttackConfig)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 
 -- LevelConfig의 상한이 실제로 PadLayout에서 유도되는지 확인하려면 원본을 흔들어봐야 한다.
@@ -88,6 +89,10 @@ end)
 
 check("WarpConfig.validate", function()
 	return WarpConfig.validate()
+end)
+
+check("AttackConfig.validate", function()
+	return AttackConfig.validate()
 end)
 
 -- 각 모듈이 실제로 사용 가능한 값을 돌려주는지 스모크 테스트 --------------------
