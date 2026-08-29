@@ -84,6 +84,12 @@ local SIM = {
 	--    작업량 측정기가 아니라 폭주 방지용 상한으로만 쓸 것.
 	MAX_TICKS = 20000000,
 
+	-- 절벽 판정 임계. "16→17 체류가 이웃 층 평균 체류의 몇 배 이상이면 절벽인가".
+	-- ⚠️ **이번 판단을 위한 기준선이지 게임 밸런스 값이 아니다.** 게임에는 이 숫자가
+	--    존재하지 않는다. 숫자를 본 뒤에 기준을 정하면 원하는 결론에 맞추게 되므로
+	--    **보기 전에 고정했다.**
+	CLIFF_RATIO_THRESHOLD = 2.0,
+
 	WORLD_ID = 1,
 }
 
@@ -268,6 +274,7 @@ type StageRecord = {
 	totalHp: BigNumber,
 	padIndex: number,
 	rebirths: BigNumber,
+	rebirthCount: number, -- 그 층에 처음 닿은 시점까지의 환생 횟수
 	elapsedSec: number,
 	spentSec: number,
 }
@@ -296,6 +303,7 @@ local function runOnce(state: SimState, clickRate: number, records: { [number]: 
 			totalHp = StageConfig.getTotalHp(stage),
 			padIndex = entry.padIndex,
 			rebirths = copyBig(entry.rebirths),
+			rebirthCount = entry.rebirthCount,
 			elapsedSec = entry.elapsedSec,
 			spentSec = result.spentSec,
 		}
@@ -408,10 +416,24 @@ end
 
 -- ===== 출력 ========================================================================
 
+-- 층 전환에 걸린 시간·런·환생. 다음 층 기록과의 차이로 뽑는다.
+-- 마지막 층은 다음이 없으므로 nil이다.
+local function transitionOf(records: { [number]: StageRecord }, stage: number)
+	local here, next_ = records[stage], records[stage + 1]
+	if here == nil or next_ == nil then
+		return nil
+	end
+	return {
+		staySec = next_.elapsedSec - here.elapsedSec,
+		runs = next_.runNo - here.runNo,
+		rebirths = next_.rebirthCount - here.rebirthCount,
+	}
+end
+
 local function printRateTable(result: RateResult, maxStage: number)
 	print(string.format("\n===== 클릭률 %d회/초 =====", result.clickRate))
-	print("  층 | 런 | 진입 시점 힘 | 20초 딜 총량 |         총HP | 여유배수 | 소요초 | 패드 | 환생(누적) | 도달(분)")
-	print("  ---+----+--------------+--------------+--------------+----------+--------+------+------------+---------")
+	print("  층 | 런 | 진입 시점 힘 | 20초 딜 총량 |         총HP | 여유배수 | 소요초 | 패드 | 환생(누적) | 도달(분) | 체류(분) | 런수 | 환생수")
+	print("  ---+----+--------------+--------------+--------------+----------+--------+------+------------+----------+----------+------+-------")
 
 	for stage = 1, maxStage do
 		local r = result.records[stage]
@@ -420,8 +442,21 @@ local function printRateTable(result: RateResult, maxStage: number)
 		else
 			-- 여유배수 = 20초 딜 총량 ÷ 총HP. 20초를 끝까지 때렸을 때의 값이므로
 			-- 소요초가 20보다 작을수록 여유배수가 1보다 커진다.
+			--
+			-- 체류/런수/환생수는 **이 층에 처음 닿은 뒤 다음 층에 처음 닿을 때까지**의 값이다.
+			-- 환생수를 나란히 두는 이유: 체류가 길 때 그것이 환생 대기인지 아닌지를 갈라야
+			-- 한다. 환생 대기라면 절벽이 아니라 환생 단가(RebirthConfig.BLOX_PER_REBIRTH)
+			-- 문제이고, 그건 튜닝 지도의 다른 항목이다.
+			local tr = transitionOf(result.records, stage)
+			local stayText, runsText, rebirthText = "       -", "   -", "     -"
+			if tr ~= nil then
+				stayText = string.format("%8.2f", tr.staySec / 60)
+				runsText = string.format("%4d", tr.runs)
+				rebirthText = string.format("%6d", tr.rebirths)
+			end
+
 			print(string.format(
-				"  %2d | %2d | %12s | %12s | %12s | %8s | %6.1f |  %2d  | %10s | %7.1f",
+				"  %2d | %2d | %12s | %12s | %12s | %8s | %6.1f |  %2d  | %10s | %8.1f | %s | %s | %s",
 				stage,
 				r.runNo,
 				Formatter.format(r.strengthAtEntry),
@@ -431,7 +466,10 @@ local function printRateTable(result: RateResult, maxStage: number)
 				r.spentSec,
 				r.padIndex,
 				Formatter.format(r.rebirths),
-				r.elapsedSec / 60
+				r.elapsedSec / 60,
+				stayText,
+				runsText,
+				rebirthText
 			))
 		end
 	end
@@ -473,6 +511,99 @@ local function printCurveCheck(maxStage: number)
 	end
 end
 
+-- ===== 절벽 판정 ====================================================================
+--
+-- 체류 시간만으로는 절벽인지 알 수 없다. "16→17이 1.8분"은 이웃 층도 1.8분이면
+-- 평범한 것이고 이웃이 0.3분이면 절벽이다. **반드시 이웃과 대조한다.**
+--
+-- ⚠️ 임계(SIM.CLIFF_RATIO_THRESHOLD)는 숫자를 보기 전에 고정했다. 보고 나서 정하면
+--    원하는 결론에 기준을 맞추게 된다.
+local function printCliffVerdict(results: { RateResult })
+	local function staySec(records: { [number]: StageRecord }, stage: number): number?
+		local tr = transitionOf(records, stage)
+		return tr ~= nil and tr.staySec or nil
+	end
+
+	-- 경계 stage→stage+1 의 체류를, 그 앞 두 전환의 평균과 견준다.
+	local function judge(label: string, results2: { RateResult }, boundary: number)
+		print(string.format("\n  --- %s ---", label))
+		print("  클릭률 | 경계 체류 | 이웃 평균 |  비율 | 판정      | 그 구간 런/환생")
+		print("  -------+-----------+-----------+-------+-----------+----------------")
+		for _, result in ipairs(results2) do
+			local here = staySec(result.records, boundary)
+			local n1 = staySec(result.records, boundary - 2)
+			local n2 = staySec(result.records, boundary - 1)
+			if here == nil or n1 == nil or n2 == nil then
+				print(string.format("  %6d | (구간 미도달)", result.clickRate))
+			else
+				local neighbour = (n1 + n2) / 2
+				local ratio = here / neighbour -- ← raw number. 둘 다 초 단위라 BigNum이 아니다.
+				local verdict = ratio >= SIM.CLIFF_RATIO_THRESHOLD and "절벽 실재" or "절벽 없음"
+				local tr = transitionOf(result.records, boundary)
+				print(string.format(
+					"  %6d | %7.2f분 | %7.2f분 | %5.2f | %-9s | 런 %d회 / 환생 %d회",
+					result.clickRate,
+					here / 60,
+					neighbour / 60,
+					ratio,
+					verdict,
+					tr ~= nil and tr.runs or 0,
+					tr ~= nil and tr.rebirths or 0
+				))
+			end
+		end
+	end
+
+	print(string.format("\n================ 절벽 판정 (임계 %.1f배) ================", SIM.CLIFF_RATIO_THRESHOLD))
+	judge("16→17 (세그먼트 4.0 → 7.0)", results, 16)
+	judge("대조군 8→9 (세그먼트 3.0 → 4.0)", results, 8)
+
+	print("")
+	print("  ⚠️ 대조군을 함께 보는 이유: 8→9도 같은 배수로 튄다면 그것은 17층 고유의 문제가")
+	print("     아니라 **세그먼트 경계 자체의 성질**이라는 뜻이다. 그 경우 결론은")
+	print("     \"17층을 손본다\"가 아니라 \"경계 구조를 손본다\"로 바뀐다.")
+	print("  ⚠️ 환생 수가 함께 큰 구간은 절벽이 아니라 **환생 대기**일 수 있다. 그쪽이면")
+	print("     조정 대상은 HP 세그먼트가 아니라 환생 단가(RebirthConfig)다.")
+end
+
+-- ===== 시각 누적 검산 ===============================================================
+--
+-- 체류 시간을 새로 쓰기 시작했으므로, 시각이 어디선가 새면 절벽 판정이 통째로 틀어진다.
+local function printTimeAudit(results: { RateResult }, maxStage: number)
+	print("\n===== 검산 (e) 시각 누적 =====")
+	for _, result in ipairs(results) do
+		local first, last = result.records[1], result.records[maxStage]
+		if first == nil or last == nil then
+			print(string.format("  클릭률 %2d: (전 구간 미도달 — 검산 생략)", result.clickRate))
+		else
+			local staySum = 0
+			local monotonic = true
+			for stage = 1, maxStage - 1 do
+				local tr = transitionOf(result.records, stage)
+				if tr == nil then
+					monotonic = false
+				else
+					staySum += tr.staySec
+					if tr.staySec < 0 then
+						monotonic = false
+					end
+				end
+			end
+			local span = last.elapsedSec - first.elapsedSec
+			-- 체류합과 구간은 망원급수라 정의상 같다. 여기서 잡히는 것은 뺄셈 실수뿐이다.
+			print(string.format(
+				"  클릭률 %2d: 체류합 %.4f분 / 1→%d층 구간 %.4f분 / 차 %.2e초 / 단조 %s",
+				result.clickRate,
+				staySum / 60,
+				maxStage,
+				span / 60,
+				math.abs(staySum - span),
+				monotonic and "예" or "아니오 ⚠️"
+			))
+		end
+	end
+end
+
 local function printVerdict(results: { RateResult }, maxStage: number)
 	local function marginLog(r: StageRecord): number
 		-- 여유배수 = 20초를 끝까지 때렸을 때의 딜 ÷ 총HP.
@@ -508,8 +639,7 @@ local function printVerdict(results: { RateResult }, maxStage: number)
 	end
 
 	-- 검산 (b) --------------------------------------------------------------------
-	print("
-===== 검산 (b) 1층 여유배수 =====")
+	print("\n===== 검산 (b) 1층 여유배수 =====")
 	for _, result in ipairs(results) do
 		local r1 = result.records[1]
 		if r1 ~= nil then
@@ -546,8 +676,7 @@ local function printVerdict(results: { RateResult }, maxStage: number)
 	--    다르다. 그래서 여유배수는 클릭률에 대해 매끄럽지 않고 뒤집히는 층이 생긴다.
 	--    구조적으로 단조인 것은 **도달 시각**이다: 많이 클릭하면 모든 층에 더 빨리 닿는다.
 	--    그쪽을 기준으로 삼는다.
-	print("
-===== 검산 (d) 클릭률이 높을수록 같은 층에 빨리 도달하는가 =====")
+	print("\n===== 검산 (d) 클릭률이 높을수록 같은 층에 빨리 도달하는가 =====")
 	local violations = 0
 	for stage = 1, maxStage do
 		local prev: number? = nil
@@ -572,7 +701,6 @@ local function printVerdict(results: { RateResult }, maxStage: number)
 		print("  전 층에서 클릭률이 높을수록 도달이 빠르다. OK")
 	end
 end
-end
 
 -- ===== 진입점 =======================================================================
 
@@ -595,6 +723,15 @@ function StandardPathReport.run()
 	))
 	print("  ⚠️ 거리 판정 없음 — 캐릭터가 반경 안에 계속 있다고 가정한 **이론 상한**이다.")
 	print("     이동 시간과 워프도 계산하지 않는다. 실제 딜은 이보다 작다.")
+	print("")
+	print("  ⚠️ **이 리포트는 시간 축이다. 성공률 축이 아니다.**")
+	print("     결정론 시뮬레이션 + 정지선 규칙이므로 성공률은 항상 0 아니면 1이고,")
+	print("     표준 플레이어는 정의상 항상 한계층에서 논다. 여유배수가 전 구간 1~1.5에")
+	print("     눌리는 것은 그 구조적 귀결이지 버그가 아니다.")
+	print("     DESIGN.md \"목표 성공률\"의 95% / 65~85% / 40~55%는 확률적 플레이어 분포를")
+	print("     전제한 값이라 이 출력과 축이 다르다. **두 숫자를 나란히 놓고 비교하지 말 것.**")
+	print("     절벽 판정에는 영향이 없다 — 절벽은 \"그 층에서 막히는가\"의 문제이지")
+	print("     \"그 층 성공률이 몇 %인가\"가 아니다.")
 
 	local results: { RateResult } = {}
 	for _, rate in ipairs(SIM.CLICK_RATES) do
@@ -607,6 +744,8 @@ function StandardPathReport.run()
 
 	printCurveCheck(maxStage)
 	printVerdict(results, maxStage)
+	printCliffVerdict(results)
+	printTimeAudit(results, maxStage)
 
 	print("\n[StandardPathReport] 끝.")
 end
