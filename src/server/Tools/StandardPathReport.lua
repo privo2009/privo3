@@ -430,6 +430,43 @@ local function transitionOf(records: { [number]: StageRecord }, stage: number)
 	}
 end
 
+-- ===== 세그먼트 경계 (WorldConfig 파생) ==============================================
+--
+-- ⚠️ 경계 층 번호도 성장률도 여기 적지 말 것. 둘 다 WorldConfig에서 나온다.
+--    한쪽만 하드코딩하면 세그먼트를 바꿨을 때 **같은 화면에서 어긋난다** —
+--    실제로 세 번째 세그먼트를 바꿔 돌렸을 때 검산 헤더는 옛 값을, 표는 새 값을 찍었다.
+--    값을 바꿔가며 돌리는 도구라 이건 표기 문제가 아니라 **어느 판의 출력인지 헷갈리는** 문제다.
+type SegmentBoundary = { stage: number, fromGrowth: number, toGrowth: number }
+
+local function hpSegments(): { WorldConfig.GrowthSegment }
+	local world = WorldConfig.get(SIM.WORLD_ID)
+	assert(world ~= nil, "StandardPathReport: 월드가 없다")
+	return (world :: WorldConfig.WorldDef).hpGrowthSegments
+end
+
+-- 경계 층 = 다음 세그먼트의 첫 층 - 1. 그 층에서 다음 층으로 넘어갈 때 성장률이 바뀐다.
+local function segmentBoundaries(): { SegmentBoundary }
+	local segments = hpSegments()
+	local out: { SegmentBoundary } = {}
+	for i = 2, #segments do
+		table.insert(out, {
+			stage = segments[i].from - 1,
+			fromGrowth = segments[i - 1].growth,
+			toGrowth = segments[i].growth,
+		})
+	end
+	return out
+end
+
+-- 세그먼트 설정값을 순서대로 늘어놓은 문자열 (예: "3.0 / 4.0 / 7.0" — 값은 Config가 정한다).
+local function growthListText(): string
+	local parts = {}
+	for _, segment in ipairs(hpSegments()) do
+		table.insert(parts, string.format("%.1f", segment.growth))
+	end
+	return table.concat(parts, " / ")
+end
+
 local function printRateTable(result: RateResult, maxStage: number)
 	print(string.format("\n===== 클릭률 %d회/초 =====", result.clickRate))
 	print("  층 | 런 | 진입 시점 힘 | 20초 딜 총량 |         총HP | 여유배수 | 소요초 | 패드 | 환생(누적) | 도달(분) | 체류(분) | 런수 | 환생수")
@@ -524,7 +561,7 @@ end
 
 local function printCurveCheck(maxStage: number)
 	print("\n===== 검산 (a) 층별 전층대비 비율 =====")
-	print("  ⚠️ 블록HP 비가 세그먼트 설정값(3.0 / 4.0 / 7.0)과 같아야 한다.")
+	print("  ⚠️ 블록HP 비가 세그먼트 설정값(" .. growthListText() .. ")과 같아야 한다.")
 	print("     총HP 비는 초반에 다르다 — 블록 개수가 3→4→5→6→7로 늘기 때문이다")
 	print("     (8층부터 7개 고정이라 그 뒤로는 둘이 일치한다).")
 	print("  층 | 블록HP 비 | 총HP 비 | 보상 비 | 보상÷총HP 비")
@@ -589,13 +626,23 @@ local function printCliffVerdict(results: { RateResult })
 	end
 
 	print(string.format("\n================ 절벽 판정 (임계 %.1f배) ================", SIM.CLIFF_RATIO_THRESHOLD))
-	judge("16→17 (세그먼트 4.0 → 7.0)", results, 16)
-	judge("대조군 8→9 (세그먼트 3.0 → 4.0)", results, 8)
+
+	-- 마지막 경계가 4-2-f가 보는 경계이고, 앞쪽 경계들은 대조군이다.
+	-- ⚠️ 층 번호와 성장률을 여기 적지 말 것 — 둘 다 WorldConfig에서 나온다.
+	local boundaries = segmentBoundaries()
+	for i = #boundaries, 1, -1 do
+		local b = boundaries[i]
+		local label = string.format("%d→%d (세그먼트 %.1f → %.1f)", b.stage, b.stage + 1, b.fromGrowth, b.toGrowth)
+		if i < #boundaries then
+			label = "대조군 " .. label
+		end
+		judge(label, results, b.stage)
+	end
 
 	print("")
-	print("  ⚠️ 대조군을 함께 보는 이유: 8→9도 같은 배수로 튄다면 그것은 17층 고유의 문제가")
-	print("     아니라 **세그먼트 경계 자체의 성질**이라는 뜻이다. 그 경우 결론은")
-	print("     \"17층을 손본다\"가 아니라 \"경계 구조를 손본다\"로 바뀐다.")
+	print("  ⚠️ 대조군을 함께 보는 이유: 앞쪽 경계도 같은 배수로 튄다면 그것은 특정 층 고유의")
+	print("     문제가 아니라 **세그먼트 경계 자체의 성질**이라는 뜻이다. 그 경우 결론은")
+	print("     \"그 층을 손본다\"가 아니라 \"경계 구조를 손본다\"로 바뀐다.")
 	print("  ⚠️ 환생 수가 함께 큰 구간은 절벽이 아니라 **환생 대기**일 수 있다. 그쪽이면")
 	print("     조정 대상은 HP 세그먼트가 아니라 환생 단가(RebirthConfig)다.")
 end
@@ -670,27 +717,46 @@ local function printVerdict(results: { RateResult }, maxStage: number)
 		return ratioLog10(r.dealtFull, r.totalHp)
 	end
 
-	print("\n================ 결론: 17층 절벽 ================")
-	print("  클릭률 | 16층 여유배수 | 17층 여유배수 |  17÷16 | 16층 도달 | 17층 도달 | 절벽 체류")
-	print("  -------+---------------+---------------+--------+-----------+-----------+----------")
+	-- 판정 대상 경계는 **마지막 세그먼트 경계**다. WorldConfig에서 파생하므로
+	-- 세그먼트를 바꾸면 이 표가 보는 층도 함께 움직인다.
+	local boundaries = segmentBoundaries()
+	local primary = boundaries[#boundaries]
+	local lo = primary ~= nil and primary.stage or (maxStage - 1)
+	local hi = lo + 1
+
+	if primary ~= nil then
+		print(string.format(
+			"\n================ 결론: %d층 경계 (세그먼트 %.1f → %.1f) ================",
+			hi,
+			primary.fromGrowth,
+			primary.toGrowth
+		))
+	else
+		print(string.format("\n================ 결론: %d층 경계 ================", hi))
+	end
+	print(string.format(
+		"  클릭률 | %d층 여유배수 | %d층 여유배수 | %d÷%d | %d층 도달 | %d층 도달 | 경계 체류",
+		lo, hi, hi, lo, lo, hi
+	))
+	print("  -------+---------------+---------------+-------+-----------+-----------+----------")
 
 	for _, result in ipairs(results) do
-		local r16 = result.records[16]
-		local r17 = result.records[17]
-		if r16 == nil or r17 == nil then
-			print(string.format("  %6d | (16층 또는 17층 도달 못 함)", result.clickRate))
+		local rLo = result.records[lo]
+		local rHi = result.records[hi]
+		if rLo == nil or rHi == nil then
+			print(string.format("  %6d | (%d층 또는 %d층 도달 못 함)", result.clickRate, lo, hi))
 		else
-			local m16 = marginLog(r16)
-			local m17 = marginLog(r17)
+			local mLo = marginLog(rLo)
+			local mHi = marginLog(rHi)
 			print(string.format(
-				"  %6d | %13s | %13s | %6s | %8.1f분 | %8.1f분 | %7.1f분",
+				"  %6d | %13s | %13s | %5s | %8.1f분 | %8.1f분 | %7.1f분",
 				result.clickRate,
-				formatPow10(m16), -- ← raw number 변환 지점
-				formatPow10(m17),
-				formatPow10(m17 - m16),
-				r16.elapsedSec / 60,
-				r17.elapsedSec / 60,
-				(r17.elapsedSec - r16.elapsedSec) / 60
+				formatPow10(mLo), -- ← raw number 변환 지점
+				formatPow10(mHi),
+				formatPow10(mHi - mLo),
+				rLo.elapsedSec / 60,
+				rHi.elapsedSec / 60,
+				(rHi.elapsedSec - rLo.elapsedSec) / 60
 			))
 		end
 	end
@@ -711,16 +777,16 @@ local function printVerdict(results: { RateResult }, maxStage: number)
 	print("  1에 가까우면 계산이 틀렸을 수 있다 — 1층은 여유가 넉넉해야 하는 층이다.")
 
 	-- 검산 (c) --------------------------------------------------------------------
-	print("\n===== 검산 (c) 17층 여유배수 ÷ 16층 여유배수 =====")
-	-- 힘이 전혀 자라지 않았다면 D가 고정이므로 비 = 총HP(16)/총HP(17) = 1/7.0 이다.
-	-- ⚠️ 0.386이 아니다 — 그 값은 보상÷총HP 축(2.7÷7.0)이고 여기는 D÷총HP 축이다.
+	print(string.format("\n===== 검산 (c) %d층 여유배수 ÷ %d층 여유배수 =====", hi, lo))
+	-- 힘이 전혀 자라지 않았다면 D가 고정이므로 비 = 총HP(lo)/총HP(hi) = 1/(그 경계의 성장률)이다.
+	-- ⚠️ 보상÷총HP 축의 값과 섞지 말 것 — 그쪽은 보상성장÷HP성장이고 여기는 D÷총HP다.
 	--    축을 섞으면 정상 결과가 "틀렸다"로 판정된다.
-	local floorRatio = 10 ^ ratioLog10(StageConfig.getTotalHp(16), StageConfig.getTotalHp(17))
-	print(string.format("  하한(힘 성장이 0일 때) = 총HP(16) / 총HP(17) = %.4f", floorRatio))
+	local floorRatio = 10 ^ ratioLog10(StageConfig.getTotalHp(lo), StageConfig.getTotalHp(hi))
+	print(string.format("  하한(힘 성장이 0일 때) = 총HP(%d) / 총HP(%d) = %.4f", lo, hi, floorRatio))
 	for _, result in ipairs(results) do
-		local r16, r17 = result.records[16], result.records[17]
-		if r16 ~= nil and r17 ~= nil then
-			local actual = 10 ^ (marginLog(r17) - marginLog(r16))
+		local rLo, rHi = result.records[lo], result.records[hi]
+		if rLo ~= nil and rHi ~= nil then
+			local actual = 10 ^ (marginLog(rHi) - marginLog(rLo))
 			local mark = actual > floorRatio and "OK (그 사이 힘이 자랐다)" or "⚠️ 하한 이하 — 힘 성장 계산 확인 필요"
 			print(string.format("  클릭률 %2d: %.4f  %s", result.clickRate, actual, mark))
 		end
@@ -767,12 +833,15 @@ function StandardPathReport.run()
 	local maxStage = (world :: WorldConfig.WorldDef).stageRange[2]
 
 	print("[StandardPathReport] 표준 경로 시뮬레이터 (4-2-f) — 값의 원본은 Config, 여기엔 수치가 없다")
+	-- 클릭률 목록도 배열에서 조립한다 — [1][2][3]으로 적으면 밴드를 늘렸을 때 헤더만 3개로 남는다.
+	local rateParts = {}
+	for _, rate in ipairs(SIM.CLICK_RATES) do
+		table.insert(rateParts, string.format("%d", rate))
+	end
 	print(string.format(
-		"  dt=%.2f초 / 클릭률 %d·%d·%d회초 / 런 상한 %d / 펀치 %.0f회초 / 타이머 %d초 / 패드 %d개",
+		"  dt=%.2f초 / 클릭률 %s회초 / 런 상한 %d / 펀치 %.0f회초 / 타이머 %d초 / 패드 %d개",
 		SIM.DT_SEC,
-		SIM.CLICK_RATES[1],
-		SIM.CLICK_RATES[2],
-		SIM.CLICK_RATES[3],
+		table.concat(rateParts, "·"),
 		SIM.MAX_RUNS,
 		AttackConfig.PUNCH_SPEED_BASE,
 		StageConfig.CHALLENGE_TIMER_SEC,
