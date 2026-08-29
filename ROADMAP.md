@@ -23,13 +23,13 @@
 | `Tests/ConfigTests.server.lua` | 59 | 모든 Config의 validate + 스모크 |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Tests/WarpConfigTests.server.lua` | 31 | 워프 비용 곡선(지수·단조)·순수성·거부 사유 3종 |
-| `Tests/AttackConfigTests.server.lua` | 38 | 펀치 속도·판정 반경 파생·경계(이하) ※※ |
+| `Tests/AttackConfigTests.server.lua` | 29 | 펀치 속도·판정 반경 파생·경계(이하) |
 | `Data/SchemaTests.server.lua` | 33 | 프로필 스키마 검증 |
 | `Data/MigrationsTests.server.lua` | 20 | schemaVersion 마이그레이션·멱등성 |
 | `Systems/CurrencyServiceTests.server.lua` | 51 | 재화 단일 게이트·롤백·rebirths |
 | `Systems/BlockServiceTests.server.lua` | 30 | 배치·데미지 오버플로우·클리어 |
 | `Systems/ChallengeServiceTests.server.lua` | 51 | 타이머·보상 갱신·진입점 거부·source 식별 |
-| `Systems/ClickServiceTests.server.lua` | 38 | 입력 위생·초당 상한 윈도우·통지 억제·자동 경로 |
+| `Systems/ClickServiceTests.server.lua` | 47 | 입력 위생·초당 상한 윈도우·통지 억제·자동 경로 |
 | `Systems/PadServiceTests.server.lua` | 31 | 패드 배치·해금 경계·디바운스·세팅/클램프 |
 | `Systems/SpeedServiceTests.server.lua` | 21 | 요청값 클램프·입력 위생·환생 하향·최대치 상승 불변 |
 | `Systems/SpeedRequestServiceTests.server.lua` | 32 | 요청 빈도 상한·폐기·로그 억제·응답 payload |
@@ -44,14 +44,18 @@
 잡히고 런타임에는 호출 횟수만큼 돈다 — 어긋나는 것이 **정상**이다.
 파라미터화 루프와 같은 구조이므로 이 두 행은 실측만 믿을 것.
 
-※※ **`AttackConfigTests`(38)만 합계에서 역산한 값이다.** 실측으로 받은 것은 총계
-747 / 18개 파일 / 0 failed와 `AttackServiceTests` 41이고, 나머지는 직전 실측(667)에
-`ConfigTests` +1(`AttackConfig.validate`가 그 파일에 들어갔다 — 아래 ⚠️ 참고)을 더해
-남는 값을 이 행에 넣었다. **다음 Play 때 이 파일이 찍는 자기 줄로 38을 확인할 것.**
-합계와 행 수는 실측이므로 표 전체가 틀어지지는 않지만, 이 한 행은 아직 눈으로 본 값이 아니다.
+⚠️ **역산으로 채운 칸은 합계가 맞아도 틀릴 수 있다.** `AttackConfigTests`는 한동안
+합계에서 역산한 38이었고 실측은 **29**였다. 같은 시점에 `ClickServiceTests`가 38 → **47**로
+늘어 있어서 두 오차가 정확히 상쇄됐고(-9 / +9), 합계 747도 행 수 18도 맞아 표가 멀쩡해 보였다.
+**합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
+각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-08-28 Studio Play 런타임 실측.** 747 passed / 0 failed (18개 행).
-4-2-e2로 `AttackConfigTests`(38) · `AttackServiceTests`(41) 두 행 추가, `ConfigTests` 58 → 59.
+최근 갱신: **2026-08-29 Studio Play 런타임 실측.** 747 passed / 0 failed (18개 행).
+`AttackConfigTests` 38 → **29**, `ClickServiceTests` 38 → **47**로 정정.
+두 오차가 정확히 상쇄돼 있어(-9 / +9) 합계와 행 수는 바뀌지 않았다.
+
+직전 갱신: 2026-08-28 실측 747 (18개 행).
+4-2-e2로 `AttackConfigTests` · `AttackServiceTests` 두 행 추가, `ConfigTests` 58 → 59.
 
 ⚠️ `AttackServiceTests`가 32 → 41로 오른 것은 케이스를 늘린 게 아니라 **나눈 것**이다.
 경계 검사를 float32 이웃 두 점(반경 바로 아래 = 안 / 바로 위 = 밖)으로 쪼개고 그 파생을
