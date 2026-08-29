@@ -481,6 +481,40 @@ local function printRateTable(result: RateResult, maxStage: number)
 		result.finalState.elapsedSec / 60,
 		result.stoppedReason
 	))
+
+	-- 구간별 체류 합. 도달 시간만 보면 **늘어난 시간이 어디에 붙었는지** 모른다.
+	-- 뒤 구간에 몰려 있으면 HP 세그먼트 조정이 의도대로 후반만 건드린 것이고,
+	-- 전 구간에 퍼져 있으면 환생 주기가 통째로 밀린 것이다 — 후자면 손잡이가
+	-- 세그먼트가 아니라는 뜻이라 결론이 달라진다.
+	--
+	-- ⚠️ 구간 경계는 **WorldConfig.hpGrowthSegments에서 파생한다.** 1/8/9/16/17/25를
+	--    여기 상수로 적지 말 것 — 세그먼트 구성이 바뀌면 이 표도 따라 움직여야 한다.
+	local world = WorldConfig.get(SIM.WORLD_ID)
+	if world ~= nil then
+		local parts = {}
+		for _, segment in ipairs((world :: WorldConfig.WorldDef).hpGrowthSegments) do
+			-- 체류는 "그 층 → 다음 층"이라 구간 마지막 층의 체류는 다음 구간 첫 층으로
+			-- 넘어가는 시간이다. 그래서 합치면 전체 구간과 정확히 맞는다(망원급수).
+			local sum = 0
+			local missing = false
+			for stage = segment.from, segment.to do
+				local tr = transitionOf(result.records, stage)
+				if tr ~= nil then
+					sum += tr.staySec
+				elseif stage < segment.to or result.records[stage] == nil then
+					missing = true -- 마지막 층은 체류가 없는 것이 정상이다
+				end
+			end
+			table.insert(parts, string.format(
+				"%d~%d층 %.1f분%s",
+				segment.from,
+				segment.to,
+				sum / 60,
+				missing and " ⚠️" or ""
+			))
+		end
+		print("  구간 체류 합: " .. table.concat(parts, " / "))
+	end
 end
 
 -- ===== 검산 ========================================================================
@@ -600,6 +634,29 @@ local function printTimeAudit(results: { RateResult }, maxStage: number)
 				math.abs(staySum - span),
 				monotonic and "예" or "아니오 ⚠️"
 			))
+
+			-- 구간 체류 합끼리 더하면 전체와 같아야 한다.
+			-- ⚠️ 이건 망원급수 항등식이 **아니다.** 구간 경계는 WorldConfig에서 파생하므로,
+			--    세그먼트가 stageRange를 빈틈이나 겹침 없이 덮지 못하면 여기서 어긋난다.
+			--    즉 이 줄이 실제로 검사하는 것은 **파생한 경계가 전 구간을 덮는가**다.
+			local world = WorldConfig.get(SIM.WORLD_ID)
+			if world ~= nil then
+				local segSum = 0
+				for _, segment in ipairs((world :: WorldConfig.WorldDef).hpGrowthSegments) do
+					for stage = segment.from, segment.to do
+						local tr = transitionOf(result.records, stage)
+						if tr ~= nil then
+							segSum += tr.staySec
+						end
+					end
+				end
+				print(string.format(
+					"             구간 합 계 %.4f분 / 차 %.2e초 %s",
+					segSum / 60,
+					math.abs(segSum - span),
+					math.abs(segSum - span) < 1e-6 and "" or "⚠️ 세그먼트가 전 구간을 덮지 못한다"
+				))
+			end
 		end
 	end
 end
