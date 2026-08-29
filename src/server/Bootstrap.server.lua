@@ -659,3 +659,24 @@ if WARP_VERIFY_ENABLED then
 		end)
 	end)
 end
+
+
+-- ── 개발용 플래그: STANDARD_PATH_REPORT_ENABLED ───────────────────────────────
+-- 표준 경로 시뮬레이터(4-2-f). 클릭률 6/8/10 세 벌의 표를 Play 로그로 찍는다.
+-- 목적은 "17층 절벽이 표준 경로를 실제로 막는가"에 답할 숫자를 얻는 것이다.
+--
+-- ⚠️ 위 REBIRTH_VERIFY_ENABLED · WARP_VERIFY_ENABLED와 **성격이 다르다.
+--    셋을 같이 볼 때 같은 물건으로 취급하지 말 것.** 저 둘은 켜면 blox와 lifetimeBlox가
+--    되돌릴 수 없게 올라 접속한 계정이 오염되므로 켠 채로 커밋하면 안 된다.
+--    이 리포트는 **Config만 읽고 순수 계산 후 print한다** — 프로필을 읽지도 쓰지도
+--    않으므로 켠 채로 커밋해도 안전하다.
+--
+-- 끄는 이유는 오염이 아니라 소음이다. 4-2-f 동안 값을 바꿔가며 반복 실행할 물건이라,
+-- 매 Play마다 표 세 벌이 찍히면 [ATTACK]·[Bootstrap] 관측 로그가 묻힌다.
+--
+-- 4-2-f 종료 후 이 블록 삭제 (docs/PENDING.md 잔재).
+local STANDARD_PATH_REPORT_ENABLED = true
+
+if STANDARD_PATH_REPORT_ENABLED then
+	require(script.Parent.Tools.StandardPathReport).run()
+end

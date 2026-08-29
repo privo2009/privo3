@@ -84,6 +84,14 @@
   안전하게 넣으려면 `SpeedService`에 폴링이 스킵할 동결 플래그가 필요한데,
   그 파일은 Play 검증이 끝났으므로 열면 미검증 레이어가 다시 생긴다.
   (근거 → `src/server/Systems/WarpService.lua` 상단 "동결은 넣지 않았다")
+- **수동 클릭 상한 10회/초의 근거 문장이 실측과 어긋난다.**
+  `DESIGN.md` "클릭 파워 패드"가 이 값을 "사람이 낼 수 있는 속도 이상은 받지 않는다"로
+  설명하는데, 실측에서 버터플라이 클릭이 11~12회/초로 나왔다. 즉 이 선은 오토마우스만이
+  아니라 **사람도 자르고 있다.**
+
+  ⚠️ **4-2-f 튜닝 대상이 아니다.** 이 값은 자동 클리커 게임패스(15회/초)의 가치가 걸린
+  **수익 모델 상수**라 난이도 트랙과 축이 다르다 (→ `ROADMAP.md` 4-2-b가 두 트랙을
+  가른 근거와 같다). 올리면 게임패스의 값어치가 깎인다. 판단 시점 미정.
 - **자동 진행 모드 구현 시점** — 4-2인지 Phase 8인지 미정
 - **17~25층 세그먼트 7.0** — 정적 검토 완료 (2026-08-26). 1순위 후보 **9.0, 미적용.**
   4-2-f 진입 시 세그먼트 값보다 **17층 절벽**을 먼저 본다
@@ -179,6 +187,7 @@ Play 검증 전에 Rojo 플러그인 창에서 Connect / Disconnect 상태를 �
 | `SpeedInputBoot`의 `VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
 | `Bootstrap`의 `REBIRTH_VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
 | `Bootstrap`의 `WARP_VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
+| `Bootstrap`의 `STANDARD_PATH_REPORT_ENABLED` 블록 | 4-2-f 종료 후 (아래 ⚠️) |
 
 ⚠️ **`Workspace/_OldBlocks`는 코드로 지울 수 없다. 사람이 Studio에서 지워야 한다**
 (2026-08-28 재확인). 정리 세션에서 처리되지 않고 계속 남는 이유가 이것이다 —
@@ -239,6 +248,16 @@ Phase 6 UI까지 남기는 이유도 같다: UI가 없는 동안 워프가 실�
  `[ATTACK]` 관측 print도 같은 성격이라 남는다 — 이 경로에는 UI가 없어 배선이 끊겨도
  화면에 흔적이 없다. `ATTACK_OBSERVE_SEC` · `ATTACK_VERIFY_POLL_SEC`도
  `VERIFY_CHALLENGE` 블록과 수명이 같아 남는다)
+
+⚠️ `STANDARD_PATH_REPORT_ENABLED`는 **위 VERIFY 플래그들과 성격이 다르다. 같은 물건으로
+취급하지 말 것.** `REBIRTH_VERIFY_ENABLED`·`WARP_VERIFY_ENABLED`는 켜면 blox와
+lifetimeBlox가 되돌릴 수 없게 올라 접속 계정이 오염되므로 켠 채로 커밋하면 안 된다.
+표준 경로 시뮬레이터는 **Config만 읽고 순수 계산 후 print한다** — 프로필을 읽지도 쓰지도
+않으므로 **켠 채로 커밋해도 안전하다.**
+
+끄는 이유는 오염이 아니라 **소음**이다. 4-2-f 동안 값을 바꿔가며 반복 실행할 물건이라,
+매 Play마다 표 세 벌이 찍히면 `[ATTACK]`·`[Bootstrap]` 관측 로그가 묻힌다.
+4-2-f가 끝나면 블록째 삭제한다 — 그때는 튜닝이 끝나 다시 돌릴 이유가 없다.
 
 ---
 
