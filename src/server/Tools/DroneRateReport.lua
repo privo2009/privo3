@@ -36,40 +36,66 @@
 -- (별도 커밋). 이 파일은 그 함수가 돌려주는 StageRecord만 읽는다 — 시뮬레이션 로직은
 -- 재구현하지 않는다.
 --
--- ⚠️ 처음에는 "층 N 진입 시점 lifetimeBlox → 층 N+1 진입 시점 lifetimeBlox"의 증가량을
---    시간차로 나누려 했다. **틀렸다.** 표준 경로는 정지선(37%)에 걸릴 때까지 여러 층을
---    한 런 안에서 내리 통과하고, blox는 그 런이 끝나 커밋되는 순간에만 한 번 붙는다
---    (runOnce: "state.blox = BigNum.add(...)"는 런당 1회). 즉 런 중간에 지나친 층들은
---    그 구간 동안 늘어난 lifetimeBlox가 실제로 0이라서, 그 방식은 대부분의 층에서 벌이
---    속도를 0으로 잘못 찍고 커밋이 일어난 층에만 몰아준다 — 층별 축이 사실상 사라진다.
+-- 여기까지 오는 데 세 번 틀렸다. 세 번 다 남긴다 — 같은 자리를 다시 파지 않기 위해서다.
 --
--- 그다음 쓴 정의: **"지금 이 층에서 수령했다면"** 가정을, 시작부터의 **누적** 시간으로
--- 나눴다 — reward(N) ÷ T(N) (T(N) = 게임 시작부터 N층 첫 도달까지 걸린 elapsedSec).
--- **이것도 틀렸다.** T(N)은 앞선 모든 층에서 쓴 시간을 다 끌고 온다. 앞 구간이 굼뜨면
--- (예: 초반 절벽) 그 저효율이 뒤 층까지 희석되어 남아 후반으로 갈수록 벌이 속도가
--- 실제보다 낮게 나온다. 이 리포트가 정하려는 값이 바로 "능동/드론 비율로 고르는
--- 오프셋"이므로, 후반이 과소평가되면 결론(어느 오프셋이 기준선 안에 드는가)이 뒤집힐
--- 수 있다 — 값이 좀 다른 정도가 아니라 판정 자체가 잘못될 수 있는 오류였다.
+-- ⚠️ 1차: "층 N 진입 시점 lifetimeBlox → 층 N+1 진입 시점 lifetimeBlox"의 증가량을
+--    시간차로 나눴다. 표준 경로는 정지선(37%)에 걸릴 때까지 여러 층을 한 런 안에서 내리
+--    통과하고, blox는 그 런이 끝나 커밋되는 순간에만 한 번 붙는다(runOnce:
+--    "state.blox = BigNum.add(...)"는 런당 1회). 런 중간에 지나친 층들은 그 구간 동안
+--    늘어난 lifetimeBlox가 실제로 0이라서, 대부분의 층에서 벌이 속도를 0으로 찍고
+--    커밋이 일어난 층에만 몰아준다 — 층별 축이 사실상 사라진다.
 --
--- 그래서 쓰는 정의: 분모를 누적 시간이 아니라 **구간** 시간으로 좁힌다.
---   능동 벌이 속도(N층, 분당) = StageConfig.getBloxReward(N) ÷ (T(N) - T(N-1)) × 60
--- (1층은 T(0) = 0으로 둔다 — 그러면 "게임 시작부터 1층 첫 도달까지"와 같아져서 앞서
--- 실패한 누적 시간 정의의 1층 값과 일치한다.)
+-- ⚠️ 2차: "지금 이 층에서 수령했다면" 가정으로 바꾸되, 분모를 시작부터의 **누적** 시간
+--    T(N)(= N층 첫 도달까지 걸린 elapsedSec)으로 썼다 — reward(N) ÷ T(N). 앞 구간이
+--    굼뜨면(예: 초반 절벽) 그 저효율이 뒤 층까지 희석되어 남아 후반 벌이 속도가 실제보다
+--    낮게 나온다. 이 리포트가 정하는 값이 바로 그 비율로 고르는 오프셋이므로, 후반
+--    과소평가는 판정 자체를 뒤집을 수 있는 오류였다.
 --
--- 의미: "N층까지 한 층 더 가는 데 든 **추가** 시간으로 N층 보상 1회어치를 벌었다".
--- reward(N)이 실제 커밋값이 아니라 보상 곡선 함수값이라는 점은 이전 정의와 같다 —
--- 그래서 아래 두 성질도 그대로 유지된다:
---   - 모든 층 1~25에 항상 값이 있다 (elapsedSec은 도달하는 순간 기록되고, reward도
---     그 층 값이 바로 나온다. lifetimeBlox 델타 방식과 달리 "다음 층 기록"이 필요 없다).
---   - 런 중간 통과 여부와 무관하다 — 실제로 그 순간 수령을 선택했다면 나왔을 값이므로
---     커밋 시점에 몰리는 문제가 없다.
--- 앞서 실패였던 누적 시간 문제만 사라진다 — 구간 시간은 그 층 직전 구간의 효율만
--- 반영하고 더 앞선 층들의 시간을 끌고 오지 않는다.
+-- ⚠️ 3차: 분모를 T(N) - T(N-1)로 좁혔다 — 그런데 이건 **N-1층에서 파밍한 시간**이다.
+--    N층 벌이 속도의 분모가 아니라 N-1층 벌이 속도의 분모를 한 칸 밀어 쓴 것이었다.
 --
--- ⚠️ 클릭률은 StandardPathReport 밴드(6/8/10) 중 8만 쓴다. WarpConversionReport가
---    "기준 단가·클릭률 8"이라 부른 것과 같은 기준점이다 — 이 리포트가 새로 정한 값이
---    아니라 기존 선례를 따른 것이다. 세 클릭률을 전부 펼치면 오프셋×층 격자 표가 클릭률
---    축까지 늘어나 지시된 표 모양(오프셋×층)을 벗어난다.
+-- 그래서 쓰는 정의: 분모는 **N층에 도달한 뒤 N+1층으로 넘어가기까지 걸린 시간**이다 —
+-- StandardPathReport가 printRateTable에서 "체류(분)"으로 이미 찍고 있는 바로 그 값이다
+-- (내부 함수 transitionOf가 하는 계산과 같다. export되지 않아 여기서 elapsedSec 두 개의
+-- 차로 다시 만든다 — 시뮬레이션을 재구현하는 게 아니라 이미 노출된 값의 산술이다).
+--   체류(N) = T(N+1) - T(N)      (1층 포함 모든 층 — T(0)을 쓰지 않는다, 2차·3차와 다르다)
+--   능동 벌이 속도(N층, 분당) = StageConfig.getBloxReward(N) ÷ 체류(N) × 60
+--
+-- 의미: "N층에 선 채로 다음 층을 준비하는 그 시간 동안, N층 보상 1회어치를 벌었다".
+-- reward(N)이 실제 커밋값이 아니라 보상 곡선 함수값이라는 점은 앞선 정의들과 같다 —
+-- 런 중간 통과 여부와 무관하고, 커밋 시점에 몰리는 문제가 없다는 성질도 그대로 유지된다.
+--
+-- ⚠️ 마지막 층(FLOOR_MAX = 25)은 다음 층이 없어 체류를 만들 수 없다 — StandardPathReport
+--    시뮬레이터가 그 층에 처음 닿는 순간 기록을 멈춘다(다음 월드가 아직 없어서이기도
+--    하다). 그 층은 "-"로 비우고 범위·중앙값 집계에서 제외한다. 24층 값을 재활용하거나
+--    다른 값으로 대체하지 않는다 — 근거 없이 채우면 틀린 숫자가 판단 근거가 된다.
+--
+-- ===== 이 정의가 보상 곡선과 어떻게 관계되는가 ========================================
+--
+-- 비율(N층, 오프셋 k) = 능동 벌이 속도(N) ÷ 드론1대수입(N-k)
+--                     = [reward(N) ÷ 체류(N)] ÷ reward(N-k)
+--                     = [reward(N) ÷ reward(N-k)] ÷ 체류(N)
+-- 월드 1의 bloxGrowthSegments는 stageRange 전체(1~25)가 성장률 단일 구간이므로,
+-- N과 N-k가 둘 다 이 범위 안이면 reward(N) ÷ reward(N-k) = growth^k로 정확히 약분된다
+-- (segmentedGrowthMultiplier가 bloxBase를 공통 인수로 곱하고 시작하므로 bloxBase는
+-- 분자·분모에서 완전히 사라진다). 즉:
+--   비율(N, k) = growth^k ÷ 체류(N)
+-- **bloxBase를 바꿔도 이 표는 움직이지 않는다** — bloxBase는 reward(N)과 reward(N-k)
+-- 양쪽에 똑같이 곱해져 약분되기 때문이다. 반면 **growth(현재 2.7)는 약분되지 않고
+-- 남는다** — growth를 바꾸면 growth^k가 바뀌어 이 표의 절대값도 함께 움직인다. 체류(N)
+-- 자체는 hpGrowthSegments·공격·클릭 파워 등 완전히 다른 축에서 나오므로 보상 곡선과
+-- 아예 무관하다.
+--
+-- 아래 실제 계산은 이 닫힌 식을 쓰지 않고 StageConfig.getBloxReward를 그대로 두 번
+-- 불러 BigNum으로 나눈다 — 위 약분은 "현재 월드 1이 단일 성장 구간이라 성립하는" 사실
+-- 확인용이고, bloxGrowthSegments가 여러 구간으로 늘어나면 이 닫힌 식은 깨지지만
+-- getBloxReward를 직접 부르는 아래 코드는 그때도 그대로 맞다.
+--
+-- ⚠️ [1](오프셋 스윕)은 StandardPathReport 밴드(6/8/10) 세 클릭률을 전부 찍는다 — 체류
+--    시간이 클릭률마다 다르므로 하나만 보면 그 결론이 다른 클릭률에서도 성립하는지 알
+--    수 없다. [2](오프라인 환산)는 기준 클릭률 8 하나만 쓴다 — WarpConversionReport가
+--    "기준 단가"로 쓴 것과 같은 기준점이고, 오프라인 환산까지 세 벌로 찍으면 표가 너무
+--    커진다(오프셋 6 × 클릭률 3 × 층 25 × 드론대수 2).
 --
 -- 사용:
 --   Bootstrap의 DRONE_RATE_REPORT_ENABLED 블록이 부른다. 기본값 false.
@@ -153,13 +179,12 @@ local function median(values: { number }): number?
 	return (sorted[n / 2] + sorted[n / 2 + 1]) / 2
 end
 
--- ===== 능동 벌이 속도 (기준 클릭률 8) ================================================
+-- ===== 능동 벌이 속도 =================================================================
 --
--- StandardPathReport.simulateAll을 한 번만 돌려서 캐싱한다 — 오프셋 스윕(0~5)과
--- 오프라인 환산 양쪽이 같은 능동 벌이 속도를 참조하므로 두 번 돌 이유가 없다.
-local function getReferenceResult(): RateResult
-	local results = StandardPathReport.simulateAll(SWEEP.FLOOR_MAX)
-
+-- run()이 StandardPathReport.simulateAll을 한 번만 돌려서 [1](세 클릭률 전부)과
+-- [2](기준 클릭률만) 양쪽에 같은 결과를 넘긴다 — 두 번 돌 이유가 없다.
+-- 이 함수는 그 결과들 중 기준 클릭률(8) 하나를 골라낸다.
+local function findReferenceResult(results: { RateResult }): RateResult
 	local clickRates = StandardPathReport.getClickRates()
 	local referenceIndex: number? = nil
 	for i, rate in ipairs(clickRates) do
@@ -180,45 +205,47 @@ local function getReferenceResult(): RateResult
 	return results[referenceIndex :: number]
 end
 
--- "N층까지 한 층 더 가는 데 든 추가 시간으로 N층 보상 1회어치를 벌었다" 가정의 능동
--- 벌이 속도(분당) — reward(N) ÷ (T(N) - T(N-1)) × 60. 1층은 T(0) = 0으로 둔다.
--- 그 층 또는 그 앞 층에 시뮬레이터가 도달하지 못했으면(런/틱 예산 소진 등) nil이다 —
--- 파일 상단 "능동 벌이 속도를 어떻게 뽑았는가" 참고.
-local function earnRatePerMinAtFloor(records: { [number]: StageRecord }, floor: number): BigNumber?
+-- N층에 도달한 뒤 N+1층으로 넘어가기까지 걸린 시간(초) — StandardPathReport의
+-- "체류(분)"과 같은 계산(elapsedSec 두 값의 차)이다. 마지막 층(다음 기록이 없는 층)이나
+-- 시뮬레이터가 도달하지 못한 층에서는 nil이다.
+local function staySecAtFloor(records: { [number]: StageRecord }, floor: number): number?
 	local here = records[floor]
-	if here == nil then
+	local next_ = records[floor + 1]
+	if here == nil or next_ == nil then
 		return nil
 	end
+	return next_.elapsedSec - here.elapsedSec
+end
 
-	local prevElapsedSec = 0
-	if floor > 1 then
-		local prev = records[floor - 1]
-		if prev == nil then
-			return nil
-		end
-		prevElapsedSec = prev.elapsedSec
+-- "N층에 선 채로 다음 층을 준비하는 그 시간 동안 N층 보상 1회어치를 벌었다" 가정의
+-- 능동 벌이 속도(분당) — reward(N) ÷ 체류(N) × 60. 파일 상단 "능동 벌이 속도를 어떻게
+-- 뽑았는가" 참고.
+local function earnRatePerMinAtFloor(records: { [number]: StageRecord }, floor: number): BigNumber?
+	local stay = staySecAtFloor(records, floor)
+	if stay == nil then
+		return nil
 	end
-
-	local deltaSec = here.elapsedSec - prevElapsedSec
-	if deltaSec <= 0 then
+	if stay <= 0 then
 		-- ⚠️ 방어 코드로 덮지 않는다 — 정상 경로에서는 시각이 항상 전진하므로(각 틱마다
 		--    elapsedSec += DT_SEC, StandardPathReport 상단 SIM.DT_SEC 참고) 여기 걸리면
 		--    시뮬레이터 쪽 이상이다. 조용히 "-"로 비우지 않고 어느 층에서 어떤 값이
 		--    나왔는지 그대로 찍는다.
+		local here = records[floor]
+		local next_ = records[floor + 1]
 		warn(string.format(
-			"[DroneRateReport] ⚠️ %d층 구간 시간이 0 이하다 (T(%d)=%.4f초, T(%d)=%.4f초, 차=%.4f초) — 이 층은 비워둔다.",
+			"[DroneRateReport] ⚠️ %d층 체류가 0 이하다 (T(%d)=%.4f초, T(%d)=%.4f초, 체류=%.4f초) — 이 층은 비워둔다.",
 			floor,
+			floor + 1,
+			next_ and next_.elapsedSec or -1,
 			floor,
-			here.elapsedSec,
-			floor - 1,
-			prevElapsedSec,
-			deltaSec
+			here and here.elapsedSec or -1,
+			stay
 		))
 		return nil
 	end
 
 	local reward = StageConfig.getBloxReward(floor)
-	return BigNum.mul(BigNum.div(reward, BigNum.fromNumber(deltaSec)), BigNum.fromNumber(60))
+	return BigNum.mul(BigNum.div(reward, BigNum.fromNumber(stay)), BigNum.fromNumber(60))
 end
 
 -- ===== 드론 수입 =====================================================================
@@ -243,69 +270,88 @@ end
 
 -- ===== [1] 오프셋 스윕 ================================================================
 
-local function printOffsetSweep(records: { [number]: StageRecord })
+-- 한 (오프셋, 클릭률) 조합의 층별 표 + 범위·중앙값 요약. 마지막 층(FLOOR_MAX)은 체류가
+-- 없어 항상 "-"로 비고 range/median 집계에서 빠진다 — 파일 상단 "마지막 층" 주석 참고.
+local function printOffsetSweepBlock(records: { [number]: StageRecord }, offset: number)
+	print("  층 | 능동 벌이 속도(분당) | 드론1대 수입(분당) |      비율")
+	print("  ---+-----------------------+---------------------+-----------")
+
+	local ratios: { number } = {}
+	for floor = SWEEP.FLOOR_MIN, SWEEP.FLOOR_MAX do
+		local earnRate = earnRatePerMinAtFloor(records, floor)
+		local droneIncome = droneIncomePerMinOneDrone(floor, offset)
+
+		if earnRate == nil or droneIncome == nil then
+			local reason
+			if droneIncome == nil then
+				reason = "(드론 스테이지 없음)"
+			elseif floor == SWEEP.FLOOR_MAX then
+				reason = "(마지막 층 — 체류 없음)"
+			else
+				reason = "(시뮬레이터가 다음 층에 도달 못함)"
+			end
+			print(string.format("  %2d | %s", floor, reason))
+		else
+			local r = ratio(earnRate, droneIncome)
+			table.insert(ratios, r)
+			print(string.format(
+				"  %2d | %21s | %19s | %9.2f",
+				floor,
+				formatBig(earnRate),
+				formatBig(droneIncome),
+				r
+			))
+		end
+	end
+
+	if #ratios == 0 then
+		print("  (이 오프셋에서 비율을 구한 층이 없다)")
+	else
+		local lo, hi = ratios[1], ratios[1]
+		for _, r in ipairs(ratios) do
+			lo = math.min(lo, r)
+			hi = math.max(hi, r)
+		end
+		local med = median(ratios) :: number
+		local band = (lo >= SWEEP.THRESHOLD_LOW and hi <= SWEEP.THRESHOLD_HIGH) and "OK — 전 구간이 기준선 안"
+			or (hi < SWEEP.THRESHOLD_LOW and "⚠️ 전 구간이 하한 밑 — 드론이 능동보다 셈")
+			or (lo > SWEEP.THRESHOLD_HIGH and "⚠️ 전 구간이 상한 위 — 드론이 지나치게 약함")
+			or "혼재 — 층마다 기준선 안팎이 갈림"
+		print(string.format(
+			"  범위 %.2f ~ %.2f배 / 중앙값 %.2f배 (%d개 층, 마지막 층 제외) — %s",
+			lo,
+			hi,
+			med,
+			#ratios,
+			band
+		))
+	end
+end
+
+-- results: StandardPathReport.simulateAll이 돌려주는 순서 그대로(클릭률 6/8/10) 전부.
+-- 체류 시간이 클릭률마다 다르므로 [1]은 하나로 뭉치지 않고 세 벌을 다 찍는다.
+local function printOffsetSweep(results: { RateResult })
 	print(string.format(
 		"\n================ [1] 오프셋 스윕 (판정 기준선 %d배 / %d배) ================",
 		SWEEP.THRESHOLD_LOW,
 		SWEEP.THRESHOLD_HIGH
 	))
+	print("  비율 = 능동 벌이 속도(분당, 그 층) / 드론 1대 수입(분당) = reward(층 - 오프셋)")
+	print("  능동 벌이 속도(그 층) = reward(그 층) ÷ 체류(그 층) — 체류 = 그 층 도달부터 다음 층 도달까지 걸린 시간.")
+	print("  ⚠️ 이 표는 보상 곡선의 bloxBase와 무관하다(분자·분모에서 약분). growth(현재 2.7)에는")
+	print("     여전히 의존한다 — 비율(N,k) = growth^k ÷ 체류(N) (파일 상단 \"보상 곡선과 어떻게 관계되는가\" 참고).")
 	print(string.format(
-		"  비율 = 능동 벌이 속도(분당, 그 층, 클릭률 %d 기준) / 드론 1대 수입(분당) = reward(층 - 오프셋)",
-		SWEEP.REFERENCE_CLICK_RATE
-	))
-	print(string.format(
-		"  ⚠️ 현재 명세 오프셋 = %d (DESIGN.md \"드론 스테이지 = maxStage - 2\"). 그 줄을 찾으려면 아래 블록에서 표시를 본다.",
+		"  ⚠️ 현재 명세 오프셋 = %d (DESIGN.md \"드론 스테이지 = maxStage - 2\"). 아래 블록에서 표시를 본다.",
 		SWEEP.CURRENT_OFFSET
 	))
 
 	for offset = SWEEP.OFFSET_MIN, SWEEP.OFFSET_MAX do
 		local marker = offset == SWEEP.CURRENT_OFFSET and "  ← 현재 명세" or ""
 		print(string.format("\n--- 오프셋 %d%s ---", offset, marker))
-		print("  층 | 능동 벌이 속도(분당) | 드론1대 수입(분당) |      비율")
-		print("  ---+-----------------------+---------------------+-----------")
 
-		local ratios: { number } = {}
-		for floor = SWEEP.FLOOR_MIN, SWEEP.FLOOR_MAX do
-			local earnRate = earnRatePerMinAtFloor(records, floor)
-			local droneIncome = droneIncomePerMinOneDrone(floor, offset)
-
-			if earnRate == nil or droneIncome == nil then
-				local reason = droneIncome == nil and "(드론 스테이지 없음)" or "(시뮬레이터가 이 층에 도달 못함)"
-				print(string.format("  %2d | %s", floor, reason))
-			else
-				local r = ratio(earnRate, droneIncome)
-				table.insert(ratios, r)
-				print(string.format(
-					"  %2d | %21s | %19s | %9.2f",
-					floor,
-					formatBig(earnRate),
-					formatBig(droneIncome),
-					r
-				))
-			end
-		end
-
-		if #ratios == 0 then
-			print("  (이 오프셋에서 비율을 구한 층이 없다)")
-		else
-			local lo, hi = ratios[1], ratios[1]
-			for _, r in ipairs(ratios) do
-				lo = math.min(lo, r)
-				hi = math.max(hi, r)
-			end
-			local med = median(ratios) :: number
-			local band = (lo >= SWEEP.THRESHOLD_LOW and hi <= SWEEP.THRESHOLD_HIGH) and "OK — 전 구간이 기준선 안"
-				or (hi < SWEEP.THRESHOLD_LOW and "⚠️ 전 구간이 하한 밑 — 드론이 능동보다 셈")
-				or (lo > SWEEP.THRESHOLD_HIGH and "⚠️ 전 구간이 상한 위 — 드론이 지나치게 약함")
-				or "혼재 — 층마다 기준선 안팎이 갈림"
-			print(string.format(
-				"  범위 %.2f ~ %.2f배 / 중앙값 %.2f배 (%d개 층) — %s",
-				lo,
-				hi,
-				med,
-				#ratios,
-				band
-			))
+		for _, result in ipairs(results) do
+			print(string.format("\n  [클릭률 %d]", result.clickRate))
+			printOffsetSweepBlock(result.records, offset)
 		end
 	end
 end
@@ -334,7 +380,11 @@ local function printOfflineConversion(records: { [number]: StageRecord })
 		SWEEP.OFFLINE_HOURS,
 		offlineMinutes
 	))
-	print("  ⚠️ [1]과 같은 층·같은 능동 벌이 속도(클릭률 기준값)를 쓴다. 드론 스테이지가 없는 칸([1]과 같은 이유)은 비어있다.")
+	print(string.format(
+		"  ⚠️ [1]은 클릭률 3벌을 다 찍지만 이 표는 기준 클릭률 %d 하나만 쓴다(표가 오프셋×층×클릭률×드론대수로",
+		SWEEP.REFERENCE_CLICK_RATE
+	))
+	print("     불어나는 것을 피하려는 것이지 값이 다르다는 뜻이 아니다). 드론 스테이지가 없는 칸([1]과 같은 이유)은 비어있다.")
 
 	for offset = SWEEP.OFFSET_MIN, SWEEP.OFFSET_MAX do
 		local marker = offset == SWEEP.CURRENT_OFFSET and "  ← 현재 명세" or ""
@@ -376,13 +426,15 @@ function DroneRateReport.run()
 	local world = WorldConfig.get(WORLD_ID)
 	assert(world ~= nil, "DroneRateReport: 월드가 없다")
 
+	local clickRates = StandardPathReport.getClickRates()
 	print("[DroneRateReport] 드론 수입 환산 리포트 — 값의 원본은 Config, 여기엔 수치가 없다")
 	print(string.format(
-		"  층 %d~%d / 오프셋 %d~%d / 기준 클릭률 %d / 드론 %s대 / 오프라인 상한 %d시간",
+		"  층 %d~%d / 오프셋 %d~%d / [1] 클릭률 %s 전부 / [2] 기준 클릭률 %d만 / 드론 %s대 / 오프라인 상한 %d시간",
 		SWEEP.FLOOR_MIN,
 		SWEEP.FLOOR_MAX,
 		SWEEP.OFFSET_MIN,
 		SWEEP.OFFSET_MAX,
+		table.concat(clickRates, "·"),
 		SWEEP.REFERENCE_CLICK_RATE,
 		table.concat(SWEEP.DRONE_COUNTS, "/"),
 		SWEEP.OFFLINE_HOURS
@@ -390,9 +442,10 @@ function DroneRateReport.run()
 	print("  ⚠️ 게임 상태를 읽지 않는다 — 프로필도 CurrencyService도 플레이어의 maxStage도 참조하지 않는다.")
 	print("     여기서 스윕하는 층 1~25는 전부 가상의 maxStage 값이다.")
 
-	local reference = getReferenceResult()
+	local results = StandardPathReport.simulateAll(SWEEP.FLOOR_MAX)
+	local reference = findReferenceResult(results)
 
-	printOffsetSweep(reference.records)
+	printOffsetSweep(results)
 	printOfflineConversion(reference.records)
 
 	print("\n[DroneRateReport] 끝.")
