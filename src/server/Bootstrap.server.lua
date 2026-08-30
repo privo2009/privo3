@@ -680,3 +680,20 @@ local STANDARD_PATH_REPORT_ENABLED = true
 if STANDARD_PATH_REPORT_ENABLED then
 	require(script.Parent.Tools.StandardPathReport).run()
 end
+
+
+-- ── 개발용 플래그: DRONE_RATE_REPORT_ENABLED ──────────────────────────────────
+-- 드론 수입 환산 리포트(4-2-f). DESIGN.md "5. 드론"의 "능동 플레이가 분당 20~60배
+-- 효율이어야 한다"를 오프셋 0~5 × 층 1~25로 스윕해 확정한다.
+--
+-- ⚠️ STANDARD_PATH_REPORT_ENABLED와 같은 성격이다 — Config와 StandardPathReport의
+--    정적 시뮬레이션 결과만 읽고 순수 계산 후 print한다. 프로필을 읽지도 쓰지도
+--    않으므로 켠 채로 커밋해도 계정을 오염시키지 않는다.
+--
+-- 기본값 false인 이유는 오염이 아니라 소음이다 — StandardPathReport 표 뒤에 이 표까지
+-- 매 Play마다 찍히면 로그가 길어진다. 필요할 때만 켠다.
+local DRONE_RATE_REPORT_ENABLED = false
+
+if DRONE_RATE_REPORT_ENABLED then
+	require(script.Parent.Tools.DroneRateReport).run()
+end
