@@ -277,7 +277,9 @@ end
 -- ===== 층 기록 ======================================================================
 --
 -- "처음 도달했을 때" 기준이다 (DESIGN.md 측정 규약). 나중에 다시 온 값이 아니다.
-type StageRecord = {
+--
+-- export: DroneRateReport 등 외부 소비자가 층별 결과를 읽는다 (StandardPathReport.simulateAll 참고).
+export type StageRecord = {
 	stage: number,
 	runNo: number,
 	strengthAtEntry: BigNumber,
@@ -393,7 +395,8 @@ end
 
 -- ===== 클릭률 한 종 돌리기 ===========================================================
 
-type RateResult = {
+-- export: StageRecord와 같은 이유로 외부에 노출한다.
+export type RateResult = {
 	clickRate: number,
 	records: { [number]: StageRecord },
 	finalState: SimState,
@@ -1113,6 +1116,31 @@ local function printPowerSweep(points: { PowerSweepPoint }, maxStage: number)
 	print("     lifetimeBlox가 더 빨리 쌓였기 때문이지, 해금 조건 자체가 움직여서가 아니다.")
 end
 
+-- ===== 외부 API =====================================================================
+--
+-- DroneRateReport 등 외부 소비자가 층별 결과(진입 시점 힘·lifetimeBlox·경과 시각 등)를
+-- 읽기 위한 창구. run()도 같은 함수를 호출한다 — 계산을 두 곳에 두면 하나만 고쳐질 위험이
+-- 생긴다(파일 상단 여러 주석이 반복하는 원칙과 같다).
+--
+-- ⚠️ 이 함수는 아무것도 print하지 않는다. 로그 출력은 run()에서만 일어난다.
+function StandardPathReport.simulateAll(maxStage: number): { RateResult }
+	local results: { RateResult } = {}
+	for _, rate in ipairs(SIM.CLICK_RATES) do
+		table.insert(results, simulateRate(rate, maxStage))
+	end
+	return results
+end
+
+-- 클릭률 밴드를 그대로 노출한다. SIM은 로컬이라 외부에서 SIM.CLICK_RATES를 직접 못 읽는다.
+-- 복사본을 돌려준다 — 호출자가 배열을 고쳐도 이 모듈의 SIM에는 영향이 없다.
+function StandardPathReport.getClickRates(): { number }
+	local copy = {}
+	for i, rate in ipairs(SIM.CLICK_RATES) do
+		copy[i] = rate
+	end
+	return copy
+end
+
 -- ===== 진입점 =======================================================================
 
 function StandardPathReport.run()
@@ -1147,10 +1175,7 @@ function StandardPathReport.run()
 	print("     절벽 판정에는 영향이 없다 — 절벽은 \"그 층에서 막히는가\"의 문제이지")
 	print("     \"그 층 성공률이 몇 %인가\"가 아니다.")
 
-	local results: { RateResult } = {}
-	for _, rate in ipairs(SIM.CLICK_RATES) do
-		table.insert(results, simulateRate(rate, maxStage))
-	end
+	local results = StandardPathReport.simulateAll(maxStage)
 
 	for _, result in ipairs(results) do
 		printRateTable(result, maxStage)
