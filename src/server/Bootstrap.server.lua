@@ -46,6 +46,18 @@ print("[Bootstrap] ProfileManager.init() 호출 완료")
 local PadService = require(script.Parent.Systems.PadService)
 PadService.init()
 
+-- 드론을 연다 (Phase 5).
+-- ⚠️ 순서: ProfileManager.init() 뒤여야 한다. PadService.init()과 같은 이유로,
+-- DroneService.init()도 내부에서 ProfileManager.onLoaded로 로드 훅을 건다 — 그 전에
+-- 부르면 이미 접속해 있던 플레이어의 로드 직후 1회 수령을 놓친다.
+-- PadService/ClickService와의 선후는 상관없다. 서로 읽는 값이 없다.
+--
+-- ⚠️ init()이 60초 주기 정산 루프를 띄운다. 이 줄이 빠지면 로드 시점 1회 수령만
+-- 되고 접속 중 정산이 멈춘다 — 증상은 "로그인할 때만 드론 수입이 들어온다" 하나뿐이라
+-- 원인이 눈에 보이지 않는다 (AttackService.init 주석과 같은 종류의 함정).
+local DroneService = require(script.Parent.Systems.DroneService)
+DroneService.init()
+
 -- 클릭 입력 수신을 연다 (4-2-b).
 -- ⚠️ 순서: PadService.init() 뒤여야 한다. 클릭 1회의 힘은 PadService.getClickPower가
 -- 정하므로, 패드가 서기 전에 클릭이 들어오면 전부 패드 1 파워로 처리된다.
