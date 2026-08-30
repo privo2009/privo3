@@ -122,15 +122,23 @@ end
 -- 전부 BigNum 경유다. raw number 산술로 기대값을 만들지 않는다.
 
 do
+	local set = ClickPadConfig.getSet(WORLD_ID)
 	local pad5Power = ClickPadConfig.getPadPower(WORLD_ID, 5)
 	local gain = pure.computeGain(pad5Power, 3, NO_MULTIPLIER)
 
-	-- 패드5 파워는 basePower(1) × powerGrowth(2)^4 = 16. 3회면 48이다.
-	-- 절대값 48을 그대로 쓰지 않고 파워 × 3으로도 함께 확인한다 — Config를 튜닝하면
-	-- 이 주석의 숫자는 틀려지지만 아래 두 번째 검사는 스스로 따라간다.
+	-- 패드5 파워는 basePower × powerGrowth^4. 절대값을 하드코딩하지 않고 Config에서
+	-- 직접 뽑아 기대값을 만든다 — basePower가 튜닝(4-2-f)으로 움직여도 이 줄은
+	-- 안 깨진다. getPadPower를 그대로 부르지 않고 식을 한 번 더 펼쳐서, getPadPower
+	-- 자체가 틀렸을 때도(아래 "== 패드 파워 × 통과 횟수" 검사와 달리) 잡을 수 있게 했다.
+	local expectedPad5Power = BigNum.mul(set.basePower, BigNum.pow(BigNum.fromNumber(set.powerGrowth), 4))
+	local expectedGain = BigNum.mul(expectedPad5Power, BigNum.fromNumber(3))
 	check(
-		string.format("패드5 클릭 3회 → 힘 48 (실제 %s)", BigNum.tostring(gain)),
-		BigNum.eq(gain, BigNum.new(4.8, 1))
+		string.format(
+			"패드5 클릭 3회 → 힘 %s = basePower × powerGrowth^4 × 3 (실제 %s)",
+			BigNum.tostring(expectedGain),
+			BigNum.tostring(gain)
+		),
+		BigNum.eq(gain, expectedGain)
 	)
 	check(
 		"힘 증가량 == 패드 파워 × 통과 횟수",
@@ -138,15 +146,16 @@ do
 	)
 
 	check(
-		"패드1 클릭 1회 → 힘 1 (basePower 그대로)",
-		BigNum.eq(pure.computeGain(ClickPadConfig.getPadPower(WORLD_ID, 1), 1, NO_MULTIPLIER), BigNum.new(1, 0))
+		"패드1 클릭 1회 → 힘 basePower 그대로",
+		BigNum.eq(pure.computeGain(ClickPadConfig.getPadPower(WORLD_ID, 1), 1, NO_MULTIPLIER), set.basePower)
 	)
 	check(
 		"통과 0회면 증가량 0",
 		BigNum.eq(pure.computeGain(ClickPadConfig.getPadPower(WORLD_ID, 5), 0, NO_MULTIPLIER), BigNum.new(0, 0))
 	)
 
-	-- 상한까지 눌러도 raw number로 새지 않는지. 패드24는 파워가 8.39e6이다.
+	-- 상한까지 눌러도 raw number로 새지 않는지. 패드24는 basePower × powerGrowth^23으로
+	-- 매우 크다 — 정확한 값을 여기 적지 않는다 (Config가 바뀌면 이 주석만 낡는다).
 	local pad24Gain = pure.computeGain(ClickPadConfig.getPadPower(WORLD_ID, 24), LIMIT, NO_MULTIPLIER)
 	check(
 		"패드24 상한만큼 클릭해도 BigNum 형태 유지",

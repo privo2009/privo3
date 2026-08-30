@@ -151,8 +151,12 @@ check("AssetConfig: btn_yellow의 9-slice 여백이 사방 24px로 균일", func
 end)
 
 
-check("ClickPadConfig: 월드1 패드24 파워 = 8.39M (1 × 2^23)", function()
-	return approxEq(ClickPadConfig.getPadPower(1, 24), BigNum.new(8.388608, 6))
+check("ClickPadConfig: 월드1 패드24 파워 = basePower × powerGrowth^23", function()
+	-- 절대값을 하드코딩하지 않는다 — basePower는 4-2-f 튜닝 대상이라 움직인다.
+	-- Config에서 직접 뽑아 기대값을 만든다 (ClickServiceTests의 같은 패턴).
+	local set = ClickPadConfig.getSet(1)
+	local expected = BigNum.mul(set.basePower, BigNum.pow(BigNum.fromNumber(set.powerGrowth), 23))
+	return approxEq(ClickPadConfig.getPadPower(1, 24), expected)
 end)
 
 check("ClickPadConfig: 월드1 패드24 해금 조건 = 1.13T (bloxBase × 36 × 3^22)", function()

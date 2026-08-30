@@ -97,6 +97,11 @@ local SIM = {
 	-- 값을 정하는 자리가 아니라 "단가가 주기를 어떻게 바꾸는가"를 보는 자리이므로
 	-- 기준값 좌우로 대칭인 배수를 썼다.
 	REBIRTH_COST_MULTIPLIERS = { 0.25, 0.5, 1, 2, 4 },
+
+	-- 패드 시작 파워(clickPadSet.basePower) 스윕 배수. ⚠️ 이것도 시뮬레이터 파라미터다.
+	-- 기준값은 WorldConfig의 clickPadSet.basePower에서 읽는다 — 배수만 여기 있다.
+	-- 값을 정하는 자리가 아니라 "시작 파워가 표준 경로를 어떻게 바꾸는가"를 보는 자리다.
+	BASE_POWER_MULTIPLIERS = { 0.5, 1, 2, 5, 10 },
 }
 
 -- ===== 표시 헬퍼 =====================================================================
@@ -487,6 +492,23 @@ local function growthListText(): string
 	return table.concat(parts, " / ")
 end
 
+-- 판정 대상 경계 = 마지막 세그먼트 경계 (lo→hi에서 성장률이 바뀌는 지점).
+-- printVerdict의 "결론" 표와 파워 스윕이 같은 경계를 본다 — 여기 한 곳에서만 뽑는다.
+local function primaryBoundary(maxStage: number): (number, number)
+	local boundaries = segmentBoundaries()
+	local primary = boundaries[#boundaries]
+	local lo = primary ~= nil and primary.stage or (maxStage - 1)
+	return lo, lo + 1
+end
+
+-- 이 리포트가 다루는 유일한 월드의 clickPadSet. 파워 스윕이 basePower를 잠깐
+-- 갈아끼우는 자리다 (BLOX_PER_REBIRTH 스윕이 RebirthConfig 필드를 갈아끼우는 것과 같은 패턴).
+local function getClickPadSet(): WorldConfig.ClickPadSet
+	local world = WorldConfig.get(SIM.WORLD_ID)
+	assert(world ~= nil, "StandardPathReport: 월드가 없다")
+	return (world :: WorldConfig.WorldDef).clickPadSet
+end
+
 local function printRateTable(result: RateResult, maxStage: number)
 	print(string.format("\n===== 클릭률 %d회/초 =====", result.clickRate))
 	print("  층 | 런 | 진입 시점 힘 | 20초 딜 총량 |         총HP | 여유배수 | 소요초 | 패드 | 환생(누적) | 도달(분) | 체류(분) | 런수 | 환생수")
@@ -728,15 +750,18 @@ local function printTimeAudit(results: { RateResult }, maxStage: number)
 	end
 end
 
-local function printVerdict(results: { RateResult }, maxStage: number)
-	local function marginLog(r: StageRecord): number
-		-- 여유배수 = 20초를 끝까지 때렸을 때의 딜 ÷ 총HP.
-		-- ⚠️ DESIGN.md "펀치와 딜 총량"의 D = 힘 × 펀치속도 × 20 은 힘이 20초 내내
-		--    고정이라고 본 식이다. 실제로는 클릭으로 힘이 자라므로 그 적분값을 쓴다 —
-		--    같은 개념의 더 정확한 값이다.
-		return ratioLog10(r.dealtFull, r.totalHp)
-	end
+-- 여유배수 = 20초를 끝까지 때렸을 때의 딜 ÷ 총HP.
+-- ⚠️ DESIGN.md "펀치와 딜 총량"의 D = 힘 × 펀치속도 × 20 은 힘이 20초 내내
+--    고정이라고 본 식이다. 실제로는 클릭으로 힘이 자라므로 그 적분값을 쓴다 —
+--    같은 개념의 더 정확한 값이다.
+--
+-- printVerdict와 파워 스윕(printPowerSweep) 양쪽이 쓴다 — 두 곳에 복사하면
+-- 한쪽만 고쳐질 위험이 생긴다.
+local function marginLog(r: StageRecord): number
+	return ratioLog10(r.dealtFull, r.totalHp)
+end
 
+local function printVerdict(results: { RateResult }, maxStage: number)
 	-- 판정 대상 경계는 **마지막 세그먼트 경계**다. WorldConfig에서 파생하므로
 	-- 세그먼트를 바꾸면 이 표가 보는 층도 함께 움직인다.
 	local boundaries = segmentBoundaries()
@@ -957,6 +982,137 @@ local function printRebirthCostSweep(points: { RebirthSweepPoint }, maxStage: nu
 	print("     즉 절벽처럼 보이던 체류가 사실 이 단가 때문이었는지 여기서 대조할 수 있다.")
 end
 
+-- ===== 패드 시작 파워 스윕 (4-2-f) ====================================================
+--
+-- clickPadSet.basePower는 4-2-f 실측 튜닝 대상이다(TEMP, WorldConfig 상단 참고).
+-- 2026-08-30 이 스윕 실측으로 1 → 2가 결정됐지만 여전히 확정값이 아니다 — 시작
+-- 파워가 표준 경로를 어떻게 바꾸는지 다시 재야 할 때 이 스윕을 그대로 쓴다.
+--
+-- ⚠️ 파워는 세팅이지 누적이 아니다(→ simulateStage 상단). 시작 파워를 올리면
+--    **전 패드가 같은 비율로 함께** 올라간다 — padPower = basePower × powerGrowth^(index-1)
+--    이므로 basePower가 배수만큼 곱해지면 모든 인덱스의 파워가 같은 배수로 곱해진다.
+--    반면 해금 조건(getPadUnlock)은 world.bloxBase 축이라 basePower를 갈아끼워도
+--    전혀 움직이지 않는다 — 두 함수가 서로 다른 필드를 읽으므로 구조적으로 분리돼 있다.
+--    스윕은 이 성질을 그대로 물려받는다: 같은 lifetimeBlox에서 열리는 패드 인덱스는
+--    배수와 무관하게 같고, 그 패드가 내는 파워만 배수를 따라간다.
+--
+-- ⚠️ WorldConfig.lua는 고치지 않는다. RebirthConfig 스윕과 같은 이유로, 스윕 지점마다
+--    clickPadSet.basePower 필드를 잠깐 갈아끼웠다가 스윕이 끝나면 원래 값으로 되돌린다.
+--    ClickPadConfig.getPadPower가 이 필드를 매 호출 새로 읽으므로(캐시하지 않는다,
+--    ClickPadConfig 상단 주석) 필드 교체만으로 시뮬레이터 전체에 반영된다.
+type PowerSweepPoint = {
+	multiplier: number,
+	power: BigNumber,
+	results: { RateResult },
+}
+
+local function runPowerSweep(maxStage: number): { PowerSweepPoint }
+	local set = getClickPadSet()
+	local originalPower = copyBig(set.basePower)
+	local points: { PowerSweepPoint } = {}
+
+	-- ⚠️ pcall로 감싼다 — RebirthConfig 스윕과 같은 이유(파일 상단 runRebirthCostSweep
+	--    주석 참고). 성공이든 실패든 반드시 원래 파워로 되돌린다.
+	local ok, errOrNil = pcall(function()
+		for _, multiplier in ipairs(SIM.BASE_POWER_MULTIPLIERS) do
+			local power = BigNum.mul(originalPower, BigNum.fromNumber(multiplier))
+			set.basePower = power
+
+			local results: { RateResult } = {}
+			for _, rate in ipairs(SIM.CLICK_RATES) do
+				table.insert(results, simulateRate(rate, maxStage))
+			end
+
+			table.insert(points, { multiplier = multiplier, power = copyBig(power), results = results })
+		end
+	end)
+
+	set.basePower = originalPower
+
+	if not ok then
+		error(errOrNil, 0)
+	end
+
+	return points
+end
+
+-- Formatter.format은 tier(= floor(e/3)) >= 0만 지원한다 — 값이 1 미만이면
+-- (BigNum 정규화상 e < 0) Formatter.lua 상단의 assert가 "negative tier is not
+-- supported"로 터진다. 게임 내 다른 모든 수치(힘·HP·보상 등)는 1 미만으로
+-- 내려갈 일이 없어 이 경로를 아무도 밟지 않았지만, 이 스윕은 배수 0.5로
+-- **의도적으로** basePower를 1 미만까지 내린다 — 파워를 낮추는 방향도 봐야
+-- 하므로 배수 목록에서 0.5를 빼서 피하지 않는다.
+--
+-- ⚠️ Formatter.lua는 고치지 않는다 — 게임 전역 포맷터이고 FormatterTests 33개가
+-- 걸려 있다. 이 리포트 전용으로 우회한다.
+local function formatPowerValue(value: BigNumber): string
+	if value.e >= 0 then
+		return Formatter.format(value)
+	end
+	-- 1 미만. 이 스윕이 다루는 배수(0.5~10배, 기준값 1) 범위에서는 소수점 표기로 충분하다.
+	return string.format("%.4f", value.m * 10 ^ value.e)
+end
+
+local function printPowerSweep(points: { PowerSweepPoint }, maxStage: number)
+	local firstSegmentEnd = hpSegments()[1].to
+	local _, hi = primaryBoundary(maxStage)
+
+	print(string.format("\n================ 패드 시작 파워 스윕 (4-2-f) ================"))
+	print("  ⚠️ 값을 정하는 자리가 아니다. 시작 파워가 표준 경로를 어떻게 바꾸는지 실측만")
+	print("     한다. 스윕 배수는 이 도구의 로컬 파라미터다 — WorldConfig는 건드리지 않았다.")
+	print(string.format("  기준값 clickPadSet.basePower = %s", formatPowerValue(getClickPadSet().basePower)))
+
+	for _, point in ipairs(points) do
+		print(string.format(
+			"\n--- clickPadSet.basePower = %s (기준값의 %.2f배) ---",
+			formatPowerValue(point.power),
+			point.multiplier
+		))
+		print(string.format(
+			"  클릭률 | %d층 도달 | 1층 여유배수 | 1층 소요초 | %d층 도달 | %d층 여유배수 | 총 런수 | 환생수 | 도달시점 패드",
+			maxStage,
+			firstSegmentEnd,
+			hi
+		))
+		print("  -------+-----------+--------------+------------+-----------+---------------+---------+--------+--------------")
+
+		for _, result in ipairs(point.results) do
+			local rGoal = result.records[maxStage]
+			if rGoal == nil then
+				print(string.format("  %6d | (%d층 미도달 — %s)", result.clickRate, maxStage, result.stoppedReason))
+			else
+				local r1 = result.records[1]
+				local rFirstSeg = result.records[firstSegmentEnd]
+				local rHi = result.records[hi]
+
+				local margin1Text = r1 ~= nil and formatPow10(marginLog(r1)) or "-"
+				local spent1Text = r1 ~= nil and string.format("%6.1f초", r1.spentSec) or "     -"
+				local firstSegText = rFirstSeg ~= nil and string.format("%7.1f분", rFirstSeg.elapsedSec / 60) or "      -"
+				local marginHiText = rHi ~= nil and formatPow10(marginLog(rHi)) or "-"
+
+				print(string.format(
+					"  %6d | %7.1f분 | %12s | %10s | %9s | %13s | %7d | %6d | %13d",
+					result.clickRate,
+					rGoal.elapsedSec / 60,
+					margin1Text,
+					spent1Text,
+					firstSegText,
+					marginHiText,
+					rGoal.runNo,
+					rGoal.rebirthCount,
+					rGoal.padIndex
+				))
+			end
+		end
+	end
+
+	print("")
+	print("  ⚠️ 해금 조건은 basePower와 무관한 bloxBase 축이다 — 같은 lifetimeBlox에서")
+	print("     열리는 패드 인덱스는 배수와 무관하게 같고, 그 패드가 내는 파워만 배수를 따라간다.")
+	print("     \"도달시점 패드\"가 배수마다 크게 갈리면 그건 파워가 세져 진행이 빨라져서")
+	print("     lifetimeBlox가 더 빨리 쌓였기 때문이지, 해금 조건 자체가 움직여서가 아니다.")
+end
+
 -- ===== 진입점 =======================================================================
 
 function StandardPathReport.run()
@@ -1007,6 +1163,9 @@ function StandardPathReport.run()
 
 	local rebirthSweepPoints = runRebirthCostSweep(maxStage)
 	printRebirthCostSweep(rebirthSweepPoints, maxStage)
+
+	local powerSweepPoints = runPowerSweep(maxStage)
+	printPowerSweep(powerSweepPoints, maxStage)
 
 	print("\n[StandardPathReport] 끝.")
 end
