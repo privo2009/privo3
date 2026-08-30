@@ -19,7 +19,13 @@ local LevelConfig = require(Config.LevelConfig)
 local RebirthConfig = require(Config.RebirthConfig)
 local WarpConfig = require(Config.WarpConfig)
 local AttackConfig = require(Config.AttackConfig)
+local DroneConfig = require(Config.DroneConfig)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
+
+-- DroneConfig.MAX_COUNT와 Schema.LIMITS.MAX_DRONES가 어긋나면 안 되는지 대조하는
+-- 용도로만 쓴다(아래 "DroneConfig" 절). DroneConfig 자신은 Schema를 모른다 — 다른
+-- Config 모듈도 전부 그렇다(교차 참조를 만들지 않는 것이 이 코드베이스의 관례).
+local Schema = require(script.Parent.Parent.Data.Schema)
 
 -- LevelConfig의 상한이 실제로 PadLayout에서 유도되는지 확인하려면 원본을 흔들어봐야 한다.
 local PadLayout = require(ReplicatedStorage.Shared.PadLayout)
@@ -93,6 +99,17 @@ end)
 
 check("AttackConfig.validate", function()
 	return AttackConfig.validate()
+end)
+
+check("DroneConfig.validate", function()
+	return DroneConfig.validate()
+end)
+
+check("DroneConfig: MAX_COUNT가 Schema.LIMITS.MAX_DRONES와 일치한다", function()
+	-- 어긋나면 Schema는 유효하다고 받아들이는 drones.count를 DroneService가 상한
+	-- 밖으로 보고 거부하거나(또는 반대로 과다 지급), 둘 중 조용히 하나가 진실이 아닌
+	-- 채로 남는다. DroneConfig가 Schema를 모르므로 대조는 여기서 한다.
+	return DroneConfig.MAX_COUNT == Schema.LIMITS.MAX_DRONES
 end)
 
 -- 각 모듈이 실제로 사용 가능한 값을 돌려주는지 스모크 테스트 --------------------
