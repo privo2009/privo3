@@ -43,17 +43,28 @@
 --    그 구간 동안 늘어난 lifetimeBlox가 실제로 0이라서, 그 방식은 대부분의 층에서 벌이
 --    속도를 0으로 잘못 찍고 커밋이 일어난 층에만 몰아준다 — 층별 축이 사실상 사라진다.
 --
--- 그래서 쓰는 정의: **"지금 이 층에서 수령했다면"** 가정이다.
---   능동 벌이 속도(그 층, 분당) = StageConfig.getBloxReward(그 층) ÷ 그 층 첫 도달까지
---                                걸린 elapsedSec × 60
--- reward(그 층)는 게임이 실제로 그 층 수령에 매기는 값이고(챌린지의 두 선택 중 "수령"),
--- elapsedSec은 StandardPathReport가 이미 "도달(분)" 열로 찍는 값과 같다 — 그 층에
--- 설 수 있게 되기까지 투입된 누적 능동 플레이 시간이다. 이 정의는:
---   - 모든 층 1~25에 항상 값이 있다 (마지막 층도 포함 — elapsedSec은 도달하는 순간
---     기록되고, reward도 그 층 값이 바로 나온다. lifetimeBlox 델타 방식과 달리 "다음
---     층 기록"이 필요 없다).
+-- 그다음 쓴 정의: **"지금 이 층에서 수령했다면"** 가정을, 시작부터의 **누적** 시간으로
+-- 나눴다 — reward(N) ÷ T(N) (T(N) = 게임 시작부터 N층 첫 도달까지 걸린 elapsedSec).
+-- **이것도 틀렸다.** T(N)은 앞선 모든 층에서 쓴 시간을 다 끌고 온다. 앞 구간이 굼뜨면
+-- (예: 초반 절벽) 그 저효율이 뒤 층까지 희석되어 남아 후반으로 갈수록 벌이 속도가
+-- 실제보다 낮게 나온다. 이 리포트가 정하려는 값이 바로 "능동/드론 비율로 고르는
+-- 오프셋"이므로, 후반이 과소평가되면 결론(어느 오프셋이 기준선 안에 드는가)이 뒤집힐
+-- 수 있다 — 값이 좀 다른 정도가 아니라 판정 자체가 잘못될 수 있는 오류였다.
+--
+-- 그래서 쓰는 정의: 분모를 누적 시간이 아니라 **구간** 시간으로 좁힌다.
+--   능동 벌이 속도(N층, 분당) = StageConfig.getBloxReward(N) ÷ (T(N) - T(N-1)) × 60
+-- (1층은 T(0) = 0으로 둔다 — 그러면 "게임 시작부터 1층 첫 도달까지"와 같아져서 앞서
+-- 실패한 누적 시간 정의의 1층 값과 일치한다.)
+--
+-- 의미: "N층까지 한 층 더 가는 데 든 **추가** 시간으로 N층 보상 1회어치를 벌었다".
+-- reward(N)이 실제 커밋값이 아니라 보상 곡선 함수값이라는 점은 이전 정의와 같다 —
+-- 그래서 아래 두 성질도 그대로 유지된다:
+--   - 모든 층 1~25에 항상 값이 있다 (elapsedSec은 도달하는 순간 기록되고, reward도
+--     그 층 값이 바로 나온다. lifetimeBlox 델타 방식과 달리 "다음 층 기록"이 필요 없다).
 --   - 런 중간 통과 여부와 무관하다 — 실제로 그 순간 수령을 선택했다면 나왔을 값이므로
 --     커밋 시점에 몰리는 문제가 없다.
+-- 앞서 실패였던 누적 시간 문제만 사라진다 — 구간 시간은 그 층 직전 구간의 효율만
+-- 반영하고 더 앞선 층들의 시간을 끌고 오지 않는다.
 --
 -- ⚠️ 클릭률은 StandardPathReport 밴드(6/8/10) 중 8만 쓴다. WarpConversionReport가
 --    "기준 단가·클릭률 8"이라 부른 것과 같은 기준점이다 — 이 리포트가 새로 정한 값이
@@ -169,17 +180,45 @@ local function getReferenceResult(): RateResult
 	return results[referenceIndex :: number]
 end
 
--- "지금 이 층에서 수령했다면" 가정의 능동 벌이 속도(분당). 그 층에 시뮬레이터가
--- 도달하지 못했으면(런/틱 예산 소진 등) nil이다 — 파일 상단 "능동 벌이 속도를 어떻게
--- 뽑았는가" 참고.
+-- "N층까지 한 층 더 가는 데 든 추가 시간으로 N층 보상 1회어치를 벌었다" 가정의 능동
+-- 벌이 속도(분당) — reward(N) ÷ (T(N) - T(N-1)) × 60. 1층은 T(0) = 0으로 둔다.
+-- 그 층 또는 그 앞 층에 시뮬레이터가 도달하지 못했으면(런/틱 예산 소진 등) nil이다 —
+-- 파일 상단 "능동 벌이 속도를 어떻게 뽑았는가" 참고.
 local function earnRatePerMinAtFloor(records: { [number]: StageRecord }, floor: number): BigNumber?
-	local record = records[floor]
-	if record == nil or record.elapsedSec <= 0 then
+	local here = records[floor]
+	if here == nil then
+		return nil
+	end
+
+	local prevElapsedSec = 0
+	if floor > 1 then
+		local prev = records[floor - 1]
+		if prev == nil then
+			return nil
+		end
+		prevElapsedSec = prev.elapsedSec
+	end
+
+	local deltaSec = here.elapsedSec - prevElapsedSec
+	if deltaSec <= 0 then
+		-- ⚠️ 방어 코드로 덮지 않는다 — 정상 경로에서는 시각이 항상 전진하므로(각 틱마다
+		--    elapsedSec += DT_SEC, StandardPathReport 상단 SIM.DT_SEC 참고) 여기 걸리면
+		--    시뮬레이터 쪽 이상이다. 조용히 "-"로 비우지 않고 어느 층에서 어떤 값이
+		--    나왔는지 그대로 찍는다.
+		warn(string.format(
+			"[DroneRateReport] ⚠️ %d층 구간 시간이 0 이하다 (T(%d)=%.4f초, T(%d)=%.4f초, 차=%.4f초) — 이 층은 비워둔다.",
+			floor,
+			floor,
+			here.elapsedSec,
+			floor - 1,
+			prevElapsedSec,
+			deltaSec
+		))
 		return nil
 	end
 
 	local reward = StageConfig.getBloxReward(floor)
-	return BigNum.mul(BigNum.div(reward, BigNum.fromNumber(record.elapsedSec)), BigNum.fromNumber(60))
+	return BigNum.mul(BigNum.div(reward, BigNum.fromNumber(deltaSec)), BigNum.fromNumber(60))
 end
 
 -- ===== 드론 수입 =====================================================================
