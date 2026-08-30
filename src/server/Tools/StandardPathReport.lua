@@ -91,6 +91,12 @@ local SIM = {
 	CLIFF_RATIO_THRESHOLD = 2.0,
 
 	WORLD_ID = 1,
+
+	-- BLOX_PER_REBIRTH 스윕 배수 (4-2-f 우선순위 3). ⚠️ 이것도 시뮬레이터 파라미터다.
+	-- 기준값은 RebirthConfig.BLOX_PER_REBIRTH에서 읽는다 — 배수만 여기 있다.
+	-- 값을 정하는 자리가 아니라 "단가가 주기를 어떻게 바꾸는가"를 보는 자리이므로
+	-- 기준값 좌우로 대칭인 배수를 썼다.
+	REBIRTH_COST_MULTIPLIERS = { 0.25, 0.5, 1, 2, 4 },
 }
 
 -- ===== 표시 헬퍼 =====================================================================
@@ -275,6 +281,7 @@ type StageRecord = {
 	padIndex: number,
 	rebirths: BigNumber,
 	rebirthCount: number, -- 그 층에 처음 닿은 시점까지의 환생 횟수
+	lifetimeBloxAtEntry: BigNumber, -- 그 층 진입 시점의 누적 blox (BLOX_PER_REBIRTH 스윕용)
 	elapsedSec: number,
 	spentSec: number,
 }
@@ -304,6 +311,7 @@ local function runOnce(state: SimState, clickRate: number, records: { [number]: 
 			padIndex = entry.padIndex,
 			rebirths = copyBig(entry.rebirths),
 			rebirthCount = entry.rebirthCount,
+			lifetimeBloxAtEntry = copyBig(entry.lifetimeBlox),
 			elapsedSec = entry.elapsedSec,
 			spentSec = result.spentSec,
 		}
@@ -385,6 +393,7 @@ type RateResult = {
 	records: { [number]: StageRecord },
 	finalState: SimState,
 	stoppedReason: string,
+	rebirthTimestamps: { number }, -- 환생이 일어난 순간의 elapsedSec(초). BLOX_PER_REBIRTH 스윕용
 }
 
 local function simulateRate(clickRate: number, maxStage: number): RateResult
@@ -392,6 +401,7 @@ local function simulateRate(clickRate: number, maxStage: number): RateResult
 	local records: { [number]: StageRecord } = {}
 	local stoppedReason = "최고층 첫 도달까지 기록 완료"
 	local bestThisLife = 0
+	local rebirthTimestamps: { number } = {}
 
 	while true do
 		if records[maxStage] ~= nil then
@@ -408,10 +418,20 @@ local function simulateRate(clickRate: number, maxStage: number): RateResult
 
 		local reached: number
 		state, reached = runOnce(state, clickRate, records)
+		local rebirthCountBefore = state.rebirthCount
 		state, bestThisLife = maybeRebirth(state, reached, maxStage, bestThisLife)
+		if state.rebirthCount > rebirthCountBefore then
+			table.insert(rebirthTimestamps, state.elapsedSec)
+		end
 	end
 
-	return { clickRate = clickRate, records = records, finalState = state, stoppedReason = stoppedReason }
+	return {
+		clickRate = clickRate,
+		records = records,
+		finalState = state,
+		stoppedReason = stoppedReason,
+		rebirthTimestamps = rebirthTimestamps,
+	}
 end
 
 -- ===== 출력 ========================================================================
@@ -825,6 +845,118 @@ local function printVerdict(results: { RateResult }, maxStage: number)
 	end
 end
 
+-- ===== BLOX_PER_REBIRTH 스윕 (4-2-f 우선순위 3) ======================================
+--
+-- 환생 단가가 표준 경로의 환생 주기를 어떻게 바꾸는지 실측한다. 값을 정하는 것은
+-- 이번이 아니다 — 데이터만 낸다.
+--
+-- ⚠️ RebirthConfig.lua는 고치지 않는다. RebirthConfig.canRebirth / getGainedRebirths가
+--    RebirthConfig.BLOX_PER_REBIRTH를 모듈 필드로 직접 읽으므로, 스윕 지점마다 그 필드를
+--    잠깐 갈아끼웠다가 스윕이 끝나면 원래 값으로 되돌린다. 시뮬레이터 실행 도중에만
+--    존재하는 상태이고 파일에는 흔적이 남지 않는다.
+type RebirthSweepPoint = {
+	multiplier: number,
+	cost: number,
+	results: { RateResult },
+}
+
+local function runRebirthCostSweep(maxStage: number): { RebirthSweepPoint }
+	local originalCost = RebirthConfig.BLOX_PER_REBIRTH
+	local points: { RebirthSweepPoint } = {}
+
+	-- ⚠️ pcall로 감싼다. simulateRate가 도중에 에러를 던지면(예: RebirthConfig.floorBig의
+	--    음수 assert) 복원 줄까지 못 가고 빠져나가 RebirthConfig.BLOX_PER_REBIRTH가
+	--    스윕값에 고정된 채로 세션에 남는다 — 그러면 이 도구가 "프로필도 게임 상태도
+	--    건드리지 않는다"는 파일 상단 전제가 깨진다. 성공이든 실패든 반드시 되돌린다.
+	local ok, errOrNil = pcall(function()
+		for _, multiplier in ipairs(SIM.REBIRTH_COST_MULTIPLIERS) do
+			local cost = originalCost * multiplier
+			RebirthConfig.BLOX_PER_REBIRTH = cost
+
+			local results: { RateResult } = {}
+			for _, rate in ipairs(SIM.CLICK_RATES) do
+				table.insert(results, simulateRate(rate, maxStage))
+			end
+
+			table.insert(points, { multiplier = multiplier, cost = cost, results = results })
+		end
+	end)
+
+	RebirthConfig.BLOX_PER_REBIRTH = originalCost
+
+	if not ok then
+		error(errOrNil, 0)
+	end
+
+	return points
+end
+
+-- 환생 시각 목록에서 [fromIdx, toIdx] 구간의 간격(분)을 뽑는다.
+-- 구간 시작이 1이면 첫 간격은 "런 시작(0초) → 첫 환생"이다.
+local function rebirthIntervalsText(timestamps: { number }, fromIdx: number, toIdx: number): string
+	local parts = {}
+	for i = fromIdx, toIdx do
+		if timestamps[i] ~= nil then
+			local prev = timestamps[i - 1] or 0
+			table.insert(parts, string.format("%.2f", (timestamps[i] - prev) / 60))
+		end
+	end
+	if #parts == 0 then
+		return "-"
+	end
+	return table.concat(parts, ",")
+end
+
+local function printRebirthCostSweep(points: { RebirthSweepPoint }, maxStage: number)
+	print(string.format("\n================ BLOX_PER_REBIRTH 스윕 (4-2-f 우선순위 3) ================"))
+	print("  ⚠️ 값을 정하는 자리가 아니다. 환생 단가가 표준 경로의 환생 주기를 어떻게 바꾸는지")
+	print("     실측만 한다. 스윕 배수는 이 도구의 로컬 파라미터다 — RebirthConfig는 건드리지 않았다.")
+	print(string.format("  기준값 RebirthConfig.BLOX_PER_REBIRTH = %d", RebirthConfig.BLOX_PER_REBIRTH))
+
+	for _, point in ipairs(points) do
+		-- ⚠️ %d가 아니라 %.4g다. 배수가 기준값을 나누어떨어지게 하지 않으면(예: 기준값이
+		--    정수가 아니게 바뀌면) cost가 소수가 될 수 있고, 그 경우 %d는 Luau에서 터진다.
+		print(string.format("\n--- BLOX_PER_REBIRTH = %.4g (기준값의 %.2f배) ---", point.cost, point.multiplier))
+		print(
+			"  클릭률 | "
+				.. string.format("%d층 도달", maxStage)
+				.. " | 도달까지 환생수 | 첫 환생 시각 | 간격(첫 3, 분) | 간격(마지막 3, 분) | 도달시점 배수 | 도달시점 패드 | 도달시점 lifetimeBlox"
+		)
+		print("  -------+-----------+------------------+--------------+----------------+---------------------+---------------+---------------+----------------------")
+
+		for _, result in ipairs(point.results) do
+			local rGoal = result.records[maxStage]
+			if rGoal == nil then
+				print(string.format("  %6d | (%d층 미도달 — %s)", result.clickRate, maxStage, result.stoppedReason))
+			else
+				local timestamps = result.rebirthTimestamps
+				local n = #timestamps
+				local firstRebirthText = n > 0 and string.format("%8.2f분", timestamps[1] / 60) or "       -"
+				local firstThree = rebirthIntervalsText(timestamps, 1, math.min(3, n))
+				local lastThree = n > 0 and rebirthIntervalsText(timestamps, math.max(1, n - 2), n) or "-"
+
+				print(string.format(
+					"  %6d | %8.1f분 | %16d | %s | %14s | %19s | %13s | %13d | %s",
+					result.clickRate,
+					rGoal.elapsedSec / 60,
+					rGoal.rebirthCount,
+					firstRebirthText,
+					firstThree,
+					lastThree,
+					Formatter.format(rGoal.rebirths),
+					rGoal.padIndex,
+					Formatter.format(rGoal.lifetimeBloxAtEntry)
+				))
+			end
+		end
+	end
+
+	print("")
+	print("  ⚠️ \"도달까지 환생수\"와 환생 간격은 표준 경로(정지선 규칙)를 따라간 결과다 —")
+	print("     환생 대기 시간이 길어질수록 앞선 절벽 판정의 체류 시간도 같이 늘어난다.")
+	print("     즉 절벽처럼 보이던 체류가 사실 이 단가 때문이었는지 여기서 대조할 수 있다.")
+end
+
 -- ===== 진입점 =======================================================================
 
 function StandardPathReport.run()
@@ -872,6 +1004,9 @@ function StandardPathReport.run()
 	printVerdict(results, maxStage)
 	printCliffVerdict(results)
 	printTimeAudit(results, maxStage)
+
+	local rebirthSweepPoints = runRebirthCostSweep(maxStage)
+	printRebirthCostSweep(rebirthSweepPoints, maxStage)
 
 	print("\n[StandardPathReport] 끝.")
 end
