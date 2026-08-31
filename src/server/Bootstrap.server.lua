@@ -706,6 +706,7 @@ local DRONE_VERIFY_ENABLED = false
 if DRONE_VERIFY_ENABLED then
 	local DroneService = require(script.Parent.Systems.DroneService)
 	local DroneConfig = require(ReplicatedStorage.Shared.Config.DroneConfig)
+	local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 
 	-- ⚠️ WARP_VERIFY와 같은 {m=, e=} 형태다. BigNum.tostring을 쓰지 않는 이유:
 	-- 이 블록의 판정은 "blox 증가분 == lifetimeBlox 증가분"의 **정확한 일치**이고,
@@ -759,7 +760,33 @@ if DRONE_VERIFY_ENABLED then
 					DRONE_VERIFY_MAX_STAGE - DroneConfig.STAGE_OFFSET
 				))
 
-				-- 2. 지급 전 상태.
+				-- 2. lastCollectAt 되감기. 프로필 로드 훅의 collect()가 이 블록보다 먼저
+				-- 돌면서 lastCollectAt을 이미 now 근처로 밀어놓는다(로드 -> 9초 뒤 이 블록
+				-- 실행 순서는 바뀌지 않는다) — 되감지 않으면 경과가 수십 초에 그쳐
+				-- cycles = floor(경과/INTERVAL_SEC)가 0이 되고 지급 분기 자체를 못 밟는다.
+				-- 되감는 폭은 상한(OFFLINE_CAP_SEC)을 확실히 넘겨야 지급 분기와 절단
+				-- 경로(elapsed > CAP)를 함께 확인할 수 있다 — 상한의 2배로 한다.
+				-- ⚠️ 값을 하드코딩하지 않고 DroneConfig에서 계산하는 이유: OFFLINE_CAP_SEC이
+				-- 바뀌면 하드코딩한 폭이 조용히 상한 미만으로 줄어들 수 있다.
+				--
+				-- ⚠️ lastCollectAt은 CurrencyService가 관장하는 재화가 아니라 시각 필드다 —
+				-- progress.maxStage(위 "재화를 직접 대입하지 말 것" 참고)와 같은 이유로
+				-- 직접 대입해도 안전하다. 이 블록이 직접 쓰는 프로필 필드는 여전히
+				-- progress.maxStage와 drones.lastCollectAt 둘뿐이다 — 다음 사람이 이
+				-- 사실을 "재화도 직접 써도 된다"로 확장하지 않도록 여기 다시 못박아 둔다.
+				local rewindSec = DroneConfig.OFFLINE_CAP_SEC * 2
+				local lastCollectAtBeforeRewind = liveProfile.Data.drones.lastCollectAt
+				liveProfile.Data.drones.lastCollectAt = os.time() - rewindSec
+				print(string.format(
+					"[Bootstrap][VERIFY_DRONE] %s lastCollectAt 되감음: %d -> %d (상한 %d초의 2배 = %d초 되감음)",
+					player.Name,
+					lastCollectAtBeforeRewind,
+					liveProfile.Data.drones.lastCollectAt,
+					DroneConfig.OFFLINE_CAP_SEC,
+					rewindSec
+				))
+
+				-- 3. 지급 전 상태.
 				local lastCollectAtBefore = liveProfile.Data.drones.lastCollectAt
 				local countBefore = liveProfile.Data.drones.count
 				local bloxBefore = CurrencyService.get(player, "blox")
@@ -781,11 +808,11 @@ if DRONE_VERIFY_ENABLED then
 					fmtBigNum(lifetimeBefore)
 				))
 
-				-- 3. 지급. DroneService.collect가 CurrencyService.add를 통해서만 blox를 올린다.
+				-- 4. 지급. DroneService.collect가 CurrencyService.add를 통해서만 blox를 올린다.
 				local result = DroneService.collect(player, "bootstrap_verify")
 				local nowAfter = os.time()
 
-				-- 4. 지급 후 상태.
+				-- 5. 지급 후 상태.
 				local lastCollectAtAfter = liveProfile.Data.drones.lastCollectAt
 				local bloxAfter = CurrencyService.get(player, "blox")
 				local lifetimeAfter = liveProfile.Data.lifetimeBlox
@@ -799,7 +826,7 @@ if DRONE_VERIFY_ENABLED then
 					result.cycles
 				))
 
-				-- 5. 검산 (a) — blox 증가분과 lifetimeBlox 증가분이 정확히 같은가.
+				-- 6. 검산 (a) — blox 증가분과 lifetimeBlox 증가분이 정확히 같은가.
 				if bloxBefore ~= nil and bloxAfter ~= nil and lifetimeBefore ~= nil and lifetimeAfter ~= nil then
 					local bloxDelta = BigNum.sub(bloxAfter, bloxBefore)
 					local lifetimeDelta = BigNum.sub(lifetimeAfter, lifetimeBefore)
@@ -815,7 +842,7 @@ if DRONE_VERIFY_ENABLED then
 					warn(string.format("[Bootstrap][VERIFY_DRONE] %s: blox/lifetimeBlox 값 누락 - 증가분 비교 불가", player.Name))
 				end
 
-				-- 5. 검산 (b)~(d) — lastCollectAt 갱신이 상한 여부에 맞게 됐는가.
+				-- 7. 검산 (b)~(d) — lastCollectAt 갱신이 상한 여부에 맞게 됐는가.
 				-- ⚠️ elapsed는 "지급 전 상태"를 찍은 시점 기준이다 — DroneService.collect
 				-- 내부에서도 os.time()을 다시 부르므로 완전히 같은 순간은 아니지만,
 				-- 초 단위 해상도라 이 블록의 실행 시간 안에서는 사실상 같다.
@@ -855,6 +882,37 @@ if DRONE_VERIFY_ENABLED then
 						matches and "일치" or "불일치"
 					))
 				end
+
+				-- 8. 검산 (e) — granted가 0보다 큰가. 되감기 전에는 경과가 사이클 한 번도
+				-- 못 채워 granted가 항상 0이었고, 위 검산(a)는 0=0 비교라 "일치"로
+				-- 찍혀버려 아무것도 검증하지 못했다. 0을 명시적으로 실패로 찍는다.
+				local grantedIsPositive = BigNum.gt(result.granted, BigNum.new(0, 0))
+				print(string.format(
+					"[Bootstrap][VERIFY_DRONE] %s 검산(e) granted > 0 -> %s",
+					player.Name,
+					grantedIsPositive and "일치" or "불일치(지급 없음)"
+				))
+
+				-- 9. 검산 (f) — granted가 기대값(reward(droneStage) * cycles * count)과
+				-- 정확히 맞는가. 되감기 폭이 상한의 2배라 항상 상한에 걸리므로(위 검산(b)),
+				-- cycles는 floor(OFFLINE_CAP_SEC / INTERVAL_SEC)로 고정된다.
+				local droneStage = DRONE_VERIFY_MAX_STAGE - DroneConfig.STAGE_OFFSET
+				local expectedCycles = math.floor(DroneConfig.OFFLINE_CAP_SEC / DroneConfig.INTERVAL_SEC)
+				local expectedGranted = BigNum.mul(
+					BigNum.mul(StageConfig.getBloxReward(droneStage), BigNum.fromNumber(expectedCycles)),
+					BigNum.fromNumber(countBefore)
+				)
+				local grantedMatches = BigNum.eq(result.granted, expectedGranted)
+				print(string.format(
+					"[Bootstrap][VERIFY_DRONE] %s 검산(f) granted=%s vs 기대값=%s (reward(%d)*%d cycles*%d count) -> %s",
+					player.Name,
+					fmtBigNum(result.granted),
+					fmtBigNum(expectedGranted),
+					droneStage,
+					expectedCycles,
+					countBefore,
+					grantedMatches and "일치" or "불일치"
+				))
 			end)
 
 			if not ok then
