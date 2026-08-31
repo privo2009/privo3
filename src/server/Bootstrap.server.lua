@@ -673,6 +673,198 @@ if WARP_VERIFY_ENABLED then
 end
 
 
+-- ── 개발용 플래그: DRONE_VERIFY_ENABLED ────────────────────────────────────────
+-- ⚠️ 임시 검증 코드 (Phase 5). 드론 지급 경로가 실물에서 도는지 확인하는 유일한 지점이다.
+-- 기본값은 false다 — 필요할 때만 켠다.
+--
+-- 왜 필요한가: DroneServiceTests는 deps 이음매로 순수 로직만 잰다. 실제 CurrencyService가
+-- 프로필의 blox를 진짜로 올리는지는 그 방식으로 볼 수 없다 — 가짜 Player 테이블이면
+-- ProfileManager.get이 nil을 주므로 모든 경로가 "프로필 없음" 한 갈래로 끝난다
+-- (REBIRTH_VERIFY_ENABLED / WARP_VERIFY_ENABLED 블록이 존재하는 이유와 같은 제약이다).
+--
+-- 왜 이 검증이 Play에서 저절로 안 밟히는가: 오프셋이 4이고 신규 프로필의 maxStage는
+-- 1이라 droneStage = 1 - 4 = -3이 되어 DroneService.collect가 "지급 없음" 분기만
+-- 탄다. droneStage가 1 이상이 되려면 maxStage가 STAGE_OFFSET + 1(=5) 이상이어야 하는데,
+-- 진행 벽·수령 발판 파트가 아직 없어(ROADMAP 4-2-a ◐) 정상 경로로 챌린지를 진행해
+-- maxStage를 올릴 방법이 없다.
+--
+-- ⚠️ **재화를 직접 대입하지 말 것.** 이 블록이 대입하는 프로필 필드는 progress.maxStage
+--    하나뿐이다. blox / lifetimeBlox / rebirths는 **읽기만** 한다 — 지급은 반드시
+--    DroneService.collect가 하게 둔다.
+--    근거: 과거 Bootstrap VERIFY_MODE가 blox를 직접 대입해 lifetimeBlox가 따라 오르지
+--    않았고, "패드2가 안 열린다"로 잘못 진단한 사건이 있다(docs/PENDING.md "함정" 절).
+--    이 블록은 그 사고가 났던 자리와 같은 종류의 코드다.
+-- ⚠️ maxStage는 CurrencyService가 관장하는 재화가 아니다(ChallengeService.resetMaxStage/
+--    applyDamage도 progress.*를 직접 대입한다) — 그래서 직접 써도 안전하다. 다만 이
+--    사실이 "재화도 직접 써도 된다"로 확장되면 안 된다. 다음 사람이 이 파일을 보고
+--    blox까지 직접 대입하지 않도록 여기 명시해 둔다.
+--
+-- 진행 벽·수령 발판 파트가 붙어 maxStage를 정상 경로로 올릴 수 있게 되면 이 블록은
+-- 존재 이유가 없다 — 그때 전체 삭제 (docs/PENDING.md 잔재).
+local DRONE_VERIFY_ENABLED = false
+
+if DRONE_VERIFY_ENABLED then
+	local DroneService = require(script.Parent.Systems.DroneService)
+	local DroneConfig = require(ReplicatedStorage.Shared.Config.DroneConfig)
+
+	-- ⚠️ WARP_VERIFY와 같은 {m=, e=} 형태다. BigNum.tostring을 쓰지 않는 이유:
+	-- 이 블록의 판정은 "blox 증가분 == lifetimeBlox 증가분"의 **정확한 일치**이고,
+	-- 어긋났을 때 원인은 십중팔구 정밀도(유효자리 12)다. tostring은 그 순간 필요한
+	-- 정보를 지운다.
+	local function fmtBigNum(bn): string
+		if bn == nil then
+			return "nil"
+		end
+		return string.format("{m=%s, e=%s}", tostring(bn.m), tostring(bn.e))
+	end
+
+	-- droneStage = maxStage - STAGE_OFFSET가 1 이상이어야 지급 분기를 탄다. 여유를
+	-- 두고 STAGE_OFFSET + 2로 세팅해 droneStage = 2를 만든다(현재 STAGE_OFFSET=4 기준
+	-- maxStage=6). 하드코딩하지 않는 이유: STAGE_OFFSET이 바뀌면 6이라는 숫자도
+	-- 조용히 틀린 값이 된다.
+	local DRONE_VERIFY_MAX_STAGE = DroneConfig.STAGE_OFFSET + 2
+
+	Players.PlayerAdded:Connect(function(player: Player)
+		local profile = ProfileManager.waitFor(player, 10)
+		if profile == nil then
+			warn(string.format("[Bootstrap][VERIFY_DRONE] %s: 프로필 로드 타임아웃 - 검증 중단", player.Name))
+			return
+		end
+
+		-- ⚠️ task.delay로 띄운다. 같은 PlayerAdded에 걸린 VERIFY_CHALLENGE(즉시) ·
+		-- REBIRTH_VERIFY(약 3초) · WARP_VERIFY(약 6초) 블록들이 끝날 시간을 준다 —
+		-- 섞이면 로그를 읽을 수 없다.
+		task.delay(9, function()
+			if player.Parent == nil then
+				return
+			end
+
+			-- 9초 yield를 지나왔으므로 프로필을 다시 읽는다 — 그 사이 세션이 바뀌었을
+			-- 가능성을 열어둔다(REBIRTH_VERIFY/WARP_VERIFY는 CurrencyService.get을 매번
+			-- 다시 불러 같은 효과를 낸다. 이 블록은 profile.Data를 직접 읽어야 해서
+			-- ProfileManager.get을 다시 부른다).
+			local liveProfile = ProfileManager.get(player)
+			if liveProfile == nil then
+				warn(string.format("[Bootstrap][VERIFY_DRONE] %s: 프로필이 사라짐 - 검증 중단", player.Name))
+				return
+			end
+
+			local ok, err = pcall(function()
+				-- 1. maxStage 세팅. ⚠️ 이 블록이 직접 대입하는 유일한 프로필 필드다.
+				liveProfile.Data.progress.maxStage = DRONE_VERIFY_MAX_STAGE
+				print(string.format(
+					"[Bootstrap][VERIFY_DRONE] %s maxStage=%d로 세팅 (droneStage=%d)",
+					player.Name,
+					DRONE_VERIFY_MAX_STAGE,
+					DRONE_VERIFY_MAX_STAGE - DroneConfig.STAGE_OFFSET
+				))
+
+				-- 2. 지급 전 상태.
+				local lastCollectAtBefore = liveProfile.Data.drones.lastCollectAt
+				local countBefore = liveProfile.Data.drones.count
+				local bloxBefore = CurrencyService.get(player, "blox")
+				-- ⚠️ CurrencyService.get이 아니라 profile.Data를 직접 읽는다. lifetimeBlox는
+				-- CurrencyService.CURRENCIES에 없는 파생 필드라(blox add에 딸려 오르는
+				-- 값이지 독립 재화가 아니다 — CurrencyService.lua 상단), "lifetimeBlox"를
+				-- CurrencyService.get에 넘기면 그 assert가 곧바로 터진다. 여전히 읽기만
+				-- 한다 — 대입은 없다.
+				local lifetimeBefore = liveProfile.Data.lifetimeBlox
+				local nowBefore = os.time()
+				print(string.format(
+					"[Bootstrap][VERIFY_DRONE] %s 지급 전 - maxStage=%d count=%d lastCollectAt=%d (now와 차 %d초) blox=%s lifetimeBlox=%s",
+					player.Name,
+					liveProfile.Data.progress.maxStage,
+					countBefore,
+					lastCollectAtBefore,
+					nowBefore - lastCollectAtBefore,
+					fmtBigNum(bloxBefore),
+					fmtBigNum(lifetimeBefore)
+				))
+
+				-- 3. 지급. DroneService.collect가 CurrencyService.add를 통해서만 blox를 올린다.
+				local result = DroneService.collect(player, "bootstrap_verify")
+				local nowAfter = os.time()
+
+				-- 4. 지급 후 상태.
+				local lastCollectAtAfter = liveProfile.Data.drones.lastCollectAt
+				local bloxAfter = CurrencyService.get(player, "blox")
+				local lifetimeAfter = liveProfile.Data.lifetimeBlox
+				print(string.format(
+					"[Bootstrap][VERIFY_DRONE] %s 지급 후 - blox=%s lifetimeBlox=%s lastCollectAt=%d (granted=%s cycles=%d)",
+					player.Name,
+					fmtBigNum(bloxAfter),
+					fmtBigNum(lifetimeAfter),
+					lastCollectAtAfter,
+					fmtBigNum(result.granted),
+					result.cycles
+				))
+
+				-- 5. 검산 (a) — blox 증가분과 lifetimeBlox 증가분이 정확히 같은가.
+				if bloxBefore ~= nil and bloxAfter ~= nil and lifetimeBefore ~= nil and lifetimeAfter ~= nil then
+					local bloxDelta = BigNum.sub(bloxAfter, bloxBefore)
+					local lifetimeDelta = BigNum.sub(lifetimeAfter, lifetimeBefore)
+					local matches = BigNum.eq(bloxDelta, lifetimeDelta)
+					print(string.format(
+						"[Bootstrap][VERIFY_DRONE] %s 검산(a) blox 증가분=%s vs lifetimeBlox 증가분=%s -> %s",
+						player.Name,
+						fmtBigNum(bloxDelta),
+						fmtBigNum(lifetimeDelta),
+						matches and "일치" or "불일치"
+					))
+				else
+					warn(string.format("[Bootstrap][VERIFY_DRONE] %s: blox/lifetimeBlox 값 누락 - 증가분 비교 불가", player.Name))
+				end
+
+				-- 5. 검산 (b)~(d) — lastCollectAt 갱신이 상한 여부에 맞게 됐는가.
+				-- ⚠️ elapsed는 "지급 전 상태"를 찍은 시점 기준이다 — DroneService.collect
+				-- 내부에서도 os.time()을 다시 부르므로 완전히 같은 순간은 아니지만,
+				-- 초 단위 해상도라 이 블록의 실행 시간 안에서는 사실상 같다.
+				local elapsedSec = nowBefore - lastCollectAtBefore
+				local capped = elapsedSec > DroneConfig.OFFLINE_CAP_SEC
+				print(string.format(
+					"[Bootstrap][VERIFY_DRONE] %s 검산(b) 경과=%d초, 상한(%d초) 초과 -> %s",
+					player.Name,
+					elapsedSec,
+					DroneConfig.OFFLINE_CAP_SEC,
+					capped and "예(상한에 걸림)" or "아니오"
+				))
+
+				if capped then
+					-- 상한에 걸렸으면 lastCollectAt이 (내부 now로) now 근처로 밀려야 한다.
+					local withinWindow = lastCollectAtAfter >= nowBefore and lastCollectAtAfter <= nowAfter
+					print(string.format(
+						"[Bootstrap][VERIFY_DRONE] %s 검산(c) 상한 걸림: lastCollectAt(%d)이 now 구간[%d, %d] 안인가 -> %s",
+						player.Name,
+						lastCollectAtAfter,
+						nowBefore,
+						nowAfter,
+						withinWindow and "일치" or "불일치"
+					))
+				else
+					-- 안 걸렸으면 cycles * INTERVAL_SEC만큼만 전진해야 한다(나머지 보존).
+					local expected = lastCollectAtBefore + result.cycles * DroneConfig.INTERVAL_SEC
+					local matches = lastCollectAtAfter == expected
+					print(string.format(
+						"[Bootstrap][VERIFY_DRONE] %s 검산(d) 상한 안 걸림: lastCollectAt(%d) vs 기대값(%d = %d + %d*%d) -> %s",
+						player.Name,
+						lastCollectAtAfter,
+						expected,
+						lastCollectAtBefore,
+						result.cycles,
+						DroneConfig.INTERVAL_SEC,
+						matches and "일치" or "불일치"
+					))
+				end
+			end)
+
+			if not ok then
+				warn(string.format("[Bootstrap][VERIFY_DRONE] %s: 검증 중 에러 - %s", player.Name, tostring(err)))
+			end
+		end)
+	end)
+end
+
+
 -- ── 개발용 플래그: STANDARD_PATH_REPORT_ENABLED ───────────────────────────────
 -- 표준 경로 시뮬레이터(4-2-f). 클릭률 6/8/10 세 벌의 표를 Play 로그로 찍는다.
 -- 목적은 "17층 절벽이 표준 경로를 실제로 막는가"에 답할 숫자를 얻는 것이다.
