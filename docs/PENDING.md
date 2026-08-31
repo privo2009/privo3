@@ -271,7 +271,9 @@ Play 검증 전에 Rojo 플러그인 창에서 Connect / Disconnect 상태를 �
 | `SpeedInputBoot`의 `VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
 | `Bootstrap`의 `REBIRTH_VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
 | `Bootstrap`의 `WARP_VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
-| `Bootstrap`의 `STANDARD_PATH_REPORT_ENABLED` 블록 | 4-2-f 종료 후 (아래 ⚠️) |
+| `Bootstrap`의 `STANDARD_PATH_REPORT_ENABLED` 블록 (플래그·호출부만) | Phase 6 이후 성공률 검증이 끝난 뒤 (아래 ⚠️) |
+| `StandardPathReport` 모듈 자체 | `DroneRateReport`가 소비자다 — 그쪽이 먼저 지워지거나 의존이 끊긴 뒤에만 (아래 ⚠️) |
+| `DroneRateReport` / `Bootstrap`의 `DRONE_RATE_REPORT_ENABLED` 블록 | 드론 스테이지 오프셋 재검토가 끝난 뒤 (아래 ⚠️) |
 
 ⚠️ **`Workspace/_OldBlocks`는 코드로 지울 수 없다. 사람이 Studio에서 지워야 한다**
 (2026-08-28 재확인). 정리 세션에서 처리되지 않고 계속 남는 이유가 이것이다 —
@@ -339,9 +341,28 @@ lifetimeBlox가 되돌릴 수 없게 올라 접속 계정이 오염되므로 켠
 표준 경로 시뮬레이터는 **Config만 읽고 순수 계산 후 print한다** — 프로필을 읽지도 쓰지도
 않으므로 **켠 채로 커밋해도 안전하다.**
 
-끄는 이유는 오염이 아니라 **소음**이다. 4-2-f 동안 값을 바꿔가며 반복 실행할 물건이라,
+끄는 이유는 오염이 아니라 **소음**이다. 값을 바꿔가며 반복 실행할 물건이라,
 매 Play마다 표 세 벌이 찍히면 `[ATTACK]`·`[Bootstrap]` 관측 로그가 묻힌다.
-4-2-f가 끝나면 블록째 삭제한다 — 그때는 튜닝이 끝나 다시 돌릴 이유가 없다.
+
+⚠️ **삭제 조건을 "4-2-f 종료 후"에서 "Phase 6 이후 성공률 검증이 끝난 뒤"로 고쳤다.**
+4-2-f 잔여(HP 곡선·목표 성공률 검증)가 Phase 6 이후로 유예되면서 "4-2-f 종료"라는
+시점이 지금은 가리키는 데가 없어졌다. 실제 조건은 목표 성공률(1~8층 95% / 9~16층
+65~85% / 17~25층 40~55%)이 실측으로 확인되는 것이다 — 그게 끝나면 값을 바꿔가며
+반복 실행할 이유가 없어져 플래그와 `Bootstrap`의 호출 블록(`if STANDARD_PATH_REPORT_ENABLED
+then ... end`)만 지운다.
+
+⚠️ **`StandardPathReport` 모듈 자체는 플래그와 다른 시점에 지워진다 — 갈라 적은 이유가
+이것이다.** `DroneRateReport`가 이 모듈을 require해서 층별 결과(`simulateAll`)를
+읽는다(→ 아래 `DroneRateReport` 항목). 플래그·호출 블록만 지우고 모듈 파일은 남겨야
+`DroneRateReport`가 계속 동작한다 — 모듈 자체는 `DroneRateReport`가 먼저 지워지거나
+그 의존(require)이 끊긴 뒤에만 지울 수 있다.
+
+⚠️ **`DroneRateReport`(모듈)와 `Bootstrap`의 `DRONE_RATE_REPORT_ENABLED` 블록은
+오프셋 4 확정과 무관하게 남는다.** 오프셋 4는 22~24층에서 능동/드론 비율이 규약
+하한(20배) 밑으로 떨어진다 — 원인인 후반 체류 문제가 아직 미결이다(위 "오프셋 4도
+후반 구간에서는 규약을 못 맞춘다"). 그 문제가 풀려 오프셋을 다시 재야 할 때 이
+리포트가 다시 필요하다. 삭제 조건은 그 재검토가 끝나 오프셋이 더 안 바뀐다고
+확정되는 시점이다.
 
 ---
 
