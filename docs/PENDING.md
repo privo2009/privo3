@@ -274,6 +274,7 @@ Play 검증 전에 Rojo 플러그인 창에서 Connect / Disconnect 상태를 �
 | `Bootstrap`의 `STANDARD_PATH_REPORT_ENABLED` 블록 (플래그·호출부만) | Phase 6 이후 성공률 검증이 끝난 뒤 (아래 ⚠️) |
 | `StandardPathReport` 모듈 자체 | `DroneRateReport`가 소비자다 — 그쪽이 먼저 지워지거나 의존이 끊긴 뒤에만 (아래 ⚠️) |
 | `DroneRateReport` / `Bootstrap`의 `DRONE_RATE_REPORT_ENABLED` 블록 | 드론 스테이지 오프셋 재검토가 끝난 뒤 (아래 ⚠️) |
+| `Bootstrap`의 `DRONE_VERIFY_ENABLED` 블록 | 진행 벽·수령 발판 파트가 붙어 maxStage를 정상 경로로 올릴 수 있게 된 뒤 (아래 ⚠️) |
 
 ⚠️ **`Workspace/_OldBlocks`는 코드로 지울 수 없다. 사람이 Studio에서 지워야 한다**
 (2026-08-28 재확인). 정리 세션에서 처리되지 않고 계속 남는 이유가 이것이다 —
@@ -363,6 +364,21 @@ then ... end`)만 지운다.
 후반 구간에서는 규약을 못 맞춘다"). 그 문제가 풀려 오프셋을 다시 재야 할 때 이
 리포트가 다시 필요하다. 삭제 조건은 그 재검토가 끝나 오프셋이 더 안 바뀐다고
 확정되는 시점이다.
+
+⚠️ **`DRONE_VERIFY_ENABLED`는 위 두 `VERIFY` 플래그(`REBIRTH_VERIFY_ENABLED` ·
+`WARP_VERIFY_ENABLED`)와 같은 성격이다 — 켜면 접속 계정의 `progress.maxStage`가
+되돌릴 수 없게 바뀐다(`STAGE_OFFSET + 2`로 세팅). blox/lifetimeBlox는 읽기만
+하므로 그 둘처럼 재화가 오염되지는 않지만, maxStage 자체가 진행도라 켠 뒤
+되돌리지 않으면 그 계정이 실제로 도달한 층보다 높은 값으로 남는다. 켠 뒤 반드시
+`false`로 되돌릴 것.
+
+⚠️ **삭제 조건이 `REBIRTH_VERIFY_ENABLED`·`WARP_VERIFY_ENABLED`(Phase 6 UI 진입 후)와
+다르다.** 저 둘은 UI가 실물 진입점을 대신하는 순간 존재 이유가 사라지지만, 이
+블록은 **진행 벽·수령 발판 파트**(ROADMAP 4-2-a, 아직 ◐)가 붙어야 사라진다 —
+그 파트가 있어야 챌린지를 진행해 maxStage를 정상 경로로 올릴 수 있고, 그러면
+이 블록이 대신 세팅해주던 것을 실제 플레이가 대신하게 된다. Phase 6 UI 진입과
+반드시 같은 시점은 아니다 — 3D 파트는 UI 코드보다 먼저 붙을 수도 있다(디자인
+담당 산출물 도착 여부에 달려 있다, → CLAUDE.md "팀").
 
 ---
 
