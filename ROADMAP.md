@@ -20,7 +20,7 @@
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
-| `Tests/ConfigTests.server.lua` | 59 | 모든 Config의 validate + 스모크 |
+| `Tests/ConfigTests.server.lua` | 61 | 모든 Config의 validate + 스모크 (`DroneConfig.validate` 포함) |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Tests/WarpConfigTests.server.lua` | 31 | 워프 비용 곡선(지수·단조)·순수성·거부 사유 3종 |
 | `Tests/AttackConfigTests.server.lua` | 29 | 펀치 속도·판정 반경 파생·경계(이하) |
@@ -36,7 +36,8 @@
 | `Systems/RebirthServiceTests.server.lua` | 66 | 거부 시 부작용 0·순서·누적·부분 실패 ※ |
 | `Systems/WarpServiceTests.server.lua` | 73 | 거부 시 차감 0·차감이 런 시작보다 먼저·부분 실패 3종 ※ |
 | `Systems/AttackServiceTests.server.lua` | 41 | 반경 밖 미호출·이중 계산 방지·경계(float32 이웃)·방향 독립 |
-| **합계** | **747** | |
+| `Systems/DroneServiceTests.server.lua` | 32 | 나머지 보존·오프라인 상한·시각 되감김 방어·droneStage 없음·count 배수·in-flight 겹침·lifetimeBlox 연동 |
+| **합계** | **781** | |
 
 ※ 두 행 다 **헬퍼가 check를 여러 번 부른다.** `RebirthServiceTests`는 7개 check를 묶은
 `checkUntouched`를 3번 호출하고(정적 53, 실측 66), `WarpServiceTests`는 3개 check를 묶은
@@ -860,7 +861,7 @@ RATIO는 정상 진행 하한(보상 성장률 2.7) 위이고 25층 누적 12.5�
 
 ---
 
-## Phase 5 — 드론 (코드)
+## Phase 5 — 드론 (코드) ✅ 완료
 ```
 DroneService — maxStage - STAGE_OFFSET, 60초당 1회
 ```
@@ -869,9 +870,24 @@ DroneService — maxStage - STAGE_OFFSET, 60초당 1회
 오프라인(로드 시 1회) 정산이 같은 계산이라 별도 OfflineService는 두지 않는다
 — DroneService.collect 하나가 지급 경로다.
 
-⚠️ 지급 → lastCollectAt 갱신 → 저장 순서. 실패 시 롤백
+⚠️ 지급 → lastCollectAt 갱신 → 저장 순서. **실패 시 롤백하지 않는다** —
+DroneService는 되돌리는 대신 ERROR 로그만 남긴다. 되돌리기가 또 실패하면
+어느 상태인지 알 수 없어지므로, RebirthService·WarpService가 이미 도달한
+것과 같은 판단이다("이 줄이 유일한 복구 근거다" 형태). 순서(지급 → 갱신 → 저장)
+자체는 그대로 유효하다.
 
 **검증**: 나갔다 1시간 뒤 접속 시 정확한 보상. 시계 조작 무효
+
+**진행 상태** — ✅ 완료 (2026-08-31 Play 검증). DroneServiceTests 32 passed / 0 failed,
+전체 781 passed / 0 failed(개수 → "테스트 현황").
+
+검증 근거: 로드 훅(`reason=drone_collect_load`)에서 지급이 실물로 확인됐다 —
+droneStage·cycles로 산출한 기대 지급액이 로그의 실지급액과 정확히 일치했고,
+blox·lifetimeBlox가 같은 폭으로 올랐으며, lastCollectAt이 소진한 사이클만큼만
+전진했다(나머지 보존, now로 덮지 않음).
+
+⚠️ **이 완료 표시는 코드에 대한 것이다.** 드론 수령 UI(Phase 6)와 게임패스 2종
+(오프라인 상한 24시간 연장, 드론 구매 — Phase 8)은 여전히 미착수다.
 
 ---
 
