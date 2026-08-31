@@ -1,6 +1,6 @@
 # 개발 로드맵
 
-문서 갱신: 2026-08-30
+문서 갱신: 2026-08-31
 
 ## 원칙
 - 아래에서 위로 쌓는다. BigNum이 흔들리면 전부 무너진다
@@ -862,9 +862,12 @@ RATIO는 정상 진행 하한(보상 성장률 2.7) 위이고 25층 누적 12.5�
 
 ## Phase 5 — 드론 (코드)
 ```
-DroneService   — maxStage-2, 60초당 1회
-OfflineService — 상한 8h, 서버 시각 기준
+DroneService — maxStage - STAGE_OFFSET, 60초당 1회
 ```
+
+오프셋 값은 `Shared/Config/DroneConfig.lua`가 원본이다. 온라인 주기 루프와
+오프라인(로드 시 1회) 정산이 같은 계산이라 별도 OfflineService는 두지 않는다
+— DroneService.collect 하나가 지급 경로다.
 
 ⚠️ 지급 → lastCollectAt 갱신 → 저장 순서. 실패 시 롤백
 
