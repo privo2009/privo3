@@ -37,13 +37,17 @@
 | `Systems/WarpServiceTests.server.lua` | 73 | 거부 시 차감 0·차감이 런 시작보다 먼저·부분 실패 3종 ※ |
 | `Systems/AttackServiceTests.server.lua` | 41 | 반경 밖 미호출·이중 계산 방지·경계(float32 이웃)·방향 독립 |
 | `Systems/DroneServiceTests.server.lua` | 32 | 나머지 보존·오프라인 상한·시각 되감김 방어·droneStage 없음·count 배수·in-flight 겹침·lifetimeBlox 연동 |
-| **합계** | **781** | |
+| `Tests/UiThemeTests.server.lua` | 33 | 색 역할 8종 존재·밝은/기본/어두운 3단계·Color3 타입 |
+| `Tests/AssetRegistryTests.server.lua` | 130 | 25종 등록·source/scaleType/placeholderRole 검증·resolve() 도착·미도착 판정 ※ |
+| `Tests/AssetImageTests.server.lua` | 16 | 미도착→Frame·도착→ImageLabel·SliceCenter·UIStroke 3px |
+| **합계** | **960** | |
 
-※ 두 행 다 **헬퍼가 check를 여러 번 부른다.** `RebirthServiceTests`는 7개 check를 묶은
+※ 세 행 다 **헬퍼가 check를 여러 번 부른다.** `RebirthServiceTests`는 7개 check를 묶은
 `checkUntouched`를 3번 호출하고(정적 53, 실측 66), `WarpServiceTests`는 3개 check를 묶은
-`checkRejectedCleanly`를 거부 케이스마다 부른다. 정적 세기에는 헬퍼 안의 check가 한 번만
+`checkRejectedCleanly`를 거부 케이스마다 부른다. `AssetRegistryTests`도 같은 구조라
+정적 계산(78)과 실측(130)이 다르다. 정적 세기에는 헬퍼 안의 check가 한 번만
 잡히고 런타임에는 호출 횟수만큼 돈다 — 어긋나는 것이 **정상**이다.
-파라미터화 루프와 같은 구조이므로 이 두 행은 실측만 믿을 것.
+파라미터화 루프와 같은 구조이므로 이 세 행은 실측만 믿을 것.
 
 ⚠️ **역산으로 채운 칸은 합계가 맞아도 틀릴 수 있다.** `AttackConfigTests`는 한동안
 합계에서 역산한 38이었고 실측은 **29**였다. 같은 시점에 `ClickServiceTests`가 38 → **47**로
@@ -51,7 +55,11 @@
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-08-29 Studio Play 런타임 실측.** 747 passed / 0 failed (18개 행).
+최근 갱신: **2026-08-31 Studio Play 런타임 실측.** 960 passed / 0 failed (22개 행).
+Phase 6 착수 산출물(UiTheme/AssetRegistry/AssetImage) 테스트 3행 추가 —
+`UiThemeTests`(33) · `AssetRegistryTests`(130, 실측값) · `AssetImageTests`(16). 781 → 960.
+
+직전 갱신: 2026-08-29 Studio Play 런타임 실측. 747 passed / 0 failed (18개 행).
 `AttackConfigTests` 38 → **29**, `ClickServiceTests` 38 → **47**로 정정.
 두 오차가 정확히 상쇄돼 있어(-9 / +9) 합계와 행 수는 바뀌지 않았다.
 
@@ -907,6 +915,16 @@ CLAUDE.md "문서" 절의 수치 복사 금지 규칙과 같은 이유다.
 `docs/UI_HANDOFF.md` 참조. 검증 관문 G1은 **Phase 6 착수 조건**이다.
 
 UI 작업은 자체 단계(U0~U8)로 코드 Phase와 독립 진행한다 — `docs/UI.md` "UI Phase" 참조.
+
+코드 Phase 6은 `docs/UI.md` "UI Phase"의 U3~U8과 같은 작업이다. U2(에셋 제작)만
+디자인 담당 몫이고, 배치는 전부 코드 담당이다 — 파이프라인이 "배치는 전부 코드로
+한다"이므로 U3부터가 코드 진입 지점이다. 위 "코드 Phase와 독립 진행한다"는
+U2 vs 코드 Phase 4~5 얘기였고, Phase 6에서 둘이 합류한다.
+
+착수 조건 G1은 2026-08-23에 통과했다.
+
+첫 산출물: `UiTheme` / `AssetRegistry` / `AssetImage` — 에셋 부재 상태에서 U3를
+시작하기 위한 단일 교체점. 미도착 에셋은 역할색 Frame으로 대체된다.
 
 ⚠️ 이 단계가 전체에서 가장 오래 걸린다
 
