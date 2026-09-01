@@ -3,6 +3,8 @@
 -- U3-2 착수 준비.
 
 local Layout = require(script.Parent.Parent.UI.Layout)
+local TestHelpers = require(script.Parent.TestHelpers)
+local checkClose = TestHelpers.checkClose
 
 local passed = 0
 local failed = 0
@@ -77,10 +79,13 @@ do
 	frame.Size = UDim2.fromScale(0.2, 0.05)
 
 	local x0, y0, x1, y1 = Layout.getBounds(frame)
-	check("getBounds: x0 == 0.4 (AnchorPoint.X 보정)", math.abs(x0 - 0.4) < 1e-9, tostring(x0))
-	check("getBounds: x1 == 0.6", math.abs(x1 - 0.6) < 1e-9, tostring(x1))
-	check("getBounds: y0 == 0.1 (AnchorPoint.Y == 0이라 보정 없음)", math.abs(y0 - 0.1) < 1e-9, tostring(y0))
-	check("getBounds: y1 == 0.15", math.abs(y1 - 0.15) < 1e-9, tostring(y1))
+	-- x0~y1은 전부 Instance에서 읽은 Position/Size/AnchorPoint(float32)로 계산한 값이라
+	-- checkClose를 쓴다 (TestHelpers.lua 상단 근거 참고). checkClose가 실패 시 기대값·
+	-- 실제값·오차를 detail로 돌려주므로 그대로 check에 넘긴다.
+	check("getBounds: x0 == 0.4 (AnchorPoint.X 보정)", checkClose(x0, 0.4))
+	check("getBounds: x1 == 0.6", checkClose(x1, 0.6))
+	check("getBounds: y0 == 0.1 (AnchorPoint.Y == 0이라 보정 없음)", checkClose(y0, 0.1))
+	check("getBounds: y1 == 0.15", checkClose(y1, 0.15))
 end
 
 -- 4. getTopInset이 숫자를 돌려준다 (기기별 실측값이라 부호·정확한 값은 검증하지 않는다) ---

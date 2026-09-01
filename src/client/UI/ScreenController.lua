@@ -9,6 +9,21 @@
 --
 -- 화면은 지연 생성한다 — register() 시점에는 Instance를 만들지 않고 첫 open()에서
 -- builder()를 불러 만든 뒤 재사용한다. 32개를 접속마다 전부 만들면 로딩이 길어진다.
+--
+-- ===== U3-4: 팩토리 + 기본 인스턴스 =======================================================
+--
+-- "지금 무엇이 열려 있나를 단독으로 소유한다"는 설계 결정은 그대로다. 실물 코드
+-- (HudBoot·화면 3종)는 여전히 이 파일 맨 아래의 기본 인스턴스 하나만 쓰고,
+-- ScreenController.register(...)/open(...)/... 호출 형태도 바뀌지 않는다.
+--
+-- 바뀐 것은 테스트가 더 이상 그 기본 인스턴스를 공유하지 않아도 된다는 것뿐이다.
+-- ScreenControllerTests가 __Test_ 접두어로 이름만 가리고 실제로는 기본 인스턴스의
+-- entries를 같이 썼던 것이 사고 원인이었다 — 끝에서 부르는 closeAll()이 이름을
+-- 가리지 않고 "그 순간 열려 있는 것 전부"를 닫아서, HudBoot이 이미 띄운 진짜
+-- HUD까지 같이 꺼졌다(→ docs/PENDING.md 해소 기록, U3-4). 이름으로 격리를
+-- 흉내 내는 대신 상태 자체를 분리한다 — ScreenController.new()로 만든 인스턴스는
+-- 자기만의 entries·ScreenGui 3장을 갖고, 기본 인스턴스와는 어떤 상태도 공유하지
+-- 않는다.
 
 local Players = game:GetService("Players")
 
@@ -23,27 +38,35 @@ type Entry = {
 	instance: GuiObject?,
 }
 
+export type Debug = {
+	entries: { [string]: Entry },
+	guis: { [Layer]: ScreenGui },
+	getBlur: () -> Frame?,
+}
+
+export type ScreenControllerInstance = {
+	register: (name: string, layer: Layer, builder: Builder) -> (),
+	open: (name: string) -> (),
+	close: (name: string) -> (),
+	closeAll: () -> (),
+	isOpen: (name: string) -> boolean,
+	-- 이 인스턴스의 ScreenGui 3장을 전부 파괴한다. 테스트가 끝나고 자기 트리를
+	-- 통째로 버릴 때 쓴다 — 기본 인스턴스는 게임이 끝날 때까지 부르지 않는다.
+	destroy: () -> (),
+	_debug: Debug,
+}
+
 local DISPLAY_ORDER: { [Layer]: number } = {
 	Hud = 1,
 	Window = 2,
 	Overlay = 3,
 }
 
-local guis: { [Layer]: ScreenGui } = {}
-local blur: Frame? = nil
-
-local entries: { [string]: Entry } = {}
-
--- layer별로 "지금 열려 있는 이름" 집합. Window는 최대 1개, Hud/Overlay는 여러 개 가능.
-local openInLayer: { [Layer]: { [string]: boolean } } = {
-	Hud = {},
-	Window = {},
-	Overlay = {},
-}
-
-local function createScreenGui(layer: Layer): ScreenGui
+-- namePrefix가 다르면 ScreenGui 이름이 겹치지 않는다. 기본 인스턴스는 prefix=""라
+-- 지금까지와 똑같이 "HudGui"/"WindowGui"/"OverlayGui"가 된다.
+local function createScreenGui(layer: Layer, namePrefix: string): ScreenGui
 	local gui = Instance.new("ScreenGui")
-	gui.Name = layer .. "Gui"
+	gui.Name = namePrefix .. layer .. "Gui"
 	gui.DisplayOrder = DISPLAY_ORDER[layer]
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
@@ -64,103 +87,166 @@ local function createBlur(parent: ScreenGui): Frame
 	return frame
 end
 
-local function ensureInitialized()
-	if guis.Hud ~= nil then
-		return
-	end
-	guis.Hud = createScreenGui("Hud")
-	guis.Window = createScreenGui("Window")
-	guis.Overlay = createScreenGui("Overlay")
-	blur = createBlur(guis.Window)
-end
+-- 인스턴스 하나를 만든다. namePrefix로만 서로 다른 인스턴스의 ScreenGui를 구분한다 —
+-- 그 외에는 entries·openInLayer·guis·blur 전부 이 함수 호출마다 새로 생기는
+-- 지역 상태라 인스턴스끼리 아무것도 공유하지 않는다.
+local function createInstance(namePrefix: string): ScreenControllerInstance
+	local guis: { [Layer]: ScreenGui } = {
+		Hud = createScreenGui("Hud", namePrefix),
+		Window = createScreenGui("Window", namePrefix),
+		Overlay = createScreenGui("Overlay", namePrefix),
+	}
+	local blur: Frame = createBlur(guis.Window)
 
-ensureInitialized()
+	local entries: { [string]: Entry } = {}
 
--- 화면 하나를 등록한다. builder는 첫 open()에서 딱 한 번만 불린다.
-function ScreenController.register(name: string, layer: Layer, builder: Builder)
-	assert(entries[name] == nil, "ScreenController.register: 이미 등록된 이름: " .. name)
-	entries[name] = { layer = layer, builder = builder, instance = nil }
-end
+	-- layer별로 "지금 열려 있는 이름" 집합. Window는 최대 1개, Hud/Overlay는 여러 개 가능.
+	local openInLayer: { [Layer]: { [string]: boolean } } = {
+		Hud = {},
+		Window = {},
+		Overlay = {},
+	}
 
-local function updateBlur()
-	local visible = next(openInLayer.Window) ~= nil
-	assert(blur ~= nil, "ScreenController: blur가 초기화되지 않음")
-	;(blur :: Frame).Visible = visible
-end
-
--- Overlay 레이어 안에서 여러 개가 동시에 열렸을 때의 순서·대기열 규칙은 아직 없다
--- (docs/UI.md "6. 패널 > 레이어 우선순위 (미정)", U4 착수 전까지 정한다). 지금은
--- 열린 순서 그대로 쌓인다 — 규칙이 정해지면 이 함수 안에서만 처리하고 호출부는
--- 손대지 않는다. 임의로 지금 정하지 않기 위한 빈 자리다.
-local function applyOverlayOrder(_openNames: { string }) end
-
-function ScreenController.open(name: string)
-	local entry = entries[name]
-	assert(entry ~= nil, "ScreenController.open: 등록되지 않은 이름: " .. name)
-
-	if entry.instance == nil then
-		local instance = entry.builder()
-		instance.Parent = guis[entry.layer]
-		entry.instance = instance
+	local function updateBlur()
+		local visible = next(openInLayer.Window) ~= nil
+		blur.Visible = visible
 	end
 
-	if entry.layer == "Window" then
-		for otherName in pairs(openInLayer.Window) do
-			if otherName ~= name then
-				ScreenController.close(otherName)
+	-- Overlay 레이어 안에서 여러 개가 동시에 열렸을 때의 순서·대기열 규칙은 아직 없다
+	-- (docs/UI.md "6. 패널 > 레이어 우선순위 (미정)", U4 착수 전까지 정한다). 지금은
+	-- 열린 순서 그대로 쌓인다 — 규칙이 정해지면 이 함수 안에서만 처리하고 호출부는
+	-- 손대지 않는다. 임의로 지금 정하지 않기 위한 빈 자리다.
+	local function applyOverlayOrder(_openNames: { string }) end
+
+	-- open/close가 서로를 부르므로(Window 레이어 단독 open 규칙) 미리 지역 변수로
+	-- 선언해 상호 참조가 가능하게 한다.
+	local register: (name: string, layer: Layer, builder: Builder) -> ()
+	local open: (name: string) -> ()
+	local close: (name: string) -> ()
+	local closeAll: () -> ()
+	local isOpen: (name: string) -> boolean
+	local destroy: () -> ()
+
+	-- 화면 하나를 등록한다. builder는 첫 open()에서 딱 한 번만 불린다.
+	function register(name: string, layer: Layer, builder: Builder)
+		assert(entries[name] == nil, "ScreenController.register: 이미 등록된 이름: " .. name)
+		entries[name] = { layer = layer, builder = builder, instance = nil }
+	end
+
+	function open(name: string)
+		local entry = entries[name]
+		assert(entry ~= nil, "ScreenController.open: 등록되지 않은 이름: " .. name)
+
+		if entry.instance == nil then
+			local instance = entry.builder()
+			instance.Parent = guis[entry.layer]
+			entry.instance = instance
+		end
+
+		if entry.layer == "Window" then
+			for otherName in pairs(openInLayer.Window) do
+				if otherName ~= name then
+					close(otherName)
+				end
+			end
+		end
+
+		(entry.instance :: GuiObject).Visible = true
+		openInLayer[entry.layer][name] = true
+
+		if entry.layer == "Window" then
+			updateBlur()
+		elseif entry.layer == "Overlay" then
+			local openNames = {}
+			for openName in pairs(openInLayer.Overlay) do
+				table.insert(openNames, openName)
+			end
+			applyOverlayOrder(openNames)
+		end
+	end
+
+	function close(name: string)
+		local entry = entries[name]
+		assert(entry ~= nil, "ScreenController.close: 등록되지 않은 이름: " .. name)
+
+		if entry.instance ~= nil then
+			(entry.instance :: GuiObject).Visible = false
+		end
+		openInLayer[entry.layer][name] = nil
+
+		if entry.layer == "Window" then
+			updateBlur()
+		end
+	end
+
+	function closeAll()
+		for name in pairs(entries) do
+			if isOpen(name) then
+				close(name)
 			end
 		end
 	end
 
-	;(entry.instance :: GuiObject).Visible = true
-	openInLayer[entry.layer][name] = true
-
-	if entry.layer == "Window" then
-		updateBlur()
-	elseif entry.layer == "Overlay" then
-		local openNames = {}
-		for openName in pairs(openInLayer.Overlay) do
-			table.insert(openNames, openName)
-		end
-		applyOverlayOrder(openNames)
+	function isOpen(name: string): boolean
+		local entry = entries[name]
+		assert(entry ~= nil, "ScreenController.isOpen: 등록되지 않은 이름: " .. name)
+		return openInLayer[entry.layer][name] == true
 	end
-end
 
-function ScreenController.close(name: string)
-	local entry = entries[name]
-	assert(entry ~= nil, "ScreenController.close: 등록되지 않은 이름: " .. name)
-
-	if entry.instance ~= nil then
-		(entry.instance :: GuiObject).Visible = false
-	end
-	openInLayer[entry.layer][name] = nil
-
-	if entry.layer == "Window" then
-		updateBlur()
-	end
-end
-
-function ScreenController.closeAll()
-	for name in pairs(entries) do
-		if ScreenController.isOpen(name) then
-			ScreenController.close(name)
+	function destroy()
+		for _, gui in pairs(guis) do
+			gui:Destroy()
 		end
 	end
+
+	return {
+		register = register,
+		open = open,
+		close = close,
+		closeAll = closeAll,
+		isOpen = isOpen,
+		destroy = destroy,
+		-- 테스트 전용 내부 접근. 화면 코드는 쓰지 않는다.
+		_debug = {
+			entries = entries,
+			guis = guis,
+			getBlur = function(): Frame?
+				return blur
+			end,
+		},
+	}
 end
 
-function ScreenController.isOpen(name: string): boolean
-	local entry = entries[name]
-	assert(entry ~= nil, "ScreenController.isOpen: 등록되지 않은 이름: " .. name)
-	return openInLayer[entry.layer][name] == true
-end
+-- 실물 코드(HudBoot·화면 3종)가 쓰는 단 하나의 인스턴스. prefix=""라 ScreenGui
+-- 이름이 지금까지와 동일하다("HudGui"/"WindowGui"/"OverlayGui").
+local defaultInstance = createInstance("")
 
--- 테스트 전용 내부 접근. 화면 코드는 쓰지 않는다.
-ScreenController._debug = {
-	entries = entries,
-	guis = guis,
-	getBlur = function(): Frame?
-		return blur
-	end,
-}
+-- 기존 호출 형태(ScreenController.register(...) 등)를 그대로 유지한다 — 그냥
+-- 기본 인스턴스의 같은 이름 함수를 그대로 참조만 옮긴 것이라 인자·동작이 완전히
+-- 같다. HudBoot.client.lua와 화면 3종은 이 파일을 고칠 필요가 없다.
+ScreenController.register = defaultInstance.register
+ScreenController.open = defaultInstance.open
+ScreenController.close = defaultInstance.close
+ScreenController.closeAll = defaultInstance.closeAll
+ScreenController.isOpen = defaultInstance.isOpen
+ScreenController._debug = defaultInstance._debug
+
+-- 자기만의 entries·ScreenGui 3장을 가진 새 인스턴스를 만든다. 테스트 전용이다 —
+-- 실물 코드는 절대 부르지 않는다(기본 인스턴스 하나만 쓴다는 설계를 유지).
+--
+-- namePrefix는 필수다. 기본 인스턴스의 ScreenGui 이름("HudGui" 등)과 겹치지
+-- 않아야 하고, new()를 여러 번 불러도(예: 테스트 파일이 여럿이어도) 서로
+-- 겹치면 안 된다 — 그래서 namePrefix 뒤에 호출 순번을 항상 덧붙인다. 호출자가
+-- 같은 문자열을 두 번 넘겨도 최종 이름은 자동으로 달라진다.
+local nextInstanceId = 1
+function ScreenController.new(namePrefix: string): ScreenControllerInstance
+	assert(
+		type(namePrefix) == "string" and #namePrefix > 0,
+		"ScreenController.new: namePrefix가 필요하다 (빈 문자열은 기본 인스턴스 전용이다)"
+	)
+	local id = nextInstanceId
+	nextInstanceId += 1
+	return createInstance(string.format("%s%d_", namePrefix, id))
+end
 
 return ScreenController

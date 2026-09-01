@@ -44,4 +44,10 @@ ScreenController.open("BloxDisplay")
 ScreenController.open("ChallengeInfo")
 ScreenController.open("MenuRail")
 
-print("[HudBoot] HUD 3종(BloxDisplay/ChallengeInfo/MenuRail) 등록·표시 완료")
+-- ⚠️ 이 로그는 "register+open을 불렀다"는 뜻이지 "지금 화면에 떠 있다"는 보장이
+-- 아니다. 이후 다른 스크립트가 같은 이름을 close()하면(예전엔 ScreenControllerTests의
+-- closeAll()이 그랬다 — U3-4 사고, docs/PENDING.md 해소 기록 참고) 이 줄이 찍힌
+-- 뒤에도 화면이 꺼질 수 있다. "Rojo 연결 성공!"(Hello.server.lua)이 미연결 상태에서도
+-- 찍히는 것과 같은 종류의 함정이다 — 이 로그만 보고 표시가 끝났다고 믿지 말 것.
+-- 실제로 떠 있는지는 HudVisibilityTests.client.lua가 확인한다.
+print("[HudBoot] HUD 3종(BloxDisplay/ChallengeInfo/MenuRail) register+open 호출함 (실노출 보장 아님 — HudVisibilityTests 참고)")

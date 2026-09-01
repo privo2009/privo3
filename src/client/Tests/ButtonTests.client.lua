@@ -4,6 +4,8 @@
 -- 나타나지 않는다.
 
 local Button = require(script.Parent.Parent.UI.Components.Button)
+local TestHelpers = require(script.Parent.TestHelpers)
+local checkClose = TestHelpers.checkClose
 
 local passed = 0
 local failed = 0
@@ -40,15 +42,16 @@ end
 -- 2. 큰/작은 크기가 규격과 같다 (docs/UI.md "5. 버튼 > 크기 2종") -----------------------
 
 do
+	-- Size.Y.Scale은 Instance에서 읽은 float32 값이라 checkClose를 쓴다(TestHelpers.lua 참고).
 	local big = Button.create({ size = "Big", color = "blue", widthScale = 0.3 })
-	check("Big 버튼 높이 == 0.09", big.root.Size.Y.Scale == Button.HEIGHT_BIG)
+	check("Big 버튼 높이 == 0.09", checkClose(big.root.Size.Y.Scale, Button.HEIGHT_BIG))
 
 	local small = Button.create({ size = "Small", color = "blue", widthScale = 0.2 })
-	check("Small 버튼 높이 == 0.06", small.root.Size.Y.Scale == Button.HEIGHT_SMALL)
+	check("Small 버튼 높이 == 0.06", checkClose(small.root.Size.Y.Scale, Button.HEIGHT_SMALL))
 
 	-- heightScale을 명시하면 size 기본값 대신 그 값을 쓴다 (Panel.lua가 중첩 환산에 쓰는 경로).
 	local custom = Button.create({ size = "Small", color = "blue", widthScale = 0.2, heightScale = 0.123 })
-	check("heightScale을 넘기면 그 값을 그대로 쓴다", custom.root.Size.Y.Scale == 0.123)
+	check("heightScale을 넘기면 그 값을 그대로 쓴다", checkClose(custom.root.Size.Y.Scale, 0.123))
 end
 
 -- 3. 비활성 상태에서 gray로 바뀐다 ----------------------------------------------------

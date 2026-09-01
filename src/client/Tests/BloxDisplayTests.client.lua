@@ -13,6 +13,8 @@ local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local Layout = require(script.Parent.Parent.UI.Layout)
 local Store = require(script.Parent.Parent.UI.Store)
 local BloxDisplay = require(script.Parent.Parent.UI.Screens.Hud.BloxDisplay)
+local TestHelpers = require(script.Parent.TestHelpers)
+local checkClose = TestHelpers.checkClose
 
 local passed = 0
 local failed = 0
@@ -68,9 +70,10 @@ do
 	local aspect = valueLabel:FindFirstChildOfClass("UIAspectRatioConstraint")
 	check("Value 라벨에 AspectRatioConstraint가 있다", aspect ~= nil)
 	if aspect then
+		-- AspectRatio는 Instance에서 읽은 float32 값이라 checkClose를 쓴다(TestHelpers.lua 참고).
 		check(
 			"8자 규격 AspectRatio == 8 * 0.55",
-			math.abs((aspect :: UIAspectRatioConstraint).AspectRatio - (8 * 0.55)) < 1e-9
+			checkClose((aspect :: UIAspectRatioConstraint).AspectRatio, 8 * 0.55)
 		)
 	end
 

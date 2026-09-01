@@ -6,6 +6,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local ValuePanel = require(script.Parent.Parent.UI.Components.ValuePanel)
+local TestHelpers = require(script.Parent.TestHelpers)
+local checkClose = TestHelpers.checkClose
 
 local passed = 0
 local failed = 0
@@ -39,9 +41,10 @@ do
 	local aspect = handle.label:FindFirstChildOfClass("UIAspectRatioConstraint")
 	check("UIAspectRatioConstraint가 있다", aspect ~= nil)
 	if aspect then
+		-- AspectRatio는 Instance에서 읽은 float32 값이라 checkClose를 쓴다(TestHelpers.lua 참고).
 		check(
 			"기본 8자 폭의 AspectRatio == 8 * 0.55",
-			math.abs((aspect :: UIAspectRatioConstraint).AspectRatio - (8 * 0.55)) < 1e-9
+			checkClose((aspect :: UIAspectRatioConstraint).AspectRatio, 8 * 0.55)
 		)
 		check(
 			"DominantAxis가 Height다 (실제 렌더 픽셀 기준으로 폭이 따라오게)",
@@ -80,7 +83,7 @@ do
 		check("4자 폭이 8자 폭보다 좁다", fourAspect.AspectRatio < eightAspect.AspectRatio)
 		check(
 			"4자 AspectRatio == 4 * 0.55",
-			math.abs(fourAspect.AspectRatio - (4 * 0.55)) < 1e-9
+			checkClose(fourAspect.AspectRatio, 4 * 0.55)
 		)
 	end
 
