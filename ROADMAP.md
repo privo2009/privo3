@@ -1,6 +1,6 @@
 # 개발 로드맵
 
-문서 갱신: 2026-08-31
+문서 갱신: 2026-09-01
 
 ## 원칙
 - 아래에서 위로 쌓는다. BigNum이 흔들리면 전부 무너진다
@@ -40,14 +40,27 @@
 | `Tests/UiThemeTests.server.lua` | 33 | 색 역할 8종 존재·밝은/기본/어두운 3단계·Color3 타입 |
 | `Tests/AssetRegistryTests.server.lua` | 130 | 25종 등록·source/scaleType/placeholderRole 검증·resolve() 도착·미도착 판정 ※ |
 | `Tests/AssetImageTests.server.lua` | 16 | 미도착→Frame·도착→ImageLabel·SliceCenter·UIStroke 3px |
-| **합계** | **960** | |
+| `Tests/TextScaleTests.server.lua` | 16 | 글자 5단계 존재·heightFraction·maxTextSize 값 일치 ※ |
+| `Tests/ScreenControllerTests.client.lua` | 29 | ScreenGui 3층·지연 생성·Window 단일 오픈·Overlay 다중·배경 흐리게·오류 케이스·closeAll이 자기 인스턴스에만 닿음 |
+| `Tests/StoreTests.client.lua` | 18 | 초기값·구독/해지·setSource 교체·BigNum 형태 유지 |
+| `Tests/PanelTests.client.lua` | 19 | 크기 2종 규격·제목/X버튼/여백의 화면 기준 환산 일치(root-상대 Scale 보정) |
+| `Tests/ButtonTests.client.lua` | 37 | 색 6종 생성·크기 2종·비활성 gray 전환·미도착/도착 눌림 처리 ※ |
+| `Tests/ValuePanelTests.client.lua` | 15 | 8자/4자 폭 AspectRatio·TextScaled·MaxTextSize·잘림 방지 |
+| `Tests/LayoutTests.client.lua` | 20 | 구역 비율·중앙 금지 판정 경계·getBounds AnchorPoint 보정 |
+| `Tests/BloxDisplayTests.client.lua` | 13 | 중앙 금지 미침범·Store 구독 반영·8자 잘림 방지 |
+| `Tests/ChallengeInfoTests.client.lua` | 17 | 상단 정보 15% 안·타이머 특대 단계·active=false 레이아웃 유지 |
+| `Tests/MenuRailTests.client.lua` | 58 | 6개 생성·좌측 레일 폭·세로 합계·BloxDisplay 비침범·AspectRatio·라벨 2~4자 ※ |
+| `Tests/HudVisibilityTests.client.lua` | 16 | PlayerGui 부착·Visible·Enabled·AbsoluteSize·10프레임 지속 관찰 ※ |
+| **합계** | **1218** | |
 
-※ 세 행 다 **헬퍼가 check를 여러 번 부른다.** `RebirthServiceTests`는 7개 check를 묶은
-`checkUntouched`를 3번 호출하고(정적 53, 실측 66), `WarpServiceTests`는 3개 check를 묶은
-`checkRejectedCleanly`를 거부 케이스마다 부른다. `AssetRegistryTests`도 같은 구조라
-정적 계산(78)과 실측(130)이 다르다. 정적 세기에는 헬퍼 안의 check가 한 번만
-잡히고 런타임에는 호출 횟수만큼 돈다 — 어긋나는 것이 **정상**이다.
-파라미터화 루프와 같은 구조이므로 이 세 행은 실측만 믿을 것.
+※ 일곱 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
+7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53, 실측 66), `WarpServiceTests`는
+3개 check를 묶은 `checkRejectedCleanly`를 거부 케이스마다 부른다. `AssetRegistryTests`
+(정적 78, 실측 130) · `ButtonTests`(정적 22, 실측 37) · `MenuRailTests`(정적 18, 실측 58)는
+항목 목록(색 6종·아이콘 6개)을 순회하는 루프 안에 check가 여러 개 있고, `TextScaleTests`
+(정적 4, 실측 16)는 5단계 루프, `HudVisibilityTests`(정적 6, 실측 16)는 화면 3종 루프
+안에 check가 있다. 정적 세기에는 루프/헬퍼 안의 check가 한 번만 잡히고 런타임에는
+반복 횟수만큼 돈다 — 어긋나는 것이 **정상**이다. 이 일곱 행은 실측만 믿을 것.
 
 ⚠️ **역산으로 채운 칸은 합계가 맞아도 틀릴 수 있다.** `AttackConfigTests`는 한동안
 합계에서 역산한 38이었고 실측은 **29**였다. 같은 시점에 `ClickServiceTests`가 38 → **47**로
@@ -55,7 +68,13 @@
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-08-31 Studio Play 런타임 실측.** 960 passed / 0 failed (22개 행).
+최근 갱신: **2026-09-01 Studio Play 런타임 실측.** 1218 passed / 0 failed (33개 행).
+U3(UI 뼈대 + HUD 3종) 테스트 11행 추가 — `TextScaleTests`(16) · `ScreenControllerTests`(29) ·
+`StoreTests`(18) · `PanelTests`(19) · `ButtonTests`(37, 실측값) · `ValuePanelTests`(15) ·
+`LayoutTests`(20) · `BloxDisplayTests`(13) · `ChallengeInfoTests`(17) · `MenuRailTests`(58, 실측값) ·
+`HudVisibilityTests`(16, 실측값). 960 → 1218.
+
+직전 갱신: 2026-08-31 Studio Play 런타임 실측. 960 passed / 0 failed (22개 행).
 Phase 6 착수 산출물(UiTheme/AssetRegistry/AssetImage) 테스트 3행 추가 —
 `UiThemeTests`(33) · `AssetRegistryTests`(130, 실측값) · `AssetImageTests`(16). 781 → 960.
 
@@ -923,8 +942,13 @@ U2 vs 코드 Phase 4~5 얘기였고, Phase 6에서 둘이 합류한다.
 
 착수 조건 G1은 2026-08-23에 통과했다.
 
-첫 산출물: `UiTheme` / `AssetRegistry` / `AssetImage` — 에셋 부재 상태에서 U3를
-시작하기 위한 단일 교체점. 미도착 에셋은 역할색 Frame으로 대체된다.
+진행: 에셋 단일 교체점(`UiTheme`/`AssetRegistry`/`AssetImage`/`TextScale` — 에셋
+부재 상태에서 U3를 시작하기 위한 것. 미도착 에셋은 역할색 Frame으로 대체된다) →
+UI 뼈대(`ScreenController`/`Store`/`Panel`/`Button`/`ValuePanel`) →
+HUD 3종(`BloxDisplay`/`ChallengeInfo`/`MenuRail`) 배치.
+
+남은 HUD 4종: 힘·레벨·속도 블록, 로벅스 구좌, 자동 클리커 토글, 자동 진행 버튼 —
+전부 하단 띠다(docs/UI.md "2. 세이프존"이 "가장 먼저 깨질 곳"으로 지목한 구역).
 
 ⚠️ 이 단계가 전체에서 가장 오래 걸린다
 
