@@ -1,6 +1,6 @@
 # 개발 로드맵
 
-문서 갱신: 2026-09-01
+문서 갱신: 2026-09-03
 
 ## 원칙
 - 아래에서 위로 쌓는다. BigNum이 흔들리면 전부 무너진다
@@ -49,8 +49,9 @@
 | `Tests/LayoutTests.client.lua` | 20 | 구역 비율·중앙 금지 판정 경계·getBounds AnchorPoint 보정 |
 | `Tests/BloxDisplayTests.client.lua` | 13 | 중앙 금지 미침범·Store 구독 반영·8자 잘림 방지 |
 | `Tests/ChallengeInfoTests.client.lua` | 17 | 상단 정보 15% 안·타이머 특대 단계·active=false 레이아웃 유지 |
-| `Tests/MenuRailTests.client.lua` | 58 | 6개 생성·좌측 레일 폭·세로 합계·BloxDisplay 비침범·AspectRatio·라벨 2~4자 ※ |
+| `Tests/MenuRailTests.client.lua` | 59 | 6개 생성·좌측 레일 폭·세로 합계·BloxDisplay 비침범·AspectRatio·라벨 2~4자·격자 열 수 구성값 ※ |
 | `Tests/HudVisibilityTests.client.lua` | 16 | PlayerGui 부착·Visible·Enabled·AbsoluteSize·10프레임 지속 관찰 ※ |
+| `Tests/HudLayoutTests.client.lua` | 198 | 뷰포트 게이트 뒤 실물 HudGui — 크기 0·인셋/뷰포트 경계 침범·형제 겹침·MenuRail 격자 배치(AbsolutePosition) ※ |
 | **합계** | **1218** | |
 
 ※ 일곱 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
@@ -59,8 +60,11 @@
 (정적 78, 실측 130) · `ButtonTests`(정적 22, 실측 37) · `MenuRailTests`(정적 18, 실측 58)는
 항목 목록(색 6종·아이콘 6개)을 순회하는 루프 안에 check가 여러 개 있고, `TextScaleTests`
 (정적 4, 실측 16)는 5단계 루프, `HudVisibilityTests`(정적 6, 실측 16)는 화면 3종 루프
-안에 check가 있다. 정적 세기에는 루프/헬퍼 안의 check가 한 번만 잡히고 런타임에는
-반복 횟수만큼 돈다 — 어긋나는 것이 **정상**이다. 이 일곱 행은 실측만 믿을 것.
+안에 check가 있다. `HudLayoutTests`(실측 198, 정적 카운트 없음 — 처음부터 실측만 기록)는
+HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍을 순회하는 검사 3, 행을
+순회하는 검사 4가 전부 루프 안에 있다. 정적 세기에는 루프/헬퍼 안의 check가 한 번만
+잡히고 런타임에는 반복 횟수만큼 돈다 — 어긋나는 것이 **정상**이다. 이 여덟 행은
+실측만 믿을 것.
 
 ⚠️ **역산으로 채운 칸은 합계가 맞아도 틀릴 수 있다.** `AttackConfigTests`는 한동안
 합계에서 역산한 38이었고 실측은 **29**였다. 같은 시점에 `ClickServiceTests`가 38 → **47**로
@@ -68,7 +72,15 @@
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-09-01 Studio Play 런타임 실측.** 1218 passed / 0 failed (33개 행).
+최근 갱신: **2026-09-03 Studio Play 런타임 실측 (부분).** `HudLayoutTests`(198, 신설 —
+U3-4 관측·게이트·인셋·격자 검증) · `MenuRailTests`(59, 갱신 — U3-4C에서 렌더 의존
+격자 단언 3개를 HudLayoutTests로 옮기며 62 → 59) 두 행만 이번 Play로 실측했다.
+
+⚠️ **합계(1218)는 이번에 다시 재지 않았다.** 나머지 31개 행은 아래 2026-09-01 값
+그대로다 — 표의 두 행(`MenuRailTests`·`HudLayoutTests`)과 합계가 지금은 서로 안 맞는다.
+전체 Play가 다시 나올 때까지 합계 줄을 임의로 계산해 고치지 않는다.
+
+직전 갱신: **2026-09-01 Studio Play 런타임 실측.** 1218 passed / 0 failed (33개 행).
 U3(UI 뼈대 + HUD 3종) 테스트 11행 추가 — `TextScaleTests`(16) · `ScreenControllerTests`(29) ·
 `StoreTests`(18) · `PanelTests`(19) · `ButtonTests`(37, 실측값) · `ValuePanelTests`(15) ·
 `LayoutTests`(20) · `BloxDisplayTests`(13) · `ChallengeInfoTests`(17) · `MenuRailTests`(58, 실측값) ·

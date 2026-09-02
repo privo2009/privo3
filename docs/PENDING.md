@@ -52,6 +52,9 @@
 
 ## 미결
 
+- **U3 진행 상태 (2026-09-03).** HUD 7종 중 3종(블럭스 · 챌린지 정보 · 메뉴 레일)
+  완료 — 실측·게이트·인셋·격자까지 `HudLayoutTests`로 검증됐다(위 해소 기록 참고).
+  다음은 하단 띠 4종이고, 힘 · 레벨 · 속도 블록부터 간다.
 - ~~**개인 구역**~~ — **4-2-a2에서 해소됐다.** 블록이 클라 렌더링으로 넘어가면서
   개인 구역 자체가 불필요해졌고, 패드도 공용 파트 한 세트로 두고 서버가
   Touched 시점에 개인 해금 여부를 판정한다 (→ ROADMAP 4-2-a2 / 4-2-b).
@@ -248,16 +251,6 @@
   수령 화면의 사유 표시와 환생 확인창의 사전 경고는 다른 화면이다.
 
   ⚠️ Phase 6 처리 대상. 화면 구현은 U7.
-- **U3-1이 Play 미검증이다** (`93c9da7`). `ScreenController` / `Store` /
-  `Panel` / `Button` / `ValuePanel` / `TextScale` + 테스트 6종.
-  테스트 소스는 104개이나 `ButtonTests`(6색 루프 안 check 3) ·
-  `TextScaleTests`(5단계 루프 안 check 2)에 루프가 있어 실측은 이보다 크다.
-  `AssetRegistryTests` 78 → 130과 같은 성격이다.
-
-  ⚠️ ROADMAP 테스트 현황은 Play 실측이 나온 뒤에 갱신한다. 정적 수치를
-  올리면 안 된다 — 이 프로젝트가 이미 두 번 겪은 사고다.
-  ⚠️ 프로필을 읽지도 쓰지도 않는 순수 클라 모듈이라 오염 위험은 없다.
-  어느 계정으로 돌려도 안전하다.
 - `ChallengeInfoTests.client.lua:59`에 `math.abs(...) < 1e-9` 비교가 남아 있다.
   지금은 우연히 통과 중(0.07/0.105 조합이 문턱 안쪽)이지만 PanelTests를 깨뜨린
   것과 같은 방식이다. `TestHelpers.checkClose`로 옮길 것.
@@ -514,3 +507,4 @@ then ... end`)만 지운다.
 | 2026-09-01 | HUD가 화면에 표시되지 않음 | `f176f81` — `ScreenControllerTests`의 `closeAll()`이 전역 `entries`를 훑어 실물까지 닫았다. 팩토리 + 인스턴스 격리로 해소, `HudVisibilityTests`로 회귀 방지 |
 | 2026-09-02 | 리포트 3종(CurveReport / StandardPathReport / WarpConversionReport)이 전량 출력돼 [ATTACK]·[Bootstrap] 관측 로그가 묻힘 | 이번 커밋 — **끄는 방식이 리포트마다 다르다.** `CurveReport`·`WarpConversionReport`는 코드 플래그가 없는 auto-run `Script`라(`Tests/` 안의 `.server.lua`, Bootstrap이 require하지 않고 엔진이 자동 실행) `src/server/Tests/CurveReport.meta.json` · `src/server/Tests/WarpConversionReport.meta.json`을 신설해 `Script.Enabled = false`로 껐다 — Lua는 한 줄도 안 건드렸다. `StandardPathReport`는 기존 Lua 플래그가 있어 `Bootstrap.server.lua`의 `STANDARD_PATH_REPORT_ENABLED`를 `true → false`로 내렸다(원래 값 `true`). 되돌리는 법: 앞 둘은 두 `.meta.json` 파일을 지운다, 뒤는 그 줄을 다시 `true`로 |
 | 2026-09-02 | HUD 표시 상태 육안 3건 (좌상단 블럭스·좌측 레일 타일 6개·상단 타이머 안 보임 / "대기중" 잘림) | `b3eac79`(검사1: `AspectType=FitWithinMaxSize`에서 상자 역할을 하는 `Size.X`를 `0→1`로, `BloxDisplay`/`ChallengeInfo`/`MenuRail` 4곳) + `9701df9`(검사2: 세 `ScreenGui`의 `IgnoreGuiInset`을 `true→false`로) + `813daf3`(그 둘의 부작용으로 깨진 게이트·검사2 기준선을 `IgnoreGuiInset` 기준으로 재계산) — `HudLayoutTests` 최종 실측 **182 passed / 0 failed**. red→green 경과: 22 fail(첫 실측, U3-4A 전) → 9 fail(크기 해소, U3-4A) → 0 fail(인셋·기준선 해소, U3-4B). `AbsolutePosition`이 GUI 인셋을 포함하지 않는다는 함정은 위 "함정" 절에 별도 기록 |
+| 2026-09-03 | U3-1이 Play 미검증이다 (`ScreenController`/`Store`/`Panel`/`Button`/`ValuePanel`/`TextScale` + 테스트 6종) | U3-2(관측 리포트) → U3-3(`HudLayoutTests` 신설) → U3-4A(`b3eac79`, 크기 0 수정) → U3-4B(`9701df9` 인셋 + `813daf3` 게이트/기준선) → U3-4C(`151977d` MenuRail 2열 전환 + `c1b5d74` 격자 검증을 `HudLayoutTests`로 이전) 연쇄로 실물 검증이 끝났다. `ScreenController`/`Store`/`Panel`/`Button`/`ValuePanel`/`TextScale`은 이 체인이 실제로 렌더한 HUD 3종(BloxDisplay/ChallengeInfo/MenuRail)을 통해 검증됐다. 최종 실측(2026-09-03): `HudLayoutTests` **198 passed / 0 failed**, `MenuRailTests` **59 passed / 0 failed** |
