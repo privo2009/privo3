@@ -5,8 +5,6 @@
 local Layout = require(script.Parent.Parent.UI.Layout)
 local BloxDisplay = require(script.Parent.Parent.UI.Screens.Hud.BloxDisplay)
 local MenuRail = require(script.Parent.Parent.UI.Screens.Hud.MenuRail)
-local TestHelpers = require(script.Parent.TestHelpers)
-local checkClose = TestHelpers.checkClose
 
 local passed = 0
 local failed = 0
@@ -140,48 +138,24 @@ do
 	end
 end
 
--- 9. 격자 배치: 같은 행은 같은 Y, 다른 열은 다른 X (U3-4C 2열 전환) ------------------------
+-- 9. 격자 구성값만 확인한다 (U3-4C 후속) ------------------------------------------------
 --
--- 2열이라는 사실 자체를 테스트로 고정한다 — 안 그러면 다음에 조용히 1열로
--- 되돌아가도 아무것도 못 잡는다. Y 비교는 checkClose를 쓴다(TestHelpers.lua 상단 —
--- 엔진에서 읽은 Position.Y.Scale은 float32라 == 비교가 이 저장소에서 이미 한 번
--- 오진을 냈다). X는 "다르다"만 확인하면 되므로 절대오차 임계로 충분하다.
+-- ⚠️ 행별 Y 일치 / X 상이를 여기서 재려던 시도(U3-4C)는 틀린 자리였다.
+-- UIGridLayout은 자식 Size는 CellSize로 덮어쓰지만(테스트 8이 통과하는 이유) Position은
+-- 건드리지 않는다 — 0으로 남는다. menuRail.root가 PlayerGui에 안 붙는 독립 인스턴스인
+-- 것과 무관하게, 렌더 트리에 붙어도 마찬가지다(U3-4C 후속 조사, docs/PENDING.md "함정"
+-- 절 참고). 즉 Position(따라서 Layout.getBounds)으로는 격자 배치를 이 파일에서
+-- 검증할 수 없다 — MenuRailTests는 컴포넌트 단위 테스트라 독립 인스턴스를 쓰는 것이
+-- 정상이고, 렌더 결과(실제 화면에서의 배치)를 재는 자리는 애초에 여기가 아니다.
+--
+-- 격자 배치 검증은 HudLayoutTests.client.lua 검사 4로 옮겼다 — 게이트를 통과한 뒤
+-- 실제 PlayerGui의 HudGui 아래에서 AbsolutePosition/AbsoluteSize로 잰다.
+--
+-- 여기 남기는 건 구성값(열 수) 하나뿐이다 — 이건 렌더와 무관한 순수 데이터라
+-- 독립 인스턴스에서도 유효하게 확인할 수 있다.
 
 do
-	local columns = MenuRail.Columns
-	check("MenuRail.Columns가 2 이상이다(전제 확인)", columns >= 2, tostring(columns))
-
-	local rows = math.ceil(#MenuRail.Items / columns)
-	for row = 1, rows do
-		local leftIndex = (row - 1) * columns + 1
-		local rightIndex = leftIndex + 1
-		local leftItem = MenuRail.Items[leftIndex]
-		local rightItem = MenuRail.Items[rightIndex]
-
-		if leftItem == nil or rightItem == nil then
-			continue
-		end
-
-		local leftRow = menuRail.root:FindFirstChild(leftItem.screenName) :: Frame?
-		local rightRow = menuRail.root:FindFirstChild(rightItem.screenName) :: Frame?
-
-		if leftRow == nil or rightRow == nil then
-			continue
-		end
-
-		local leftX0, leftY0, _, _ = Layout.getBounds(leftRow)
-		local rightX0, rightY0, _, _ = Layout.getBounds(rightRow)
-
-		check(
-			string.format("%d행: '%s'(1열)와 '%s'(2열)가 같은 Y를 갖는다", row, leftItem.screenName, rightItem.screenName),
-			checkClose(leftY0, rightY0)
-		)
-		check(
-			string.format("%d행: '%s'(1열)와 '%s'(2열)의 X가 다르다", row, leftItem.screenName, rightItem.screenName),
-			math.abs(rightX0 - leftX0) > 1e-4,
-			string.format("X1=%.6f X2=%.6f", leftX0, rightX0)
-		)
-	end
+	check("MenuRail.Columns가 2 이상이다(전제 확인 — 격자 구성값)", MenuRail.Columns >= 2, tostring(MenuRail.Columns))
 end
 
 print(string.format("[MenuRailTests] %d passed, %d failed", passed, failed))

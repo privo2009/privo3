@@ -59,6 +59,7 @@ local RunService = game:GetService("RunService")
 
 local ScreenController = require(script.Parent.Parent.UI.ScreenController)
 local HudLayoutGate = require(script.Parent.Parent.Tools.HudLayoutGate)
+local MenuRail = require(script.Parent.Parent.UI.Screens.Hud.MenuRail)
 
 local passed = 0
 local failed = 0
@@ -187,6 +188,94 @@ local function checkOverlaps(records: { ElementRecord })
 	end
 end
 
+-- 검사 4 — MenuRail 격자 배치 (U3-4C 후속). 실제 렌더 결과를 잰다는 점에서 검사
+-- 1/2/3과 성격이 같다 - MenuRailTests(컴포넌트 단위, 독립 인스턴스)에 있던 자리가
+-- 틀렸던 이유가 바로 이것이다: UIGridLayout은 자식 Size는 CellSize로 덮어쓰지만
+-- Position은 건드리지 않는다(0으로 남는다) - 독립 인스턴스든 렌더 트리든 마찬가지라
+-- Position 기반 검증은 애초에 이 파일(HudLayoutTests)에서도 안 통했을 것이다.
+-- 여기서는 Position이 아니라 AbsolutePosition/AbsoluteSize를 쓴다 - 이건 실제 렌더
+-- 결과이고, 검사 1/2/3이 이미 그렇게 하고 있다.
+--
+-- 행 구성은 MenuRail.Columns/MenuRail.Items에서 유도한다. 2를 여기 하드코딩하지
+-- 않는다 - 나중에 열 수가 바뀌어도 이 검사가 따라간다.
+local function checkMenuRailGrid()
+	-- ⚠️ "잴 수 없었다"를 green으로 처리하지 않는다(이 세션에서 이미 정한 규약,
+	-- 게이트 실패 처리와 같은 이유). MenuRail이 HudGui 아래 register+open돼 있지
+	-- 않으면(HudBoot이 안 띄운 상태) 명시적으로 fail시키고 나머지는 생략한다.
+	local entry = ScreenController._debug.entries["MenuRail"]
+	local menuRailRoot = if entry ~= nil then entry.instance else nil
+
+	local isRendered = menuRailRoot ~= nil and menuRailRoot:IsDescendantOf(ScreenController._debug.guis.Hud)
+	check("MenuRail이 HudGui 아래 register+open돼 실물로 있다(격자 검증 전제)", isRendered)
+
+	if not isRendered or menuRailRoot == nil then
+		return
+	end
+
+	local columns = MenuRail.Columns
+	local rows = math.ceil(#MenuRail.Items / columns)
+
+	-- 셀 폭 수준 판정 기준. 1px 오차 같은 것으로 통과시키지 않기 위해 최소 반 칸
+	-- 폭 이상 벌어져야 "다른 열"로 인정한다. 상수로 박지 않고 실측 AbsoluteSize에서
+	-- 매번 유도한다 - Scale 상수를 여기서 다시 계산해 옮기면 MenuRail.lua와 두 곳이
+	-- 어긋날 위험이 생긴다.
+	local minColumnGapPx = menuRailRoot.AbsoluteSize.X / columns / 2
+
+	for row = 1, rows do
+		local leftIndex = (row - 1) * columns + 1
+		local rightIndex = leftIndex + 1
+		local leftItem = MenuRail.Items[leftIndex]
+		local rightItem = MenuRail.Items[rightIndex]
+
+		if leftItem == nil or rightItem == nil then
+			continue
+		end
+
+		local leftRow = menuRailRoot:FindFirstChild(leftItem.screenName) :: GuiObject?
+		local rightRow = menuRailRoot:FindFirstChild(rightItem.screenName) :: GuiObject?
+
+		check(string.format("'%s' 항목이 실물에 있다(격자 검증 전제)", leftItem.screenName), leftRow ~= nil)
+		check(string.format("'%s' 항목이 실물에 있다(격자 검증 전제)", rightItem.screenName), rightRow ~= nil)
+
+		if leftRow == nil or rightRow == nil then
+			continue
+		end
+
+		local leftPos, rightPos = leftRow.AbsolutePosition, rightRow.AbsolutePosition
+		local posDetail = string.format(
+			"'%s'=(%d,%d) '%s'=(%d,%d)",
+			leftItem.screenName,
+			leftPos.X,
+			leftPos.Y,
+			rightItem.screenName,
+			rightPos.X,
+			rightPos.Y
+		)
+
+		check(
+			string.format("%d행: '%s'와 '%s'가 같은 AbsolutePosition.Y를 갖는다", row, leftItem.screenName, rightItem.screenName),
+			leftPos.Y == rightPos.Y,
+			posDetail
+		)
+		check(
+			string.format("%d행: '%s'(1열)의 AbsolutePosition.X가 '%s'(2열)보다 작다", row, leftItem.screenName, rightItem.screenName),
+			leftPos.X < rightPos.X,
+			posDetail
+		)
+		check(
+			string.format(
+				"%d행: '%s'와 '%s'의 AbsolutePosition.X 차이가 셀 폭 수준이다(>=%dpx)",
+				row,
+				leftItem.screenName,
+				rightItem.screenName,
+				minColumnGapPx
+			),
+			(rightPos.X - leftPos.X) >= minColumnGapPx,
+			string.format("%s 차이=%dpx 기준=%dpx", posDetail, rightPos.X - leftPos.X, minColumnGapPx)
+		)
+	end
+end
+
 task.defer(function()
 	local hud = ScreenController._debug.guis.Hud
 
@@ -263,6 +352,9 @@ task.defer(function()
 
 	-- 검사 3 — 형제 겹침 ------------------------------------------------------------
 	checkOverlaps(records)
+
+	-- 검사 4 — MenuRail 격자 배치 ----------------------------------------------------
+	checkMenuRailGrid()
 
 	finish()
 end)
