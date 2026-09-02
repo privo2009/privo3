@@ -9,7 +9,7 @@
 `docs/UI_HANDOFF.md`와 합치지 않는다. 그것은 인계 절차와 검증 관문 문서이고
 이것은 대기 큐다. 성격이 다르다.
 
-문서 갱신: 2026-09-02
+문서 갱신: 2026-09-03
 
 ---
 
@@ -323,6 +323,15 @@ HudBoot이 "등록·표시 완료"를 찍었는데 화면은 비어 있었다(U3
 "0 < 58"로 fail). 인셋을 다루는 코드는 **`HudLayoutGate.lua`의
 `computeExpectedSize` / `computeUsableBounds` 두 함수를 쓸 것** — `IgnoreGuiInset`
 분기 판단이 그 모듈 한 곳에만 있고, 다른 곳에서 손으로 다시 쓰면 이 사고가 반복된다.
+
+⚠️ **`UIGridLayout`은 자식의 `Position`을 수정하지 않는다.** `Size`는 `CellSize`로
+덮어쓰지만(그래서 `Size.X.Offset == 0` 같은 검사는 통과한다) `Position`은 0으로
+남는다 — 독립 인스턴스든 실제 렌더 트리든 마찬가지다(U3-4C 후속, `MenuRailTests`가
+행별 `Layout.getBounds()` X/Y 비교를 넣었다가 전부 `(0,0)`으로 걸렸다). 즉 **격자
+배치는 `Position`(따라서 `Layout.getBounds()`)으로 검증할 수 없다.** 독립 인스턴스를
+쓰는 컴포넌트 테스트(`MenuRailTests` 등)에서는 렌더 결과 자체를 잴 수 없고, 그건
+`HudLayoutTests`가 게이트 뒤에서 `AbsolutePosition`/`AbsoluteSize`로 재는 자리다
+(검사 4, `checkMenuRailGrid`).
 
 ---
 
