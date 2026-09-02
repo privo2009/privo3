@@ -69,7 +69,14 @@ local function createScreenGui(layer: Layer, namePrefix: string): ScreenGui
 	gui.Name = namePrefix .. layer .. "Gui"
 	gui.DisplayOrder = DISPLAY_ORDER[layer]
 	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = true
+	-- false(엔진 기본값): 좌표계 원점을 로블록스 topbar 인셋만큼 엔진이 대신
+	-- 내려준다. U3-2/U3-4A 관측에서 true였을 때 BloxDisplay·ChallengeInfo·MenuRail
+	-- 요소들이 topbar 아래(음수 Y)로 들어갔다 — 인셋이 58px 고정 픽셀인 반면 이
+	-- 프로젝트의 레이아웃은 전부 Scale이라, Scale로 여백을 흉내내면 해상도마다
+	-- 어긋난다(실측: 뷰포트 593과 830에서 검사 개수가 13/9로 서로 달랐다). Scale을
+	-- 하나도 안 고치고 규칙(Offset 금지)을 지키는 길은 엔진이 원점을 옮겨주게 하는
+	-- 것뿐이다(U3-4B). HudLayoutTests가 이 값을 실측으로 검증한다.
+	gui.IgnoreGuiInset = false
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	return gui
 end
