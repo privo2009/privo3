@@ -88,7 +88,10 @@ local function createTile(item: { assetKey: string, label: string, screenName: s
 	local tile = AssetImage.create(AssetRegistry.resolve(item.assetKey))
 	tile.Name = "Tile"
 	tile.LayoutOrder = 1
-	tile.Size = UDim2.fromScale(0, TILE_HEIGHT / itemHeight) -- itemRow 기준
+	-- X=1 (0이 아니다): 아래 AspectRatioConstraint는 AspectType 기본값 FitWithinMaxSize라
+	-- Size가 상자다 — X=0이면 상자 폭 0으로 결과가 0x0이 된다 (BloxDisplay/Icon·Value·
+	-- ChallengeInfo/Timer에도 같은 관례가 손으로 반복돼 있다, U3-2 관측).
+	tile.Size = UDim2.fromScale(1, TILE_HEIGHT / itemHeight) -- itemRow 기준
 	local aspect = Instance.new("UIAspectRatioConstraint")
 	aspect.AspectRatio = 1
 	aspect.DominantAxis = Enum.DominantAxis.Height

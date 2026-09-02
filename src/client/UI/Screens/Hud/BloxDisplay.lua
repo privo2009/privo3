@@ -51,7 +51,11 @@ function BloxDisplay.create(): BloxDisplayHandle
 	local icon = AssetImage.create(AssetRegistry.resolve("icon_blox"))
 	icon.Name = "Icon"
 	icon.LayoutOrder = 1
-	icon.Size = UDim2.fromScale(0, 1)
+	-- X=1 (0이 아니다): AspectType 기본값 FitWithinMaxSize에서는 Size가 "이 상자 안에
+	-- 비율 유지하며 넣어라"의 그 상자다. X=0이면 상자 폭이 0이라 결과가 0x0이 된다
+	-- (U3-2 관측으로 확정 — DominantAxis는 ScaleWithParentSize에서만 동작해서 여기선
+	-- 안 쓰인다). 상자를 넉넉히(1) 주고 실제 폭은 AspectRatioConstraint가 높이 기준으로 깎는다.
+	icon.Size = UDim2.fromScale(1, 1)
 	local iconAspect = Instance.new("UIAspectRatioConstraint")
 	iconAspect.AspectRatio = 1
 	iconAspect.DominantAxis = Enum.DominantAxis.Height
@@ -61,7 +65,10 @@ function BloxDisplay.create(): BloxDisplayHandle
 	local valuePanel = ValuePanel.create(LEVEL, ValuePanel.MAX_CHARS_DEFAULT)
 	valuePanel.label.Name = "Value"
 	valuePanel.label.LayoutOrder = 2
-	valuePanel.label.Size = UDim2.fromScale(0, 1)
+	-- X=1 (0이 아니다): ValuePanel의 UIAspectRatioConstraint도 AspectType 기본값
+	-- FitWithinMaxSize라 Size가 상자다 — X=0이면 상자 폭 0으로 결과가 0x0이 된다
+	-- (같은 관례가 Icon·ChallengeInfo/Timer·MenuRail/Tile에도 손으로 반복돼 있다, U3-2 관측).
+	valuePanel.label.Size = UDim2.fromScale(1, 1)
 	valuePanel.label.Parent = root
 
 	valuePanel.setValue(Store.get("blox"))

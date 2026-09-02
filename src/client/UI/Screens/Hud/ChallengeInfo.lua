@@ -90,7 +90,10 @@ function ChallengeInfo.create(): ChallengeInfoHandle
 	local timer = ValuePanel.create(TIMER_LEVEL, TIMER_CHARS)
 	timer.label.Name = "Timer"
 	timer.label.LayoutOrder = 2
-	timer.label.Size = UDim2.fromScale(0, timerHeight / rootHeight)
+	-- X=1 (0이 아니다): ValuePanel의 UIAspectRatioConstraint는 AspectType 기본값
+	-- FitWithinMaxSize라 Size가 상자다 — X=0이면 상자 폭 0으로 결과가 0x0이 된다
+	-- (BloxDisplay/Icon·Value·MenuRail/Tile에도 같은 관례가 손으로 반복돼 있다, U3-2 관측).
+	timer.label.Size = UDim2.fromScale(1, timerHeight / rootHeight)
 	timer.label.Text = INACTIVE_TIMER_TEXT
 	timer.label.Parent = root
 
