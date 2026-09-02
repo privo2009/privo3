@@ -264,59 +264,6 @@
 - ValuePanel의 0.55(글자 폭÷높이 비)가 문서에 없는 임의값이다. 999.99AB가
   잘리는지를 결정하는 값이라 성격이 가볍지 않다 — 참고 게임 1이 무너진 지점이
   정확히 여기다. G4 더미 HUD 실측에서 눈으로 보고 정한다.
-- HUD 표시 상태에서 육안으로 3건이 보였다 (2026-09-01). `HudLayoutReport`
-  관측 1차·2차(U3-2, 2026-09-02)로 **원인이 둘로 확정됐다.**
-
-    좌상단 블럭스·좌측 레일 타일 6개·상단 타이머가 화면에 안 보인다
-      → 원인: `UIAspectRatioConstraint`의 `AspectType` 기본값(`FitWithinMaxSize`)에서는
-      `DominantAxis`가 동작하지 않는다(`ScaleWithParentSize`일 때만 동작). "`Size.X=0` +
-      `DominantAxis=Height`로 렌더 시점에 폭을 역산"하는 관례(`BloxDisplay.lua:54,64` /
-      `ChallengeInfo.lua:93` / `ValuePanel.lua:64-67` / `MenuRail.lua:91-95`, 9개 요소)가
-      **처음부터 성립한 적이 없었다** — `AspectType`을 아무도 세팅하지 않는다.
-    좌상단 블럭스가 로블록스 topbar 아래 숨음 · "대기중"이 화면 맨 위에서 잘림
-      → 원인: 세 `ScreenGui`(`ScreenController.lua`)가 전부 `IgnoreGuiInset=true`인데
-      `GetGuiInset()` 인셋(실측 topLeft=(0,58))을 아무도 빼주지 않는다.
-
-  ⚠️ `HudVisibilityTests`가 검사하는 것은 `IsDescendantOf` + `Visible` +
-  `AbsoluteSize`다. "붙었는가"까지만 보고 "읽히는가"는 못 본다. 그 구멍을
-  `HudLayoutTests.client.lua`(U3-3 신설, `src/client/Tests/`)가 메운다 — HudGui 아래
-  전체 요소의 `AbsSize>0` · 상단 인셋/뷰포트 경계 침범 · 형제 겹침을 실측한다. 게이트
-  로직(`HudLayoutGate.lua`, `src/client/Tools/`)은 관측 리포트(`HudLayoutReport.lua`)와
-  공유한다 — 뷰포트가 확정되기 전(유령값 1x1 / 800x600)에 재면 값이 통째로 거짓이 된다.
-
-  ⚠️ **`HudLayoutTests`는 red 상태로 커밋됐다 — 이 저장소에서 처음이다.** 첫 Play
-  실측(2026-09-02): 160 passed / 22 failed = 검사1(크기0) 9 + 검사2(인셋침범) 13 +
-  검사3(겹침) 0. **"깨진 커밋"으로 보고 되돌리지 말 것.**
-
-  **U3-4A(이번)**: 검사1만 고쳤다. 원인은 `UIAspectRatioConstraint`의 `AspectType`
-  기본값(`FitWithinMaxSize`) — 이 모드에서 `Size`는 "비율 유지하며 넣을 상자"이고
-  `DominantAxis`는 `ScaleWithParentSize`일 때만 동작해서 무시된다. `Size.X=0`이면
-  상자 폭이 0이라 결과가 0x0이었다. `AspectType`은 그대로 두고(범위 밖) 네 지점의
-  `Size.X`만 `0 → 1`로 올렸다 — `BloxDisplay.lua`(Icon·Value) / `ChallengeInfo.lua`
-  (Timer) / `MenuRail.lua`(Tile, 6개 항목이 한 소스라인을 공유). `Size.Y`·`Position`·
-  `AspectType`·`DominantAxis`·`AspectRatio`는 전부 그대로다.
-
-  **U3-4A 실측** (2026-09-02, 뷰포트 1914x830): 173 passed / 9 failed = 검사1
-  9→0(해소) · 검사2 13→9(인셋 침범, 범위 밖이라 그대로) · 검사3 0→0(새 겹침 없음).
-  남은 9개 전부 인셋 침범이었다 — BloxDisplay 계열 3(`AbsPos.Y=-58`) ·
-  ChallengeInfo 계열 3(`-58,-58,-28`) · MenuRail 계열 3(`-12`, 컨테이너/Shop/
-  Shop·HitArea).
-
-  **U3-4B(이번)**: 인셋을 고쳤다. `ScreenController.lua`의 `createScreenGui()`
-  (Hud/Window/Overlay 3층이 공유하는 한 곳) `IgnoreGuiInset`을 `true → false`로.
-  Scale 여백 대신 이 값을 고른 이유: 인셋은 58px 고정 픽셀인데 이 프로젝트
-  레이아웃은 전부 Scale이라, Scale로 흉내내면 해상도마다 어긋난다(실측 —
-  뷰포트 593과 830에서 검사2 실패 개수가 13/9로 서로 달랐다, 같은 Scale 값인데
-  결과가 다르다는 뜻). `IgnoreGuiInset=false`는 엔진이 좌표계 원점을 인셋만큼
-  대신 내려주므로 Scale을 하나도 안 고쳐도 된다 — Offset 금지 규칙을 지키는
-  유일한 길. 부작용: 뷰포트 유효 높이가 830→772로 줄어 Scale 요소가 전부 약
-  7% 작아진다 — 의도된 결과이며, 세이프존 구역 비율 조정은 G4에서 확정한다.
-
-  검사2는 9→0으로 예상되나 **아직 Play로 확인 전이다.** 통과하면 이 항목
-  전체가 해소된다(검사1·2·3 전부 원인 해소 — MenuRail 2x3 전환 같은 후속
-  개선은 U3-4C 별도 항목이라 여기 포함되지 않는다). 실패가 남으면 그
-  목록이 다음 세션의 입력이다.
-
 ---
 
 ## 함정 — Play 검증 전에 확인할 것
@@ -355,6 +302,16 @@ HudBoot이 "등록·표시 완료"를 찍었는데 화면은 비어 있었다(U3
 동작 범위는 막지 못해 실물 HUD를 껐다(U3-4, 2026-09-01). 상태를 공유하는 모듈은
 테스트가 자기 인스턴스를 갖는다(`ScreenController.new()`). 이 원칙은 UI에
 한정되지 않는다 — 앞으로 나올 모든 클라 모듈에 걸린다.
+
+⚠️ **`AbsolutePosition`은 GUI 인셋을 포함하지 않는다.** `IgnoreGuiInset=false`인
+`ScreenGui`의 좌표계는 이미 topbar 인셋 아래에서 시작한다 — `AbsPos.Y=0`은
+"화면 맨 위"가 아니라 "사용 가능 영역 맨 위"다. U3-4B 세션에서 이걸 **두 번**
+놓쳤다: 한 번은 게이트(`HudGui.AbsoluteSize == ViewportSize`가 인셋만큼 영원히
+어긋나 600프레임 뒤 `size_mismatch`로 죽었다), 한 번은 검사 2 기준선
+(`GetGuiInset().topLeft.Y`를 그대로 대서 인셋을 두 번 뺐다 — `AbsPos.Y=0`(정상)인데
+"0 < 58"로 fail). 인셋을 다루는 코드는 **`HudLayoutGate.lua`의
+`computeExpectedSize` / `computeUsableBounds` 두 함수를 쓸 것** — `IgnoreGuiInset`
+분기 판단이 그 모듈 한 곳에만 있고, 다른 곳에서 손으로 다시 쓰면 이 사고가 반복된다.
 
 ---
 
@@ -536,3 +493,4 @@ then ... end`)만 지운다.
 | 2026-09-01 | Play 실패 19건 (float32 비교) | `f176f81` — `TestHelpers.checkClose` 신설, 상대오차 1e-6. 코드 버그 아니었음, `PanelTests` 로컬 `approxEq`의 절대오차 1e-9가 원인 |
 | 2026-09-01 | HUD가 화면에 표시되지 않음 | `f176f81` — `ScreenControllerTests`의 `closeAll()`이 전역 `entries`를 훑어 실물까지 닫았다. 팩토리 + 인스턴스 격리로 해소, `HudVisibilityTests`로 회귀 방지 |
 | 2026-09-02 | 리포트 3종(CurveReport / StandardPathReport / WarpConversionReport)이 전량 출력돼 [ATTACK]·[Bootstrap] 관측 로그가 묻힘 | 이번 커밋 — **끄는 방식이 리포트마다 다르다.** `CurveReport`·`WarpConversionReport`는 코드 플래그가 없는 auto-run `Script`라(`Tests/` 안의 `.server.lua`, Bootstrap이 require하지 않고 엔진이 자동 실행) `src/server/Tests/CurveReport.meta.json` · `src/server/Tests/WarpConversionReport.meta.json`을 신설해 `Script.Enabled = false`로 껐다 — Lua는 한 줄도 안 건드렸다. `StandardPathReport`는 기존 Lua 플래그가 있어 `Bootstrap.server.lua`의 `STANDARD_PATH_REPORT_ENABLED`를 `true → false`로 내렸다(원래 값 `true`). 되돌리는 법: 앞 둘은 두 `.meta.json` 파일을 지운다, 뒤는 그 줄을 다시 `true`로 |
+| 2026-09-02 | HUD 표시 상태 육안 3건 (좌상단 블럭스·좌측 레일 타일 6개·상단 타이머 안 보임 / "대기중" 잘림) | `b3eac79`(검사1: `AspectType=FitWithinMaxSize`에서 상자 역할을 하는 `Size.X`를 `0→1`로, `BloxDisplay`/`ChallengeInfo`/`MenuRail` 4곳) + `9701df9`(검사2: 세 `ScreenGui`의 `IgnoreGuiInset`을 `true→false`로) + `813daf3`(그 둘의 부작용으로 깨진 게이트·검사2 기준선을 `IgnoreGuiInset` 기준으로 재계산) — `HudLayoutTests` 최종 실측 **182 passed / 0 failed**. red→green 경과: 22 fail(첫 실측, U3-4A 전) → 9 fail(크기 해소, U3-4A) → 0 fail(인셋·기준선 해소, U3-4B). `AbsolutePosition`이 GUI 인셋을 포함하지 않는다는 함정은 위 "함정" 절에 별도 기록 |
