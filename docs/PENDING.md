@@ -9,7 +9,7 @@
 `docs/UI_HANDOFF.md`와 합치지 않는다. 그것은 인계 절차와 검증 관문 문서이고
 이것은 대기 큐다. 성격이 다르다.
 
-문서 갱신: 2026-09-01
+문서 갱신: 2026-09-02
 
 ---
 
@@ -248,12 +248,6 @@
   수령 화면의 사유 표시와 환생 확인창의 사전 경고는 다른 화면이다.
 
   ⚠️ Phase 6 처리 대상. 화면 구현은 U7.
-- 리포트 3종(CurveReport / StandardPathReport / WarpConversionReport)이
-  전량 출력돼 [ATTACK]·[Bootstrap] 관측 로그가 묻힌다. U3 배선이 시작되면
-  UI 쪽 로그가 더 늘어난다. 어느 시점에 플래그를 끌지 판단 필요.
-
-  ⚠️ 끄는 것은 소음 문제이지 오염이 아니다 — 이 셋은 프로필을 읽지도 쓰지도
-  않는다. 삭제 조건은 잔재 표가 원본이며 바뀌지 않았다.
 - **U3-1이 Play 미검증이다** (`93c9da7`). `ScreenController` / `Store` /
   `Panel` / `Button` / `ValuePanel` / `TextScale` + 테스트 6종.
   테스트 소스는 104개이나 `ButtonTests`(6색 루프 안 check 3) ·
@@ -270,16 +264,45 @@
 - ValuePanel의 0.55(글자 폭÷높이 비)가 문서에 없는 임의값이다. 999.99AB가
   잘리는지를 결정하는 값이라 성격이 가볍지 않다 — 참고 게임 1이 무너진 지점이
   정확히 여기다. G4 더미 HUD 실측에서 눈으로 보고 정한다.
-- HUD 표시 상태에서 육안으로 3건이 보였다 (2026-09-01). 셋 다 테스트를 통과한
-  채로 발생했다.
+- HUD 표시 상태에서 육안으로 3건이 보였다 (2026-09-01). `HudLayoutReport`
+  관측 1차·2차(U3-2, 2026-09-02)로 **원인이 둘로 확정됐다.**
 
-    좌측 레일 라벨이 회색 타일에 겹쳐 읽히지 않는다
-    좌상단 블럭스가 화면에 보이지 않는다 (테스트는 통과 — 붙어는 있다)
-    상단 중앙 "대기중"이 화면 맨 위에 잘려 있다
+    좌상단 블럭스·좌측 레일 타일 6개·상단 타이머가 화면에 안 보인다
+      → 원인: `UIAspectRatioConstraint`의 `AspectType` 기본값(`FitWithinMaxSize`)에서는
+      `DominantAxis`가 동작하지 않는다(`ScaleWithParentSize`일 때만 동작). "`Size.X=0` +
+      `DominantAxis=Height`로 렌더 시점에 폭을 역산"하는 관례(`BloxDisplay.lua:54,64` /
+      `ChallengeInfo.lua:93` / `ValuePanel.lua:64-67` / `MenuRail.lua:91-95`, 9개 요소)가
+      **처음부터 성립한 적이 없었다** — `AspectType`을 아무도 세팅하지 않는다.
+    좌상단 블럭스가 로블록스 topbar 아래 숨음 · "대기중"이 화면 맨 위에서 잘림
+      → 원인: 세 `ScreenGui`(`ScreenController.lua`)가 전부 `IgnoreGuiInset=true`인데
+      `GetGuiInset()` 인셋(실측 topLeft=(0,58))을 아무도 빼주지 않는다.
 
   ⚠️ `HudVisibilityTests`가 검사하는 것은 `IsDescendantOf` + `Visible` +
-  `AbsoluteSize`다. "붙었는가"까지만 보고 "읽히는가"는 못 본다. 그 구멍이
-  이번에 그대로 드러났다. 다음 세션 첫 작업 대상이다.
+  `AbsoluteSize`다. "붙었는가"까지만 보고 "읽히는가"는 못 본다. 그 구멍을
+  `HudLayoutTests.client.lua`(U3-3 신설, `src/client/Tests/`)가 메운다 — HudGui 아래
+  전체 요소의 `AbsSize>0` · 상단 인셋/뷰포트 경계 침범 · 형제 겹침을 실측한다. 게이트
+  로직(`HudLayoutGate.lua`, `src/client/Tools/`)은 관측 리포트(`HudLayoutReport.lua`)와
+  공유한다 — 뷰포트가 확정되기 전(유령값 1x1 / 800x600)에 재면 값이 통째로 거짓이 된다.
+
+  ⚠️ **`HudLayoutTests`는 red 상태로 커밋됐다 — 이 저장소에서 처음이다.** 첫 Play
+  실측(2026-09-02): 160 passed / 22 failed = 검사1(크기0) 9 + 검사2(인셋침범) 13 +
+  검사3(겹침) 0. **"깨진 커밋"으로 보고 되돌리지 말 것.**
+
+  **U3-4A(이번)**: 검사1만 고쳤다. 원인은 `UIAspectRatioConstraint`의 `AspectType`
+  기본값(`FitWithinMaxSize`) — 이 모드에서 `Size`는 "비율 유지하며 넣을 상자"이고
+  `DominantAxis`는 `ScaleWithParentSize`일 때만 동작해서 무시된다. `Size.X=0`이면
+  상자 폭이 0이라 결과가 0x0이었다. `AspectType`은 그대로 두고(범위 밖) 네 지점의
+  `Size.X`만 `0 → 1`로 올렸다 — `BloxDisplay.lua`(Icon·Value) / `ChallengeInfo.lua`
+  (Timer) / `MenuRail.lua`(Tile, 6개 항목이 한 소스라인을 공유). `Size.Y`·`Position`·
+  `AspectType`·`DominantAxis`·`AspectRatio`는 전부 그대로다.
+
+  검사1은 9 → 0으로 예상되나 **아직 Play로 확인 전이다.** 검사2(인셋침범, 13)는
+  U3-4A 범위 밖(`IgnoreGuiInset`은 안 건드림)이라 그대로 남지만, Tile이 실제
+  크기를 갖게 되면서 `UIListLayout` 배치가 바뀌어 형제들의 `AbsPos.Y`가 움직이므로
+  숫자 자체는 달라질 수 있다. 검사3(겹침, 0)도 Tile이 실제 면적을 갖게 되므로
+  0에서 늘어날 수 있다 — 늘어나도 이번 범위에서 손대지 않는다, 그 숫자가 U3-4B
+  (인셋 수정)의 입력이다. 다음 세션은 **먼저 Play로 세 검사 숫자를 다시 재고**
+  U3-4B로 넘어갈 것.
 
 ---
 
@@ -499,3 +522,4 @@ then ... end`)만 지운다.
 | 2026-08-31 | 메뉴 진입 아이콘 9개가 좌측 레일에 안 들어감 | U3-2 구현 중 발견(항목당 10.5% × 9 = 94.5%, 최선값). 규격이 아니라 메뉴 구조를 고쳤다 — 레일 6개, 타이틀은 아우라 창 안, 워프는 월드 창과 통합. 8%(터치 하한)와 라벨(에셋 도착 전 유일한 구분 수단)은 유지 |
 | 2026-09-01 | Play 실패 19건 (float32 비교) | `f176f81` — `TestHelpers.checkClose` 신설, 상대오차 1e-6. 코드 버그 아니었음, `PanelTests` 로컬 `approxEq`의 절대오차 1e-9가 원인 |
 | 2026-09-01 | HUD가 화면에 표시되지 않음 | `f176f81` — `ScreenControllerTests`의 `closeAll()`이 전역 `entries`를 훑어 실물까지 닫았다. 팩토리 + 인스턴스 격리로 해소, `HudVisibilityTests`로 회귀 방지 |
+| 2026-09-02 | 리포트 3종(CurveReport / StandardPathReport / WarpConversionReport)이 전량 출력돼 [ATTACK]·[Bootstrap] 관측 로그가 묻힘 | 이번 커밋 — **끄는 방식이 리포트마다 다르다.** `CurveReport`·`WarpConversionReport`는 코드 플래그가 없는 auto-run `Script`라(`Tests/` 안의 `.server.lua`, Bootstrap이 require하지 않고 엔진이 자동 실행) `src/server/Tests/CurveReport.meta.json` · `src/server/Tests/WarpConversionReport.meta.json`을 신설해 `Script.Enabled = false`로 껐다 — Lua는 한 줄도 안 건드렸다. `StandardPathReport`는 기존 Lua 플래그가 있어 `Bootstrap.server.lua`의 `STANDARD_PATH_REPORT_ENABLED`를 `true → false`로 내렸다(원래 값 `true`). 되돌리는 법: 앞 둘은 두 `.meta.json` 파일을 지운다, 뒤는 그 줄을 다시 `true`로 |
