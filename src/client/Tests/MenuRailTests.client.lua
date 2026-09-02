@@ -5,6 +5,8 @@
 local Layout = require(script.Parent.Parent.UI.Layout)
 local BloxDisplay = require(script.Parent.Parent.UI.Screens.Hud.BloxDisplay)
 local MenuRail = require(script.Parent.Parent.UI.Screens.Hud.MenuRail)
+local TestHelpers = require(script.Parent.TestHelpers)
+local checkClose = TestHelpers.checkClose
 
 local passed = 0
 local failed = 0
@@ -135,6 +137,50 @@ do
 				(itemRow :: Frame).Size.Y.Offset == 0
 			)
 		end
+	end
+end
+
+-- 9. 격자 배치: 같은 행은 같은 Y, 다른 열은 다른 X (U3-4C 2열 전환) ------------------------
+--
+-- 2열이라는 사실 자체를 테스트로 고정한다 — 안 그러면 다음에 조용히 1열로
+-- 되돌아가도 아무것도 못 잡는다. Y 비교는 checkClose를 쓴다(TestHelpers.lua 상단 —
+-- 엔진에서 읽은 Position.Y.Scale은 float32라 == 비교가 이 저장소에서 이미 한 번
+-- 오진을 냈다). X는 "다르다"만 확인하면 되므로 절대오차 임계로 충분하다.
+
+do
+	local columns = MenuRail.Columns
+	check("MenuRail.Columns가 2 이상이다(전제 확인)", columns >= 2, tostring(columns))
+
+	local rows = math.ceil(#MenuRail.Items / columns)
+	for row = 1, rows do
+		local leftIndex = (row - 1) * columns + 1
+		local rightIndex = leftIndex + 1
+		local leftItem = MenuRail.Items[leftIndex]
+		local rightItem = MenuRail.Items[rightIndex]
+
+		if leftItem == nil or rightItem == nil then
+			continue
+		end
+
+		local leftRow = menuRail.root:FindFirstChild(leftItem.screenName) :: Frame?
+		local rightRow = menuRail.root:FindFirstChild(rightItem.screenName) :: Frame?
+
+		if leftRow == nil or rightRow == nil then
+			continue
+		end
+
+		local leftX0, leftY0, _, _ = Layout.getBounds(leftRow)
+		local rightX0, rightY0, _, _ = Layout.getBounds(rightRow)
+
+		check(
+			string.format("%d행: '%s'(1열)와 '%s'(2열)가 같은 Y를 갖는다", row, leftItem.screenName, rightItem.screenName),
+			checkClose(leftY0, rightY0)
+		)
+		check(
+			string.format("%d행: '%s'(1열)와 '%s'(2열)의 X가 다르다", row, leftItem.screenName, rightItem.screenName),
+			math.abs(rightX0 - leftX0) > 1e-4,
+			string.format("X1=%.6f X2=%.6f", leftX0, rightX0)
+		)
 	end
 end
 

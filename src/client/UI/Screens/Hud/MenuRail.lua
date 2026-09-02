@@ -30,10 +30,17 @@ local TILE_HEIGHT = 0.08
 local LABEL_LEVEL: TextScale.Level = "small"
 local LABEL_HEIGHT = TextScale.Levels[LABEL_LEVEL].heightFraction
 
--- 항목 간 세로 간격. docs에 수치가 없어 임의로 정했다 — 6개로 줄면서 생긴 여유를
--- 가시적인 간격으로 쓴다는 것이 목적이라, 라벨(2.5%)보다 작지만 0은 아닌 값으로
+-- 항목 간 간격(세로·가로 공용). docs에 수치가 없어 임의로 정했다 — 6개로 줄면서 생긴
+-- 여유를 가시적인 간격으로 쓴다는 것이 목적이라, 라벨(2.5%)보다 작지만 0은 아닌 값으로
 -- 골랐다. 게임 수치가 아니라 시각 튜닝값이다.
 local ITEM_GAP = 0.015
+
+-- 열 수 (U3-4C). 1열일 때 타일이 레일 폭의 23%만 쓰고(62px 정사각 타일이 267px
+-- 상자 안에 있다), 레일 전체가 화면을 위아래로 가로지르는 얇은 기둥이 됐다
+-- (세로 점유 약 75%, docs/UI.md "2. 세이프존 > 하단 띠가 가장 붐빈다"가 지목한
+-- 구역과 충돌 여지가 있었다). 메뉴 6개 자체는 그대로다 — docs/UI.md "메뉴 진입은
+-- 6개다"가 접근 빈도 근거로 이미 확정한 값이라 자리가 남는다고 되돌리지 않는다.
+local COLUMNS = 2
 
 -- 화면 목록의 "메뉴 진입은 6개다" 그대로. 순서는 그 절의 나열 순서를 따른다.
 -- screenName은 아직 등록된 창이 하나도 없는 상태의 자리표시자다(아래 tap 처리 참고).
@@ -49,6 +56,10 @@ local ITEMS = {
 -- 테스트 전용 참조. 개수·라벨을 테스트에 하드코딩하지 않고 이 목록과 대조하기
 -- 위해 노출한다 (AssetRegistry.Entries와 같은 성격).
 MenuRail.Items = ITEMS
+
+-- 테스트 전용 참조. 열 수를 테스트에 매직넘버 2로 다시 적지 않기 위해 노출한다
+-- (MenuRail.Items와 같은 이유).
+MenuRail.Columns = COLUMNS
 
 export type MenuRailHandle = {
 	root: Frame,
@@ -75,9 +86,8 @@ local function createTile(item: { assetKey: string, label: string, screenName: s
 	itemRow.LayoutOrder = layoutOrder
 	itemRow.BackgroundTransparency = 1
 	itemRow.BorderSizePixel = 0
-	-- 부모(root) 기준 Scale. root의 총 높이가 6*itemHeight + 5*gap이라 화면
-	-- 기준 itemHeight를 그대로 못 쓴다 — Panel.lua가 제목/X 버튼에 쓴 것과
-	-- 같은 root-상대 환산이다.
+	-- itemRow 자신의 Size/Position은 여기서 정하지 않는다 — MenuRail.create의
+	-- UIGridLayout이 CellSize로 직접 관리한다(U3-4C, 2열x3행 전환).
 
 	local itemLayout = Instance.new("UIListLayout")
 	itemLayout.FillDirection = Enum.FillDirection.Vertical
@@ -137,27 +147,51 @@ local function createTile(item: { assetKey: string, label: string, screenName: s
 end
 
 function MenuRail.create(startY: number): MenuRailHandle
+	local rows = math.ceil(#ITEMS / COLUMNS)
 	local itemHeight = TILE_HEIGHT + LABEL_HEIGHT
-	local totalHeight = #ITEMS * itemHeight + (#ITEMS - 1) * ITEM_GAP
+	local totalHeight = rows * itemHeight + (rows - 1) * ITEM_GAP
+	local rootWidth = Layout.RAIL_WIDTH - Layout.EDGE_MARGIN * 2
 
 	local root = Instance.new("Frame")
 	root.Name = "MenuRail"
 	root.AnchorPoint = Vector2.new(0, 0)
 	root.Position = UDim2.fromScale(Layout.EDGE_MARGIN, startY)
-	root.Size = UDim2.fromScale(Layout.RAIL_WIDTH - Layout.EDGE_MARGIN * 2, totalHeight)
+	root.Size = UDim2.fromScale(rootWidth, totalHeight)
 	root.BackgroundTransparency = 1
 	root.BorderSizePixel = 0
 
-	local listLayout = Instance.new("UIListLayout")
-	listLayout.FillDirection = Enum.FillDirection.Vertical
-	listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	listLayout.Padding = UDim.new(ITEM_GAP / totalHeight, 0) -- root 기준으로 환산한 간격
-	listLayout.Parent = root
+	-- UIGridLayout 하나로 2열x3행을 만든다. 행마다 별도 Frame + 가로
+	-- UIListLayout을 중첩하는 대안은 기각했다 — 그러면 그 행 Frame들의 Size도
+	-- root 기준으로 각각 환산해야 해서(1열일 때 itemRow.Size가 그랬듯) 변환
+	-- 단계가 한 겹 늘고, "같은 행은 같은 Y" 보장이 그 Frame들의 높이가 우연히
+	-- 같다는 사실에 기댄다. UIGridLayout은 CellSize 하나로 폭·높이를 동시에
+	-- 맞춰줘서 그 보장이 구조로 따라온다 — "같은 행의 두 항목이 같은 Y" ·
+	-- "1열과 2열의 X가 다르다"가 별도 계산 없이 성립한다.
+	--
+	-- CellSize/CellPadding은 root 기준 Scale이다(UIGridLayout이 부모 기준으로
+	-- 해석한다). 기존 ITEM_GAP(화면 기준 값)을 새 상수 없이 그대로 재사용한다 —
+	-- 세로는 기존 1열 배치와 같은 환산(화면 기준 gap ÷ root 기준 totalHeight),
+	-- 가로도 같은 방식(화면 기준 gap ÷ root 기준 rootWidth)이다.
+	local gapXScale = ITEM_GAP / rootWidth
+	local gapYScale = ITEM_GAP / totalHeight
+	local cellWidthScale = (1 - gapXScale) / COLUMNS
+	local cellHeightScale = itemHeight / totalHeight
+
+	local gridLayout = Instance.new("UIGridLayout")
+	gridLayout.FillDirection = Enum.FillDirection.Horizontal -- 행 우선: 좌->우, 위->아래
+	gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	gridLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+	gridLayout.CellSize = UDim2.fromScale(cellWidthScale, cellHeightScale)
+	gridLayout.CellPadding = UDim2.fromScale(gapXScale, gapYScale)
+	gridLayout.Parent = root
 
 	for index, item in ipairs(ITEMS) do
 		local itemRow = createTile(item, index)
-		itemRow.Size = UDim2.fromScale(1, itemHeight / totalHeight) -- root 기준
+		-- Size를 여기서 다시 세팅하지 않는다 — UIGridLayout은 UIListLayout과
+		-- 달리 자식의 Position뿐 아니라 Size도 CellSize로 직접 관리한다.
+		-- 손으로 root-상대 Size를 또 세팅해도 GridLayout이 바로 덮어써서
+		-- 죽은 코드가 된다.
 		itemRow.Parent = root
 	end
 
