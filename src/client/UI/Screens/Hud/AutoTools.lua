@@ -45,6 +45,11 @@ local ITEM_GAP = 0.015
 
 local COLUMNS = 2
 
+-- 테스트 전용 참조 (PowerBlock.BlockHeight/ShopSlots.TotalHeight와 같은 성격) —
+-- HudLayoutTests가 렌더 결과(AbsoluteSize)를 예산과 대조할 때 매직넘버를 다시
+-- 옮겨적지 않기 위해 노출한다.
+AutoTools.ItemHeight = ITEM_HEIGHT
+
 -- 토글 ON일 때 아이콘 테두리 색. docs가 토글 상태 색을 정하지 않아 기존 역할 중
 -- 하나를 고른 것이다 — "수령·안전(노랑)"은 이미 "확정된·활성화된 선택"이라는
 -- 뜻으로 쓰이고 있어(발판) 가장 가까운 기존 의미였다. 새 역할을 만들지 않았다.

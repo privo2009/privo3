@@ -45,6 +45,10 @@ local ROWS = 2
 -- 세로 합 = 2 * 8% + 1 * 1.5% = 17.5% (docs U3-6 확정값과 일치. 파생값이라 직접 박지 않는다).
 local TOTAL_HEIGHT = ROWS * TILE_HEIGHT + (ROWS - 1) * GAP
 
+-- 테스트 전용 참조 (PowerBlock.BlockHeight와 같은 성격) — HudLayoutTests가 렌더
+-- 결과(AbsoluteSize)를 예산과 대조할 때 매직넘버를 다시 옮겨적지 않기 위해 노출한다.
+ShopSlots.TotalHeight = TOTAL_HEIGHT
+
 local PRICE_LEVEL: TextScale.Level = "small" -- 소(2.5%)
 -- 가격 라벨은 별도 행이 아니라 타일 하단에 얹힌다 — 세로 예산(17.5%)이 타일+행간
 -- 뿐이라 라벨 몫이 없다. 화면 기준(소, 2.5%)을 타일 기준(8%)으로 환산한다

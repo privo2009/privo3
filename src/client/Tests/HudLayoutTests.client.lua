@@ -58,9 +58,12 @@
 local RunService = game:GetService("RunService")
 
 local ScreenController = require(script.Parent.Parent.UI.ScreenController)
+local Layout = require(script.Parent.Parent.UI.Layout)
 local HudLayoutGate = require(script.Parent.Parent.Tools.HudLayoutGate)
 local MenuRail = require(script.Parent.Parent.UI.Screens.Hud.MenuRail)
 local PowerBlock = require(script.Parent.Parent.UI.Screens.Hud.PowerBlock)
+local ShopSlots = require(script.Parent.Parent.UI.Screens.Hud.ShopSlots)
+local AutoTools = require(script.Parent.Parent.UI.Screens.Hud.AutoTools)
 
 local passed = 0
 local failed = 0
@@ -338,6 +341,88 @@ local function checkPowerBlockBudget()
 	)
 end
 
+-- 검사 6 — ShopSlots · AutoTools 예산 일치 (U3-6) -----------------------------------
+--
+-- 검사 5(PowerBlock)와 같은 이유·같은 방식(픽셀 허용치 비교)이다. 여기서 추가로
+-- 확인하는 것은 U3-6의 핵심 결정 — **AutoTools가 하단 띠 경계 위에 있다**(하단
+-- 띠 안이 아니다)는 것을 렌더 결과로 고정한다. ShopSlots/AutoTools가 기존 HUD
+-- 4종과 겹치지 않는지는 이 함수가 아니라 검사 3(checkOverlaps)이 이미 본다 —
+-- 그 검사는 HudGui 아래 모든 GuiObject 쌍을 훑으므로 새 화면 둘도 자동으로
+-- 포함된다.
+local SHOP_AUTO_PIXEL_TOLERANCE = 2
+
+local function checkShopSlotsAndAutoToolsBudget()
+	local shopEntry = ScreenController._debug.entries["ShopSlots"]
+	local shopRoot = if shopEntry ~= nil then shopEntry.instance else nil
+	local autoEntry = ScreenController._debug.entries["AutoTools"]
+	local autoRoot = if autoEntry ~= nil then autoEntry.instance else nil
+
+	local hud = ScreenController._debug.guis.Hud
+	local shopRendered = shopRoot ~= nil and shopRoot:IsDescendantOf(hud)
+	local autoRendered = autoRoot ~= nil and autoRoot:IsDescendantOf(hud)
+
+	check("ShopSlots가 HudGui 아래 register+open돼 실물로 있다(예산 검증 전제)", shopRendered)
+	check("AutoTools가 HudGui 아래 register+open돼 실물로 있다(예산 검증 전제)", autoRendered)
+
+	local hudSize = hud.AbsoluteSize
+
+	if shopRendered and shopRoot ~= nil then
+		local expectedWidth = (Layout.RAIL_WIDTH - Layout.EDGE_MARGIN * 2) * hudSize.X
+		local expectedHeight = ShopSlots.TotalHeight * hudSize.Y
+		local expectedBottom = (1 - Layout.BOTTOM_MARGIN_HEIGHT) * hudSize.Y
+
+		local absSize = shopRoot.AbsoluteSize
+		local absPos = shopRoot.AbsolutePosition
+		local actualBottom = absPos.Y + absSize.Y
+
+		check(
+			string.format("ShopSlots AbsoluteSize.X가 예산(우측 레일 폭)과 일치한다(오차<=%dpx)", SHOP_AUTO_PIXEL_TOLERANCE),
+			math.abs(absSize.X - expectedWidth) <= SHOP_AUTO_PIXEL_TOLERANCE,
+			string.format("actual=%d expected=%.1f", absSize.X, expectedWidth)
+		)
+		check(
+			string.format("ShopSlots AbsoluteSize.Y가 예산(17.5%%)과 일치한다(오차<=%dpx)", SHOP_AUTO_PIXEL_TOLERANCE),
+			math.abs(absSize.Y - expectedHeight) <= SHOP_AUTO_PIXEL_TOLERANCE,
+			string.format("actual=%d expected=%.1f", absSize.Y, expectedHeight)
+		)
+		check(
+			string.format("ShopSlots 하단이 하단 여백 경계와 일치한다(오차<=%dpx)", SHOP_AUTO_PIXEL_TOLERANCE),
+			math.abs(actualBottom - expectedBottom) <= SHOP_AUTO_PIXEL_TOLERANCE,
+			string.format("actual=%.1f expected=%.1f", actualBottom, expectedBottom)
+		)
+	end
+
+	if autoRendered and autoRoot ~= nil then
+		local expectedWidth = (Layout.RAIL_WIDTH - Layout.EDGE_MARGIN * 2) * hudSize.X
+		local expectedHeight = AutoTools.ItemHeight * hudSize.Y
+		-- 하단 띠 경계(Y = 1 - BOTTOM_HEIGHT) — 이번 결정의 핵심이라 여기서 고정 검증한다.
+		local expectedBottom = (1 - Layout.BOTTOM_HEIGHT) * hudSize.Y
+
+		local absSize = autoRoot.AbsoluteSize
+		local absPos = autoRoot.AbsolutePosition
+		local actualBottom = absPos.Y + absSize.Y
+
+		check(
+			string.format("AutoTools AbsoluteSize.X가 예산(우측 레일 폭)과 일치한다(오차<=%dpx)", SHOP_AUTO_PIXEL_TOLERANCE),
+			math.abs(absSize.X - expectedWidth) <= SHOP_AUTO_PIXEL_TOLERANCE,
+			string.format("actual=%d expected=%.1f", absSize.X, expectedWidth)
+		)
+		check(
+			string.format("AutoTools AbsoluteSize.Y가 예산(10.5%%)과 일치한다(오차<=%dpx)", SHOP_AUTO_PIXEL_TOLERANCE),
+			math.abs(absSize.Y - expectedHeight) <= SHOP_AUTO_PIXEL_TOLERANCE,
+			string.format("actual=%d expected=%.1f", absSize.Y, expectedHeight)
+		)
+		check(
+			string.format(
+				"AutoTools 하단이 하단 띠 경계(Y=0.75)와 일치한다 — 하단 띠 안이 아니라 그 경계 위다(오차<=%dpx)",
+				SHOP_AUTO_PIXEL_TOLERANCE
+			),
+			math.abs(actualBottom - expectedBottom) <= SHOP_AUTO_PIXEL_TOLERANCE,
+			string.format("actual=%.1f expected=%.1f", actualBottom, expectedBottom)
+		)
+	end
+end
+
 task.defer(function()
 	local hud = ScreenController._debug.guis.Hud
 
@@ -420,6 +505,9 @@ task.defer(function()
 
 	-- 검사 5 — PowerBlock 예산 일치 (U3-5) --------------------------------------------
 	checkPowerBlockBudget()
+
+	-- 검사 6 — ShopSlots · AutoTools 예산 일치 (U3-6) ----------------------------------
+	checkShopSlotsAndAutoToolsBudget()
 
 	finish()
 end)
