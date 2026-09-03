@@ -78,3 +78,25 @@ print(
 	"[HudBoot] HUD 6종(BloxDisplay/ChallengeInfo/MenuRail/PowerBlock/ShopSlots/AutoTools) "
 		.. "register+open 호출함 (실노출 보장 아님 — HudVisibilityTests 참고)"
 )
+
+-- ── 개발용 플래그: HUD_LAYOUT_REPORT_ENABLED ────────────────────────────────────
+-- 위치: 이 파일 맨 끝, 위 register+open 호출 *뒤*. 아직 열리지도 않은 화면을
+-- 관측하려 든다는 오해를 피하려고 앞이 아니라 여기 둔다.
+-- Studio에서 켜고 끄는 값이 아니다. 코드에서 고치고 Rojo sync 해야 반영된다
+-- (Bootstrap의 DRONE_VERIFY_ENABLED와 같은 패턴).
+--
+-- 왜 필요한가: HUD 표시 상태에서 육안으로 3건이 깨져 있다(docs/PENDING.md "HUD
+-- 표시 상태에서 육안으로 3건이 보였다" 참고) — 좌측 레일 라벨이 타일에 겹치고,
+-- 좌상단 블럭스가 안 보이고, 상단 중앙 "대기중"이 잘린다. 셋 다
+-- HudVisibilityTests(IsDescendantOf + Visible + AbsoluteSize)는 통과한다. 이
+-- 플래그를 켜면 실제 좌표를 Play 로그로 찍어, 다음 단계에서 만들 레이아웃
+-- 테스트의 기준선을 정할 수 있게 한다 (자세한 내용은 HudLayoutReport.lua 상단).
+--
+-- 기본값은 켜짐이다 — 관측 단계이고, HUD 인스턴스를 읽기만 할 뿐 배치를
+-- 바꾸지도 프로필도 건드리지 않으므로(HudLayoutReport 상단 참고) 켠 채로
+-- 커밋해도 안전하다.
+local HUD_LAYOUT_REPORT_ENABLED = true
+
+if HUD_LAYOUT_REPORT_ENABLED then
+	require(script.Parent.Parent.Tools.HudLayoutReport).run()
+end

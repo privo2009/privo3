@@ -937,7 +937,7 @@ end
 -- 매 Play마다 표 세 벌이 찍히면 [ATTACK]·[Bootstrap] 관측 로그가 묻힌다.
 --
 -- 4-2-f 종료 후 이 블록 삭제 (docs/PENDING.md 잔재).
-local STANDARD_PATH_REPORT_ENABLED = true
+local STANDARD_PATH_REPORT_ENABLED = false
 
 if STANDARD_PATH_REPORT_ENABLED then
 	require(script.Parent.Tools.StandardPathReport).run()
