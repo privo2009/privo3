@@ -32,8 +32,10 @@ end
 local ORIGINAL_STRENGTH = BigNum.new(9.99, 20)
 
 -- 1. get이 초기값을 돌려준다 -------------------------------------------------------
+--
+-- ⚠️ "level" 키는 없다(U3-6에서 제거 — Store.lua 상단 주석 참고). 레벨은
+-- LevelConfig.getLevel(strength)로만 계산한다.
 
-check("get('level')이 number다", type(Store.get("level")) == "number")
 check("get('walkSpeed')이 number다", type(Store.get("walkSpeed")) == "number")
 check("get('maxWalkSpeed')이 number다", type(Store.get("maxWalkSpeed")) == "number")
 check("get('maxStage')이 number다", type(Store.get("maxStage")) == "number")
@@ -61,15 +63,18 @@ do
 end
 
 -- 2. 값이 바뀌면 구독자가 불린다 ----------------------------------------------------
+--
+-- 메커니즘 자체(구독/통지/unsubscribe)를 재는 절이라 어느 number 키를 써도
+-- 무방하다 — "level" 대신 "walkSpeed"를 쓴다(U3-6, level 제거에 따른 교체).
 
 do
 	local received: number? = nil
-	local handle = Store.subscribe("level", function(value: any)
+	local handle = Store.subscribe("walkSpeed", function(value: any)
 		received = value :: number
 	end)
 
 	Store.setSource(function(setter)
-		setter("level", 999)
+		setter("walkSpeed", 999)
 	end)
 
 	task.wait() -- setValue의 콜백 통지는 task.spawn으로 비동기 발화된다
@@ -82,12 +87,12 @@ do
 	received = nil
 
 	Store.setSource(function(setter)
-		setter("level", 1000)
+		setter("walkSpeed", 1000)
 	end)
 	task.wait()
 
 	check("unsubscribe 후에는 콜백이 불리지 않는다", received == nil)
-	check("unsubscribe와 무관하게 상태 자체는 갱신된다", Store.get("level") == 1000)
+	check("unsubscribe와 무관하게 상태 자체는 갱신된다", Store.get("walkSpeed") == 1000)
 end
 
 -- 4. setSource로 소스를 갈아끼워도 구독자가 계속 동작한다 ---------------------------
@@ -138,7 +143,7 @@ end
 
 -- 원상 복구 (다른 테스트·향후 HUD가 이 테스트의 잔여값을 보지 않게 한다).
 Store.setSource(function(setter)
-	setter("level", 128)
+	setter("walkSpeed", 5678)
 	setter("maxStage", 17)
 	setter("blox", BigNum.new(9.99, 23))
 end)

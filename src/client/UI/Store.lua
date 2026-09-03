@@ -7,8 +7,15 @@
 -- AssetRegistry가 미도착 에셋을 다루는 방식과 같은 패턴: "아직 실물이 없다"를
 -- 소비자가 알 필요가 없게 만드는 단일 교체점.
 --
--- 모든 게임 수치는 BigNum이다 (CLAUDE.md 절대 규칙 1). level/walkSpeed/
--- maxWalkSpeed/maxStage는 원래 작은 정수라 number로 둔다.
+-- 모든 게임 수치는 BigNum이다 (CLAUDE.md 절대 규칙 1). walkSpeed/maxWalkSpeed/
+-- maxStage는 원래 작은 정수라 number로 둔다.
+--
+-- ⚠️ "level" 필드는 없다 (U3-6에서 제거). 레벨은 strength의 지수에서 파생되는
+-- 값이지 독립된 상태가 아니다 — `Shared/Config/LevelConfig.getLevel(strength)`가
+-- 유일한 계산처다. 예전에 여기 있던 "level" 필드는 화면(PowerBlock)이 읽지
+-- 않게 되면서 죽은 필드가 됐다: 그대로 뒀다면 이 필드와 strength가 서로 다른
+-- 시점에 갱신될 때(batch 경계 등) 화면에 잠깐 어긋난 레벨이 뜰 위험이 있었다.
+-- 레벨이 필요한 화면은 항상 strength를 구독하고 LevelConfig로 직접 계산할 것.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
@@ -22,7 +29,6 @@ export type State = {
 	blox: BigNumber,
 	lifetimeBlox: BigNumber,
 	rebirths: BigNumber,
-	level: number,
 	walkSpeed: number,
 	maxWalkSpeed: number,
 	maxStage: number,
@@ -33,7 +39,6 @@ export type Key =
 	| "blox"
 	| "lifetimeBlox"
 	| "rebirths"
-	| "level"
 	| "walkSpeed"
 	| "maxWalkSpeed"
 	| "maxStage"
@@ -48,13 +53,12 @@ export type Handle = { key: Key }
 -- e를 잡아 "999.00Qi"류의 8자 근처 표기가 나오게 했다 (Formatter.format 기준).
 -- walkSpeed/maxWalkSpeed: 4자리가 꽉 차는 값(U3-5, ValuePanel.MAX_CHARS_SPEED=4가
 -- 실측 실제 값인 2자리(docs 예시 "56/최대 80")에 맞춰 칸을 좁히지 않았는지 G4에서
--- 눈으로 볼 수 있게 한다 — docs/UI.md "이동 속도 조절은 편의 기능이 아니다"). level: 2~3자리.
+-- 눈으로 볼 수 있게 한다 — docs/UI.md "이동 속도 조절은 편의 기능이 아니다").
 local DUMMY_STATE: State = {
 	strength = BigNum.new(9.99, 20), -- "999.00Qi" 근처
 	blox = BigNum.new(9.99, 23), -- "999.00Sx" 근처
 	lifetimeBlox = BigNum.new(5, 25),
 	rebirths = BigNum.fromNumber(37),
-	level = 128,
 	walkSpeed = 5678,
 	maxWalkSpeed = 9999,
 	maxStage = 17,

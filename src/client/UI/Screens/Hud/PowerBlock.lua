@@ -6,11 +6,14 @@
 -- 숫자를 직접 박지 않고 아래 상수에서 유도한다 — 예산을 조정할 때 한 곳만 고치면
 -- 되게 하려는 것이다. 하단 여백 5.33%는 화면 폭 3%(Layout.EDGE_MARGIN)의 16:9 환산.
 --
--- ⚠️ 레벨은 Store의 "level" 필드를 읽지 않는다. DESIGN.md "레벨"이 "레벨 = 힘의
--- 지수(N=1)"로 정의하므로, 이 파일은 그 정의를 직접 구현해 strength(BigNum)에서
--- 레벨을 유도한다 — 별도 필드(Store.level)에 기대면 두 값이 각자 다른 시점에
--- 갱신될 때(네트워크 갱신 순서 등) 화면에 잠깐 어긋난 레벨이 뜰 수 있다. 진행률
--- 계산도 어차피 strength의 가수가 필요해 같은 값을 두 번 구독할 이유가 없다.
+-- ⚠️ 레벨은 Store의 "level" 필드를 읽지 않는다(U3-6 정정 — Store.lua에서 그 필드
+-- 자체를 없앴다). `Shared/Config/LevelConfig.getLevel(strength)`를 그대로 불러
+-- 쓴다 — 서버(`SpeedService`)가 최대속도를 낼 때 쓰는 것과 **같은 함수**다.
+-- U3-5에서는 이 파일이 `power.e`를 직접 읽어 레벨 공식을 클라에 한 벌 더
+-- 만들었는데, 지금 N=1이라 우연히 일치했을 뿐 `LevelConfig`의 N이 바뀌면
+-- 화면과 서버 최대속도가 갈린다(CLAUDE.md "밸런싱 수치는 전부 Shared/Config로 —
+-- 하드코딩 금지"). 진행률(바 채움)은 LevelConfig의 공개 계약이 아니라 순수
+-- UI 보간이라 이 파일에 그대로 둔다 — 서버는 진행률을 몰라도 된다.
 --
 -- ⚠️ 이번 범위는 표시뿐이다. 이동 속도 편집 입력(SpeedInput.request() 왕복)은 넣지
 -- 않는다 — 서버가 실제 적용값과 최대치를 되돌려주는 계약(DESIGN "커스텀 스피드")이
@@ -30,6 +33,7 @@ local AssetRegistry = require(ReplicatedStorage.Shared.Config.AssetRegistry)
 local AssetImage = require(ReplicatedStorage.Shared.UI.AssetImage)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
+local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local ValuePanel = require(script.Parent.Parent.Parent.Components.ValuePanel)
 local Store = require(script.Parent.Parent.Parent.Store)
@@ -101,12 +105,6 @@ export type PowerBlockHandle = {
 		applySpeed: (number, number) -> (),
 	},
 }
-
--- 레벨 = 힘의 지수 (DESIGN.md "레벨", N=1). 힘이 0이면(BigNum 불변식상 m=0일 때 e도
--- 항상 0) 레벨도 0이다 — 별도 분기 없이 자연히 성립한다.
-local function computeLevel(power: BigNumber): number
-	return power.e
-end
 
 -- 진행률 = log10(가수). 가수는 BigNum 불변식상 [1,10)이므로 결과는 자연히 [0,1)
 -- 안에 들지만, math.clamp로 한 번 더 방어한다(문서 요구사항 — 경계에서 소실되거나
@@ -277,7 +275,7 @@ function PowerBlock.create(): PowerBlockHandle
 	local function applyPower(power: BigNumber)
 		powerValue.setValue(power)
 
-		local level = computeLevel(power)
+		local level = LevelConfig.getLevel(power)
 		local progress = computeProgress(power)
 
 		currentLabel.Text = tostring(level)
