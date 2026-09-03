@@ -54,6 +54,9 @@
 | `Tests/HudLayoutTests.client.lua` | 198 | 뷰포트 게이트 뒤 실물 HudGui — 크기 0·인셋/뷰포트 경계 침범·형제 겹침·MenuRail 격자 배치(AbsolutePosition) ※ |
 | **합계** | **1218** | |
 
+U3-5~U3-7 신규 테스트(`PowerBlockTests`·`ShopSlotsTests`·`AutoToolsTests` 등)는
+다음 Play 실측 후 반영한다 — 정적으로 센 수는 신뢰할 수 없다(아래 ※ 참고).
+
 ※ 일곱 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53, 실측 66), `WarpServiceTests`는
 3개 check를 묶은 `checkRejectedCleanly`를 거부 케이스마다 부른다. `AssetRegistryTests`
@@ -957,10 +960,14 @@ U2 vs 코드 Phase 4~5 얘기였고, Phase 6에서 둘이 합류한다.
 진행: 에셋 단일 교체점(`UiTheme`/`AssetRegistry`/`AssetImage`/`TextScale` — 에셋
 부재 상태에서 U3를 시작하기 위한 것. 미도착 에셋은 역할색 Frame으로 대체된다) →
 UI 뼈대(`ScreenController`/`Store`/`Panel`/`Button`/`ValuePanel`) →
-HUD 3종(`BloxDisplay`/`ChallengeInfo`/`MenuRail`) 배치.
+HUD 3종(`BloxDisplay`/`ChallengeInfo`/`MenuRail`) 배치 — **여기까지 Play 검증 완료.**
 
-남은 HUD 4종: 힘·레벨·속도 블록, 로벅스 구좌, 자동 클리커 토글, 자동 진행 버튼 —
-전부 하단 띠다(docs/UI.md "2. 세이프존"이 "가장 먼저 깨질 곳"으로 지목한 구역).
+U3-5(힘·레벨·속도 블록, `PowerBlock`) · U3-6(로벅스 구좌 `ShopSlots` + 자동 클리커
+토글/자동 진행 버튼 `AutoTools`) · U3-7(토글 밝기 채널 정정)로 남은 HUD 4종의
+코드가 전부 붙어 **HUD 7종 전체가 코드로는 완성됐다.** 세 세션(U3-5~U3-7) 다
+Studio Play를 돌릴 수 없었다(RC 환경) — 이 셋은 **Play 미검증**이다. 다음
+세션의 첫 작업은 이 Play 검증이다(새 화면 착수가 아니다). 미검증 커밋·롤백
+절차·확인 목록은 `docs/PENDING.md` "U3 진행 상태" 참고.
 
 ⚠️ 이 단계가 전체에서 가장 오래 걸린다
 
