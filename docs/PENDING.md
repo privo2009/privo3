@@ -462,6 +462,17 @@ HudBoot이 "등록·표시 완료"를 찍었는데 화면은 비어 있었다(U3
 `HudLayoutTests`가 게이트 뒤에서 `AbsolutePosition`/`AbsoluteSize`로 재는 자리다
 (검사 4, `checkMenuRailGrid`).
 
+⚠️ **커밋된 모듈의 호출부가 미커밋으로 남을 수 있다.** `HudLayoutReport.lua`는
+`813daf3`으로 커밋돼 있었으나, 그것을 부르는 `HudBoot.client.lua`의 배선은
+U3-2 이후 세 세션 동안 워킹트리에만 있었다. Rojo가 파일→Studio 단방향이라
+Studio에서는 정상 동작해 드러나지 않는다. clone·롤백·Team Create 동기화
+시점에 배선만 사라진다.
+
+세션마다 "손대지 않고 그대로 뒀다"고 보고되는 변경분이 있으면 그것이 잔재인지
+미커밋 배선인지 확인할 것. 판단 전에 대상 파일이 실제로 커밋돼 있는지
+`git ls-files`로 먼저 볼 것 — 파일 존재 확인에서 client/server 디렉터리를
+혼동한 전례가 있다.
+
 ---
 
 ## 잔재 (삭제 가능)
