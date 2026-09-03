@@ -46,15 +46,17 @@ export type Handle = { key: Key }
 -- F5로 자릿수 문제가 바로 보이도록 규격 근처의 큰 값을 더미로 넣는다.
 -- strength/blox: displayM이 999에 가깝고 tier가 2글자 접미사(Qi/Sx)에 걸리도록
 -- e를 잡아 "999.00Qi"류의 8자 근처 표기가 나오게 했다 (Formatter.format 기준).
--- walkSpeed: 2자리. level: 2~3자리.
+-- walkSpeed/maxWalkSpeed: 4자리가 꽉 차는 값(U3-5, ValuePanel.MAX_CHARS_SPEED=4가
+-- 실측 실제 값인 2자리(docs 예시 "56/최대 80")에 맞춰 칸을 좁히지 않았는지 G4에서
+-- 눈으로 볼 수 있게 한다 — docs/UI.md "이동 속도 조절은 편의 기능이 아니다"). level: 2~3자리.
 local DUMMY_STATE: State = {
 	strength = BigNum.new(9.99, 20), -- "999.00Qi" 근처
 	blox = BigNum.new(9.99, 23), -- "999.00Sx" 근처
 	lifetimeBlox = BigNum.new(5, 25),
 	rebirths = BigNum.fromNumber(37),
 	level = 128,
-	walkSpeed = 24,
-	maxWalkSpeed = 48,
+	walkSpeed = 5678,
+	maxWalkSpeed = 9999,
 	maxStage = 17,
 }
 

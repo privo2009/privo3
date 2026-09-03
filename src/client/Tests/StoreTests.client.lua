@@ -38,6 +38,12 @@ check("get('walkSpeed')이 number다", type(Store.get("walkSpeed")) == "number")
 check("get('maxWalkSpeed')이 number다", type(Store.get("maxWalkSpeed")) == "number")
 check("get('maxStage')이 number다", type(Store.get("maxStage")) == "number")
 
+-- U3-5: walkSpeed/maxWalkSpeed 더미값이 4자리를 꽉 채운다 (docs/UI.md "이동 속도 조절은
+-- 편의 기능이 아니다" — 실제 값(2자리)에 칸을 맞춰 좁히면 안 되므로, 더미값 자체를
+-- 4자리로 둬서 G4에서 눈으로 확인할 수 있게 한다).
+check("더미 walkSpeed가 4자리다", Store.get("walkSpeed") >= 1000 and Store.get("walkSpeed") <= 9999)
+check("더미 maxWalkSpeed가 4자리다", Store.get("maxWalkSpeed") >= 1000 and Store.get("maxWalkSpeed") <= 9999)
+
 check("get('strength')가 BigNum 형태다", isBigNumShape(Store.get("strength")))
 check("get('blox')가 BigNum 형태다", isBigNumShape(Store.get("blox")))
 check("get('lifetimeBlox')가 BigNum 형태다", isBigNumShape(Store.get("lifetimeBlox")))
