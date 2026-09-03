@@ -52,24 +52,36 @@
 
 ## 미결
 
-- **U3 진행 상태 (2026-09-03).** HUD 7종 중 3종(블럭스 · 챌린지 정보 · 메뉴 레일)은
-  실측·게이트·인셋·격자까지 `HudLayoutTests`로 검증 완료(위 해소 기록 참고). 4번째
-  (힘 · 레벨 · 속도 블록, PowerBlock)는 U3-5에서 코드·테스트가 붙었으나 **Play
-  미검증이다** — 이 세션은 Studio Play를 돌릴 수 없었다(RC 환경).
+- **U3 진행 상태 (2026-09-03, U3-6까지 갱신).** HUD 7개 항목(화면 모듈 6개 —
+  자동 클리커 토글·자동 진행 버튼은 `AutoTools` 하나로 합쳤다)이 전부 코드로
+  붙었다. 3종(블럭스 · 챌린지 정보 · 메뉴 레일)은 실측·게이트·인셋·격자까지
+  `HudLayoutTests`로 검증 완료(위 해소 기록 참고). 나머지 3종(PowerBlock ·
+  ShopSlots · AutoTools)은 U3-5/U3-6에서 붙었고 **전부 Play 미검증이다** —
+  두 세션 다 Studio Play를 돌릴 수 없었다(RC 환경).
 
-  미검증 3커밋:
+  미검증 커밋 (총 7개, U3-5 3개 + U3-6 4개):
   ```
-  b9c5b82  Store dummy walkSpeed/maxWalkSpeed를 4자리로 (준비)
-  aabd936  PowerBlock 컴포넌트 + PowerBlockTests
-  1be8370  HudGui 등록 + HudLayoutTests 검사 5(PowerBlock 예산) + HudVisibilityTests
+  b9c5b82  U3-5. Store dummy walkSpeed/maxWalkSpeed를 4자리로 (준비)
+  aabd936  U3-5. PowerBlock 컴포넌트 + PowerBlockTests
+  1be8370  U3-5. HudGui 등록 + HudLayoutTests 검사 5(PowerBlock 예산) + HudVisibilityTests
+  6e0cc6a  U3-6. PowerBlock 레벨을 LevelConfig 경유로 정정 + Store.level 제거
+  1edb5c0  U3-6. ShopSlotConfig(TEMP 구좌 4종 선택)
+  20a5adc  U3-6. ShopSlots 컴포넌트(2행 2열) — Layout.BOTTOM_MARGIN_HEIGHT 공용화 포함
+  9b04e7f  U3-6. AutoTools 컴포넌트(자동 클리커 토글 + 자동 진행 버튼)
+  30428b6  U3-6. HudGui 등록 + HudLayoutTests 검사 6 + HudVisibilityTests + 컴포넌트 테스트 2종
   ```
-  롤백 절차: `git reset --hard 01872d7`(U3-4C 상태, 이 3커밋 직전)로 되돌리면
-  PowerBlock 도입 전으로 돌아간다. 부분 롤백은 의미가 없다 — HudBoot이 PowerBlock을
-  require하므로 aabd936/1be8370은 함께 있어야 하고, b9c5b82는 PowerBlockTests의
-  4자리 속도 전제(더미값 1000~9999)가 걸려 있어 따로 떼면 그 검사가 깨진다.
+  롤백 절차:
+  - U3-6만 되돌리려면(U3-5 PowerBlock은 유지) `git reset --hard 7cfff21` — U3-5
+    끝(U3-6 착수 직전) 상태로 돌아간다. `6e0cc6a`가 `PowerBlock.lua`/`Store.lua`를
+    수정하므로 이 커밋 하나만 골라 되돌리는 것은 의미가 없다 — 7개를 통째로
+    되돌리거나 전부 유지하거나 둘 중 하나다(HudBoot이 ShopSlots/AutoTools를
+    require하므로 부분 롤백은 즉시 require 에러가 난다).
+  - U3-5까지 전부 되돌리려면(U3-6 이전 커밋이 명시한 지점) `git reset --hard
+    01872d7` — U3-4C 상태로, PowerBlock 도입 전으로 돌아간다.
 
   다음 세션 Play에서 확인할 것:
-  - `PowerBlockTests` / `HudLayoutTests` 실측 통과·실패 개수 (정적 카운트 금지 —
+  - `PowerBlockTests` / `ShopSlotsTests` / `AutoToolsTests` / `HudLayoutTests` /
+    `HudVisibilityTests` / `LayoutTests` 실측 통과·실패 개수 (정적 카운트 금지 —
     CLAUDE.md·아래 항목 참고)
   - PowerBlock이 실제로 하단 띠(Y 0.75~1.00) 안에 들어가는지, 하단 여백을
     침범하지 않는지 (검사 5, `HudLayoutGate` 게이트 통과 전제)
@@ -78,10 +90,21 @@
   - 레벨 진행 바가 배경/채움 두 층으로 보이는지, 양끝 라벨이 겹치지 않는지
   - 이동 속도 칸(4자리)이 더미값 `5678`/`9999`에서 안 잘리는지, 연필 아이콘이
     자리를 차지하는지(클릭 배선 없음 — 눌러도 반응 없는 게 정상)
+  - **로벅스 구좌 2행 2열이 하단 띠 안에 드는지, 타일이 8%를 유지하는지**
+    (`ShopSlots`, 검사 6)
+  - **자동 클리커 토글이 하단 띠 경계(Y=0.75) 바로 위에 있는지, 타일 규격이
+    MenuRail과 시각적으로 맞는지**(`AutoTools`, 검사 6) — 자동 진행 버튼이
+    실제로 중립 회색으로 잠겨 보이는지, 토글이 탭할 때마다 테두리 색이
+    바뀌는지도 함께 본다
+  - **ShopSlots · AutoTools · PowerBlock 셋이 우하단에서 서로 겹치지 않는지**
+    (검사 3이 자동으로 덮지만 육안으로도 확인)
+  - **여유 2.17%가 실제로 남는지** — 계산상 `ShopSlots`(17.5%)가 사용 가능
+    19.67% 안에 정확히 2.17% 여유를 두고 들어가야 한다. 실측에서 어긋나면
+    (예: 폰트 렌더링으로 라벨이 타일 밖으로 삐져나오는 등) `docs/UI.md`
+    "2. 세이프존"이 허용한 구역 비율 조정이나 구좌 개수 축소로 간다
 
-  "메뉴 타일 크기를 2열 여유에 맞춰 재검토할 것" 항목(아래 "미결")의 판단 시점은
-  "하단 띠 4종 배치 후"인데, 이번은 그 4종 중 1종(PowerBlock)뿐이다 — 시점이
-  아직 안 왔다. 로벅스 구매 구좌·자동 클리커/진행 버튼 나머지 3종이 남았다.
+  "메뉴 타일 크기를 2열 여유에 맞춰 재검토할 것" 항목(아래 "미결")의 판단
+  시점이 U3-6으로 도래했다 — 상세는 그 항목 자체에 남겼다(여기 복사하지 않는다).
 - ~~**개인 구역**~~ — **4-2-a2에서 해소됐다.** 블록이 클라 렌더링으로 넘어가면서
   개인 구역 자체가 불필요해졌고, 패드도 공용 파트 한 세트로 두고 서버가
   Touched 시점에 개인 해금 여부를 판정한다 (→ ROADMAP 4-2-a2 / 4-2-b).
@@ -293,8 +316,14 @@
   변경이라 이번 배치 변경과 층위가 다르다 — 지금 함께 올리지 않았다.
 
   ⚠️ 이 항목을 안 남기면 "2열로 바꿨는데 왜 안 커졌지"를 다음 세션에
-  다시 묻는다. 판단 시점 — 하단 띠 4종 배치 후. 세로 예산이 확정된
-  뒤에 본다.
+  다시 묻는다.
+
+  **판단 시점 도래 (U3-6, 2026-09-03).** 하단 띠 4종(힘·레벨·속도 블록 /
+  로벅스 구좌 4개 / 자동 클리커 토글 / 자동 진행 버튼 — 뒤 둘은 화면 모듈
+  하나(`AutoTools`)로 합쳐 넣었다) 전부 배치됐고 세로 예산이 확정됐다 —
+  판단 자체는 아직 안 했다. 이 배치가 전부 Play 미검증이라(위 "U3 진행
+  상태" 참고) 실측 없이 먼저 판단하면 오염된 근거로 판단하는 것과 같다.
+  다음 세션 Play 실측 후에 본다.
 ---
 
 ## 함정 — Play 검증 전에 확인할 것
