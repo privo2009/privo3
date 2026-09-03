@@ -53,15 +53,10 @@ local BLOCK_HEIGHT = POWER_ROW_HEIGHT + ROW_GAP + LEVEL_ROW_HEIGHT + ROW_GAP + S
 
 local BLOCK_WIDTH = 0.40 -- 화면 기준 40%, 중앙 (좌우 레일 20%씩을 피한 중앙 60% 안)
 
--- 하단 여백: 화면 폭 3%(Layout.EDGE_MARGIN)의 16:9 환산 (docs/UI.md "2. 세이프존 > 규칙").
--- Panel.lua의 widthFractionToRootScaleY와 같은 공식이지만 그 함수는 local이라 가져다
--- 쓸 수 없다 — 공식만 그대로 재현한다 (REFERENCE_ASPECT = 1920/1080, Panel.lua와 동일 상수).
-local REFERENCE_ASPECT = 1920 / 1080
-local BOTTOM_MARGIN_HEIGHT = Layout.EDGE_MARGIN * REFERENCE_ASPECT -- 5.33%
-
--- 블록은 아래쪽 여백 바로 위에 바닥을 고정하고 위로 연다("상단 여유"는 비워둔
--- 공간이지 블록의 일부가 아니다 — docs "확정된 값" 절 참고).
-local BLOCK_BOTTOM_Y = 1 - BOTTOM_MARGIN_HEIGHT -- 화면 기준, ~0.9467
+-- 블록은 아래쪽 여백(Layout.BOTTOM_MARGIN_HEIGHT — U3-6에서 Layout.lua로 옮긴 공용
+-- 상수. 로벅스 구좌·자동 토글도 같은 값을 쓴다) 바로 위에 바닥을 고정하고 위로
+-- 연다("상단 여유"는 비워둔 공간이지 블록의 일부가 아니다 — docs "확정된 값" 절 참고).
+local BLOCK_BOTTOM_Y = 1 - Layout.BOTTOM_MARGIN_HEIGHT -- 화면 기준, ~0.9467
 local BLOCK_TOP_Y = BLOCK_BOTTOM_Y - BLOCK_HEIGHT -- 화면 기준, ~0.7817
 
 -- 테스트 전용 참조 (MenuRail.Columns/Items와 같은 성격) — HudLayoutTests가 렌더

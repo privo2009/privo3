@@ -25,6 +25,15 @@ check("TOP_HEIGHT == 0.15", Layout.TOP_HEIGHT == 0.15)
 check("BOTTOM_HEIGHT == 0.25", Layout.BOTTOM_HEIGHT == 0.25)
 check("EDGE_MARGIN == 0.03", Layout.EDGE_MARGIN == 0.03)
 
+-- U3-6: 하단 여백 공용 상수. EDGE_MARGIN(폭 3%)을 REFERENCE_ASPECT(16:9)로 환산한
+-- 값과 정확히 같아야 한다 — 이 파일이 PowerBlock·로벅스 구좌·자동 토글이 전부
+-- 참조하는 원본이라, 값이 어긋나면 넷 다 같이 어긋난다.
+check("REFERENCE_ASPECT == 1920/1080", checkClose(Layout.REFERENCE_ASPECT, 1920 / 1080))
+check(
+	"BOTTOM_MARGIN_HEIGHT == EDGE_MARGIN * REFERENCE_ASPECT",
+	checkClose(Layout.BOTTOM_MARGIN_HEIGHT, Layout.EDGE_MARGIN * Layout.REFERENCE_ASPECT)
+)
+
 check("CenterForbidden.left == RAIL_WIDTH", Layout.CenterForbidden.left == Layout.RAIL_WIDTH)
 check("CenterForbidden.right == 1 - RAIL_WIDTH", Layout.CenterForbidden.right == 1 - Layout.RAIL_WIDTH)
 check("CenterForbidden.top == TOP_HEIGHT", Layout.CenterForbidden.top == Layout.TOP_HEIGHT)

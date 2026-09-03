@@ -17,6 +17,21 @@ Layout.TOP_HEIGHT = 0.15 -- 상단 정보 높이
 Layout.BOTTOM_HEIGHT = 0.25 -- 하단 띠 높이
 Layout.EDGE_MARGIN = 0.03 -- 가장자리 여백 (화면 폭 대비, docs/UI.md "2. 세이프존 > 규칙")
 
+-- docs/UI.md "2. 세이프존" 기준 해상도. EDGE_MARGIN(화면 "폭" 대비)을 세로 방향에
+-- 쓸 때만 이 상수로 환산한다 — Scale의 X/Y는 각각 폭/높이 기준이라 폭 3%를 그대로
+-- 세로에 쓰면 실제 여백이 좁아진다(폭 3% ≠ 높이 3%인 화면비에서). 크기 쪽(Panel의
+-- 제목 높이, X 버튼 등)은 UIAspectRatioConstraint가 실제 픽셀에서 맞추므로 이
+-- 상수가 필요 없고, Position에는 그런 장치가 없어 직접 환산해야 하는 곳(여기,
+-- Panel.lua)에서만 쓴다.
+Layout.REFERENCE_ASPECT = 1920 / 1080
+
+-- 하단 여백(화면 높이 기준). EDGE_MARGIN(폭 3%)을 REFERENCE_ASPECT로 환산한 값
+-- (~5.33%) — PowerBlock(U3-5)이 처음 계산했고, U3-6에서 로벅스 구좌·자동 토글도
+-- 같은 값이 필요해 여기(세이프존 골격)로 옮겼다. 하단 여백이 여러 파일에 따로
+-- 계산되면 한쪽만 고치는 사고가 난다 — 화면 하단에 닿는 HUD 요소는 전부 이 값을
+-- 참조할 것.
+Layout.BOTTOM_MARGIN_HEIGHT = Layout.EDGE_MARGIN * Layout.REFERENCE_ASPECT
+
 -- 중앙 금지 구역: 좌/우 레일과 상/하단 띠를 제외한 나머지 (docs/UI.md "2. 세이프존").
 export type Rect = { left: number, top: number, right: number, bottom: number }
 
