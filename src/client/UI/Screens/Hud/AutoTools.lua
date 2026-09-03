@@ -14,11 +14,19 @@
 -- 자리에 필요한 것은 "타일 아이콘"(docs "7. 아이콘 > 필요 목록"의 icon_autoclick·
 -- icon_autoadvance가 정확히 이 용도로 이미 등록돼 있다)이지 버튼 배경이 아니다.
 --
--- 토글/잠김 상태 표시는 아이콘 자체(placeholder Frame ↔ 나중에 올 ImageLabel)를
--- 직접 물들이지 않는다 — 도착 여부에 따라 인스턴스 타입이 바뀌므로 그 위에 얹은
--- 색이 도착 시점에 조용히 사라진다. 대신 `AssetImage.create`가 도착 여부와 무관하게
--- 항상 붙여주는 `UIStroke`(테두리) 색을 바꾼다 — 이 하나는 두 상태(placeholder/
--- 실물) 모두에서 항상 존재해 안전하다.
+-- 토글/잠김 상태 표시는 두 채널을 겹친다(U3-7 정정 — 처음엔 색 하나뿐이었다):
+--   1. `UIStroke`(테두리) 색 — 도착 여부와 무관하게 `AssetImage.create`가 항상
+--      붙여주므로 안전하다
+--   2. 아이콘 자체의 밝기(`ImageColor3`/`BackgroundColor3`) — UiTheme "중립"
+--      역할의 3단계 셰이드(light>base>dark)를 그대로 쓴다(새 상수 없음)
+-- 색만으로는 색각 이상 사용자(남성 약 8%)에게 안 읽히고, 모바일에서 UIStroke
+-- 몇 픽셀의 색 변화도 잘 안 보인다 — 밝기는 그 둘을 보완하는 두 번째 채널이지
+-- 색 채널을 대체하지 않는다.
+--
+-- 아이콘은 도착 여부에 따라 인스턴스 타입이 Frame ↔ ImageLabel로 바뀌므로,
+-- 밝기도 색과 같은 이유로 두 프로퍼티(`BackgroundColor3`/`ImageColor3`)를
+-- 분기해서 세팅해야 한다 — `Button.lua`의 `setTint`와 같은 분기다(그 함수는
+-- local이라 가져다 쓸 수 없어 재현한다).
 --
 -- ⚠️ UIListLayout은 각 타일 "내부"(아이콘 위 라벨 아래)에만 쓴다 — MenuRail.createTile과
 -- 같은 관례이고, 이 안쪽 배치는 테스트가 Position으로 재지 않는다. 두 타일을
@@ -55,6 +63,33 @@ AutoTools.ItemHeight = ITEM_HEIGHT
 -- 뜻으로 쓰이고 있어(발판) 가장 가까운 기존 의미였다. 새 역할을 만들지 않았다.
 local TOGGLE_ON_COLOR = UiTheme.Colors.cashout.base
 local TOGGLE_OFF_COLOR = Color3.new(0, 0, 0) -- AssetImage 기본 테두리 색과 동일(무표시 = 꺼짐)
+
+-- 밝기 채널(U3-7). UiTheme "중립" 역할의 기존 3단계 셰이드를 그대로 쓴다 — 새
+-- 상수를 만들지 않는다. 순서: 켜짐(light, 가장 밝음) > 꺼짐(base, 기존 기본값과
+-- 동일해 시각적으로 안 바뀐다) > 잠김(dark, 가장 어두움). 잠김이 꺼짐보다 더
+-- 흐려야 "잠김 > 꺼짐 > 켜짐" 순서가 밝기만으로도 읽힌다.
+local ICON_ON_TINT = UiTheme.Colors.neutral.light
+local ICON_OFF_TINT = UiTheme.Colors.neutral.base
+local ICON_LOCKED_TINT = UiTheme.Colors.neutral.dark
+
+-- 아이콘의 밝기(색조 자체)를 세팅한다. arrived=false(지금 icon_autoclick/
+-- icon_autoadvance 둘 다 이 경로다)면 AssetImage가 낸 placeholder Frame의
+-- BackgroundColor3를, arrived=true(에셋 도착 후)면 ImageLabel의 ImageColor3를
+-- 바꾼다 — 어느 경로든 밝기가 똑같이 먹어야 한다(파일 상단 참고).
+local function setIconTint(icon: GuiObject, arrived: boolean, tint: Color3)
+	if arrived then
+		(icon :: ImageLabel).ImageColor3 = tint
+	else
+		(icon :: Frame).BackgroundColor3 = tint
+	end
+end
+
+-- 테스트 전용 통로 — setIconTint의 arrived/미도착 분기를 실제 AssetConfig 등록
+-- 여부와 무관하게 직접 검증할 수 있게 한다 (WarpConfig._pure/RebirthConfig._pure와
+-- 같은 패턴 — 상태 없는 순수 함수라 인스턴스별 _debug가 아니라 모듈에 바로 둔다).
+AutoTools._pure = {
+	setIconTint = setIconTint,
+}
 
 export type AutoToolsHandle = {
 	root: Frame,
@@ -149,11 +184,16 @@ function AutoTools.create(): AutoToolsHandle
 	-- 경로)은 이번에 넣지 않는다.
 	local autoClickerIcon = autoClickerItem:FindFirstChild("Icon") :: GuiObject
 	local autoClickerStroke = autoClickerIcon:FindFirstChildOfClass("UIStroke") :: UIStroke
+	-- AssetImage.create 시점의 도착 여부를 다시 조회한다(같은 키, 순수 함수라
+	-- 두 번 불러도 안전하다) — setIconTint가 그 값으로 BackgroundColor3/
+	-- ImageColor3 중 어느 프로퍼티를 쓸지 가른다.
+	local autoClickerArrived = AssetRegistry.resolve("icon_autoclick").arrived
 
 	local autoClickerEnabled = false
 
 	local function refreshAutoClickerVisual()
 		autoClickerStroke.Color = if autoClickerEnabled then TOGGLE_ON_COLOR else TOGGLE_OFF_COLOR
+		setIconTint(autoClickerIcon, autoClickerArrived, if autoClickerEnabled then ICON_ON_TINT else ICON_OFF_TINT)
 	end
 	refreshAutoClickerVisual()
 
@@ -181,11 +221,15 @@ function AutoTools.create(): AutoToolsHandle
 	-- 아예 두지 않는다(눌러도 아무 일도 안 일어나는 것이 곧 "창이 안 열린다"다).
 	-- 자동 진행 설정 창 자체는 U7 — 여기서 만들지 않는다.
 	--
-	-- 회색인 이유: icon_autoadvance의 AssetRegistry placeholderRole이 이미
-	-- "neutral"이라 미도착 상태에서 자동으로 회색 Frame이 나온다(추가 코드 불필요).
-	-- ⚠️ 이 회색은 "에셋이 아직 없어서"이지 "기능이 잠겨서"가 아니다 — 아이콘이
-	-- 도착한 뒤에도(자동 진행 기능 자체는 U7까지 미구현이므로) 잠김 표시를 유지해야
-	-- 하는데, 그 시점의 강제 회색 처리는 이번 범위 밖이다(그때 다시 볼 것).
+	-- U3-7: 잠김 밝기를 명시적으로 세팅한다. icon_autoadvance의 placeholderRole이
+	-- "neutral"이라 예전엔 아무것도 안 해도 우연히 회색(neutral.base)이 나왔지만,
+	-- 그건 "에셋이 아직 없어서"이지 "기능이 잠겨서"가 아니었다 — 에셋이 도착하면
+	-- (자동 진행 기능 자체는 U7까지 미구현이므로) 조용히 사라질 신호였다. 이제는
+	-- ICON_LOCKED_TINT(neutral.dark)를 도착 여부와 무관하게 항상 세팅해서, 잠김이
+	-- 자동클릭 꺼짐(neutral.base)보다 항상 더 어둡다는 것을 보장한다.
+	local autoAdvanceIcon = autoAdvanceItem:FindFirstChild("Icon") :: GuiObject
+	local autoAdvanceArrived = AssetRegistry.resolve("icon_autoadvance").arrived
+	setIconTint(autoAdvanceIcon, autoAdvanceArrived, ICON_LOCKED_TINT)
 
 	return {
 		root = root,
