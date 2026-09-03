@@ -10,6 +10,7 @@ local WorldConfig = require(Config.WorldConfig)
 local StageConfig = require(Config.StageConfig)
 local UpgradeConfig = require(Config.UpgradeConfig)
 local ShopConfig = require(Config.ShopConfig)
+local ShopSlotConfig = require(Config.ShopSlotConfig)
 local AuraConfig = require(Config.AuraConfig)
 local TitleConfig = require(Config.TitleConfig)
 local PetConfig = require(Config.PetConfig)
@@ -63,6 +64,27 @@ end)
 
 check("ShopConfig.validate", function()
 	return ShopConfig.validate()
+end)
+
+check("ShopSlotConfig.validate", function()
+	return ShopSlotConfig.validate()
+end)
+
+check("ShopSlotConfig: 4개 구좌가 전부 ShopConfig 원본값을 그대로 참조한다(복사 아님)", function()
+	-- 값을 여기 다시 적었다면 ShopConfig를 바꿔도 이 테스트가 안 걸린다 — 원본을
+	-- 다시 조회해서 대조해야 "복사됐다"를 실제로 잡는다.
+	local slots = ShopSlotConfig.TEMP_SLOTS
+	local strengthTier = ShopConfig.StrengthMultTiers[1]
+	local autoClicker = ShopConfig.Gamepasses.autoClicker
+	local blox2x = ShopConfig.Gamepasses.blox2x
+	local droneTier = ShopConfig.DroneTiers[1]
+
+	return slots[1].priceRobux == strengthTier.priceRobux
+		and slots[2].priceRobux == autoClicker.priceRobux
+		and slots[2].name == autoClicker.name
+		and slots[3].priceRobux == blox2x.priceRobux
+		and slots[3].name == blox2x.name
+		and slots[4].priceRobux == droneTier.priceRobux
 end)
 
 check("AuraConfig.validate", function()
