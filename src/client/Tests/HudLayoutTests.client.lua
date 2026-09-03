@@ -60,6 +60,7 @@ local RunService = game:GetService("RunService")
 local ScreenController = require(script.Parent.Parent.UI.ScreenController)
 local HudLayoutGate = require(script.Parent.Parent.Tools.HudLayoutGate)
 local MenuRail = require(script.Parent.Parent.UI.Screens.Hud.MenuRail)
+local PowerBlock = require(script.Parent.Parent.UI.Screens.Hud.PowerBlock)
 
 local passed = 0
 local failed = 0
@@ -276,6 +277,67 @@ local function checkMenuRailGrid()
 	end
 end
 
+-- 검사 5 — PowerBlock 예산 일치 (U3-5) --------------------------------------------
+--
+-- 블록의 AbsolutePosition/AbsoluteSize가 확정 예산(PowerBlock.BlockWidth/BlockHeight/
+-- BlockBottomY)과 실제로 일치하는지 렌더 결과로 확인한다 - 검사 4(MenuRail 격자)와
+-- 같은 이유로 여기서 잰다: PowerBlockTests(컴포넌트 단위, 독립 인스턴스)는 Position의
+-- Scale 성분만 볼 수 있고, "화면에 실제로 몇 픽셀로 뜨는가"는 렌더 트리에서만 잴 수
+-- 있다.
+--
+-- ⚠️ Scale 값끼리의 비교(TestHelpers.checkClose, 상대오차)가 아니라 AbsoluteSize/
+-- AbsolutePosition(정수 픽셀로 반올림된 값) 비교라 정확히 같지 않을 수 있다 -
+-- TestHelpers.checkClose의 대상은 "엔진이 float32로 반올림한 Scale 프로퍼티"이고
+-- 여기는 그와 다른 종류의 오차(여러 단계의 Scale 곱셈 후 최종 픽셀 반올림)라 작은
+-- 절대 픽셀 허용치로 비교한다(검사 4의 minColumnGapPx와 같은 종류의 픽셀 판정).
+local POWER_BLOCK_PIXEL_TOLERANCE = 2
+
+local function checkPowerBlockBudget()
+	local entry = ScreenController._debug.entries["PowerBlock"]
+	local root = if entry ~= nil then entry.instance else nil
+
+	local isRendered = root ~= nil and root:IsDescendantOf(ScreenController._debug.guis.Hud)
+	check("PowerBlock이 HudGui 아래 register+open돼 실물로 있다(예산 검증 전제)", isRendered)
+
+	if not isRendered or root == nil then
+		return
+	end
+
+	local hud = ScreenController._debug.guis.Hud
+	local hudSize = hud.AbsoluteSize
+
+	local expectedWidth = PowerBlock.BlockWidth * hudSize.X
+	local expectedHeight = PowerBlock.BlockHeight * hudSize.Y
+	local expectedBottom = PowerBlock.BlockBottomY * hudSize.Y
+	local expectedCenterX = 0.5 * hudSize.X
+
+	local absSize = root.AbsoluteSize
+	local absPos = root.AbsolutePosition
+	local actualBottom = absPos.Y + absSize.Y
+	local actualCenterX = absPos.X + absSize.X / 2
+
+	check(
+		string.format("PowerBlock AbsoluteSize.X가 예산(화면 40%%)과 일치한다(오차<=%dpx)", POWER_BLOCK_PIXEL_TOLERANCE),
+		math.abs(absSize.X - expectedWidth) <= POWER_BLOCK_PIXEL_TOLERANCE,
+		string.format("actual=%d expected=%.1f", absSize.X, expectedWidth)
+	)
+	check(
+		string.format("PowerBlock AbsoluteSize.Y가 예산(화면 16.5%%)과 일치한다(오차<=%dpx)", POWER_BLOCK_PIXEL_TOLERANCE),
+		math.abs(absSize.Y - expectedHeight) <= POWER_BLOCK_PIXEL_TOLERANCE,
+		string.format("actual=%d expected=%.1f", absSize.Y, expectedHeight)
+	)
+	check(
+		string.format("PowerBlock 하단이 예산(BlockBottomY)과 일치한다(오차<=%dpx)", POWER_BLOCK_PIXEL_TOLERANCE),
+		math.abs(actualBottom - expectedBottom) <= POWER_BLOCK_PIXEL_TOLERANCE,
+		string.format("actual=%.1f expected=%.1f", actualBottom, expectedBottom)
+	)
+	check(
+		string.format("PowerBlock이 화면 중앙에 있다(가로 중심, 오차<=%dpx)", POWER_BLOCK_PIXEL_TOLERANCE),
+		math.abs(actualCenterX - expectedCenterX) <= POWER_BLOCK_PIXEL_TOLERANCE,
+		string.format("actual=%.1f expected=%.1f", actualCenterX, expectedCenterX)
+	)
+end
+
 task.defer(function()
 	local hud = ScreenController._debug.guis.Hud
 
@@ -355,6 +417,9 @@ task.defer(function()
 
 	-- 검사 4 — MenuRail 격자 배치 ----------------------------------------------------
 	checkMenuRailGrid()
+
+	-- 검사 5 — PowerBlock 예산 일치 (U3-5) --------------------------------------------
+	checkPowerBlockBudget()
 
 	finish()
 end)

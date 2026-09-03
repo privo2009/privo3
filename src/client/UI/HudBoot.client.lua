@@ -1,6 +1,6 @@
 --!strict
--- HUD 3종(블럭스 · 챌린지 정보 · 메뉴 진입)을 ScreenController에 등록하고
--- HudGui 층에 띄우는 진입점. ClickInput.client.lua / SpeedInputBoot.client.lua와
+-- HUD 4종(블럭스 · 챌린지 정보 · 메뉴 진입 · 힘/레벨/속도 블록)을 ScreenController에
+-- 등록하고 HudGui 층에 띄우는 진입점. ClickInput.client.lua / SpeedInputBoot.client.lua와
 -- 같은 자리 — 화면 모듈은 ModuleScript라 누군가 require해서 살려야 한다.
 --
 -- HUD는 "항상 떠 있음"(docs/UI.md "1. 화면 목록")이라 register 직후 바로 open한다.
@@ -14,6 +14,7 @@ local Layout = require(script.Parent.Layout)
 local BloxDisplay = require(script.Parent.Screens.Hud.BloxDisplay)
 local ChallengeInfo = require(script.Parent.Screens.Hud.ChallengeInfo)
 local MenuRail = require(script.Parent.Screens.Hud.MenuRail)
+local PowerBlock = require(script.Parent.Screens.Hud.PowerBlock)
 
 -- MenuRail은 BloxDisplay 바로 아래부터 시작한다(docs/UI.md 메뉴 진입 절 — 같은
 -- 좌측 레일을 위아래로 나눠 쓴다). 시작 위치를 새로 계산해 박지 않고 BloxDisplay가
@@ -26,8 +27,12 @@ local _, _, _, bloxDisplayBottom = Layout.getBounds(bloxDisplay.root)
 
 local challengeInfo = ChallengeInfo.create()
 local menuRail = MenuRail.create(bloxDisplayBottom + MENU_RAIL_TOP_GAP)
+-- PowerBlock은 하단 중앙에 스스로 자리를 잡는다(바닥을 하단 여백 위에 고정하고 위로
+-- 연다) — BloxDisplay/MenuRail처럼 다른 HUD 요소의 경계에서 위치를 유도할 필요가
+-- 없다(PowerBlock.lua 상단 참고).
+local powerBlock = PowerBlock.create()
 
--- 셋 다 register 이전에 이미 만들어져 있다. ScreenController의 지연 생성은 나중에
+-- 넷 다 register 이전에 이미 만들어져 있다. ScreenController의 지연 생성은 나중에
 -- 열릴 수도 있는 창·오버레이의 로딩 비용을 아끼려는 것이고, HUD는 register 직후
 -- 바로 open하므로 그 이점이 없다 — builder는 단지 이미 있는 root를 돌려준다.
 ScreenController.register("BloxDisplay", "Hud", function()
@@ -39,10 +44,14 @@ end)
 ScreenController.register("MenuRail", "Hud", function()
 	return menuRail.root
 end)
+ScreenController.register("PowerBlock", "Hud", function()
+	return powerBlock.root
+end)
 
 ScreenController.open("BloxDisplay")
 ScreenController.open("ChallengeInfo")
 ScreenController.open("MenuRail")
+ScreenController.open("PowerBlock")
 
 -- ⚠️ 이 로그는 "register+open을 불렀다"는 뜻이지 "지금 화면에 떠 있다"는 보장이
 -- 아니다. 이후 다른 스크립트가 같은 이름을 close()하면(예전엔 ScreenControllerTests의
@@ -50,4 +59,4 @@ ScreenController.open("MenuRail")
 -- 뒤에도 화면이 꺼질 수 있다. "Rojo 연결 성공!"(Hello.server.lua)이 미연결 상태에서도
 -- 찍히는 것과 같은 종류의 함정이다 — 이 로그만 보고 표시가 끝났다고 믿지 말 것.
 -- 실제로 떠 있는지는 HudVisibilityTests.client.lua가 확인한다.
-print("[HudBoot] HUD 3종(BloxDisplay/ChallengeInfo/MenuRail) register+open 호출함 (실노출 보장 아님 — HudVisibilityTests 참고)")
+print("[HudBoot] HUD 4종(BloxDisplay/ChallengeInfo/MenuRail/PowerBlock) register+open 호출함 (실노출 보장 아님 — HudVisibilityTests 참고)")

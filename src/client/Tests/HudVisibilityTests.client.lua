@@ -49,7 +49,7 @@ local function check(name: string, ok: boolean, detail: string?)
 	end
 end
 
-local SCREENS = { "BloxDisplay", "ChallengeInfo", "MenuRail" }
+local SCREENS = { "BloxDisplay", "ChallengeInfo", "MenuRail", "PowerBlock" } -- U3-5: PowerBlock 추가
 local STABILITY_FRAMES = 10 -- 프레임 수(시간이 아니다) — 근거는 파일 상단 참고
 
 task.defer(function()
