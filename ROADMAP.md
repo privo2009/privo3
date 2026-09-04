@@ -20,7 +20,7 @@
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
-| `Tests/ConfigTests.server.lua` | 61 | 모든 Config의 validate + 스모크 (`DroneConfig.validate` 포함) |
+| `Tests/ConfigTests.server.lua` | 70 | 모든 Config의 validate + 스모크 (`DroneConfig.validate` 포함) |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Tests/WarpConfigTests.server.lua` | 31 | 워프 비용 곡선(지수·단조)·순수성·거부 사유 3종 |
 | `Tests/AttackConfigTests.server.lua` | 29 | 펀치 속도·판정 반경 파생·경계(이하) |
@@ -28,7 +28,7 @@
 | `Data/MigrationsTests.server.lua` | 20 | schemaVersion 마이그레이션·멱등성 |
 | `Systems/CurrencyServiceTests.server.lua` | 51 | 재화 단일 게이트·롤백·rebirths |
 | `Systems/BlockServiceTests.server.lua` | 30 | 배치·데미지 오버플로우·클리어 |
-| `Systems/ChallengeServiceTests.server.lua` | 51 | 타이머·보상 갱신·진입점 거부·source 식별 |
+| `Systems/ChallengeServiceTests.server.lua` | 74 | 타이머·보상 갱신·진입점 거부·source 식별 |
 | `Systems/ClickServiceTests.server.lua` | 47 | 입력 위생·초당 상한 윈도우·통지 억제·자동 경로 |
 | `Systems/PadServiceTests.server.lua` | 31 | 패드 배치·해금 경계·디바운스·세팅/클램프 |
 | `Systems/SpeedServiceTests.server.lua` | 21 | 요청값 클램프·입력 위생·환생 하향·최대치 상승 불변 |
@@ -42,7 +42,7 @@
 | `Tests/AssetImageTests.server.lua` | 16 | 미도착→Frame·도착→ImageLabel·SliceCenter·UIStroke 3px |
 | `Tests/TextScaleTests.server.lua` | 16 | 글자 5단계 존재·heightFraction·maxTextSize 값 일치 ※ |
 | `Tests/ScreenControllerTests.client.lua` | 29 | ScreenGui 3층·지연 생성·Window 단일 오픈·Overlay 다중·배경 흐리게·오류 케이스·closeAll이 자기 인스턴스에만 닿음 |
-| `Tests/StoreTests.client.lua` | 18 | 초기값·구독/해지·setSource 교체·BigNum 형태 유지 |
+| `Tests/StoreTests.client.lua` | 32 | 초기값·구독/해지·setSource 교체·BigNum 형태 유지 |
 | `Tests/PanelTests.client.lua` | 19 | 크기 2종 규격·제목/X버튼/여백의 화면 기준 환산 일치(root-상대 Scale 보정) |
 | `Tests/ButtonTests.client.lua` | 37 | 색 6종 생성·크기 2종·비활성 gray 전환·미도착/도착 눌림 처리 ※ |
 | `Tests/ValuePanelTests.client.lua` | 15 | 8자/4자 폭 AspectRatio·TextScaled·MaxTextSize·잘림 방지 |
@@ -50,12 +50,14 @@
 | `Tests/BloxDisplayTests.client.lua` | 13 | 중앙 금지 미침범·Store 구독 반영·8자 잘림 방지 |
 | `Tests/ChallengeInfoTests.client.lua` | 17 | 상단 정보 15% 안·타이머 특대 단계·active=false 레이아웃 유지 |
 | `Tests/MenuRailTests.client.lua` | 59 | 6개 생성·좌측 레일 폭·세로 합계·BloxDisplay 비침범·AspectRatio·라벨 2~4자·격자 열 수 구성값 ※ |
-| `Tests/HudVisibilityTests.client.lua` | 16 | PlayerGui 부착·Visible·Enabled·AbsoluteSize·10프레임 지속 관찰 ※ |
-| `Tests/HudLayoutTests.client.lua` | 198 | 뷰포트 게이트 뒤 실물 HudGui — 크기 0·인셋/뷰포트 경계 침범·형제 겹침·MenuRail 격자 배치(AbsolutePosition) ※ |
+| `Tests/HudVisibilityTests.client.lua` | 31 | PlayerGui 부착·Visible·Enabled·AbsoluteSize·10프레임 지속 관찰 ※ |
+| `Tests/HudLayoutTests.client.lua` | 381 | 뷰포트 게이트 뒤 실물 HudGui — 크기 0·인셋/뷰포트 경계 침범·형제 겹침·MenuRail 격자 배치(AbsolutePosition) ※ |
+| `Tests/PowerBlockTests.client.lua` | 49 | 세 행 Y 범위·하단 띠·8자/4자 규격·진행률 경계·Store 구독 반영·다른 인스턴스 미유출 |
+| `Tests/ShopSlotsTests.client.lua` | 34 | 상점 4구좌 배치·ShopConfig 원본 참조 |
+| `Tests/AutoToolsTests.client.lua` | 28 | 자동 도구 아이콘 배치 |
+| `Systems/ArenaServiceTests.server.lua` | 31 | 스폰 좌표·경계 높이·스테이지 수에 따른 경계 확장·출입구 개방·어깨 벽 |
+| `Systems/CashoutPadServiceTests.server.lua` | 40 | 발판 좌표·측면 오프셋·디바운스·런당 1회·플레이어별 격리·source 경로 |
 | **합계** | **1218** | |
-
-U3-5~U3-7 신규 테스트(`PowerBlockTests`·`ShopSlotsTests`·`AutoToolsTests` 등)는
-다음 Play 실측 후 반영한다 — 정적으로 센 수는 신뢰할 수 없다(아래 ※ 참고).
 
 ※ 일곱 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53, 실측 66), `WarpServiceTests`는
@@ -75,13 +77,29 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-09-03 Studio Play 런타임 실측 (부분).** `HudLayoutTests`(198, 신설 —
-U3-4 관측·게이트·인셋·격자 검증) · `MenuRailTests`(59, 갱신 — U3-4C에서 렌더 의존
-격자 단언 3개를 HudLayoutTests로 옮기며 62 → 59) 두 행만 이번 Play로 실측했다.
+최근 갱신: **2026-09-04 Studio Play 런타임 실측 (부분).** U3-9 격리 + 4-2-a 아레나
+배치가 낳은 행들을 반영했다.
 
-⚠️ **합계(1218)는 이번에 다시 재지 않았다.** 나머지 31개 행은 아래 2026-09-01 값
-그대로다 — 표의 두 행(`MenuRailTests`·`HudLayoutTests`)과 합계가 지금은 서로 안 맞는다.
-전체 Play가 다시 나올 때까지 합계 줄을 임의로 계산해 고치지 않는다.
+```
+갱신   ConfigTests              61  → 70    ArenaConfig.validate + 파생 검사 5건
+       ChallengeServiceTests    51  → 74    스폰 복귀 8절
+       StoreTests               18  → 32    Store.new() 인스턴스 격리 검사
+       HudVisibilityTests       16  → 31
+       HudLayoutTests          198  → 381
+신설   PowerBlockTests          49          ArenaServiceTests        31
+       ShopSlotsTests           34          CashoutPadServiceTests   40
+       AutoToolsTests           28
+유지   PadServiceTests 31 · AttackServiceTests 41 · AttackConfigTests 29
+       (4-2-a 원점 이동이 이 셋을 하나도 안 깼다는 것이 확인 목적이었다)
+```
+
+⚠️ **합계(1218)는 이번에도 다시 재지 않았다.** 위 10행 말고는 2026-09-01 값
+그대로라 합계와 표가 서로 안 맞는다. 전체 Play 로그가 한 번에 나올 때까지
+합계 줄을 임의로 계산해 고치지 않는다 — 역산으로 채운 칸이 어떻게 조용히
+틀렸는지는 바로 위 ⚠️ 문단에 있다.
+
+⚠️ `BloxDisplayTests`(13)는 이번 Play에서 **1 fail**이 났으나 개수는 그대로다.
+코드 회귀가 아니라 인셋을 두 번 재는 하네스 문제다 (→ `docs/PENDING.md` 미결).
 
 직전 갱신: **2026-09-01 Studio Play 런타임 실측.** 1218 passed / 0 failed (33개 행).
 U3(UI 뼈대 + HUD 3종) 테스트 11행 추가 — `TextScaleTests`(16) · `ScreenControllerTests`(29) ·
@@ -362,7 +380,32 @@ d·e의 "진입점 없음"과 같은 상태이며, 셋 다 Phase 6 UI 또는 파
 정할 수 없고, 해당 모듈 구현 직전에 정한다. 미리 찍어두면 근거 없는 수치가
 코드에 박힌다.
 
-#### 4-2-a. 진입점 배선 [선행 조건]
+#### 4-2-a. 진입점 배선 [선행 조건] — 진행 벽만 남음
+
+**2026-09-04 Play 검증.** 아레나 3D 배치가 실물에서 돌았다.
+
+```
+✅ 원점 이동        패드가 스폰 구역으로 (X -380~-104). PadService/Attack 테스트 무영향
+✅ ArenaConfig      좌표 정본. 1차 상수 셋(STAGE_WIDTH/GAP_WIDTH/SPAWN_X)에서 전부 파생
+✅ 3a 스폰·경계     SpawnLocation + 경계 벽 + 어깨 벽
+✅ 3b 수령 발판     밟으면 지급된다 — 로그 실측
+                    reason=challenge_cashout_cashout_pad_stage_1, 한 줄만(디바운스 동작)
+✅ 3d 스폰 복귀     수령·실패·환생 셋이 ChallengeService.endRun 하나를 지난다
+                    수령 뒤 dist=399.4 관측
+◐ 3c 진행 벽       미배치 — 아래
+```
+
+⚠️ **3c는 자리를 못 정해서 남은 것이 아니다.** 좌표는 `ArenaConfig.getAdvanceX()`에
+이미 있다. **블록이 스테이지마다 움직이지 않아서**다 — 어느 층이든 블록이 원점(X=0)
+한 자리에 선다. 벽을 X=120에 세워 통과해도 다음 블록이 뒤에 있다.
+**4-2-a2b가 선행이다.**
+
+⚠️ 벽 개폐 방식은 **클라 렌더링으로 결정됐다.** 파트가 Workspace에 하나뿐이라
+`CanCollide` 하나로 "A는 클리어, B는 미클리어"를 동시에 만족시킬 수 없다.
+블록이 4-2-a2에서 같은 이유로 클라로 넘어갔고, 벽도 같은 길을 간다.
+착수는 4-2-a2b 이후다.
+
+관련 커밋: `c9d0698` `87e72bb` `e612268` `fde74f8` `437590f` `0504a46` `0534ea8`
 
 수령·진행이 화면 UI 버튼이 아니라 3D 오브젝트이므로
 (`DESIGN.md` "1. 챌린지 > 선택 방식"), 진입점이 서버 측 Touched/판정이 된다.
@@ -420,6 +463,38 @@ d·e의 "진입점 없음"과 같은 상태이며, 셋 다 Phase 6 UI 또는 파
 
 번호를 a와 b 사이에 끼운 이유: 4-2-a에서 드러났고 4-2-b의 선행 조건이라 그 사이가
 제자리인데, b~f를 밀면 다른 절의 참조(`Phase 4-2-f` 등)가 같이 어긋난다.
+
+#### 4-2-a2b. 블록을 스테이지 중심으로 이동 [4-2-a 3c의 선행 조건]
+
+블록이 **어느 층이든 원점(X=0) 한 자리에** 선다. `BlockLayout.computeLayout`이
+클러스터 안의 상대 좌표만 주고 stage 오프셋을 받지 않기 때문이고,
+서버(`BlockService`)도 클라(`RemoteReceiver`)도 그 값을 그대로 쓴다.
+
+4-2-a에서 아레나가 +X로 늘어서면서 이것이 문제가 됐다. 스테이지 N의 블록 중심은
+`ArenaConfig.getStageCenterX(N)` = 200×(N-1)이어야 하는데 실제로는 전부 0이다.
+그래서 **진행 벽을 세워도 통과한 자리에 다음 블록이 없다** — 뒤에 있다.
+
+```
+지금    스테이지 1·2·3 블록이 전부 X=0
+필요    스테이지 N 블록이 X = 200×(N-1)
+```
+
+⚠️ **"판정 좌표 = 표시 좌표" 계약이 얽힌다.** `BlockLayout.lua` 상단이 못박은
+것이고, 오프셋을 한쪽에만 더하면 서버의 "가까운 블록부터" 판정이 통째로 틀어진다.
+서버·클라가 **같은 함수로 같은 오프셋**을 얻어야 한다.
+
+⚠️ `AttackService`의 거리 판정 원점도 함께 옮겨야 한다. 지금은 클러스터 중심이
+원점이라는 전제로 거리를 재는데, 스테이지 3에 있으면 원점에서 400 떨어져 있다 —
+그대로 두면 어느 층에서든 `out_of_range`가 된다.
+판정 반경 자체(`AttackConfig.getRadius()`, 92.8)는 건드릴 일이 없다. 스테이지 폭
+160의 절반보다 크다는 관계는 원점이 어디든 그대로다.
+
+⚠️ 오프셋을 `BlockLayout.computeLayout`에 넣을지, 부르는 쪽에서 더할지는 착수 시
+정한다. 그 함수에 `player` 인자를 붙이지 말라는 경고는 여전히 유효하다 —
+stage는 플레이어별 값이 아니라 런 상태값이므로 그 경고와 충돌하지 않는다.
+
+번호를 a2 뒤에 붙인 이유: 같은 "블록이 어디에 서는가" 문제의 연장이고,
+4-2-a의 남은 조각(3c 진행 벽)이 이것을 기다린다.
 
 #### 4-2-b. 클릭 파워 패드 ✅ 완료
 
