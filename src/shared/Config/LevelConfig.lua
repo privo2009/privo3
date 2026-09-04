@@ -27,14 +27,16 @@
 -- 그게 곧 하드코딩이고, 위에서 피하려던 어긋남이 그대로 생긴다.
 --
 -- 현재 require 그래프는 순환이 아니다:
---   Config/LevelConfig → PadLayout → Config/BlockLayoutConfig → (없음)
---                                  → Config/ArenaConfig      → (없음)
+--   Config/LevelConfig → PadLayout       → Config/BlockLayoutConfig → (없음)
+--                                        → Config/ArenaConfig      → (없음)
+--                      → Config/ArenaConfig → (없음)
 -- ⚠️ 만약 나중에 BlockLayoutConfig나 PadLayout이나 ArenaConfig가 LevelConfig를 필요로 하게 되면 그 순간
 --    진짜 순환이 된다. 그때는 파트 깊이만 별도 모듈(예: PartGeometry)로 빼서 양쪽이
 --    그것을 읽게 한다 — LevelConfig에 깊이 숫자를 되돌려 적는 것은 답이 아니다.
 
 local BigNum = require(script.Parent.Parent.BigNum)
 local PadLayout = require(script.Parent.Parent.PadLayout)
+local ArenaConfig = require(script.Parent.ArenaConfig)
 
 type BigNumber = BigNum.BigNumber
 
@@ -78,10 +80,20 @@ LevelConfig.DEPTH_SOURCES = {
 			return depthAlong(PadLayout.PAD_SIZE, PadLayout.AXIS)
 		end,
 	},
-	-- TODO(4-2-c 이후): 수령 발판 / 진행 벽 파트가 생기면 여기에 추가한다.
+	-- 4-2-a 커밋 3b에서 추가. 위 TODO가 예고하던 그것이다.
 	-- 지환 전달 명세는 docs/UI_ASSET_SPEC.md "5-1. 수령 발판 · 진행 벽 — 최소 깊이".
-	-- (HANDOFF/를 가리키던 옛 포인터를 고쳤다 — 그 폴더는 .gitignore 대상이라
-	--  커밋 이력에 없고 참조 대상이 될 수 없다)
+	--
+	-- ⚠️ 크기가 ArenaConfig에 있는 이유는 그 파일 CASHOUT_PAD_SIZE 주석에 있다 —
+	-- 파트를 세우는 Service(서버 전용)에 두면 이 Config가 서버 모듈을 require해야 한다.
+	-- ⚠️ 축은 ArenaConfig.AXIS다. PadLayout.AXIS와 같은 값이지만(그쪽이 재공개다)
+	-- 발판은 패드가 아니므로 패드의 축을 빌려 쓰지 않는다.
+	{
+		name = "수령 발판",
+		get = function(): number
+			return depthAlong(ArenaConfig.CASHOUT_PAD_SIZE, ArenaConfig.AXIS)
+		end,
+	},
+	-- TODO(4-2-a 커밋 3c): 진행 벽이 생기면 같은 형태로 추가한다.
 } :: { DepthSource }
 
 -- 등록된 파트 중 가장 얕은 깊이(studs).

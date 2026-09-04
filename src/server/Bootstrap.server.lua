@@ -54,6 +54,12 @@ ArenaService.init()
 local PadService = require(script.Parent.Systems.PadService)
 PadService.init()
 
+-- 수령 발판을 세운다 (4-2-a).
+-- ⚠️ 순서: ArenaService.init() 뒤가 자연스럽다(같은 아레나 파트다). ChallengeService와의
+-- 선후는 상관없다 — 발판은 모듈 로드 시점에 cashout 참조만 잡고, 실제 호출은 밟혔을 때다.
+local CashoutPadService = require(script.Parent.Systems.CashoutPadService)
+CashoutPadService.init()
+
 -- 드론을 연다 (Phase 5).
 -- ⚠️ 순서: ProfileManager.init() 뒤여야 한다. PadService.init()과 같은 이유로,
 -- DroneService.init()도 내부에서 ProfileManager.onLoaded로 로드 훅을 건다 — 그 전에

@@ -389,6 +389,24 @@ check("ArenaConfig: 패드 24장이 스폰과 챌린지 입구 사이에 들어�
 		and last == -104
 end)
 
+check("LevelConfig: 수령 발판이 깊이 소스에 등록돼 있다", function()
+	-- 등록이 빠지면 발판 깊이를 8 아래로 내려도 이동속도 상한이 안 따라 내려간다.
+	-- 증상은 "빠르게 지나가면 발판이 가끔 안 밟힌다" 하나뿐이라 원인이 안 보인다.
+	local found = false
+	for _, source in ipairs(LevelConfig.DEPTH_SOURCES) do
+		if source.name == "수령 발판" then
+			found = true
+		end
+	end
+	return found
+end)
+
+check("LevelConfig: 발판 깊이가 최소 깊이(8) 이상이라 상한이 안 내려간다", function()
+	-- 발판을 추가한 것이 기존 상한을 깎지 않았는지. 깎였다면 패드보다 얕게 만든 것이다.
+	local depth = ArenaConfig.CASHOUT_PAD_SIZE.X -- 진행축이 X다
+	return depth >= 8 and LevelConfig.getMinPartDepth() <= depth
+end)
+
 check("ArenaConfig: PadLayout.AXIS는 재공개일 뿐 두 번째 원본이 아니다", function()
 	-- 양쪽에 따로 적으면 축을 틀었을 때 패드만 남거나 스테이지만 남는다.
 	return PadLayout.AXIS == ArenaConfig.AXIS
