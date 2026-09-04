@@ -24,6 +24,16 @@ end
 
 local handle = ChallengeInfo.create()
 
+-- ⚠️ **create() 바로 다음 줄이어야 한다. 사이에 yield를 넣지 말 것.**
+-- 근거는 BloxDisplayTests의 같은 이름 상수 주석에 있다 — create()가 Offset에 박는
+-- 인셋과 검사 시점의 인셋이 다를 수 있고(뷰포트가 바뀌면 GetGuiInset()이 달라진다),
+-- 그러면 프로덕션이 멀쩡한데 검사만 깨진다.
+--
+-- ⚠️ 이 파일은 2026-09-04 Play에서 **우연히 통과했다.** create()와 검사 사이에
+-- yield가 적어서 뷰포트가 바뀔 틈이 없었을 뿐이고, BloxDisplayTests가 깨진 것과
+-- 완전히 같은 지뢰였다. 로딩이 느린 날 이쪽이 터진다.
+local CREATED_TOP_INSET = Layout.getTopInset()
+
 -- 1. 중앙 금지 구역을 침범하지 않고 상단 정보 15% 안에 있다 -----------------------------
 
 do
@@ -101,9 +111,12 @@ do
 	check("root Size.X.Offset == 0", handle.root.Size.X.Offset == 0)
 	check("root Size.Y.Offset == 0", handle.root.Size.Y.Offset == 0)
 	check("root Position.X.Offset == 0", handle.root.Position.X.Offset == 0)
+	-- ⚠️ getTopInset()을 여기서 다시 부르지 말 것. create() 시점에 잡아둔 값과 비교한다
+	--    (이유는 CREATED_TOP_INSET 선언부). 정확 비교는 그대로다.
 	check(
 		"root Position.Y.Offset == Layout.getTopInset() (허용된 픽셀 예외)",
-		handle.root.Position.Y.Offset == Layout.getTopInset()
+		handle.root.Position.Y.Offset == CREATED_TOP_INSET,
+		string.format("Offset=%d 캡처=%d 현재=%d", handle.root.Position.Y.Offset, CREATED_TOP_INSET, Layout.getTopInset())
 	)
 end
 

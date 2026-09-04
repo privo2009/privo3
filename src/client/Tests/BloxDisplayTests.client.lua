@@ -30,6 +30,22 @@ end
 
 local handle = BloxDisplay.create()
 
+-- ⚠️ **create() 바로 다음 줄이어야 한다. 사이에 yield를 넣지 말 것.**
+--
+-- create()가 root.Position.Y.Offset에 박는 값은 그 순간의 Layout.getTopInset()이다
+-- (BloxDisplay.lua "X: 화면 폭 3% 여백... Y: 기본 UI 인셋만큼만 내린다" 줄).
+-- 아래 4절이 그 Offset을 검사하는데, 예전에는 검사 시점에 getTopInset()을 **다시
+-- 읽어서** 비교했다. 그 사이에 task.wait()이 든 절이 둘 있고, GetGuiInset()은
+-- 뷰포트에 따라 값이 바뀐다 — Studio에서 Output 창을 여는 것만으로 뷰포트가
+-- 830 → 593이 되고 인셋이 58 → 57로 갈린다. 프로덕션은 멀쩡한데 검사만 깨졌다
+-- (2026-09-04 Play, fail 1건).
+--
+-- ⚠️ 허용 오차를 두는 것이 답이 아니다. 1px은 그날 나온 값일 뿐이고 로딩이 느리면
+-- 더 벌어진다. 두 번 재는 것을 한 번으로 줄이는 것이 고칠 지점이다.
+-- 여기서 잡으면 create()와 같은 프레임이라 create()가 본 값과 반드시 같고,
+-- 검사는 정확 비교(==)를 그대로 유지한다.
+local CREATED_TOP_INSET = Layout.getTopInset()
+
 -- 1. 중앙 금지 구역을 침범하지 않는다 ------------------------------------------------
 
 do
@@ -96,9 +112,12 @@ do
 	check("root Size.Y.Offset == 0", handle.root.Size.Y.Offset == 0)
 	check("root Position.X.Offset == 0", handle.root.Position.X.Offset == 0)
 	-- Y.Offset은 예외다 — Layout.getTopInset()(기본 UI 인셋 보정)만 들어간다.
+	-- ⚠️ getTopInset()을 여기서 다시 부르지 말 것. create() 시점에 잡아둔 값과 비교한다
+	--    (이유는 CREATED_TOP_INSET 선언부). 정확 비교는 그대로다.
 	check(
 		"root Position.Y.Offset == Layout.getTopInset() (허용된 픽셀 예외)",
-		handle.root.Position.Y.Offset == Layout.getTopInset()
+		handle.root.Position.Y.Offset == CREATED_TOP_INSET,
+		string.format("Offset=%d 캡처=%d 현재=%d", handle.root.Position.Y.Offset, CREATED_TOP_INSET, Layout.getTopInset())
 	)
 end
 
