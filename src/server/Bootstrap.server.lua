@@ -33,6 +33,10 @@ local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 -- 그대로 둔다 — 이미 source="bootstrap_verify"로 실제 플레이 데이터와 구분된다.
 -- 살려둔 런은 20초 뒤 ChallengeService의 만료 루프가 걷어가고, 그때 클라에
 -- reason=timeout이 찍힌다.
+--
+-- **켜는 법: 이 줄을 true로 고치고 Rojo sync.** 지우지 말 것 — 3b·3d나 클라 블록을
+-- 다시 눈으로 봐야 할 때 없으면 또 만들게 된다.
+-- 지금 false인 이유: 4-2-a 검증이 끝났다(발판 지급·스폰 복귀 실측 확인).
 local KEEP_RUN_ALIVE = false
 
 print("[Bootstrap] ProfileManager.init() 호출 시작")
@@ -403,9 +407,18 @@ local VERIFY_CHALLENGE = true
 --
 -- ⚠️ **프로덕션에 켠 채로 남기지 말 것.** 남으면 유저가 리셋만으로 런을 임의로
 -- 시작할 수 있게 된다 — 20초 타이머를 리셋으로 회피하는 길이 열린다.
--- 지금 true인 것은 다음 Play에서 3b·3d를 손으로 확인하기 위해서다.
--- TODO(3b·3d 육안 확인 완료 후): false로 되돌린다.
-local CHALLENGE_REVERIFY_ON_RESPAWN = true
+--
+-- **켜는 법: 이 줄을 true로 고치고 Rojo sync.** 지우지 말 것 — 3b·3d를 다시
+-- 봐야 할 때 없으면 또 만들게 된다.
+-- 지금 false인 이유: 3b·3d가 실물에서 확인됐다(발판 지급 로그 1줄 = 디바운스 동작,
+-- reason=challenge_cashout_cashout_pad_stage_1 = source 조립 동작, 그리고
+-- 수령 뒤 dist=399.4 = 스폰 복귀 동작). 켜둘 이유가 없어졌다.
+--
+-- ⚠️ 이 플래그는 `if VERIFY_CHALLENGE then` 안에 있어서 그쪽이 false면 어차피 죽는다.
+-- 그것을 "프로덕션에서 확실히 꺼지는 구조"로 치지 않는다 — 사람이 고치는 플래그가
+-- 하나 더 있는 것일 뿐이고, 회피 경로를 여는 값이 사람의 기억에 걸려 있으면 안 된다.
+-- 진짜 방어선은 Phase 6 UI에서 이 블록을 통째로 지우는 것이다(docs/PENDING.md 잔재).
+local CHALLENGE_REVERIFY_ON_RESPAWN = false
 
 if VERIFY_CHALLENGE then
 	-- ReplicatedStorage / BigNum / CurrencyService는 파일 상단에서 이미 require했다.
