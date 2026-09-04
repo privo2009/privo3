@@ -36,6 +36,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local BlockLayoutConfig = require(ReplicatedStorage.Shared.Config.BlockLayoutConfig)
 
 local PadLayout = {}
@@ -48,8 +49,13 @@ PadLayout.PAD_SIZE = Vector3.new(8, 1, 8)
 --
 -- ⚠️ 진행 축은 +X다(아레나 전체가 그렇다). 예전에는 -Z였다 — 블록 클러스터를 피해
 -- 빈 축 하나를 잡은 것뿐이었고 동선과 무관했다.
--- ⚠️ 반드시 단위 벡터여야 한다 — PITCH를 그대로 곱하므로 길이가 1이 아니면 간격이 틀어진다.
-PadLayout.AXIS = Vector3.new(1, 0, 0)
+--
+-- ⚠️ 정본은 `ArenaConfig.AXIS`다. 여기서 다시 적지 않는다 — 패드와 스테이지가 같은
+-- 축을 써야 "패드를 다 밟고 나온 자리가 곧 챌린지 앞"이 성립하는데, 양쪽에 따로
+-- 적으면 축을 틀었을 때 한쪽만 따라온다. 단위 벡터 보장도 ArenaConfig.validate가 한다.
+-- 이 필드를 남겨두는 이유는 호출부(LevelConfig.depthAlong, PadServiceTests)가
+-- 이미 PadLayout.AXIS를 읽고 있어서다 — 재공개일 뿐 두 번째 원본이 아니다.
+PadLayout.AXIS = ArenaConfig.AXIS
 
 -- 패드 중심 간 거리 (studs). PAD_SIZE에서 축 방향 성분보다 커야 패드끼리 안 붙는다.
 -- 현재 축이 X이므로 기준은 PAD_SIZE.X(=8)이고, 12는 그 1.5배다.
@@ -75,10 +81,9 @@ PadLayout.GROUND_Y_OFFSET = PadLayout.PAD_SIZE.Y / 2
 -- ⚠️ `BlockLayout` require도 함께 걷어냈다. 이 파일이 블록 기하를 읽을 이유가
 -- 이제 없다. 되살리기 전에 "패드가 블록과 무슨 상관인가"를 먼저 답할 것.
 --
--- TODO(4-2-a 커밋 2): SPAWN_X는 아레나 좌표 Config로 옮긴다. 스폰 지점은 패드만
--- 쓰는 값이 아니라 경계·복귀 경로도 쓰는 값이라 여기가 정본일 자리가 아니다.
--- 지금 여기 있는 것은 커밋 1이 단독으로 서야 하기 때문이다(그 Config가 아직 없다).
-local SPAWN_X = -400
+-- 스폰 지점의 정본은 `ArenaConfig.SPAWN_X`다. 스폰은 패드만 쓰는 값이 아니라
+-- 경계·복귀 경로도 쓰는 값이라 이 파일이 가질 자리가 아니다.
+local SPAWN_X = ArenaConfig.SPAWN_X
 
 -- 스폰 지점과 패드 1 사이 여유. 블록 한 변만큼 띄운다 — 스폰하자마자 발밑이
 -- 패드이면 첫 접촉이 사고가 된다.

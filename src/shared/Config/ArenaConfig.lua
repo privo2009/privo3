@@ -1,0 +1,200 @@
+--!strict
+-- 아레나 월드 좌표. 스폰 구역 · 스테이지 구간 · 그 사이 띠가 어디에 놓이는가.
+--
+-- 공간 구조의 원본은 docs/UI_HANDOFF.md "3D 파트 배치 — 아레나 좌표"다.
+-- ⚠️ 근거를 여기로 복사하지 말 것. 이 파일은 "얼마인가"만 답한다.
+--
+--   스폰 구역                          챌린지 구간 →
+--   [ 패드 24개 · 펫뽑기 ]  →  [ St.1 블록 ] [ 띠 ] [ St.2 블록 ] [ 띠 ] ...
+--   X -400 ~ -104              X -80 부터
+--
+-- 이 모듈은 순수하다. Player·프로필·Instance를 보지 않고 Service를 require하지 않는다.
+-- 좌표만 만들고 파트는 만들지 않는다 — BlockLayout/PadLayout과 같은 성격이다.
+--
+-- ===== 주기 200을 여러 곳에 박지 말 것 (이 파일이 있는 이유) ===========================
+--
+-- 스테이지 25개면 마지막 블록 중심이 X = 4800이고, 발판·벽까지 세면 좌표를 가진
+-- 파트가 75개다. 주기를 파트 배치 코드에 적으면 나중에 폭을 조정할 때 그 75개가
+-- 전부 어긋나고, 어긋난 것이 "걸어가다 벽에 막힌다" 같은 증상으로만 나타난다.
+--
+-- ⚠️ 그래서 파트를 놓는 쪽은 200·100·120을 절대 쓰지 않는다. getStageCenterX /
+-- getCashoutX / getAdvanceX를 부른다. 아래 파생 함수들이 유일한 계산처다.
+--
+-- ⚠️ 파생은 함수다. 상수로 미리 계산해두면 STAGE_WIDTH를 흔들었을 때(테스트가 실제로
+-- 그렇게 한다) 따라오지 않아서, 유도가 끊겨도 통과한다.
+-- (AttackConfig.getRadius가 상수 대신 함수인 것과 같은 이유)
+
+local ArenaConfig = {}
+
+-- ===== 진행 축 =======================================================================
+--
+-- 아레나 전체가 +X로 진행한다. 스폰에서 패드를 지나 챌린지 입구까지, 그리고 스테이지
+-- 1 → 25까지 전부 같은 방향이다 — 유저가 한 번도 돌아설 필요가 없다는 뜻이다.
+--
+-- ⚠️ 여기가 축의 정본이다. PadLayout.AXIS가 이 값을 읽는다. 양쪽에 따로 적으면
+-- 축을 틀었을 때 패드만 남거나 스테이지만 남는다.
+-- ⚠️ 반드시 단위 축 벡터여야 한다 (LevelConfig.depthAlong이 축 투영을 전제한다).
+ArenaConfig.AXIS = Vector3.new(1, 0, 0)
+
+-- ===== 1차 상수 (여기 적힌 둘만 원본이다) ==============================================
+
+-- 스테이지 한 칸의 폭. 블록 중심에서 양옆으로 절반씩이다.
+-- ⚠️ 근접 판정 반경(AttackConfig.getRadius, 92.8)이 이 폭의 절반(80)보다 크다.
+-- 스테이지 안에 서 있는 한 공격이 끊기지 않는다는 뜻이고, 그게 의도다.
+-- 그쪽은 이 값을 참조하지 않는다 — 근거가 다르고 서로 끌려다니면 안 된다.
+ArenaConfig.STAGE_WIDTH = 160
+
+-- 스테이지와 스테이지 사이 띠. 수령 발판과 진행 벽이 이 띠 안에 있다.
+ArenaConfig.GAP_WIDTH = 40
+
+-- 스폰 지점의 X. 패드도 아레나 경계도 복귀 경로도 이 값에서 시작한다.
+--
+-- ⚠️ 4-2-a 이전에는 PadLayout이 이 역할을 겸했다(블록 아레나 반지름에서 패드
+-- 시작점을 유도). 패드가 스폰 구역으로 오면서 스폰 지점이 패드만의 값이 아니게
+-- 됐고, 그래서 여기가 정본이 됐다.
+ArenaConfig.SPAWN_X = -400
+
+-- ===== 파생 =========================================================================
+
+-- 스테이지 한 주기 = 스테이지 폭 + 띠 폭. 스테이지 N과 N+1의 블록 중심 간 거리다.
+function ArenaConfig.getStagePitch(): number
+	return ArenaConfig.STAGE_WIDTH + ArenaConfig.GAP_WIDTH
+end
+
+-- 스테이지 N의 블록 클러스터 중심 X. 스테이지 1이 원점(X=0)이다.
+--
+-- ⚠️ 블록 좌표 자체(BlockLayout.computeLayout)는 여전히 원점 고정이고 player 인자를
+-- 받지 않는다. 그쪽은 "클러스터 안에서 블록 16개가 어디에 서는가"이고, 이 함수는
+-- "그 클러스터가 통째로 어디에 놓이는가"다. 두 값을 더해서 쓴다.
+function ArenaConfig.getStageCenterX(stage: number): number
+	assert(
+		type(stage) == "number" and stage == stage and stage % 1 == 0 and stage >= 1,
+		string.format("ArenaConfig.getStageCenterX: stage(%s)는 1 이상의 정수여야 함", tostring(stage))
+	)
+	return ArenaConfig.getStagePitch() * (stage - 1)
+end
+
+-- 수령 발판의 블록중심 기준 오프셋. 띠의 한가운데다 (스테이지 끝 + 띠 절반).
+--
+-- ⚠️ 발판은 이 X에 놓이되 **진행 축에서 옆으로 비켜서** 놓인다. 축 위에 두면 다음
+-- 스테이지로 걸어가다 밟아서 런이 끝난다 — 수령은 선택이어야지 사고여서는 안 된다
+-- (DESIGN.md "1. 챌린지"). 옆으로 얼마나 비키는지는 이 파일이 정하지 않는다.
+function ArenaConfig.getCashoutOffset(): number
+	return ArenaConfig.STAGE_WIDTH / 2 + ArenaConfig.GAP_WIDTH / 2
+end
+
+-- 진행 벽의 블록중심 기준 오프셋. 띠의 끝, 곧 다음 스테이지가 시작하는 자리다.
+-- 벽은 축 정면에 있어서 통과하면 곧바로 다음 블록이 보인다.
+function ArenaConfig.getAdvanceOffset(): number
+	return ArenaConfig.STAGE_WIDTH / 2 + ArenaConfig.GAP_WIDTH
+end
+
+-- 스테이지 N의 수령 발판 X.
+function ArenaConfig.getCashoutX(stage: number): number
+	return ArenaConfig.getStageCenterX(stage) + ArenaConfig.getCashoutOffset()
+end
+
+-- 스테이지 N의 진행 벽 X.
+--
+-- ⚠️ 최종 스테이지 뒤에도 벽은 선다. 서버는 이미 진행을 거부하지만
+-- (ChallengeService.advance — 담당 월드가 없는 층), **파트가 물리적으로 막지 않으면
+-- 캐릭터는 그냥 걸어나간다.** 거부와 차단은 다른 일이다.
+function ArenaConfig.getAdvanceX(stage: number): number
+	return ArenaConfig.getStageCenterX(stage) + ArenaConfig.getAdvanceOffset()
+end
+
+-- 챌린지 입구 X = 스테이지 1의 시작 면. 스폰 구역과 챌린지 구간의 경계다.
+-- ⚠️ -80을 적지 않는다. 스테이지 폭을 바꾸면 입구가 따라 움직여야 한다.
+function ArenaConfig.getEntranceX(): number
+	return ArenaConfig.getStageCenterX(1) - ArenaConfig.STAGE_WIDTH / 2
+end
+
+-- 스폰 지점에서 챌린지 입구까지의 거리. 패드 24장이 이 사이에 들어간다.
+-- "체감상 적절한가"는 Play에서 볼 값이고, 여기서는 얼마인지만 답한다.
+function ArenaConfig.getSpawnToEntrance(): number
+	return ArenaConfig.getEntranceX() - ArenaConfig.SPAWN_X
+end
+
+function ArenaConfig.validate(): boolean
+	assert(
+		type(ArenaConfig.STAGE_WIDTH) == "number" and ArenaConfig.STAGE_WIDTH > 0,
+		string.format("ArenaConfig: STAGE_WIDTH(%s)는 0보다 커야 함", tostring(ArenaConfig.STAGE_WIDTH))
+	)
+
+	-- 0이면 스테이지끼리 맞붙는다 — 발판도 벽도 놓을 자리가 없어진다.
+	assert(
+		type(ArenaConfig.GAP_WIDTH) == "number" and ArenaConfig.GAP_WIDTH > 0,
+		string.format("ArenaConfig: GAP_WIDTH(%s)는 0보다 커야 함", tostring(ArenaConfig.GAP_WIDTH))
+	)
+
+	-- 스폰이 입구보다 뒤에 있어야 한다. 넘어가면 스폰하자마자 챌린지 안이다.
+	assert(
+		ArenaConfig.SPAWN_X < ArenaConfig.getEntranceX(),
+		string.format(
+			"ArenaConfig: SPAWN_X(%.1f)가 챌린지 입구(%.1f)보다 앞에 있음 — 스폰이 챌린지 안이다",
+			ArenaConfig.SPAWN_X,
+			ArenaConfig.getEntranceX()
+		)
+	)
+
+	-- AXIS가 단위 벡터가 아니면 이 축을 쓰는 쪽(PadLayout.PITCH 곱셈,
+	-- LevelConfig.depthAlong 투영)이 통째로 틀어진다.
+	assert(
+		math.abs(ArenaConfig.AXIS.Magnitude - 1) < 1e-6,
+		string.format("ArenaConfig: AXIS가 단위 벡터가 아님 (크기 %.6f)", ArenaConfig.AXIS.Magnitude)
+	)
+
+	-- 파생이 실제로 성립하는지. 상수만 보고 지나가면 getStageCenterX가 주기를
+	-- 빼먹어도 통과한다 (AttackConfig.validate / WarpConfig.validate와 같은 이유).
+	local pitch = ArenaConfig.getStagePitch()
+	assert(
+		pitch == ArenaConfig.STAGE_WIDTH + ArenaConfig.GAP_WIDTH,
+		string.format("ArenaConfig: 주기(%.1f)가 폭+띠와 다름", pitch)
+	)
+	assert(
+		ArenaConfig.getStageCenterX(1) == 0,
+		string.format("ArenaConfig: 스테이지 1의 중심(%.1f)이 원점이 아님", ArenaConfig.getStageCenterX(1))
+	)
+	assert(
+		ArenaConfig.getStageCenterX(2) - ArenaConfig.getStageCenterX(1) == pitch,
+		"ArenaConfig: 이웃 스테이지 간격이 주기와 다름 — getStageCenterX가 주기를 안 쓴다"
+	)
+
+	-- 발판과 벽이 둘 다 띠 **안**에 있어야 한다. 발판이 띠를 벗어나면 스테이지 위에
+	-- 겹쳐 놓이고, 벽이 띠보다 멀면 다음 스테이지 블록을 지나서야 막힌다.
+	local stageEdge = ArenaConfig.STAGE_WIDTH / 2
+	local bandEnd = stageEdge + ArenaConfig.GAP_WIDTH
+	local cashout = ArenaConfig.getCashoutOffset()
+	local advance = ArenaConfig.getAdvanceOffset()
+
+	assert(
+		cashout > stageEdge and cashout < bandEnd,
+		string.format("ArenaConfig: 수령 발판 오프셋(%.1f)이 띠(%.1f~%.1f) 밖", cashout, stageEdge, bandEnd)
+	)
+	assert(
+		advance == bandEnd,
+		string.format("ArenaConfig: 진행 벽 오프셋(%.1f)이 띠 끝(%.1f)이 아님", advance, bandEnd)
+	)
+
+	-- 발판이 벽보다 앞에 있어야 한다. 뒤에 있으면 벽을 통과한 뒤에야 발판이 나와서
+	-- "수령이냐 진행이냐"의 선택 순서가 뒤집힌다.
+	assert(
+		cashout < advance,
+		string.format("ArenaConfig: 수령 발판(%.1f)이 진행 벽(%.1f)보다 뒤에 있음", cashout, advance)
+	)
+
+	-- 스테이지가 올라가도 발판이 다음 스테이지를 침범하지 않는지. 주기와 오프셋이
+	-- 따로 놀면 여기서 걸린다.
+	assert(
+		ArenaConfig.getCashoutX(1) < ArenaConfig.getStageCenterX(2) - stageEdge,
+		"ArenaConfig: 스테이지 1의 수령 발판이 스테이지 2 영역 안에 있음"
+	)
+	assert(
+		ArenaConfig.getAdvanceX(1) == ArenaConfig.getStageCenterX(2) - stageEdge,
+		"ArenaConfig: 진행 벽이 다음 스테이지 시작 면에 있지 않음"
+	)
+
+	return true
+end
+
+return ArenaConfig

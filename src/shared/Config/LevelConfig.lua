@@ -28,7 +28,8 @@
 --
 -- 현재 require 그래프는 순환이 아니다:
 --   Config/LevelConfig → PadLayout → Config/BlockLayoutConfig → (없음)
--- ⚠️ 만약 나중에 BlockLayoutConfig나 PadLayout이 LevelConfig를 필요로 하게 되면 그 순간
+--                                  → Config/ArenaConfig      → (없음)
+-- ⚠️ 만약 나중에 BlockLayoutConfig나 PadLayout이나 ArenaConfig가 LevelConfig를 필요로 하게 되면 그 순간
 --    진짜 순환이 된다. 그때는 파트 깊이만 별도 모듈(예: PartGeometry)로 빼서 양쪽이
 --    그것을 읽게 한다 — LevelConfig에 깊이 숫자를 되돌려 적는 것은 답이 아니다.
 

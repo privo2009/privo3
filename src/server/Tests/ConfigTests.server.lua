@@ -20,6 +20,7 @@ local LevelConfig = require(Config.LevelConfig)
 local RebirthConfig = require(Config.RebirthConfig)
 local WarpConfig = require(Config.WarpConfig)
 local AttackConfig = require(Config.AttackConfig)
+local ArenaConfig = require(Config.ArenaConfig)
 local DroneConfig = require(Config.DroneConfig)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 
@@ -121,6 +122,10 @@ end)
 
 check("AttackConfig.validate", function()
 	return AttackConfig.validate()
+end)
+
+check("ArenaConfig.validate", function()
+	return ArenaConfig.validate()
 end)
 
 check("DroneConfig.validate", function()
@@ -317,6 +322,76 @@ check("LevelConfig: 상한이 공식과 일치한다", function()
 	local depth = LevelConfig.getMinPartDepth()
 	local expected = depth * LevelConfig.REFERENCE_FPS / LevelConfig.MIN_FRAMES_ON_PART
 	return LevelConfig.getMaxWalkSpeed() == expected and LevelConfig.deriveMaxWalkSpeed(depth) == expected
+end)
+
+-- ===== ArenaConfig ===================================================================
+--
+-- 아레나 좌표는 파트 75개(스테이지 25 × 블록·발판·벽)의 자리를 정한다. 주기가 파생이
+-- 아니라 상수로 박히면 폭을 조정했을 때 그 전부가 어긋나고, 증상은 "걸어가다 벽에
+-- 막힌다" 같은 모양으로만 나타난다. 아래는 파생이 실제로 도는지를 재는 절이다.
+
+check("ArenaConfig: 확정 구조의 좌표가 그대로 나온다", function()
+	-- 확정값을 여기 박는 것이 맞다. 이 절은 "구조가 바뀌지 않았는가"를 재는 자리이고,
+	-- 파생식으로 다시 쓰면 식이 틀려도 자기 자신과 일치해서 통과한다.
+	return ArenaConfig.getStagePitch() == 200
+		and ArenaConfig.getStageCenterX(1) == 0
+		and ArenaConfig.getStageCenterX(2) == 200
+		and ArenaConfig.getCashoutX(1) == 100
+		and ArenaConfig.getAdvanceX(1) == 120
+		and ArenaConfig.getEntranceX() == -80
+		and ArenaConfig.SPAWN_X == -400
+		and ArenaConfig.getSpawnToEntrance() == 320
+end)
+
+check("ArenaConfig: 스테이지 폭을 흔들면 주기·발판·벽이 전부 따라온다 (유도가 실제로 돈다)", function()
+	-- 상수를 박았는지 유도하는지를 가르는 테스트다. LevelConfig의 PAD_SIZE 흔들기와
+	-- 같은 형태이고, 복구를 pcall 바깥에 두는 이유도 같다 — 중간에 error가 나도
+	-- 뒤따르는 케이스들이 오염된 STAGE_WIDTH로 돌면 안 된다.
+	local original = ArenaConfig.STAGE_WIDTH
+
+	ArenaConfig.STAGE_WIDTH = original * 2
+	local ok, result = pcall(function()
+		return {
+			pitch = ArenaConfig.getStagePitch(),
+			center2 = ArenaConfig.getStageCenterX(2),
+			cashout = ArenaConfig.getCashoutX(1),
+			advance = ArenaConfig.getAdvanceX(1),
+			entrance = ArenaConfig.getEntranceX(),
+		}
+	end)
+	ArenaConfig.STAGE_WIDTH = original -- 성공·실패와 무관하게 반드시 복구된다
+
+	if not ok then
+		error(result, 0) -- level 0: 안쪽 error의 위치 정보를 덧씌우지 않는다
+	end
+
+	local r = result :: any
+	-- 폭 160 → 320이면 주기 200 → 360, 발판 100 → 180, 벽 120 → 200, 입구 -80 → -160.
+	return r.pitch == 360
+		and r.center2 == 360
+		and r.cashout == 180
+		and r.advance == 200
+		and r.entrance == -160
+		and ArenaConfig.getStagePitch() == 200 -- 복구 확인
+end)
+
+check("ArenaConfig: 패드 24장이 스폰과 챌린지 입구 사이에 들어간다", function()
+	-- 두 파일이 같은 축·같은 스폰 지점을 쓰는지 실제 좌표로 확인한다. 패드가 입구를
+	-- 넘어가면 챌린지 구간에 패드가 서고, 4-2-a에서 없애기로 한 구조가 되살아난다.
+	local count = ClickPadConfig.getSet(1).count
+	local positions = PadLayout.computeLayout(count)
+	local first = positions[1].X
+	local last = positions[count].X
+
+	return first > ArenaConfig.SPAWN_X
+		and last < ArenaConfig.getEntranceX()
+		and first == -380
+		and last == -104
+end)
+
+check("ArenaConfig: PadLayout.AXIS는 재공개일 뿐 두 번째 원본이 아니다", function()
+	-- 양쪽에 따로 적으면 축을 틀었을 때 패드만 남거나 스테이지만 남는다.
+	return PadLayout.AXIS == ArenaConfig.AXIS
 end)
 
 check("StageConfig: BLOCK_COUNT_STEPS는 월드 안에서 감소하지 않는다", function()
