@@ -99,7 +99,8 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 틀렸는지는 바로 위 ⚠️ 문단에 있다.
 
 ⚠️ `BloxDisplayTests`(13)는 이번 Play에서 **1 fail**이 났으나 개수는 그대로다.
-코드 회귀가 아니라 인셋을 두 번 재는 하네스 문제다 (→ `docs/PENDING.md` 미결).
+코드 회귀가 아니라 인셋을 두 번 재는 하네스 문제였고 `5174bdb`에서 해소됐다
+(→ `docs/PENDING.md` 함정 "create 시점의 환경값과 검사 시점의 환경값").
 
 직전 갱신: **2026-09-01 Studio Play 런타임 실측.** 1218 passed / 0 failed (33개 행).
 U3(UI 뼈대 + HUD 3종) 테스트 11행 추가 — `TextScaleTests`(16) · `ScreenControllerTests`(29) ·
