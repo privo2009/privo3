@@ -186,6 +186,17 @@ do
 end
 
 -- 6. Store 구독이 반영된다 -------------------------------------------------------------
+--
+-- ⚠️ 이 절은 싱글톤을 쓴다. 바꿀 수 없어서가 아니라 그것이 검사 대상이기 때문이다 —
+-- PowerBlock.create()가 싱글톤을 직접 구독하므로(PowerBlock.lua "표시 갱신" 절),
+-- 여기서 자기 인스턴스를 쓰면 실물 HUD 경로를 하나도 안 재고 통과하게 된다.
+-- create()에 store를 주입하도록 고치는 길도 있으나 그러면 통과한 화면 6종이 전부
+-- 미검증으로 돌아간다(U3-9 범위 밖).
+--
+-- 이 절이 U3-9에서 "- 1000"으로 깨졌던 것은 여기 잘못이 아니라 StoreTests가
+-- 같은 싱글톤에 walkSpeed=1000을 걸었기 때문이다. 그쪽이 자기 인스턴스로 옮겼으므로
+-- 이제 싱글톤의 walkSpeed/strength/maxWalkSpeed를 쓰는 것은 이 파일뿐이다
+-- (BloxDisplayTests는 blox만 건드린다 — 키가 겹치지 않는다).
 
 do
 	local powerLabel = handle.root:FindFirstChild("PowerValue") :: TextLabel
@@ -214,6 +225,34 @@ do
 
 		check("Store.walkSpeed 변경이 SpeedValue 텍스트에 반영된다", speedLabel.Text == "33", speedLabel.Text)
 		check("Store.maxWalkSpeed 변경이 MaxLabel 텍스트에 반영된다", maxLabel.Text == "/ 최대 77", maxLabel.Text)
+
+		-- 6b. 다른 Store 인스턴스는 실물 PowerBlock에 닿지 않는다 ----------------------
+		--
+		-- U3-9 사고의 재발 방지선이다. StoreTests가 자기 인스턴스에 걸던 값을 그대로
+		-- 재현한다 — walkSpeed=1000은 실측 실패 메시지 "- 1000"의 그 값이다. 격리가
+		-- 무너지면(예: 누가 Store.new()를 지우고 이름 접두어로 되돌리면) 라벨이
+		-- 다시 "1000"이 되어 여기서 잡힌다.
+		local privateStore = Store.new()
+		privateStore.setSource(function(setter)
+			setter("walkSpeed", 1000)
+			setter("strength", BigNum.new(1, 2))
+		end)
+		task.wait()
+
+		check(
+			"다른 Store 인스턴스의 walkSpeed 변경이 SpeedValue로 새지 않는다",
+			speedLabel.Text == "33",
+			speedLabel.Text
+		)
+		check(
+			"다른 Store 인스턴스의 strength 변경이 PowerValue로 새지 않는다",
+			powerLabel.Text == Formatter.format(newStrength),
+			powerLabel.Text
+		)
+		check(
+			"다른 Store 인스턴스는 싱글톤 상태 자체도 바꾸지 않는다",
+			checkClose(Store.get("walkSpeed"), 33)
+		)
 	else
 		check("Store 구독 반영 검사 전제(라벨 존재)", false, "PowerValue/SpeedValue/MaxLabel 중 일부가 없다")
 	end
