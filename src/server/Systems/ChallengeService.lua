@@ -29,6 +29,8 @@ local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 local Schema = require(script.Parent.Parent.Data.Schema)
 local CurrencyService = require(script.Parent.CurrencyService)
 local BlockService = require(script.Parent.BlockService)
+-- 스폰 복귀. 좌표도 파트도 ArenaService가 소유한다 — 여기서 SPAWN_X를 다시 읽지 않는다.
+local ArenaService = require(script.Parent.ArenaService)
 local GameTypes = require(ReplicatedStorage.Shared.GameTypes)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
@@ -132,6 +134,20 @@ ChallengeService._pure = {
 
 local runs: { [Player]: RunState } = {}
 
+-- 바깥 세계로 나가는 이음매. 지금은 스폰 복귀 하나뿐이다.
+--
+-- 왜 직접 부르지 않고 여기를 거치는가: 이 서비스는 싱글턴이고 runs 상태를 들고 있어서
+-- 테스트가 자기 인스턴스를 가질 수 없다. 그렇다고 복귀를 검증 못 하게 두면, 종료 경로
+-- 셋 중 하나에서 복귀가 빠져도 아무 데도 안 걸린다 — 실물 Play에서만 보이는 종류의
+-- 고장이다. 이 필드 하나를 갈아끼울 수 있게 두면 호출 여부·호출 순서를 잴 수 있다.
+-- (RebirthService/WarpService가 deps 테이블로 같은 문제를 푼 것과 같은 방식이다)
+--
+-- ⚠️ 테스트가 바꾼 뒤 반드시 되돌릴 것. 안 되돌리면 그 뒤의 실물 종료가 전부
+-- 가짜 함수를 탄다.
+ChallengeService._deps = {
+	returnToSpawn = ArenaService.returnToSpawn,
+}
+
 Players.PlayerRemoving:Connect(function(player: Player)
 	-- 여기서는 통지하지 않는다. 나가는 중인 클라에 보낼 것이 없다.
 	runs[player] = nil
@@ -218,11 +234,46 @@ local function notifyBlockDamaged(player: Player, changes: { BlockChange })
 	channels.blockDamaged:FireClient(player, changes)
 end
 
+-- ===== 런 종료 단일 지점 ===============================================================
+--
+-- 런이 끝나는 길은 셋이다: 수령 성공 / 시간 초과 / 이탈(환생). 셋 다 여기를 지난다.
+--
+-- ⚠️ **모으는 것이 요점이다.** 종료 처리가 갈라져 있으면 나중에 자동 수령
+-- 게임패스(Phase 8)나 자동 진행이 그중 하나만 부르게 되고, 그때 빠지는 것은
+-- 눈에 안 보이는 쪽(스폰 복귀)이다 — 증상이 "가끔 아레나 한가운데 남아 있다"로만
+-- 나타난다. 종료 처리를 여기 밖에 새로 쓰지 말 것.
+-- (수령 발판이 "런당 1회"를 자기가 기억하지 않고 이 파일에 맡긴 것과 같은 이유)
+--
+-- ⚠️ 순서가 계약이다: 런 제거 → 통지 → 스폰 복귀.
+-- 이동이 앞에 오면 중간에 실패했을 때 캐릭터만 돌아가고 보상이 안 나간 상태가 된다.
+-- 그래서 복귀는 항상 맨 끝이고, 복귀가 실패해도 위 둘을 되돌리지 않는다.
+--
+-- ⚠️ advance()는 여기를 지나지 않는다. 층이 바뀌는 것은 종료가 아니다 —
+-- 유저는 아레나 안에 그대로 있어야 한다.
+local function endRun(player: Player, run: RunState, reason: string)
+	runs[player] = nil
+	notifyRunState(player, run, false, reason)
+
+	-- ⚠️ pcall로 감싼다. ArenaService.returnToSpawn은 자기 안에서 이미 실패를 접지만,
+	-- 여기서 한 겹 더 두는 것은 그 함수를 믿기 위해서가 아니라 **이 지점의 계약**이기
+	-- 때문이다: 위 두 줄이 끝난 시점에 보상은 이미 지급됐고 통지도 나갔다. 복귀가
+	-- 무슨 이유로든 터지면 되돌릴 방법이 없으므로, 종료는 무조건 완주해야 한다.
+	-- (이음매를 갈아끼운 코드가 던져도 마찬가지다 — 그래서 함수 밖이 아니라 여기다)
+	local ok, err = pcall(ChallengeService._deps.returnToSpawn, player)
+	if not ok then
+		warn(string.format("[ChallengeService] 스폰 복귀 중 예외 - reason=%s, %s", reason, tostring(err)))
+	end
+end
+
 local function failRun(player: Player, run: RunState)
 	warn(string.format("[ChallengeService] %s(%d) 챌린지 실패(시간 초과) - stage=%d, reward=%s 소멸", player.Name, player.UserId, run.stage, BigNum.tostring(run.currentReward)))
-	runs[player] = nil
-	notifyRunState(player, run, false, "timeout")
+	endRun(player, run, "timeout")
 end
+
+-- 테스트 전용 통로. 실패 경로는 Heartbeat 루프 안에만 있어서, 그냥 두면 검증하려고
+-- 20초를 기다려야 한다. 그 대기는 서버 시작을 20초 붙잡는 값이라 넣을 수 없다.
+-- ⚠️ 공개 API가 아니다. 실물 코드에서 부르지 말 것 — 만료 판정을 건너뛰고 런을 죽인다.
+ChallengeService._failRun = failRun
 
 -- 만료 검사 루프. 20초 타이머라 프레임 단위 정밀도가 필요 없으므로 일정 간격으로만 스캔한다.
 local EXPIRY_CHECK_INTERVAL_SEC = 0.5
@@ -373,22 +424,29 @@ function ChallengeService.cashout(player: Player, source: string?): (boolean, Bi
 		return false, nil
 	end
 
-	runs[player] = nil
-	-- 런이 사라졌음을 알린다. run은 아직 손에 있으므로 끝나는 순간의 스냅샷을 그대로 싣는다.
-	-- 실패 경로(위 두 거부, 지급 거부)에서는 보내지 않는다 — 런이 그대로 남아 있어서
-	-- 상태가 전이되지 않았고, 클라가 다시 그릴 것도 없다.
-	notifyRunState(player, run, false, "cashout")
+	-- 런이 사라졌음을 알리고 캐릭터를 스폰으로 되돌린다. run은 아직 손에 있으므로
+	-- 끝나는 순간의 스냅샷을 그대로 싣는다.
+	--
+	-- ⚠️ **지급이 끝난 뒤다.** 위 add가 거부되면 여기까지 오지 않고 런도 그대로 남는다 —
+	-- 그래서 "캐릭터만 스폰에 있고 보상은 안 나간" 상태가 생기지 않는다.
+	-- 실패 경로(위 두 거부, 지급 거부)에서는 통지도 복귀도 하지 않는다. 런이 그대로
+	-- 남아 있어서 상태가 전이되지 않았고, 클라가 다시 그릴 것도 없다.
+	endRun(player, run, "cashout")
 	return true, reward
 end
 
 -- 이탈/포기 처리. 실패와 동일하게 런을 그냥 버린다 (보상 0, 패널티 없음).
+--
+-- ⚠️ 여기도 스폰으로 되돌린다. 이 함수의 정의가 "실패와 동일"이고, 실제 호출자는
+-- 환생(RebirthService)이다 — 환생은 스테이지를 1로 되돌리므로 아레나 한가운데
+-- 남아 있는 쪽이 오히려 어긋난다. 종료 경로 셋 중 하나만 빼면 그 예외가 곧
+-- endRun을 모아둔 이유를 무너뜨린다.
 function ChallengeService.abandonRun(player: Player): boolean
 	local run = runs[player]
 	if run == nil then
 		return false
 	end
-	runs[player] = nil
-	notifyRunState(player, run, false, "abandon")
+	endRun(player, run, "abandon")
 	return true
 end
 

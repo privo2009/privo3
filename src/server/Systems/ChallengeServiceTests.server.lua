@@ -286,6 +286,179 @@ do
 	ChallengeService.abandonRun(fakePlayer :: any)
 end
 
+-- 8. 스폰 복귀 (4-2-a 커밋 3d) -------------------------------------------------------------
+--
+-- 런이 끝나는 길 셋(수령 성공 / 시간 초과 / 이탈)이 전부 endRun을 지나고, 그 끝에서
+-- 스폰 복귀가 불린다. 여기서 재는 것은 "불렸는가 / 안 불려야 할 때 안 불렸는가"와
+-- "복귀가 실패해도 종료가 완주하는가"다.
+--
+-- ⚠️ ChallengeService는 싱글턴이고 runs 상태를 들고 있어 자기 인스턴스를 가질 수 없다.
+-- 그래서 _deps.returnToSpawn 하나만 갈아끼우고 **매 케이스마다 되돌린다** — 안 되돌리면
+-- 그 뒤의 실물 종료가 전부 가짜 함수를 탄다.
+--
+-- ⚠️ 가짜 Player는 프로필이 없어 CurrencyService가 지급을 거부하므로 **cashout 성공
+-- 경로는 여기서 탈 수 없다.** 그 경로의 복귀는 코드 구조로만 보장된다(cashout 성공
+-- 지점에 endRun 호출이 하나 있고, 종료 처리가 그 함수에만 있다). 실물 확인은
+-- Bootstrap의 VERIFY_CHALLENGE 블록이 도는 Play 몫이다.
+
+local originalReturnToSpawn = ChallengeService._deps.returnToSpawn
+
+-- 호출을 기록하는 가짜 복귀. shouldError면 던진다 — 복귀 실패를 흉내낸다.
+local function installRecorder(shouldError: boolean)
+	local record = { calls = 0, players = {} :: { any } }
+
+	ChallengeService._deps.returnToSpawn = function(player: any): boolean
+		record.calls += 1
+		table.insert(record.players, player)
+		if shouldError then
+			error("테스트용 복귀 실패")
+		end
+		return true
+	end
+
+	return record
+end
+
+local function restoreReturnToSpawn()
+	ChallengeService._deps.returnToSpawn = originalReturnToSpawn
+end
+
+do
+	-- 8-1. 런 실패(시간 초과) 후 복귀가 불린다.
+	-- ⚠️ _failRun을 직접 부른다. 실패 경로는 Heartbeat 루프 안에만 있어서 정상적으로
+	-- 밟으려면 20초를 기다려야 하고, 그 대기는 서버 시작을 붙잡는다.
+	local fakePlayer = { Name = "SpawnReturnTimeoutPlayer", UserId = 999992 }
+	local record = installRecorder(false)
+
+	ChallengeService.startRun(fakePlayer :: any, 1)
+	local run = ChallengeService.getRunState(fakePlayer :: any)
+	check("8-1 전제: 런이 서 있다", run ~= nil)
+
+	ChallengeService._failRun(fakePlayer :: any, {
+		stage = 1,
+		currentReward = BigNum.new(1, 0),
+		startedAt = 0,
+		cleared = false,
+	} :: any)
+
+	restoreReturnToSpawn()
+
+	check("실패(시간 초과) 후 스폰 복귀가 불린다", record.calls == 1, tostring(record.calls))
+	check("복귀에 그 플레이어가 넘어간다", record.players[1] == fakePlayer)
+	check("실패 후 런이 사라진다", ChallengeService.getRunState(fakePlayer :: any) == nil)
+end
+
+do
+	-- 8-2. 이탈(환생 경로) 후에도 복귀가 불린다. 종료 경로 셋 중 하나만 빠지면
+	-- endRun을 모아둔 의미가 없어진다.
+	local fakePlayer = { Name = "SpawnReturnAbandonPlayer", UserId = 999991 }
+	local record = installRecorder(false)
+
+	ChallengeService.startRun(fakePlayer :: any, 1)
+	local abandoned = ChallengeService.abandonRun(fakePlayer :: any)
+
+	restoreReturnToSpawn()
+
+	check("이탈이 성공으로 끝난다", abandoned == true)
+	check("이탈 후 스폰 복귀가 불린다", record.calls == 1, tostring(record.calls))
+	check("이탈 후 런이 사라진다", ChallengeService.getRunState(fakePlayer :: any) == nil)
+end
+
+do
+	-- 8-3. 클리어 전 cashout 거부에서는 복귀가 일어나지 않는다.
+	-- 런이 그대로 남아 있는데 캐릭터만 스폰으로 가면 유저는 아레나 밖에서 타이머가
+	-- 도는 것을 보게 된다.
+	local fakePlayer = { Name = "SpawnReturnRejectPlayer", UserId = 999990 }
+	local record = installRecorder(false)
+
+	ChallengeService.startRun(fakePlayer :: any, 1)
+	local cashoutOk = ChallengeService.cashout(fakePlayer :: any, "cashout_pad")
+
+	check("클리어 전 cashout은 거부된다", cashoutOk == false)
+	check("거부되면 복귀가 불리지 않는다", record.calls == 0, tostring(record.calls))
+	check("거부되면 런이 그대로 남는다", ChallengeService.getRunState(fakePlayer :: any) ~= nil)
+
+	-- 지급 거부(클리어했으나 프로필 없음)에서도 마찬가지다. 런을 남겨 재시도를
+	-- 허용하는 계약이므로 캐릭터도 남아야 한다.
+	ChallengeService.applyDamage(fakePlayer :: any, Vector3.new(0, 0, 0), BigNum.new(1, 200))
+	local paidOk = ChallengeService.cashout(fakePlayer :: any, "cashout_pad")
+
+	check("지급 거부된 cashout도 실패로 끝난다", paidOk == false)
+	check("지급이 거부되면 복귀가 불리지 않는다 (런이 남으므로)", record.calls == 0, tostring(record.calls))
+
+	ChallengeService.abandonRun(fakePlayer :: any)
+	restoreReturnToSpawn()
+end
+
+do
+	-- 8-4. 복귀가 실패해도 런 종료는 완주한다.
+	-- 복귀는 종료 처리의 맨 끝이고, 그 시점엔 통지가 이미 나갔다. 여기서 터지면
+	-- 되돌릴 방법이 없으므로 삼켜야 한다.
+	local fakePlayer = { Name = "SpawnReturnFailPlayer", UserId = 999989 }
+	installRecorder(true) -- 복귀가 error를 던진다
+
+	ChallengeService.startRun(fakePlayer :: any, 1)
+
+	local ok, err = pcall(function()
+		return ChallengeService.abandonRun(fakePlayer :: any)
+	end)
+
+	restoreReturnToSpawn()
+
+	check("복귀가 터져도 abandonRun이 예외를 밖으로 흘리지 않는다", ok == true, tostring(err))
+	check("복귀가 터져도 런은 종료된다", ChallengeService.getRunState(fakePlayer :: any) == nil)
+end
+
+do
+	-- 8-5. 실물 복귀 함수를 가짜 Player로 부른다. 캐릭터가 없는 상황 그대로다 —
+	-- 여기서 터지면 런 종료가 통째로 실패한다.
+	local ArenaService = require(script.Parent.ArenaService)
+	local fakePlayer = { Name = "SpawnReturnNoCharacterPlayer", UserId = 999988 }
+
+	local ok, result = pcall(function()
+		return ArenaService.returnToSpawn(fakePlayer :: any)
+	end)
+
+	check("캐릭터가 없어도 returnToSpawn이 터지지 않는다", ok == true, tostring(result))
+	check("옮기지 못했으면 false를 돌려준다", ok and result == false, tostring(result))
+
+	-- 실물 경로로도 한 번. _deps를 갈아끼우지 않은 상태에서 런이 정상 종료되는지.
+	ChallengeService.startRun(fakePlayer :: any, 1)
+	local endedOk, endedErr = pcall(function()
+		return ChallengeService.abandonRun(fakePlayer :: any)
+	end)
+
+	check("캐릭터 없는 플레이어의 런 종료가 정상 완료된다", endedOk == true, tostring(endedErr))
+	check("캐릭터가 없어도 런은 사라진다", ChallengeService.getRunState(fakePlayer :: any) == nil)
+end
+
+do
+	-- 8-6. 복귀 좌표가 ArenaConfig에서 나오는지. 숫자를 여기 적지 않는다.
+	local ArenaService = require(script.Parent.ArenaService)
+	local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
+	local spawnSize = Vector3.new(8, 1, 8)
+
+	local spawnPos = ArenaService._pure.getSpawnPosition(spawnSize)
+	local target = ArenaService._pure.computeReturnTarget(spawnPos, spawnSize, 6)
+
+	check("복귀 X가 ArenaConfig.SPAWN_X와 일치", target.X == ArenaConfig.SPAWN_X, tostring(target.X))
+	check("복귀 Z가 진행축 위(0)", target.Z == 0, tostring(target.Z))
+	check(
+		"복귀 Y가 스폰 윗면 위로 캐릭터 절반만큼 올라간다 (파트에 묻히지 않는다)",
+		target.Y > spawnPos.Y + spawnSize.Y / 2,
+		tostring(target.Y)
+	)
+
+	-- 캐릭터가 크면 더 높이 뜬다. 상수를 박았으면 두 값이 같게 나온다.
+	local tall = ArenaService._pure.computeReturnTarget(spawnPos, spawnSize, 12)
+	check("캐릭터 높이가 다르면 복귀 Y도 다르다 (상수가 아니다)", tall.Y > target.Y, tostring(tall.Y))
+end
+
+-- 마지막 방어선. 위 케이스들이 전부 되돌렸어야 하지만, 중간에 error가 났다면
+-- 가짜 함수가 남는다 — 그 상태로 Play가 계속되면 실물 종료가 전부 가짜를 탄다.
+restoreReturnToSpawn()
+check("테스트가 _deps.returnToSpawn을 원래대로 되돌렸다", ChallengeService._deps.returnToSpawn == originalReturnToSpawn)
+
 print(string.format("[ChallengeServiceTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[ChallengeServiceTests] %d test(s) failed", failed))
