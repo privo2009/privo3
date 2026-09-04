@@ -280,10 +280,26 @@ check("LevelConfig: 발판 깊이가 절반이면 상한도 절반 (유도가 �
 	-- 본문을 pcall로 감싸고 복구를 그 바깥에 둔다.
 	-- 다만 pcall이 실패를 삼키면 안 된다 — 복구를 마친 뒤 원래 error를 그대로 다시 던져서
 	-- check()의 pcall이 메시지째 받아 [FAIL]에 찍게 한다.
+	--
+	-- ⚠️ 줄이는 변은 **축 방향 변**이어야 한다. 예전에는 `.Z`로 박혀 있었고 그때는
+	-- PadLayout.AXIS가 (0,0,-1)이라 우연히 맞았다. 4-2-a에서 축이 +X로 바뀌면서
+	-- `.Z`는 깊이 계산에 쓰이지 않는 변이 됐다 — 그대로 뒀다면 상한이 안 변하는 것이
+	-- 정상인데 테스트는 절반을 기대하므로 [FAIL]이 뜬다. 반대로 축이 또 바뀌었을 때
+	-- 조용히 통과해버리는 쪽이 더 나쁘다: 유도가 도는지 재는 테스트가 아무것도
+	-- 못 재게 된다. LevelConfig.depthAlong이 축 투영을 쓰는 것과 같은 이유다.
 	local original = PadLayout.PAD_SIZE
+	local axis = PadLayout.AXIS
 	local full = LevelConfig.getMaxWalkSpeed()
 
-	PadLayout.PAD_SIZE = Vector3.new(original.X, original.Y, original.Z / 2)
+	local function halveIfOnAxis(component: number, axisComponent: number): number
+		return if math.abs(axisComponent) > 0 then component / 2 else component
+	end
+
+	PadLayout.PAD_SIZE = Vector3.new(
+		halveIfOnAxis(original.X, axis.X),
+		halveIfOnAxis(original.Y, axis.Y),
+		halveIfOnAxis(original.Z, axis.Z)
+	)
 	local ok, result = pcall(function()
 		return LevelConfig.getMaxWalkSpeed()
 	end)
