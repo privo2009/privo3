@@ -92,9 +92,39 @@
   그 위치에서 공격이 닿는가 (dist 로그로 확인)
   스테이지 사이를 걸을 때 이전 스테이지 블록이 안 맞는가
   ```
-  ⚠️ 진행 벽이 없으므로 `advance`를 실물로 부르려면 `Bootstrap` 검증 흐름이나
-  `KEEP_RUN_ALIVE`가 필요하다. **플래그는 이번에 켜지 않았다** — 검증 방법은
-  Play 직전에 따로 정한다.
+  **검증 방법 (2026-09-05 확정, `5f908fb`).** 진행 벽(3c)이 없어 `advance`를 실물로
+  부를 경로가 없으므로, `Bootstrap`의 `ADVANCE_VERIFY_ENABLED`가 벽을 대신한다:
+  ```
+  1. Bootstrap.server.lua의 ADVANCE_VERIFY_ENABLED를 true로 고치고 Rojo sync
+  2. 1층 클리어 직후 advance(player, "bootstrap_verify")가 1회 불린다
+  3. 성공하면 캐릭터를 스테이지 2 입구로 옮긴다
+     — ArenaConfig.getStageEntranceX(2) = 120. 1층 입구와 같은 상대 위치다
+  4. [Bootstrap][ADVANCE] <이름> stage=1->2 x=120.0 result=ok 를 확인
+  5. 이어지는 [Bootstrap][ATTACK] 줄의 dist가 다시 80.1/92.8이면 통과
+  ```
+  ⚠️ **판정 기준은 dist=80.1의 재현 하나다.** 1층 입구에서 나온 값이고, 2층 입구는
+  같은 상대 위치(중심 − 폭/2)이므로 층과 무관하게 같아야 한다. 재현되면 렌더 원점과
+  판정 원점이 **둘 다** 옮겨진 것이다. 한쪽만 옮겨졌으면 증상이 갈린다:
+
+  | 렌더 | 판정 | 증상 |
+  |---|---|---|
+  | 200 | 200 | 블록 정면 + `dist=80.1` (정상) |
+  | 0 | 200 | 블록이 안 보이는데 딜이 들어감 |
+  | 200 | 0 | 블록이 보이는데 `out_of_range dist=280` |
+  | 0 | 0 | 블록도 없고 `out_of_range` |
+
+  ⚠️ **80.1을 코드에 기대치로 박지 말 것.** 육안·로그 확인 대상이지 자동 테스트가
+  아니다. `ConfigTests`가 재는 것은 입구 X의 **유도**(층마다 중심 − 폭/2)까지고,
+  실제 캐릭터가 선 거리는 아바타 크기·물리 보정이 섞여 Play에서만 나온다.
+
+  ⚠️ **advance 뒤의 cashout은 반드시 거부된다.** 새 런이 `cleared=false`이기 때문이다.
+  플래그를 켜면 cashout 절이 "거부 → 증가분 비교 불가 → 런 종료 여부=false"로 찍힌다.
+  **설계된 결과이고 회귀가 아니다.** cashout 호출을 지우거나 옮기지 않은 이유는
+  플래그를 껐을 때 원래 검증이 한 글자도 달라지면 안 되기 때문이다.
+
+  ⚠️ **기본 false로 커밋한다. Play에서 켠 것을 커밋하지 말 것.** `2f0758c`에서 검증
+  플래그를 원복한 전례가 있다 — 켠 채로 들어가면 다음 세션이 "왜 1층에서 끝나지
+  않지"를 코드가 아니라 로그로 쫓게 된다.
 
 - **환생 직후의 런은 반드시 시간 초과된다.** — 2026-09-04, 코드에서 확인(미관측).
   `RebirthService`가 3단계에서 `abandonRun`(→ 스폰 복귀, X=-400)을 부르고 9단계에서
@@ -580,6 +610,7 @@ Studio에서는 정상 동작해 드러나지 않는다. clone·롤백·Team Cre
 | `StandardPathReport` 모듈 자체 | `DroneRateReport`가 소비자다 — 그쪽이 먼저 지워지거나 의존이 끊긴 뒤에만 (아래 ⚠️) |
 | `DroneRateReport` / `Bootstrap`의 `DRONE_RATE_REPORT_ENABLED` 블록 | 드론 스테이지 오프셋 재검토가 끝난 뒤 (아래 ⚠️) |
 | `Bootstrap`의 `DRONE_VERIFY_ENABLED` 블록 | 진행 벽·수령 발판 파트가 붙어 maxStage를 정상 경로로 올릴 수 있게 된 뒤 (아래 ⚠️) |
+| `Bootstrap`의 `ADVANCE_VERIFY_ENABLED` 블록 | **3c 진행 벽 완료 후** (아래 ⚠️) |
 
 ⚠️ **`Workspace/_OldBlocks`는 코드로 지울 수 없다. 사람이 Studio에서 지워야 한다**
 (2026-08-28 재확인). 정리 세션에서 처리되지 않고 계속 남는 이유가 이것이다 —
@@ -640,6 +671,22 @@ Phase 6 UI까지 남기는 이유도 같다: UI가 없는 동안 워프가 실�
  `[ATTACK]` 관측 print도 같은 성격이라 남는다 — 이 경로에는 UI가 없어 배선이 끊겨도
  화면에 흔적이 없다. `ATTACK_OBSERVE_SEC` · `ATTACK_VERIFY_POLL_SEC`도
  `VERIFY_CHALLENGE` 블록과 수명이 같아 남는다)
+
+⚠️ `ADVANCE_VERIFY_ENABLED`의 삭제 조건은 **Phase 6이 아니라 3c(진행 벽)다.** 위
+VERIFY 플래그들과 성격이 다르다 — 저것들은 "UI가 없어 실물 확인 수단이 없다"가
+이유라 UI가 붙을 때까지 살지만, 이건 **`advance()`를 부를 실물 경로가 없다**가
+이유다. 벽이 서면 걸어서 통과하는 것으로 같은 것을 볼 수 있고, 그 순간 존재
+이유가 사라진다. 3c를 넘겨 살려두면 "벽으로도 되고 플래그로도 되는" 진입점이
+둘이 되어 CLAUDE.md 절대 규칙 3의 단일 진입점과 어긋난다.
+
+⚠️ **기본 `false`로 커밋한다. Play에서 켠 것을 커밋하지 말 것.** `2f0758c`에서 검증
+플래그를 원복한 전례가 있다. 이 플래그는 프로필을 오염시키지 않지만(`advance`는
+재화를 건드리지 않는다) 켠 채로 남으면 1층 검증이 매번 2층으로 넘어가 버려서,
+다음 세션이 `cashout` 거부 로그를 회귀로 오독한다.
+
+⚠️ **`ADVANCE_VERIFY_ENABLED`를 지울 때 `moveToStageEntrance`의 `stage` 인자는 남긴다.**
+플래그 블록과 함께 1층 고정으로 되돌리지 말 것 — 좌표 유도(`ArenaConfig.getStageEntranceX`)
+가 층을 받는 것이 4-2-a2b의 결과 자체이고, 되돌리면 Bootstrap에 좌표가 다시 박힌다.
 
 ⚠️ `STANDARD_PATH_REPORT_ENABLED`는 **위 VERIFY 플래그들과 성격이 다르다. 같은 물건으로
 취급하지 말 것.** `REBIRTH_VERIFY_ENABLED`·`WARP_VERIFY_ENABLED`는 켜면 blox와
