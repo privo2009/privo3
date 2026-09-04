@@ -27,9 +27,29 @@
 -- 좌표는 원점 고정으로 둔다. 판정 좌표 = 표시 좌표가 공짜로 성립한다.
 --
 -- ⚠️ 그러므로 이 함수에 player 인자를 추가하지 말 것. 추가하는 순간 위 등식이 깨진다.
+--
+-- ===== 4-2-a2b: stage 오프셋은 player 오프셋이 아니다 ===================================
+--
+-- 위 경고는 **여전히 유효하다.** 그런데 `computeLayout`이 이제 `stage`를 받는다.
+-- 둘은 성격이 정반대이므로 섞어 읽지 말 것:
+--
+--   player 오프셋   같은 순간에 사람마다 다른 좌표를 준다 → 판정 좌표 ≠ 표시 좌표
+--   stage 오프셋    같은 층이면 누구에게나 같은 좌표를 준다 → 등식이 유지된다
+--
+-- 스테이지는 런 상태값이지 사람 속성이 아니다. 2인이 같은 3층에 있으면 둘 다
+-- 같은 X를 얻는다(각자 자기 블록만 보는 것은 4-2-a2의 렌더링 결정이고 좌표와 무관하다).
+--
+-- 왜 필요했는가: 4-2-a에서 아레나가 +X로 늘어섰는데 이 함수가 오프셋을 안 받아서
+-- **25개 층의 블록이 전부 X=0에 겹쳐 있었다.** 진행 벽을 세워도 통과한 자리에
+-- 다음 블록이 없고 뒤에 있다 — 코어 루프의 절반이 그것 때문에 비어 있었다.
+--
+-- ⚠️ **오프셋을 부르는 쪽에서 더하지 말 것.** 서버 판정(AttackService)·서버 배치
+-- (BlockService)·클라 렌더(RemoteReceiver) 셋이 각자 더하면 언젠가 한 곳이 빠지고,
+-- 그때 증상은 "블록이 보이는데 안 맞는다"이다. `getStageOrigin` 하나만 통과한다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local BlockLayoutConfig = require(ReplicatedStorage.Shared.Config.BlockLayoutConfig)
 
 local BlockLayout = {}
@@ -65,8 +85,27 @@ local DOUBLE_RING_SLOTS = (function()
 	return combined
 end)()
 
+-- 스테이지 N의 블록 클러스터가 통째로 놓이는 자리.
+--
+-- ⚠️ **판정 좌표 = 표시 좌표 계약의 이음매다.** 블록 위치를 알아야 하는 쪽은 전부
+-- 이 함수를 통과한다 — 서버 배치(BlockService)·클라 렌더(RemoteReceiver)·거리 판정
+-- (AttackService). 셋이 각자 200×(N-1)을 계산하면 언젠가 한 곳이 갈린다.
+--
+-- ⚠️ 200을 여기 적지 않는다. 주기는 ArenaConfig가 STAGE_WIDTH+GAP_WIDTH에서 유도한다.
+--
+-- stage가 nil이면 원점이다. 4-2-a2b 이전 동작과 같다 — 스테이지를 모르는 호출자
+-- (개발용 미리보기 BlockModelGenerator 등)가 예전 그대로 돌게 하기 위한 것이지,
+-- 실물 경로가 생략해도 되는 인자라는 뜻이 아니다.
+function BlockLayout.getStageOrigin(stage: number?): Vector3
+	if stage == nil then
+		return Vector3.zero
+	end
+	return Vector3.new(ArenaConfig.getStageCenterX(stage), 0, 0)
+end
+
 -- count(1~16)에 맞는 고정 슬롯 풀에서 앞 count개만 잘라 반환한다.
-function BlockLayout.computeLayout(count: number): { Vector3 }
+-- stage를 주면 그 층의 클러스터 자리로 통째로 옮겨진다(슬롯 사이의 상대 배치는 그대로).
+function BlockLayout.computeLayout(count: number, stage: number?): { Vector3 }
 	assert(count >= 1 and count <= 16, "computeLayout: count는 1~16 사이여야 함")
 
 	local slots: { Vector3 }
@@ -78,9 +117,13 @@ function BlockLayout.computeLayout(count: number): { Vector3 }
 		slots = DOUBLE_RING_SLOTS
 	end
 
+	-- ⚠️ 슬롯 풀은 모듈 로드 시 한 번 만들어지는 **공유 테이블**이다. 여기서
+	-- slots[i]를 그대로 넘기지 않고 더한 새 Vector3를 넣는 이유가 그것이다 —
+	-- Vector3는 불변이라 덧셈이 새 값을 만들고, 풀은 오염되지 않는다.
+	local origin = BlockLayout.getStageOrigin(stage)
 	local positions = {}
 	for i = 1, count do
-		positions[i] = slots[i]
+		positions[i] = slots[i] + origin
 	end
 	return positions
 end
