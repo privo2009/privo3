@@ -96,11 +96,18 @@ end
 -- yOffset: 블록 "중심"을 지면(Y=0) 기준 얼마나 띄울지. 레이아웃 좌표는 전부 Y=0(수평면)이라
 -- 오프셋 없이 그대로 쓰면 블록 절반이 바닥 밑에 묻힌다. 생략하면 클라 렌더링과 같은 값
 -- (BlockLayout.GROUND_Y_OFFSET)을 쓴다 — cubeSize를 따로 준 경우만 그 값으로 다시 계산한다.
-function BlockModelGenerator.previewLayout(count: number, materialName: string, cubeSize: number?, yOffset: number?): Folder
+-- stage: 어느 층의 자리에 세워볼지(4-2-a2b). **생략하면 원점이다** — 이 도구의 원래
+-- 용도(블록 크기·간격을 눈으로 재는 것)에는 클러스터가 어디에 서든 상관이 없고,
+-- 카메라를 옮기지 않아도 되는 원점 쪽이 편하다. 층별 자리 자체를 확인하고 싶을 때만 준다.
+--
+-- ⚠️ 이 도구는 커맨드 바에서 사람이 직접 부른다. 호출 사슬이 없으므로 stage를 받아올
+-- 곳도 없다 — 그래서 필수가 아니라 선택 인자다. 런타임 경로(BlockService/
+-- RemoteReceiver)는 stage를 손에 들고 있으니 그쪽은 반드시 넘긴다.
+function BlockModelGenerator.previewLayout(count: number, materialName: string, cubeSize: number?, yOffset: number?, stage: number?): Folder
 	assert(type(count) == "number" and count >= 1 and count <= 16 and count == math.floor(count), "count는 1~16 사이의 정수여야 함")
 	assert(BlockModelBuilder.MATERIAL_PRESETS[materialName] ~= nil, "알 수 없는 재질 프리셋: " .. tostring(materialName))
 
-	local positions = BlockLayout.computeLayout(count)
+	local positions = BlockLayout.computeLayout(count, stage)
 
 	-- 기존 미리보기가 있으면 지우고 새로 만든다.
 	local existing = Workspace:FindFirstChild(PREVIEW_FOLDER_NAME)

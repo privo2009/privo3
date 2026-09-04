@@ -19,6 +19,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
+local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
+local BlockLayout = require(ReplicatedStorage.Shared.BlockLayout)
 local AttackService = require(script.Parent.AttackService)
 
 local pure = AttackService._pure
@@ -37,12 +39,36 @@ end
 
 local fakePlayer = { Name = "TestPlayer", UserId = 1 } :: any
 
-local ORIGIN = pure.CLUSTER_ORIGIN
+-- ⚠️ TestHelpers.checkClose를 쓰지 못한다. 그 파일은 src/client/Tests에 있고 Rojo가
+-- StarterPlayerScripts로 보내므로 서버 스크립트가 require할 수 없다
+-- (ArenaServiceTests/CashoutPadServiceTests와 같은 제약·같은 처리).
+-- 같은 상대오차(1e-6)로 같은 반환 형태(boolean, detail)를 쓴다 — 기준을 바꾼 것이 아니다.
+local RELATIVE_TOLERANCE = 1e-6
+local function checkClose(actual: number, expected: number): (boolean, string)
+	local diff = actual - expected
+	local relative = if expected ~= 0 then diff / expected else diff
+	return math.abs(relative) < RELATIVE_TOLERANCE,
+		string.format("기대값=%.17g 실제값=%.17g 차이=%.3e", expected, actual, diff)
+end
+
+-- newWorld()가 세우는 런의 층. 아래 positionAt이 이 층의 클러스터 원점을 기준으로
+-- 좌표를 만들므로, 둘이 갈리면 모든 거리 케이스가 통째로 틀어진다 — 상수를 하나 두고
+-- 양쪽이 그것을 본다.
+--
+-- ⚠️ 1이 아닌 층을 쓰는 것이 의도다(4-2-a2b 이전부터 3이었다). 1층은 클러스터 원점이
+-- X=0이라 오프셋을 안 더해도 통과한다 — 유도가 끊겨도 안 걸리는 층이다.
+local RUN_STAGE = 3
+
+-- 그 층의 클러스터 중심. ⚠️ 200×(N-1)을 여기서 계산하지 말 것 — 실물 판정이 쓰는 것과
+-- **같은 함수**를 통과해야 이 테스트가 "판정이 렌더와 같은 원점을 쓰는가"를 실제로 잰다.
+local ORIGIN = BlockLayout.getStageOrigin(RUN_STAGE)
 local RADIUS = AttackConfig.getRadius()
 
--- 원점에서 정확히 distance만큼 떨어진 위치. 축은 아무거나 좋다 — 판정은 거리만 본다.
-local function positionAt(distance: number): Vector3
-	return ORIGIN + Vector3.new(distance, 0, 0)
+-- 클러스터 중심에서 정확히 distance만큼 떨어진 위치. 축은 아무거나 좋다 — 판정은 거리만 본다.
+-- stage를 주면 그 층의 중심 기준이다(생략하면 RUN_STAGE).
+local function positionAt(distance: number, stage: number?): Vector3
+	local origin = if stage == nil then ORIGIN else BlockLayout.getStageOrigin(stage)
+	return origin + Vector3.new(distance, 0, 0)
 end
 
 -- ===== 경계를 float32 이웃으로 재는 이유 ==============================================
@@ -109,7 +135,7 @@ type World = {
 
 local function newWorld(): World
 	return {
-		run = { stage = 3, cleared = false },
+		run = { stage = RUN_STAGE, cleared = false },
 		strength = STRENGTH,
 		position = positionAt(0),
 		damageCalls = {},
@@ -239,7 +265,7 @@ end
 
 do
 	local w = newWorld()
-	w.run = { stage = 3, cleared = true }
+	w.run = { stage = RUN_STAGE, cleared = true }
 	local outcome = pure.runPunch(depsFor(w) :: any, fakePlayer)
 
 	check("이미 클리어 — 때리지 않는다", #w.damageCalls == 0)
@@ -445,6 +471,92 @@ do
 	end
 	-- 코드가 겹치면 Bootstrap VERIFY가 원인을 가르지 못한다. 그게 이 코드들의 유일한 용도다.
 	check("결과 코드 7개가 전부 다른 비어있지 않은 문자열", unique)
+end
+
+-- ===== 판정 원점이 스테이지를 따라간다 (4-2-a2b) =======================================
+--
+-- 반경은 그대로고 원점만 움직인다. 그래서 "블록중심에서 얼마나 떨어졌는가"는 층과
+-- 무관하게 같은 답을 줘야 하고, "월드 좌표 몇에 서 있는가"는 층마다 달라져야 한다.
+--
+-- ⚠️ 200이나 80을 여기 적지 않는다. ArenaConfig / BlockLayout에서 읽는다.
+
+do
+	-- 스테이지 폭의 절반 = 스테이지 끝. 반경(92.8)이 이보다 크다는 것이 92.8의 근거이고
+	-- (→ docs/UI_HANDOFF.md "92.8이 왜 디자인에 필요한가"), 그 관계가 층마다 성립해야 한다.
+	local stageEdge = ArenaConfig.STAGE_WIDTH / 2
+
+	for _, stage in ipairs({ 1, 2, RUN_STAGE, 7 }) do
+		local w = newWorld()
+		w.run = { stage = stage, cleared = false }
+
+		-- 블록중심에서 스테이지 끝(±80)만큼 떨어진 두 점. 둘 다 사거리 안이어야 한다.
+		for _, sign in ipairs({ 1, -1 }) do
+			w.damageCalls = {}
+			w.position = positionAt(stageEdge * sign, stage)
+			local outcome = pure.runPunch(depsFor(w) :: any, fakePlayer)
+
+			check(
+				string.format("스테이지 %d: 블록중심 %+d이 사거리 안", stage, stageEdge * sign),
+				outcome.result == AttackService.RESULT_OK,
+				string.format("result=%s dist=%s", outcome.result, tostring(outcome.distance))
+			)
+			check(
+				string.format("스테이지 %d: 그 지점의 거리가 %d이다 (원점이 따라왔다)", stage, stageEdge),
+				checkClose(outcome.distance or -1, stageEdge)
+			)
+		end
+	end
+end
+
+do
+	-- 다른 스테이지의 블록은 사거리 밖이어야 한다. 주기(200)가 반경(92.8)의 두 배를
+	-- 넘으므로 이웃 층조차 닿지 않는다 — 이것이 층이 분리돼 있다는 것의 실질이다.
+	--
+	-- ⚠️ "200 > 92.8 × 2"를 전제로 깔지 않고 먼저 확인한다. 폭을 좁히면 이 검사가
+	-- 무의미해지는데, 그때 조용히 통과하면 안 된다.
+	check(
+		"주기가 반경의 두 배보다 크다 (이웃 층이 겹치지 않는다는 전제)",
+		ArenaConfig.getStagePitch() > RADIUS * 2,
+		string.format("주기=%.1f 반경×2=%.1f", ArenaConfig.getStagePitch(), RADIUS * 2)
+	)
+
+	for _, other in ipairs({ RUN_STAGE - 1, RUN_STAGE + 1, 1 }) do
+		local w = newWorld()
+		-- 런은 RUN_STAGE인데 캐릭터는 다른 층의 블록 중심에 서 있다.
+		w.position = positionAt(0, other)
+		local outcome = pure.runPunch(depsFor(w) :: any, fakePlayer)
+
+		check(
+			string.format("런 %d층에서 %d층 블록 위치는 사거리 밖", RUN_STAGE, other),
+			outcome.result == AttackService.RESULT_OUT_OF_RANGE,
+			string.format("result=%s dist=%s", outcome.result, tostring(outcome.distance))
+		)
+		check(
+			string.format("런 %d층에서 %d층 위치는 applyDamage를 안 부른다", RUN_STAGE, other),
+			#w.damageCalls == 0,
+			tostring(#w.damageCalls)
+		)
+	end
+end
+
+do
+	-- 스테이지 1은 클러스터 원점이 X=0이라 4-2-a2b 이전과 완전히 같아야 한다.
+	-- 회귀가 없다는 것을 이 층으로 확인한다.
+	check("스테이지 1의 클러스터 원점이 월드 원점이다", BlockLayout.getStageOrigin(1) == Vector3.zero)
+	check("stage 없이 부르면 원점이다 (기존 호출부 동작 보존)", BlockLayout.getStageOrigin(nil) == Vector3.zero)
+
+	local w = newWorld()
+	w.run = { stage = 1, cleared = false }
+	w.position = Vector3.new(0, 0, 0) -- 월드 원점 = 1층 블록 중심
+	local outcome = pure.runPunch(depsFor(w) :: any, fakePlayer)
+
+	check("스테이지 1: 월드 원점에서 때려진다", outcome.result == AttackService.RESULT_OK, outcome.result)
+	check("스테이지 1: 거리가 0이다", checkClose(outcome.distance or -1, 0))
+
+	w.damageCalls = {}
+	w.position = Vector3.new(RADIUS + 1, 0, 0)
+	local far = pure.runPunch(depsFor(w) :: any, fakePlayer)
+	check("스테이지 1: 반경 밖은 여전히 out_of_range", far.result == AttackService.RESULT_OUT_OF_RANGE, far.result)
 end
 
 print(string.format("[AttackServiceTests] %d passed, %d failed", passed, failed))

@@ -70,8 +70,14 @@ local computeLayout = BlockLayout.computeLayout
 
 -- count/maxHp/baseSeed만으로 블록 배열을 만든다. baseSeed 하나에서 블록마다 다른 seed를 뽑아
 -- 쓰므로("블록별로 다른 시드") 같은 baseSeed면 항상 같은 결과가 나온다.
-local function buildBlockSet(count: number, maxHp: BigNumber, baseSeed: number): { BlockState }
-	local positions = computeLayout(count)
+--
+-- ⚠️ stage를 받는 이유는 좌표 때문이다(4-2-a2b). 클러스터가 층마다 다른 X에 서므로
+-- computeLayout에 넘겨야 한다 — 여기서 오프셋을 더하지 말 것. 서버 배치·클라 렌더·
+-- 거리 판정 셋이 `BlockLayout.getStageOrigin` 하나를 통과해야 "판정 좌표 = 표시 좌표"가
+-- 유지된다(그 파일 상단 계약).
+-- stage를 생략하면 원점이다 — 4-2-a2b 이전 동작이고, 좌표를 안 보는 테스트용이다.
+local function buildBlockSet(count: number, maxHp: BigNumber, baseSeed: number, stage: number?): { BlockState }
+	local positions = computeLayout(count, stage)
 	local rng = Random.new(baseSeed)
 
 	local blocks: { BlockState } = {}
@@ -195,7 +201,7 @@ function BlockService.enterStage(player: Player, stage: number): { BlockSnapshot
 	local maxHp = StageConfig.getHp(stage)
 	local baseSeed = Random.new():NextInteger(1, 2147483647)
 
-	local blocks = buildBlockSet(count, maxHp, baseSeed)
+	local blocks = buildBlockSet(count, maxHp, baseSeed, stage)
 	blockSets[player] = { stage = stage, blocks = blocks }
 
 	return buildSnapshot(blocks)

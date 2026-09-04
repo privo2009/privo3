@@ -10,6 +10,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local BlockLayoutConfig = require(ReplicatedStorage.Shared.Config.BlockLayoutConfig)
+local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
+local BlockLayout = require(ReplicatedStorage.Shared.BlockLayout)
 local BlockService = require(script.Parent.BlockService)
 
 local pure = BlockService._pure
@@ -176,6 +178,120 @@ do
 
 	pure.applyDamageToBlocks(blocks, blocks[3].position, BigNum.new(1, 0))
 	check("전부 부순 상태는 클리어", pure.isBlockSetCleared(blocks) == true)
+end
+
+-- ===== 스테이지 오프셋 (4-2-a2b) ======================================================
+--
+-- 블록 클러스터가 층마다 다른 X에 선다. 여기서 재는 것은 두 가지다:
+-- 클러스터가 **통째로** 옮겨졌는가(상대 배치는 그대로), 그리고 그 자리가
+-- 서버 판정이 쓰는 것과 **같은 유도**에서 나왔는가.
+--
+-- ⚠️ 200이나 80을 여기 적지 않는다. ArenaConfig / BlockLayout에서 읽는다.
+
+-- ⚠️ TestHelpers.checkClose를 쓰지 못한다(서버라 src/client를 require할 수 없다).
+-- 같은 상대오차·같은 반환 형태의 헬퍼를 둔다 — AttackServiceTests와 같은 처리다.
+local RELATIVE_TOLERANCE = 1e-6
+local function checkClose(actual: number, expected: number): (boolean, string)
+	local diff = actual - expected
+	local relative = if expected ~= 0 then diff / expected else diff
+	return math.abs(relative) < RELATIVE_TOLERANCE,
+		string.format("기대값=%.17g 실제값=%.17g 차이=%.3e", expected, actual, diff)
+end
+
+do
+	-- 스테이지 1은 원점이라 4-2-a2b 이전과 완전히 같아야 한다. 회귀 확인용 층이다.
+	check("스테이지 1의 클러스터 원점이 월드 원점", BlockLayout.getStageOrigin(1) == Vector3.zero)
+	check("stage 없이 부르면 원점 (기존 호출부 동작 보존)", BlockLayout.getStageOrigin(nil) == Vector3.zero)
+
+	local base = pure.computeLayout(8)
+	local stage1 = pure.computeLayout(8, 1)
+	local same = true
+	for i = 1, 8 do
+		if (base[i] - stage1[i]).Magnitude > 1e-6 then
+			same = false
+		end
+	end
+	check("스테이지 1 좌표가 stage 생략과 동일 (1층에는 회귀가 없다)", same)
+end
+
+do
+	-- 클러스터가 통째로 옮겨졌는가. 각 블록이 정확히 getStageOrigin(N)만큼 밀려야 하고,
+	-- 블록 사이의 상대 배치는 한 톨도 안 바뀌어야 한다.
+	for _, stage in ipairs({ 2, 3, 9 }) do
+		local origin = BlockLayout.getStageOrigin(stage)
+		local base = pure.computeLayout(16)
+		local moved = pure.computeLayout(16, stage)
+
+		check(
+			string.format("스테이지 %d: 좌표 개수가 같다", stage),
+			#moved == #base,
+			string.format("%d vs %d", #moved, #base)
+		)
+
+		local allShifted = true
+		for i = 1, #base do
+			if ((moved[i] - base[i]) - origin).Magnitude > 1e-6 then
+				allShifted = false
+			end
+		end
+		check(string.format("스테이지 %d: 모든 블록이 getStageOrigin(%d)만큼 밀렸다", stage, stage), allShifted)
+
+		-- 상대 배치 보존. 첫 블록 기준 상대 벡터가 그대로여야 한다.
+		local relativeKept = true
+		for i = 2, #base do
+			local before = base[i] - base[1]
+			local after = moved[i] - moved[1]
+			if (after - before).Magnitude > 1e-6 then
+				relativeKept = false
+			end
+		end
+		check(string.format("스테이지 %d: 블록 사이 상대 배치는 그대로", stage), relativeKept)
+	end
+end
+
+do
+	-- 자리가 ArenaConfig 유도에서 나오는가. 오프셋을 어딘가에 상수로 박았다면
+	-- 여기서 갈린다.
+	for _, stage in ipairs({ 1, 2, 5 }) do
+		local origin = BlockLayout.getStageOrigin(stage)
+		check(
+			string.format("스테이지 %d 원점 X가 ArenaConfig.getStageCenterX와 일치", stage),
+			checkClose(origin.X, ArenaConfig.getStageCenterX(stage))
+		)
+		check(string.format("스테이지 %d 원점은 수평면 위 (Y=0, Z=0)", stage), origin.Y == 0 and origin.Z == 0)
+	end
+end
+
+do
+	-- buildBlockSet이 stage를 좌표까지 실어보내는가. computeLayout만 고치고 이쪽에
+	-- 안 넘기면 서버가 아는 블록 위치가 옛 자리에 남는다.
+	local stage = 4
+	local origin = BlockLayout.getStageOrigin(stage)
+	local maxHp = BigNum.new(1, 3)
+
+	local blocks = pure.buildBlockSet(4, maxHp, 12345, stage)
+	local expected = pure.computeLayout(4, stage)
+
+	local matched = true
+	for i = 1, 4 do
+		if (blocks[i].position - expected[i]).Magnitude > 1e-6 then
+			matched = false
+		end
+	end
+	check("buildBlockSet 좌표가 computeLayout(count, stage)와 일치", matched)
+
+	check(
+		"buildBlockSet 좌표가 그 층의 원점 근처에 있다",
+		(blocks[1].position - origin).Magnitude < ArenaConfig.STAGE_WIDTH,
+		string.format("거리=%.1f", (blocks[1].position - origin).Magnitude)
+	)
+
+	-- stage 생략 시 원점. 기존 호출 형태가 그대로 도는지.
+	local legacy = pure.buildBlockSet(4, maxHp, 12345)
+	check(
+		"buildBlockSet을 stage 없이 부르면 원점 (기존 동작 보존)",
+		(legacy[1].position - pure.computeLayout(4)[1]).Magnitude < 1e-6
+	)
 end
 
 print(string.format("[BlockServiceTests] %d passed, %d failed", passed, failed))

@@ -27,14 +27,19 @@
 --
 -- ===== 판정 원점 =====================================================================
 --
--- 블록 클러스터의 중심은 **월드 원점 (0,0,0)** 이다. 스테이지·월드와 무관하다.
--- 근거: BlockLayout의 ring()이 원점 중심으로 좌표를 만들고(그 파일 "좌표는 원점 고정이다"),
--- BlockService가 그 좌표에 오프셋을 더하지 않고 그대로 블록 위치로 쓴다.
--- AttackConfig의 반경도 전부 이 중심 기준으로 유도됐다.
+-- 블록 클러스터의 중심은 **런의 스테이지를 따라간다** — 스테이지 N이면
+-- `ArenaConfig.getStageCenterX(N)`이다. AttackConfig의 반경은 그 중심 기준으로
+-- 유도되므로 원점이 움직여도 92.8 그대로다.
 --
--- ⚠️ BlockLayout이 언젠가 오프셋을 갖게 되면 이 상수도 함께 움직여야 한다.
--- 그때는 여기서 고치지 말고 BlockLayout이 원점을 노출하게 한 뒤 그것을 읽을 것 —
--- OUTER_RADIUS를 그쪽에 노출시킨 것과 같은 이유다(식은 한 곳에만).
+-- ✅ 위 문단은 4-2-a2b(2026-09-05)에서 이렇게 바뀌었다. 그 전에는
+-- "월드 원점 (0,0,0), 스테이지·월드와 무관하다"였고, 근거는 BlockService가
+-- 오프셋을 더하지 않고 좌표를 그대로 쓴다는 것이었다 — 그리고 그 문단은
+-- "BlockLayout이 언젠가 오프셋을 갖게 되면 여기서 고치지 말고 BlockLayout이
+-- 원점을 노출하게 한 뒤 그것을 읽으라"고 미리 적어두었다. **그대로 했다.**
+-- `BlockLayout.getStageOrigin`이 그 노출이고, 이 파일은 그것을 읽기만 한다.
+--
+-- ⚠️ 오프셋 식(주기 × (N-1))을 여기 옮겨 적지 말 것. 식은 한 곳에만 있어야 한다 —
+-- OUTER_RADIUS를 BlockLayout에 노출시킨 것과 같은 이유다.
 --
 -- ===== BlockDamaged를 여기서 발신하지 않는다 (⚠️ 중요) ================================
 --
@@ -53,6 +58,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
+-- 판정 원점을 렌더와 같은 함수에서 받기 위해서다 (getStageOrigin). 좌표식을 여기 쓰지 말 것.
+local BlockLayout = require(ReplicatedStorage.Shared.BlockLayout)
 local CurrencyService = require(script.Parent.CurrencyService)
 local ChallengeService = require(script.Parent.ChallengeService)
 
@@ -83,7 +90,21 @@ local RESULT_OUT_OF_RANGE = AttackService.RESULT_OUT_OF_RANGE
 local RESULT_NO_CHANGES = AttackService.RESULT_NO_CHANGES
 
 -- 블록 클러스터의 중심. 위 "판정 원점" 참고.
-local CLUSTER_ORIGIN = Vector3.new(0, 0, 0)
+--
+-- ⚠️ **4-2-a2b에서 상수가 아니게 됐다.** 예전에는 `Vector3.new(0, 0, 0)` 하나였다 —
+-- 25개 층의 블록이 전부 X=0에 겹쳐 있었기 때문이고, 그건 버그였다.
+-- 이제 층마다 클러스터가 `ArenaConfig.getStageCenterX(stage)`에 선다.
+--
+-- ⚠️ **여기서 오프셋을 다시 계산하지 말 것.** `BlockLayout.getStageOrigin`은
+-- 서버 배치(BlockService)·클라 렌더(RemoteReceiver)가 쓰는 것과 **같은 함수**다.
+-- 판정이 자기 식으로 원점을 구하는 순간 "블록이 보이는데 안 맞는" 상태가 되고,
+-- 그게 `BlockLayout.lua` 상단이 못박은 "판정 좌표 = 표시 좌표" 계약이 깨지는 방식이다.
+--
+-- ⚠️ 반경은 그대로다. `AttackConfig.getRadius()`가 쓰는 `OUTER_RADIUS`는 클러스터
+-- **중심으로부터의** 거리라 클러스터가 어디로 가든 92.8이다. 원점만 움직인다.
+local function clusterOriginFor(stage: number): Vector3
+	return BlockLayout.getStageOrigin(stage)
+end
 
 -- ===== 순수 로직 (Player/Instance 의존 없음) ===========================================
 
@@ -158,7 +179,9 @@ local function runPunch(deps: Deps, player: Player): PunchOutcome
 	end
 
 	-- 4. 거리 판정. ⚠️ 비교를 직접 쓰지 않는다 — 경계 규약은 AttackConfig가 소유한다.
-	local distance = (position - CLUSTER_ORIGIN).Magnitude
+	-- ⚠️ 원점이 런의 스테이지를 따라간다. run은 1번에서 이미 손에 있으므로
+	-- 새로 조회하지 않는다 — 조회를 늘리면 그 사이 층이 바뀌는 창이 생긴다.
+	local distance = (position - clusterOriginFor(run.stage)).Magnitude
 	if not AttackConfig.isInRange(distance) then
 		-- ⚠️ 데미지 0을 넣지 않는다. **호출 자체를 건너뛴다.**
 		-- 0을 넣으면 BlockDamaged가 발화해서 클라가 매 0.5초 빈 연출을 돌고,
@@ -191,7 +214,10 @@ AttackService._pure = {
 	runPunch = runPunch,
 	computePunchDamage = computePunchDamage,
 	punchInterval = punchInterval,
-	CLUSTER_ORIGIN = CLUSTER_ORIGIN,
+	-- ⚠️ 상수 CLUSTER_ORIGIN을 노출하던 자리다. 층마다 달라지므로 상수로 줄 수 없다.
+	-- 테스트는 이 함수를 부르거나 BlockLayout.getStageOrigin을 직접 쓴다 — 어느 쪽이든
+	-- 렌더와 같은 유도를 타는 것이 요점이다.
+	clusterOriginFor = clusterOriginFor,
 }
 
 -- ===== 공개 API =======================================================================

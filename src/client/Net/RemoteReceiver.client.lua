@@ -132,7 +132,10 @@ local function buildModels(stage: number, seeds: { number })
 
 	currentSeeds = seeds
 
-	local positions = BlockLayout.computeLayout(count)
+	-- ⚠️ stage를 반드시 넘긴다. 안 넘기면 어느 층이든 X=0에 그려지고, 서버 판정만
+	-- 스테이지 중심을 따라가서 "블록이 보이는데 안 맞는" 상태가 된다 — 4-2-a2b가
+	-- 고친 것이 정확히 그 어긋남이다(BlockLayout.lua "판정 좌표 = 표시 좌표").
+	local positions = BlockLayout.computeLayout(count, stage)
 	local template = getTemplate(StageConfig.getWorld(stage).material)
 	local container = getContainer()
 
