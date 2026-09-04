@@ -39,6 +39,14 @@ print("[Bootstrap] ProfileManager.init() 호출 시작")
 ProfileManager.init()
 print("[Bootstrap] ProfileManager.init() 호출 완료")
 
+-- 스폰 지점과 아레나 경계를 Workspace에 세운다 (4-2-a).
+-- ⚠️ 순서: PadService.init()보다 앞이어야 한다. 둘 다 Workspace에 파트를 세우는데,
+-- 이쪽이 SpawnLocation을 만든다 — 패드가 먼저 서면 첫 접속자가 스폰 지점 없이 원점
+-- (0,0,0)에 떨어질 수 있고, 그 자리는 스테이지 1 블록 한가운데다.
+-- ProfileManager.init()과의 선후는 상관없다. 이 파일은 프로필 훅을 걸지 않는다.
+local ArenaService = require(script.Parent.Systems.ArenaService)
+ArenaService.init()
+
 -- 클릭 파워 패드를 Workspace에 세운다.
 -- ⚠️ 순서: 반드시 ProfileManager.init() 뒤여야 한다. PadService.init()이 내부에서
 -- ProfileManager.onLoaded로 로드 훅을 거는데, 그 전에 부르면 이미 접속해 있던 플레이어의

@@ -54,6 +54,53 @@ ArenaConfig.GAP_WIDTH = 40
 -- 됐고, 그래서 여기가 정본이 됐다.
 ArenaConfig.SPAWN_X = -400
 
+-- 수령 발판이 진행축에서 옆으로 비키는 거리.
+--
+-- ⚠️ **유도값이 아니다.** STAGE_WIDTH나 GAP_WIDTH에서 파생시키지 말 것 — 근거가
+-- 다른 축에 있다. 아레나 폭을 조정해도 이 값은 따라 움직이면 안 된다.
+--
+-- 근거는 캐릭터 폭이다:
+--   로블록스 기본 캐릭터 폭 약 4 (HumanoidRootPart 2, 팔 포함 4).
+--   축 중앙 통로 ±14, 캐릭터 반폭 2, 여유 12.
+--   (발판 크기 12×1×12이므로 안쪽 모서리가 축에서 20 - 6 = 14)
+--
+-- 여유 12는 고속 이동 보정이다. 후반 이동속도가 수천까지 올라가 프레임당 수십
+-- studs를 움직이고, 직선으로 걸어도 물리 보정으로 옆으로 밀린다. 여유가 좁으면
+-- 지나가다 발판에 스쳐 런이 끝난다 — 수령은 런당 1회고 되돌릴 수 없다.
+-- 반대로 멀면 클리어 후 가는 것이 부담이 된다.
+ArenaConfig.CASHOUT_LATERAL_OFFSET = 20
+
+-- ===== 아레나 경계 ===================================================================
+--
+-- 물리적으로 못 나가게 막는 벽이다. 서버 판정과는 별개의 물건이다 —
+-- ChallengeService가 진행을 거부해도 파트가 없으면 캐릭터는 그냥 걸어나간다.
+--
+-- ⚠️ PadLayout이 예전에 쓰던 `ARENA_RADIUS`(68.8)와 아무 관계가 없다. 그쪽은
+-- 패드 시작점 계산값이었고 물리 경계가 아니었다(4-2-a에서 그 항 자체가 사라졌다).
+
+-- 스폰 구역의 X 범위. 패드(-380~-104)를 품고 챌린지 입구(-80)를 20 지나서 끝난다 —
+-- 이 20의 겹침이 스폰 구역과 챌린지 구간을 잇는 출입구다.
+ArenaConfig.SPAWN_ZONE_X_MIN = -420
+ArenaConfig.SPAWN_ZONE_X_MAX = -60
+
+-- Z 반폭. 스폰 구역이 더 넓다 — 패드 24장을 훑으며 좌우로 움직이는 구역이기 때문이다.
+ArenaConfig.SPAWN_ZONE_Z_HALF = 120
+ArenaConfig.CHALLENGE_ZONE_Z_HALF = 100
+
+-- 경계 높이. 기본 점프가 약 7 studs이므로 넘어갈 수 없다.
+-- ⚠️ 이동속도가 올라가도 점프 높이는 안 변한다(JumpPower는 힘에서 파생되지 않는다).
+-- 이 값이 속도 상한을 따라갈 이유가 없는 이유다.
+ArenaConfig.BOUNDARY_HEIGHT = 50
+
+-- 경계 벽 두께.
+--
+-- ⚠️ 게임 수치가 아니라 기술 상수다. 진행 벽의 깊이(8)와 같은 값을 쓰되 근거는
+-- 다르다 — 그쪽은 Touched 관통을 막는 하한이고(docs/UI_ASSET_SPEC.md "5-1"),
+-- 이쪽은 CanCollide 관통을 막는 두께다. Touched를 쓰지 않으므로
+-- LevelConfig.MIN_PART_DEPTH_SOURCES에 넣지 말 것 — 넣으면 경계 두께를 줄였을 때
+-- 이동속도 상한이 근거 없이 따라 내려간다.
+ArenaConfig.BOUNDARY_THICKNESS = 8
+
 -- ===== 파생 =========================================================================
 
 -- 스테이지 한 주기 = 스테이지 폭 + 띠 폭. 스테이지 N과 N+1의 블록 중심 간 거리다.
@@ -113,6 +160,20 @@ end
 -- "체감상 적절한가"는 Play에서 볼 값이고, 여기서는 얼마인지만 답한다.
 function ArenaConfig.getSpawnToEntrance(): number
 	return ArenaConfig.getEntranceX() - ArenaConfig.SPAWN_X
+end
+
+-- 챌린지 구간의 끝 X. 주기 × 스테이지 수다 — 마지막 스테이지 중심(주기 × (N-1))보다
+-- 한 주기 더 가서, 최종 진행 벽 뒤에 설 자리가 남는다.
+--
+-- ⚠️ 스테이지 수를 인자로 받는다. 여기서 WorldConfig를 조회하지 않는 이유는 이 파일이
+-- 순수해야 하기 때문이고(다른 Config를 require하지 않는 것이 이 코드베이스의 관례),
+-- 덕분에 테스트가 스테이지 수를 흔들어 경계가 따라 늘어나는지 볼 수 있다.
+function ArenaConfig.getChallengeEndX(stageCount: number): number
+	assert(
+		type(stageCount) == "number" and stageCount == stageCount and stageCount % 1 == 0 and stageCount >= 1,
+		string.format("ArenaConfig.getChallengeEndX: stageCount(%s)는 1 이상의 정수여야 함", tostring(stageCount))
+	)
+	return ArenaConfig.getStagePitch() * stageCount
 end
 
 function ArenaConfig.validate(): boolean
@@ -192,6 +253,81 @@ function ArenaConfig.validate(): boolean
 	assert(
 		ArenaConfig.getAdvanceX(1) == ArenaConfig.getStageCenterX(2) - stageEdge,
 		"ArenaConfig: 진행 벽이 다음 스테이지 시작 면에 있지 않음"
+	)
+
+	-- ===== 측면 오프셋 ================================================================
+
+	-- 0이면 발판이 진행축 위에 놓인다 — 다음 스테이지로 걸어가다 밟아서 런이 끝난다.
+	assert(
+		type(ArenaConfig.CASHOUT_LATERAL_OFFSET) == "number" and ArenaConfig.CASHOUT_LATERAL_OFFSET > 0,
+		string.format(
+			"ArenaConfig: CASHOUT_LATERAL_OFFSET(%s)는 0보다 커야 함 — 0이면 발판이 축 위에 있다",
+			tostring(ArenaConfig.CASHOUT_LATERAL_OFFSET)
+		)
+	)
+
+	-- ===== 경계 ======================================================================
+
+	assert(
+		ArenaConfig.SPAWN_ZONE_X_MIN < ArenaConfig.SPAWN_X,
+		string.format(
+			"ArenaConfig: 스폰 지점(%.1f)이 스폰 구역 뒷벽(%.1f) 밖에 있음",
+			ArenaConfig.SPAWN_X,
+			ArenaConfig.SPAWN_ZONE_X_MIN
+		)
+	)
+
+	-- 스폰 구역이 챌린지 입구를 지나서 끝나야 출입구가 생긴다. 입구보다 앞에서 끝나면
+	-- 두 구역 사이에 벽도 바닥도 없는 틈이 남는다.
+	assert(
+		ArenaConfig.SPAWN_ZONE_X_MAX > ArenaConfig.getEntranceX(),
+		string.format(
+			"ArenaConfig: 스폰 구역 끝(%.1f)이 챌린지 입구(%.1f)를 지나지 않음 — 출입구가 없다",
+			ArenaConfig.SPAWN_ZONE_X_MAX,
+			ArenaConfig.getEntranceX()
+		)
+	)
+
+	-- 스폰 구역이 더 좁으면 두 구역 경계에서 챌린지 쪽 벽이 스폰 구역 안으로 파고든다.
+	assert(
+		ArenaConfig.SPAWN_ZONE_Z_HALF >= ArenaConfig.CHALLENGE_ZONE_Z_HALF,
+		string.format(
+			"ArenaConfig: 스폰 구역 반폭(%.1f)이 챌린지 구간 반폭(%.1f)보다 좁음",
+			ArenaConfig.SPAWN_ZONE_Z_HALF,
+			ArenaConfig.CHALLENGE_ZONE_Z_HALF
+		)
+	)
+
+	-- 발판이 챌린지 구간 폭 안에 들어와야 한다. 벗어나면 경계 벽 바깥에 놓인다.
+	local cashoutFarEdge = ArenaConfig.CASHOUT_LATERAL_OFFSET
+	assert(
+		cashoutFarEdge < ArenaConfig.CHALLENGE_ZONE_Z_HALF,
+		string.format(
+			"ArenaConfig: 수령 발판 측면 오프셋(%.1f)이 챌린지 구간 반폭(%.1f) 밖",
+			cashoutFarEdge,
+			ArenaConfig.CHALLENGE_ZONE_Z_HALF
+		)
+	)
+
+	-- 기본 점프(약 7)로 넘어갈 수 없어야 경계가 경계다.
+	assert(
+		type(ArenaConfig.BOUNDARY_HEIGHT) == "number" and ArenaConfig.BOUNDARY_HEIGHT > 7,
+		string.format("ArenaConfig: BOUNDARY_HEIGHT(%s)가 기본 점프 높이 이하", tostring(ArenaConfig.BOUNDARY_HEIGHT))
+	)
+	assert(
+		type(ArenaConfig.BOUNDARY_THICKNESS) == "number" and ArenaConfig.BOUNDARY_THICKNESS > 0,
+		string.format("ArenaConfig: BOUNDARY_THICKNESS(%s)는 0보다 커야 함", tostring(ArenaConfig.BOUNDARY_THICKNESS))
+	)
+
+	-- 경계 끝이 최종 진행 벽보다 뒤에 있어야 한다. 앞에 있으면 마지막 벽이 경계 밖에 선다.
+	local lastStage = 3 -- 임의의 층. 스테이지 수와 무관하게 성립해야 하는 관계다.
+	assert(
+		ArenaConfig.getChallengeEndX(lastStage) > ArenaConfig.getAdvanceX(lastStage),
+		string.format(
+			"ArenaConfig: 챌린지 경계 끝(%.1f)이 최종 진행 벽(%.1f)보다 앞",
+			ArenaConfig.getChallengeEndX(lastStage),
+			ArenaConfig.getAdvanceX(lastStage)
+		)
 	)
 
 	return true
