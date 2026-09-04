@@ -420,6 +420,38 @@ local VERIFY_CHALLENGE = true
 -- 진짜 방어선은 Phase 6 UI에서 이 블록을 통째로 지우는 것이다(docs/PENDING.md 잔재).
 local CHALLENGE_REVERIFY_ON_RESPAWN = false
 
+-- ── 개발용 플래그: ADVANCE_VERIFY_ENABLED ─────────────────────────────────────
+-- 위치: 이 줄. 사용처는 아래 VERIFY_CHALLENGE 블록의 클리어 확인 직후 한 곳뿐이다.
+-- ⚠️ Studio에서 켜고 끄는 값이 아니다. **이 줄을 true로 고치고 Rojo sync.**
+--    (KEEP_RUN_ALIVE / CHALLENGE_REVERIFY_ON_RESPAWN과 같은 패턴)
+--
+-- 왜 필요한가: 4-2-a2b가 판정 원점과 렌더 원점을 함께 스테이지 중심으로 옮겼는데
+-- (cdc44a6), **그것이 실물에서 맞는지 볼 방법이 없다.** 원점 이동은 2층부터 의미가
+-- 생기고, 2층으로 가는 길은 advance() 하나뿐이며, advance를 부르는 실물 경로인
+-- 진행 벽(3c)이 아직 없기 때문이다. 그래서 cdc44a6이 미검증으로 남아 있다.
+-- 이 플래그가 벽을 대신해 advance()를 한 번 부른다.
+--
+-- 무엇을 보는가 (진리표. 렌더와 판정 중 한쪽만 옮겨졌으면 증상이 갈린다):
+--   렌더 200 / 판정 200 -> 블록 정면 + dist=80.1        (정상)
+--   렌더 0   / 판정 200 -> 블록이 안 보이는데 딜이 들어감
+--   렌더 200 / 판정 0   -> 블록이 보이는데 out_of_range dist=280
+--   렌더 0   / 판정 0   -> 블록도 없고 out_of_range
+-- 스테이지 1 입구에서 dist=80.1/92.8이 나왔다. 2층 입구는 **같은 상대 위치**이므로
+-- dist가 다시 80.1로 재현되면 둘 다 옮겨진 것이다.
+-- ⚠️ 이 값을 코드에 기대치로 박지 말 것. 육안·로그 확인 대상이지 자동 테스트가 아니다.
+--
+-- ⚠️ **advance 뒤의 cashout은 반드시 거부된다.** 새 런은 cleared=false이기 때문이다.
+-- 그래서 이 플래그를 켜면 cashout 절이 "거부 → 증가분 비교 불가 → 런 종료 여부=false"로
+-- 찍힌다. 설계된 결과이지 회귀가 아니다. cashout 호출을 지우거나 옮기지 않는 이유는
+-- 플래그를 껐을 때 원래 검증이 한 글자도 달라지면 안 되기 때문이다.
+--
+-- ⚠️ **3c(진행 벽)가 붙으면 이 블록을 삭제한다** (docs/PENDING.md 잔재). 벽이 서면
+-- advance를 실물로 부를 수단이 생겨 존재 이유가 사라진다.
+--
+-- ⚠️ 기본 false로 커밋할 것. Play에서 켠 값을 커밋하지 말 것 — 2f0758c에서 검증
+-- 플래그를 원복한 전례가 있다.
+local ADVANCE_VERIFY_ENABLED = false
+
 if VERIFY_CHALLENGE then
 	-- ReplicatedStorage / BigNum / CurrencyService는 파일 상단에서 이미 require했다.
 	local ChallengeService = require(script.Parent.Systems.ChallengeService)
@@ -433,7 +465,7 @@ if VERIFY_CHALLENGE then
 		return string.format("{m=%s, e=%s}", tostring(bn.m), tostring(bn.e))
 	end
 
-	-- 캐릭터를 챌린지 입구로 옮긴다. 4-2-a 원점 이동의 낙진을 메우는 자리다.
+	-- 캐릭터를 **스테이지 N의 입구**로 옮긴다. 4-2-a 원점 이동의 낙진을 메우는 자리다.
 	--
 	-- 왜 필요한가: 스폰이 X=-400으로 옮겨지면서 블록(X=0)까지 320 studs가 됐다.
 	-- 기본 속도 19로 17초가 걸리고 타이머는 20초라, 도착해도 깰 시간이 없다.
@@ -441,14 +473,19 @@ if VERIFY_CHALLENGE then
 	-- **버그가 아니라 구조 변경이다** — 그래서 게임 쪽(타이머·스폰·반경·좌표)을
 	-- 건드리지 않고 검증 스크립트가 출발선을 옮긴다.
 	--
-	-- ⚠️ 왜 하필 입구인가: 유도된 자리이기 때문이다. 입구는 스테이지 1의 시작 면이라
+	-- ⚠️ 왜 하필 입구인가: 유도된 자리이기 때문이다. 입구는 그 스테이지의 시작 면이라
 	-- 블록 클러스터 중심에서 STAGE_WIDTH/2 = 80 떨어져 있고,
 	--   블록 바깥면 68.8  <  80  <  판정 반경 92.8
 	-- 이라 **블록 안은 아니면서 사거리 안**이다. 걸어 들어온 유저가 처음 서게 되는
 	-- 자리와 같다 — 임의로 고른 좌표가 아니고, 폭을 조정하면 따라 움직인다.
 	-- 아래에서 실제 거리를 찍는 이유도 이것이다. Config가 바뀌어 이 관계가 깨지면
 	-- 로그가 먼저 말해준다.
-	local function moveToChallengeEntrance(player: Player): boolean
+	--
+	-- ⚠️ stage를 인자로 받는다(4-2-a2b). 예전에는 getEntranceX() 한 곳만 불러 1층
+	-- 전용이었는데, ADVANCE_VERIFY_ENABLED가 advance 뒤에 같은 자리로 옮겨야 하므로
+	-- 층을 받게 일반화했다. **좌표는 여전히 ArenaConfig 파생뿐이다** — 여기에 200이나
+	-- 80 같은 숫자를 손으로 쓰면 4-2-a2b가 되돌리려던 이중 정의가 되살아난다.
+	local function moveToStageEntrance(player: Player, stage: number): boolean
 		local character = player.Character
 		if character == nil then
 			warn(string.format("[Bootstrap][VERIFY_CHALLENGE] %s: 캐릭터 없음 - 입구 이동 건너뜀", player.Name))
@@ -459,7 +496,7 @@ if VERIFY_CHALLENGE then
 			return false
 		end
 
-		local entranceX = ArenaConfig.getEntranceX()
+		local entranceX = ArenaConfig.getStageEntranceX(stage)
 
 		local ok, err = pcall(function()
 			-- 지면(Y=0) 위에 세운다. PivotTo는 모델 중심을 맞추므로 절반을 올린다 —
@@ -473,13 +510,16 @@ if VERIFY_CHALLENGE then
 			return false
 		end
 
-		-- 스테이지 1 블록 클러스터는 원점에 있다. 거리와 반경을 함께 찍어서
-		-- "사거리 안에서 시작했는가"를 로그만 보고 알 수 있게 한다.
-		local distance = math.abs(entranceX)
+		-- 그 층의 블록 클러스터 중심까지의 거리. 반경과 함께 찍어서 "사거리 안에서
+		-- 시작했는가"를 로그만 보고 알 수 있게 한다.
+		-- ⚠️ math.abs(entranceX)로 쓰지 말 것. 1층에서만 맞는다(중심이 원점이라서).
+		-- 2층부터는 중심이 200이므로 중심을 빼야 층과 무관하게 80이 나온다.
+		local distance = math.abs(entranceX - ArenaConfig.getStageCenterX(stage))
 		local radius = AttackConfig.getRadius()
 		print(string.format(
-			"[Bootstrap][VERIFY_CHALLENGE] %s 챌린지 입구로 이동 X=%.1f (블록까지 %.1f / 반경 %.1f -> %s)",
+			"[Bootstrap][VERIFY_CHALLENGE] %s 스테이지 %d 입구로 이동 X=%.1f (블록까지 %.1f / 반경 %.1f -> %s)",
 			player.Name,
+			stage,
 			entranceX,
 			distance,
 			radius,
@@ -508,7 +548,7 @@ if VERIFY_CHALLENGE then
 		if player.Character == nil then
 			player.CharacterAdded:Wait()
 		end
-		moveToChallengeEntrance(player)
+		moveToStageEntrance(player, 1)
 
 		local ok, err = pcall(function()
 			-- 1. startRun(player, 1)
@@ -546,6 +586,51 @@ if VERIFY_CHALLENGE then
 			if not cleared then
 				warn(string.format("[Bootstrap][VERIFY_CHALLENGE] %s: 클리어 실패 - cashout 검증 중단", player.Name))
 				return
+			end
+
+			-- 2-b. 진행 검증 (4-2-a2b). 플래그가 켜졌을 때만 돈다.
+			--
+			-- ⚠️ **여기가 유일한 자리다.** 클리어 직후이면서 cashout 앞 — 뒤로 가면 런이
+			-- 이미 닫혀서 advance가 "활성 런 없음"으로 거부되고, 앞으로 가면 아직
+			-- cleared=false라 "클리어 안 됨"으로 거부된다.
+			--
+			-- ⚠️ 아래 cashout은 순서·조건 그대로 둔다. advance가 돌면 cashout이 거부되는데
+			-- (새 런은 cleared=false) 그건 설계된 결과다 — ADVANCE_VERIFY_ENABLED 주석의
+			-- 진리표와 함께 읽을 것.
+			if ADVANCE_VERIFY_ENABLED and runStateAfterClear ~= nil then
+				local fromStage = runStateAfterClear.stage
+				local toStage = fromStage + 1
+
+				local advanceOk = ChallengeService.advance(player, "bootstrap_verify")
+
+				-- 거부 사유. advance는 boolean만 돌려주므로 런 상태에서 유도한다 —
+				-- canAdvance는 getRunState가 이미 계산해서 실어 보내는 값이고,
+				-- 최종 층(25층)에서 false가 되는 **정상 거부**다. 실패로 읽지 말 것.
+				local resultText: string
+				local movedX: string = "-"
+
+				if advanceOk then
+					-- 다음 층 입구로 옮긴다. 중심에 세우면 블록 클러스터 안에 낀다.
+					-- 좌표는 스테이지 1과 **같은 유도**를 탄다 — 그래서 dist가 재현된다.
+					local moved = moveToStageEntrance(player, toStage)
+					if moved then
+						movedX = string.format("%.1f", ArenaConfig.getStageEntranceX(toStage))
+					end
+					resultText = moved and "ok" or "ok(입구 이동 실패)"
+				elseif not runStateAfterClear.canAdvance then
+					resultText = "canAdvance=false(최종 층 - 정상 거부)"
+				else
+					resultText = "거부(사유는 [ChallengeService] warn 참조)"
+				end
+
+				print(string.format(
+					"[Bootstrap][ADVANCE] %s stage=%d->%d x=%s result=%s",
+					player.Name,
+					fromStage,
+					toStage,
+					movedX,
+					resultText
+				))
 			end
 
 			-- 3. cashout 전 blox 값 기록

@@ -162,10 +162,23 @@ function ArenaConfig.getAdvanceX(stage: number): number
 	return ArenaConfig.getStageCenterX(stage) + ArenaConfig.getAdvanceOffset()
 end
 
+-- 스테이지 N의 시작 면 X. 걸어 들어온 유저가 그 층에서 처음 서게 되는 자리다.
+--
+-- ⚠️ 중심이 아니라 시작 면인 것이 요점이다. 중심은 블록 클러스터 한가운데라 캐릭터를
+-- 그리로 옮기면 블록 사이에 낀다. 시작 면은 클러스터 바깥면(68.8)보다는 멀고
+-- 근접 판정 반경(92.8)보다는 가까운 유일한 유도 지점이다 — 임의로 고른 좌표가
+-- 아니라 폭을 조정하면 따라 움직인다.
+function ArenaConfig.getStageEntranceX(stage: number): number
+	return ArenaConfig.getStageCenterX(stage) - ArenaConfig.STAGE_WIDTH / 2
+end
+
 -- 챌린지 입구 X = 스테이지 1의 시작 면. 스폰 구역과 챌린지 구간의 경계다.
 -- ⚠️ -80을 적지 않는다. 스테이지 폭을 바꾸면 입구가 따라 움직여야 한다.
+--
+-- ⚠️ 위 getStageEntranceX(1)의 별칭이다. 식을 여기 다시 쓰지 말 것 — 두 벌이 되면
+-- 폭을 바꿨을 때 스폰 경계와 스테이지 시작 면이 갈라진다.
 function ArenaConfig.getEntranceX(): number
-	return ArenaConfig.getStageCenterX(1) - ArenaConfig.STAGE_WIDTH / 2
+	return ArenaConfig.getStageEntranceX(1)
 end
 
 -- 스폰 지점에서 챌린지 입구까지의 거리. 패드 24장이 이 사이에 들어간다.
@@ -262,9 +275,18 @@ function ArenaConfig.validate(): boolean
 		ArenaConfig.getCashoutX(1) < ArenaConfig.getStageCenterX(2) - stageEdge,
 		"ArenaConfig: 스테이지 1의 수령 발판이 스테이지 2 영역 안에 있음"
 	)
+	-- ⚠️ 우변을 getStageEntranceX로 쓴다. "다음 스테이지 시작 면"이라는 말이 곧 그 함수이고,
+	-- 식을 손으로 다시 쓰면 그쪽이 틀어져도 여기는 통과한다.
 	assert(
-		ArenaConfig.getAdvanceX(1) == ArenaConfig.getStageCenterX(2) - stageEdge,
+		ArenaConfig.getAdvanceX(1) == ArenaConfig.getStageEntranceX(2),
 		"ArenaConfig: 진행 벽이 다음 스테이지 시작 면에 있지 않음"
+	)
+
+	-- 시작 면은 층이 올라가도 항상 중심에서 폭의 절반만큼 뒤다. 이 관계가 깨지면
+	-- 검증 스크립트가 캐릭터를 세우는 자리가 층마다 달라진다.
+	assert(
+		ArenaConfig.getStageCenterX(3) - ArenaConfig.getStageEntranceX(3) == stageEdge,
+		"ArenaConfig: 스테이지 시작 면이 중심에서 폭의 절반만큼 떨어져 있지 않음"
 	)
 
 	-- ===== 측면 오프셋 ================================================================

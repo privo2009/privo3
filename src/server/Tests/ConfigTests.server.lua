@@ -357,6 +357,7 @@ check("ArenaConfig: 스테이지 폭을 흔들면 주기·발판·벽이 전부 
 			cashout = ArenaConfig.getCashoutX(1),
 			advance = ArenaConfig.getAdvanceX(1),
 			entrance = ArenaConfig.getEntranceX(),
+			entrance2 = ArenaConfig.getStageEntranceX(2),
 		}
 	end)
 	ArenaConfig.STAGE_WIDTH = original -- 성공·실패와 무관하게 반드시 복구된다
@@ -367,12 +368,44 @@ check("ArenaConfig: 스테이지 폭을 흔들면 주기·발판·벽이 전부 
 
 	local r = result :: any
 	-- 폭 160 → 320이면 주기 200 → 360, 발판 100 → 180, 벽 120 → 200, 입구 -80 → -160.
+	-- 2층 입구는 360 - 160 = 200 — 벽과 같은 자리다(벽을 통과하면 다음 층 시작 면).
 	return r.pitch == 360
 		and r.center2 == 360
 		and r.cashout == 180
 		and r.advance == 200
 		and r.entrance == -160
+		and r.entrance2 == 200
 		and ArenaConfig.getStagePitch() == 200 -- 복구 확인
+end)
+
+check("ArenaConfig: 스테이지 N의 입구 X가 중심을 따라 움직인다", function()
+	-- 검증 스크립트(Bootstrap ADVANCE_VERIFY_ENABLED)가 캐릭터를 세우는 자리다.
+	-- 층마다 "중심 - 폭/2"여야 하고, 그 상대 위치가 같아야 dist가 층과 무관하게 80으로
+	-- 재현된다. 어긋나면 스테이지 2에서만 out_of_range가 뜨고 원인이 안 보인다.
+	local stageEdge = ArenaConfig.STAGE_WIDTH / 2
+
+	-- 확정값. 주기 200, 폭 160이면 1층 -80, 2층 120, 3층 320이다.
+	local fixedOk = ArenaConfig.getStageEntranceX(1) == -80
+		and ArenaConfig.getStageEntranceX(2) == 120
+		and ArenaConfig.getStageEntranceX(3) == 320
+
+	-- 상대 위치가 층과 무관하게 같은가. 이것이 dist 재현의 근거다.
+	local relativeOk = true
+	for stage = 1, 5 do
+		local offset = ArenaConfig.getStageCenterX(stage) - ArenaConfig.getStageEntranceX(stage)
+		if offset ~= stageEdge then
+			relativeOk = false
+		end
+	end
+
+	-- getEntranceX가 별칭인가. 식이 두 벌이 되면 여기서 갈린다.
+	local aliasOk = ArenaConfig.getEntranceX() == ArenaConfig.getStageEntranceX(1)
+
+	-- 진행 벽을 통과하면 곧바로 다음 층 시작 면이다.
+	local wallOk = ArenaConfig.getAdvanceX(1) == ArenaConfig.getStageEntranceX(2)
+		and ArenaConfig.getAdvanceX(4) == ArenaConfig.getStageEntranceX(5)
+
+	return fixedOk and relativeOk and aliasOk and wallOk
 end)
 
 check("ArenaConfig: 패드 24장이 스폰과 챌린지 입구 사이에 들어간다", function()
