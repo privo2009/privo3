@@ -389,10 +389,29 @@ end
 -- RemoteEvent가 붙어 실제 플레이로 이 경로가 자연히 검증되는 단계에서 이 블록 전체 삭제.
 local VERIFY_CHALLENGE = true
 
+-- ── 개발용 플래그: CHALLENGE_REVERIFY_ON_RESPAWN ──────────────────────────────
+-- 리스폰할 때마다 챌린지 검증을 다시 돌린다. 사람이 3b(수령 발판)·3d(스폰 복귀)를
+-- 눈으로 확인하려면 런을 여러 번 세워야 하는데, Bootstrap은 원래 접속 시 1회로 끝난다 —
+-- 한 번 실패하면 나가서 다시 들어오는 수밖에 없었다.
+--
+-- **쓰는 법: Esc → Reset Character.** 그러면 스폰에서 다시 살아나고, 이 훅이
+-- 캐릭터를 챌린지 입구로 옮긴 뒤 런을 새로 세운다.
+--
+-- ⚠️ 리스폰이라는 **명시적 사람 동작**에만 걸린다. 주기 재시작으로 하지 않은 이유가
+-- 이것이다 — 폴링으로 런을 다시 세우면 플레이 중에 끼어들고, 캐릭터까지 옮기면
+-- 조작을 빼앗는다. 리스폰은 사람이 스스로 누르는 것이라 끼어들 여지가 없다.
+--
+-- ⚠️ **프로덕션에 켠 채로 남기지 말 것.** 남으면 유저가 리셋만으로 런을 임의로
+-- 시작할 수 있게 된다 — 20초 타이머를 리셋으로 회피하는 길이 열린다.
+-- 지금 true인 것은 다음 Play에서 3b·3d를 손으로 확인하기 위해서다.
+-- TODO(3b·3d 육안 확인 완료 후): false로 되돌린다.
+local CHALLENGE_REVERIFY_ON_RESPAWN = true
+
 if VERIFY_CHALLENGE then
 	-- ReplicatedStorage / BigNum / CurrencyService는 파일 상단에서 이미 require했다.
 	local ChallengeService = require(script.Parent.Systems.ChallengeService)
 	local BlockService = require(script.Parent.Systems.BlockService)
+	local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 
 	local function fmtBigNum(bn): string
 		if bn == nil then
@@ -401,12 +420,82 @@ if VERIFY_CHALLENGE then
 		return string.format("{m=%s, e=%s}", tostring(bn.m), tostring(bn.e))
 	end
 
-	Players.PlayerAdded:Connect(function(player: Player)
+	-- 캐릭터를 챌린지 입구로 옮긴다. 4-2-a 원점 이동의 낙진을 메우는 자리다.
+	--
+	-- 왜 필요한가: 스폰이 X=-400으로 옮겨지면서 블록(X=0)까지 320 studs가 됐다.
+	-- 기본 속도 19로 17초가 걸리고 타이머는 20초라, 도착해도 깰 시간이 없다.
+	-- 실측으로 result=out_of_range dist=400.0/92.8이 찍혔고 cleared=false로 끝났다.
+	-- **버그가 아니라 구조 변경이다** — 그래서 게임 쪽(타이머·스폰·반경·좌표)을
+	-- 건드리지 않고 검증 스크립트가 출발선을 옮긴다.
+	--
+	-- ⚠️ 왜 하필 입구인가: 유도된 자리이기 때문이다. 입구는 스테이지 1의 시작 면이라
+	-- 블록 클러스터 중심에서 STAGE_WIDTH/2 = 80 떨어져 있고,
+	--   블록 바깥면 68.8  <  80  <  판정 반경 92.8
+	-- 이라 **블록 안은 아니면서 사거리 안**이다. 걸어 들어온 유저가 처음 서게 되는
+	-- 자리와 같다 — 임의로 고른 좌표가 아니고, 폭을 조정하면 따라 움직인다.
+	-- 아래에서 실제 거리를 찍는 이유도 이것이다. Config가 바뀌어 이 관계가 깨지면
+	-- 로그가 먼저 말해준다.
+	local function moveToChallengeEntrance(player: Player): boolean
+		local character = player.Character
+		if character == nil then
+			warn(string.format("[Bootstrap][VERIFY_CHALLENGE] %s: 캐릭터 없음 - 입구 이동 건너뜀", player.Name))
+			return false
+		end
+		if character:FindFirstChild("HumanoidRootPart") == nil then
+			warn(string.format("[Bootstrap][VERIFY_CHALLENGE] %s: HumanoidRootPart 없음 - 입구 이동 건너뜀", player.Name))
+			return false
+		end
+
+		local entranceX = ArenaConfig.getEntranceX()
+
+		local ok, err = pcall(function()
+			-- 지면(Y=0) 위에 세운다. PivotTo는 모델 중심을 맞추므로 절반을 올린다 —
+			-- 높이는 아바타마다 달라서 상수로 박지 않는다(ArenaService.returnToSpawn과 같은 이유).
+			local extents = character:GetExtentsSize()
+			character:PivotTo(CFrame.new(Vector3.new(entranceX, extents.Y / 2, 0)))
+		end)
+
+		if not ok then
+			warn(string.format("[Bootstrap][VERIFY_CHALLENGE] %s: 입구 이동 실패 - %s", player.Name, tostring(err)))
+			return false
+		end
+
+		-- 스테이지 1 블록 클러스터는 원점에 있다. 거리와 반경을 함께 찍어서
+		-- "사거리 안에서 시작했는가"를 로그만 보고 알 수 있게 한다.
+		local distance = math.abs(entranceX)
+		local radius = AttackConfig.getRadius()
+		print(string.format(
+			"[Bootstrap][VERIFY_CHALLENGE] %s 챌린지 입구로 이동 X=%.1f (블록까지 %.1f / 반경 %.1f -> %s)",
+			player.Name,
+			entranceX,
+			distance,
+			radius,
+			AttackConfig.isInRange(distance) and "사거리 안" or "사거리 밖"
+		))
+
+		if not AttackConfig.isInRange(distance) then
+			warn(string.format(
+				"[Bootstrap][VERIFY_CHALLENGE] %s: 입구가 사거리 밖이다 - ArenaConfig/AttackConfig 관계가 깨졌다. 검증은 계속하지만 클리어는 안 된다",
+				player.Name
+			))
+		end
+
+		return true
+	end
+
+	local function runChallengeVerification(player: Player)
 		local profile = ProfileManager.waitFor(player, 10)
 		if profile == nil then
 			warn(string.format("[Bootstrap][VERIFY_CHALLENGE] %s: 프로필 로드 대기 타임아웃 - 검증 중단", player.Name))
 			return
 		end
+
+		-- 캐릭터가 서기를 기다린 뒤 출발선으로 옮긴다. startRun보다 **앞**이어야 한다 —
+		-- 런이 먼저 서면 20초 타이머가 이동 전에 돌기 시작한다.
+		if player.Character == nil then
+			player.CharacterAdded:Wait()
+		end
+		moveToChallengeEntrance(player)
 
 		local ok, err = pcall(function()
 			-- 1. startRun(player, 1)
@@ -506,6 +595,32 @@ if VERIFY_CHALLENGE then
 				tostring(restartOk)
 			))
 		end
+	end
+
+	Players.PlayerAdded:Connect(function(player: Player)
+		-- 첫 스폰. runChallengeVerification이 안에서 첫 CharacterAdded를 소비한다.
+		runChallengeVerification(player)
+
+		if not CHALLENGE_REVERIFY_ON_RESPAWN then
+			return
+		end
+
+		-- ⚠️ 여기서 연결하는 이유가 있다. 위 호출이 첫 CharacterAdded를 이미 기다려
+		-- 소비했으므로, 이 시점 이후에 오는 발화는 **전부 리스폰**이다. 카운터로
+		-- 첫 회를 세지 않아도 되고, 세는 코드가 없으면 어긋날 일도 없다.
+		player.CharacterAdded:Connect(function()
+			-- 캐릭터가 조립될 시간을 준다. 바로 옮기면 부위가 다 붙기 전이라
+			-- GetExtentsSize가 실제와 다른 값을 준다.
+			task.wait()
+
+			print(string.format("[Bootstrap][VERIFY_CHALLENGE] %s 리스폰 감지 - 검증을 다시 돌린다", player.Name))
+
+			-- 이전 런이 남아 있으면 걷어낸다. 안 그러면 startRun이 덮어쓰면서
+			-- 그 런의 종료 통지가 안 나가고, 클라 블록이 옛 세트로 남는다.
+			ChallengeService.abandonRun(player)
+
+			runChallengeVerification(player)
+		end)
 	end)
 end
 
