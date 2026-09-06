@@ -43,11 +43,18 @@ local fakePlayer = { Name = "TestPlayer", UserId = 1 } :: any
 -- StarterPlayerScripts로 보내므로 서버 스크립트가 require할 수 없다
 -- (ArenaServiceTests/CashoutPadServiceTests와 같은 제약·같은 처리).
 -- 같은 상대오차(1e-6)로 같은 반환 형태(boolean, detail)를 쓴다 — 기준을 바꾼 것이 아니다.
+--
+-- ⚠️ tol 인자는 **원본(TestHelpers.checkClose)에 원래 있는 것**이다. 새 비교 헬퍼를
+-- 만든 것이 아니라 이 사본이 빠뜨리고 있던 매개변수를 맞춘 것이다. 오프셋이 실린
+-- 좌표에서는 기본 1e-6이 float32 격자보다 작아 통과 자체가 불가능한 케이스가 있고
+-- (2026-09-06 실측 — 아래 float32GapAt 주석), 그때만 유도한 값을 넘긴다.
+-- ⚠️ 호출부에 손으로 정한 숫자를 넘기지 말 것. 반드시 좌표에서 유도한다.
 local RELATIVE_TOLERANCE = 1e-6
-local function checkClose(actual: number, expected: number): (boolean, string)
+local function checkClose(actual: number, expected: number, tol: number?): (boolean, string)
+	local tolerance = tol or RELATIVE_TOLERANCE
 	local diff = actual - expected
 	local relative = if expected ~= 0 then diff / expected else diff
-	return math.abs(relative) < RELATIVE_TOLERANCE,
+	return math.abs(relative) < tolerance,
 		string.format("기대값=%.17g 실제값=%.17g 차이=%.3e", expected, actual, diff)
 end
 
@@ -103,21 +110,62 @@ local function snapToFloat32(value: number): number
 	return Vector3.new(value, 0, 0).X
 end
 
--- 반경 자리의 float32 격자 간격. `math.frexp`는 지수를 **정확히** 준다 —
+-- 어떤 값이 놓인 자리의 float32 격자 간격. `math.frexp`는 지수를 **정확히** 준다 —
 -- `math.log(x, 2)`는 2의 거듭제곱 근처에서 한 칸 어긋날 수 있어 쓰지 않는다.
-local _, RADIUS_EXPONENT = math.frexp(RADIUS)
-local FLOAT32_GAP = 2 ^ (RADIUS_EXPONENT - 24) -- float32 유효숫자 24비트
+--
+-- ⚠️ **격자는 값의 크기를 따라 굵어진다.** float32 유효숫자가 24비트로 고정이라
+-- 절대 간격이 값에 비례한다. 2026-09-06 실측:
+--   반경 자리 92.8      격자 7.63e-06
+--   스테이지 3  X=400   격자 3.05e-05   (4배)
+--   스테이지 9  X=1600  격자 1.22e-04   (16배)
+--   스테이지 25 X=4800  격자 4.88e-04   (64배)
+-- 이 파일이 오프셋 없는 좌표(1층)에서만 통과하던 원인이 전부 이것이다.
+local function float32GapAt(value: number): number
+	local _, exponent = math.frexp(value)
+	return 2 ^ (exponent - 24) -- float32 유효숫자 24비트
+end
 
--- 반경을 감싸는 두 격자점. 재운 값이 반경보다 큰지 작은지는 반올림 방향에 달렸으므로
--- (튜닝하면 뒤집힐 수 있다) 양쪽을 다 다룬다.
-local RADIUS_SNAPPED = snapToFloat32(RADIUS)
-local RADIUS_BELOW, RADIUS_ABOVE
-if RADIUS_SNAPPED > RADIUS then
-	RADIUS_ABOVE = RADIUS_SNAPPED
-	RADIUS_BELOW = RADIUS_SNAPPED - FLOAT32_GAP
-else
-	RADIUS_BELOW = RADIUS_SNAPPED
-	RADIUS_ABOVE = RADIUS_SNAPPED + FLOAT32_GAP
+-- ===== 경계 이웃은 **월드 좌표에서** 밟는다 (2026-09-06) ================================
+--
+-- ⚠️ 원점 스케일에서 만든 이웃값을 오프셋 좌표에 더하면 안 된다. 더하는 순간 굵은
+-- 격자로 반올림돼 **반경 안으로 도로 들어온다.**
+--
+--   옛 코드: positionAt(92.800003051757812) = ORIGIN + Vector3(그 값, 0, 0)
+--   실제 저장: float32(400 + 92.800003051757812) = 492.79998779296875
+--   다시 잰 거리: 92.79998779296875  <= 92.8  → 사거리 **안**
+--
+-- 2026-09-05 Play에서 "경계 — 반경 바로 위 float32는 때리지 않는다"가 실측 "ok"로
+-- 실패한 원인이 정확히 이것이다. 판정에는 결함이 없었고 **테스트가 도달 불가능한
+-- 점을 요구**했다 — 아래 "정확히 반경으로 재라"와 같은 종류의 실패다.
+--
+-- 그래서 판정이 실제로 다루는 좌표(오프셋이 실린 월드 X)에서 격자를 한 칸씩 밟아
+-- 경계를 감싼다. 층을 바꿔도, 반경을 튜닝해도 따라온다.
+local function measuredDistanceAt(worldX: number): number
+	return (Vector3.new(worldX, 0, 0) - ORIGIN).Magnitude
+end
+
+local WORLD_GAP = float32GapAt(ORIGIN.X + RADIUS)
+
+-- WORLD_BELOW = 거리가 반경 이하인 가장 먼 격자점, WORLD_ABOVE = 그 바로 옆 칸.
+-- 거리는 월드 X에 대해 단조라 몇 칸 안에 걸린다. 무한루프를 막는 상한을 둔다 —
+-- 걸리지 않으면 아래 "감싼다" 검사가 실패해서 조용히 넘어가지 않는다.
+local WORLD_BELOW, WORLD_ABOVE
+do
+	local MAX_STEPS = 16
+	local x = snapToFloat32(ORIGIN.X + RADIUS)
+
+	local steps = 0
+	while measuredDistanceAt(x) > RADIUS and steps < MAX_STEPS do
+		x = snapToFloat32(x - WORLD_GAP)
+		steps += 1
+	end
+	while measuredDistanceAt(snapToFloat32(x + WORLD_GAP)) <= RADIUS and steps < MAX_STEPS do
+		x = snapToFloat32(x + WORLD_GAP)
+		steps += 1
+	end
+
+	WORLD_BELOW = x
+	WORLD_ABOVE = snapToFloat32(x + WORLD_GAP)
 end
 
 local STRENGTH = BigNum.new(5, 3) -- 5000
@@ -181,18 +229,34 @@ do
 	-- **엉뚱한 점을 재면서 초록으로 통과**한다 — 아래 두 경계 검사가 의미를 잃는다.
 	check(
 		"경계 파생 — 아래 이웃이 float32 격자 위에 있다",
-		snapToFloat32(RADIUS_BELOW) == RADIUS_BELOW,
-		string.format("%.17g", RADIUS_BELOW)
+		snapToFloat32(WORLD_BELOW) == WORLD_BELOW,
+		string.format("%.17g", WORLD_BELOW)
 	)
 	check(
 		"경계 파생 — 위 이웃이 float32 격자 위에 있다",
-		snapToFloat32(RADIUS_ABOVE) == RADIUS_ABOVE,
-		string.format("%.17g", RADIUS_ABOVE)
+		snapToFloat32(WORLD_ABOVE) == WORLD_ABOVE,
+		string.format("%.17g", WORLD_ABOVE)
 	)
+	-- 두 점이 **붙어 있어야** "경계가 정확히 여기"가 성립한다. 한 칸이 아니면
+	-- 그 사이에 재지 않은 격자점이 남는다.
 	check(
-		"경계 파생 — 두 이웃이 반경을 감싼다 (아래 <= 반경 < 위)",
-		RADIUS_BELOW <= RADIUS and RADIUS > RADIUS_BELOW - FLOAT32_GAP and RADIUS_ABOVE > RADIUS,
-		string.format("%.17g <= %.17g < %.17g", RADIUS_BELOW, RADIUS, RADIUS_ABOVE)
+		"경계 파생 — 두 점이 float32 이웃이다 (한 칸 차이)",
+		WORLD_ABOVE - WORLD_BELOW == WORLD_GAP,
+		string.format("차이=%.17g 격자=%.17g", WORLD_ABOVE - WORLD_BELOW, WORLD_GAP)
+	)
+	-- ⚠️ 여기서 재는 것은 **월드 좌표에서 다시 잰 거리**다. 옛 코드는 원점 스케일의
+	-- 이웃값 자체를 반경과 비교해서, 오프셋을 태운 뒤 그 관계가 깨지는 것을 못 봤다.
+	check(
+		"경계 파생 — 두 점이 반경을 감싼다 (아래 <= 반경 < 위)",
+		measuredDistanceAt(WORLD_BELOW) <= RADIUS and measuredDistanceAt(WORLD_ABOVE) > RADIUS,
+		string.format(
+			"%.17g <= %.17g < %.17g (월드 X %.17g / %.17g)",
+			measuredDistanceAt(WORLD_BELOW),
+			RADIUS,
+			measuredDistanceAt(WORLD_ABOVE),
+			WORLD_BELOW,
+			WORLD_ABOVE
+		)
 	)
 end
 
@@ -200,7 +264,7 @@ do
 	-- 경계 안쪽. 반경 바로 아래 float32는 사거리 **안**이다
 	-- (AttackConfig.isInRange가 소유하는 "경계는 이하" 규약).
 	local w = newWorld()
-	w.position = positionAt(RADIUS_BELOW)
+	w.position = Vector3.new(WORLD_BELOW, 0, 0) -- ⚠️ positionAt를 쓰지 않는다 (위 주석)
 	local outcome = pure.runPunch(depsFor(w) :: any, fakePlayer)
 
 	check(
@@ -215,7 +279,7 @@ do
 	-- 위아래 두 점이 붙어 있어야 "경계가 정확히 여기"라는 것이 검증된다 —
 	-- 한쪽만 재면 판정선이 어디로 밀려도 통과한다.
 	local w = newWorld()
-	w.position = positionAt(RADIUS_ABOVE)
+	w.position = Vector3.new(WORLD_ABOVE, 0, 0) -- ⚠️ positionAt를 쓰지 않는다 (위 주석)
 	local outcome = pure.runPunch(depsFor(w) :: any, fakePlayer)
 
 	check(
@@ -362,8 +426,31 @@ end
 -- ===== 판정 원점과 주기 ==============================================================
 
 do
-	check("클러스터 원점은 (0,0,0)이다", ORIGIN == Vector3.new(0, 0, 0), tostring(ORIGIN))
+	-- ⚠️ 이 자리에 있던 "클러스터 원점은 (0,0,0)이다"는 **4-2-a2b가 정면으로 뒤집은
+	-- 낡은 계약**이었다. 2026-09-05 Play에서 실측 "400, 0, 0"으로 실패했는데, 400은
+	-- 3층 원점의 **정답**이다 — 코드가 아니라 테스트가 틀린 경우였다.
+	--
+	-- 지금의 계약은 "판정 원점이 렌더와 **같은 유도**를 탄다"이다. AttackService가
+	-- _pure로 clusterOriginFor를 내보내는 이유가 이것인데 아무도 재고 있지 않았다.
+	check(
+		"판정 원점이 그 층의 클러스터 중심과 같다 (판정 = 렌더)",
+		pure.clusterOriginFor(RUN_STAGE) == BlockLayout.getStageOrigin(RUN_STAGE),
+		string.format("판정=%s 렌더=%s", tostring(pure.clusterOriginFor(RUN_STAGE)), tostring(BlockLayout.getStageOrigin(RUN_STAGE)))
+	)
 
+	-- 1층은 오프셋이 0이라 a2b 이전과 같아야 한다. 회귀 확인용 층이다.
+	check(
+		"판정 원점 — 1층은 월드 원점이다 (회귀 없음)",
+		pure.clusterOriginFor(1) == Vector3.zero,
+		tostring(pure.clusterOriginFor(1))
+	)
+
+	-- 층이 달라도 같은 자리를 주면 유도가 아니라 상수다. 위 두 검사만으로는 안 걸린다.
+	check(
+		"판정 원점 — 층이 다르면 자리도 다르다 (상수가 아니다)",
+		pure.clusterOriginFor(2) ~= pure.clusterOriginFor(3),
+		string.format("2층=%s 3층=%s", tostring(pure.clusterOriginFor(2)), tostring(pure.clusterOriginFor(3)))
+	)
 end
 
 -- ===== 방향 독립성 ===================================================================
@@ -404,10 +491,45 @@ do
 	local inside = measureAxes(RADIUS / 2)
 	local outside = measureAxes(RADIUS * 2)
 
+	-- ⚠️ **Y와 Z만 정확히 같다. X는 그럴 수 없다.**
+	--
+	-- 아레나가 +X로 늘어서므로 오프셋이 X에만 실린다. 그래서 X 성분만 굵은 격자
+	-- (스테이지 3에서 3.05e-05)에 저장되고 Y·Z는 원점 스케일 격자(7.63e-06)에
+	-- 남는다 — 축 사이의 대칭이 좌표계 자체에서 깨져 있다.
+	--
+	-- 2026-09-05 Play 실측 (RUN_STAGE=3):
+	--   X = 46.399993896484375
+	--   Y = Z = 46.400001525878906
+	--   차이 7.63e-06 = 그 자리 격자의 정확히 1/4
+	--
+	-- ⚠️ **허용 폭을 넓혀서 통과시키는 것이 아니다.** 상한을 좌표에서 유도한다:
+	-- X는 float32(ORIGIN.X + d)로 저장됐다가 다시 빼지므로 그 자리 격자의 절반까지
+	-- 어긋날 수 있다. 한 칸(WORLD_GAP과 같은 유도)을 상한으로 두면 표현 한계는
+	-- 통과시키고 진짜 방향 버그는 못 지나간다 — 축을 잘못 재는 버그는 studs 단위로
+	-- 어긋나지 격자 단위로 어긋나지 않는다.
+	--
+	-- 25층(오프셋 4800)에서도 성립한다: 격자 4.88e-04, 실측 최악 오차 9.92e-05로
+	-- 한 칸의 1/5이다. 층을 올려도 이 상한은 따라 굵어진다.
+	local function axisTolerance(distance: number): number
+		-- checkClose는 상대오차를 보므로 "한 칸"을 거리로 나눠 상대치로 바꾼다.
+		return float32GapAt(ORIGIN.X + distance) / distance
+	end
+
 	check(
-		"방향 독립 — 세 축이 같은 거리를 같은 값으로 잰다",
-		inside.X.distance == inside.Y.distance and inside.Y.distance == inside.Z.distance,
-		string.format("X=%.17g Y=%.17g Z=%.17g", inside.X.distance, inside.Y.distance, inside.Z.distance)
+		"방향 독립 — Y와 Z는 정확히 같은 값을 잰다 (둘 다 오프셋이 없다)",
+		inside.Y.distance == inside.Z.distance,
+		string.format("Y=%.17g Z=%.17g", inside.Y.distance, inside.Z.distance)
+	)
+
+	check(
+		"방향 독립 — X도 같은 거리를 잰다 (오프셋 축이라 격자 한 칸 안)",
+		checkClose(inside.X.distance, inside.Y.distance, axisTolerance(RADIUS / 2)),
+		string.format(
+			"X=%.17g Y=%.17g 격자=%.3e",
+			inside.X.distance,
+			inside.Y.distance,
+			float32GapAt(ORIGIN.X + RADIUS / 2)
+		)
 	)
 
 	check(

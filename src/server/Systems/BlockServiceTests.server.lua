@@ -190,12 +190,28 @@ end
 
 -- ⚠️ TestHelpers.checkClose를 쓰지 못한다(서버라 src/client를 require할 수 없다).
 -- 같은 상대오차·같은 반환 형태의 헬퍼를 둔다 — AttackServiceTests와 같은 처리다.
+--
+-- ⚠️ tol 인자는 **원본(TestHelpers.checkClose)에 원래 있는 것**이다. 새 헬퍼를 만든
+-- 것이 아니라 이 사본이 빠뜨리고 있던 매개변수를 맞춘 것이다.
+-- ⚠️ 호출부에 손으로 정한 숫자를 넘기지 말 것. 반드시 좌표에서 유도한다.
 local RELATIVE_TOLERANCE = 1e-6
-local function checkClose(actual: number, expected: number): (boolean, string)
+local function checkClose(actual: number, expected: number, tol: number?): (boolean, string)
+	local tolerance = tol or RELATIVE_TOLERANCE
 	local diff = actual - expected
 	local relative = if expected ~= 0 then diff / expected else diff
-	return math.abs(relative) < RELATIVE_TOLERANCE,
+	return math.abs(relative) < tolerance,
 		string.format("기대값=%.17g 실제값=%.17g 차이=%.3e", expected, actual, diff)
+end
+
+-- 어떤 값이 놓인 자리의 float32 격자 간격. float32 유효숫자가 24비트로 고정이라
+-- 절대 간격이 값의 크기에 비례한다 (AttackServiceTests에 같은 함수·같은 근거).
+--
+-- ⚠️ **진행 축(X)에만 오프셋이 실린다는 것이 요점이다.** 블록 좌표는 Z에도 있지만
+-- Z는 원점 스케일에 남고 X만 굵은 격자로 간다. 축 대칭을 전제한 비교는 오프셋이
+-- 0인 1층에서만 통과한다 — 2026-09-05 Play에서 이 파일의 fail 3건이 전부 그것이었다.
+local function float32GapAt(value: number): number
+	local _, exponent = math.frexp(value)
+	return 2 ^ (exponent - 24)
 end
 
 do
@@ -228,6 +244,12 @@ do
 			string.format("%d vs %d", #moved, #base)
 		)
 
+		-- ⚠️ 이쪽이 1e-6으로 통과하는 것은 우연이 아니라 **반올림이 잔차를 지우기**
+		-- 때문이다. moved[i] - base[i]는 결과가 origin.X 자리(예: 400)에 놓이는데,
+		-- 그 자리 격자가 3.05e-05라 잔차(실측 최악 5.7e-06)가 반 칸에 못 미쳐 정확히
+		-- 400으로 도로 반올림된다. 아래 상대 배치 검사는 결과가 작은 값이라 그 지우기가
+		-- 일어나지 않고, 그래서 같은 크기의 오차가 거기서만 드러난다. 두 줄의 임계가
+		-- 달라 보이는 이유가 이것이다 — 기준이 다른 것이 아니다.
 		local allShifted = true
 		for i = 1, #base do
 			if ((moved[i] - base[i]) - origin).Magnitude > 1e-6 then
@@ -237,15 +259,34 @@ do
 		check(string.format("스테이지 %d: 모든 블록이 getStageOrigin(%d)만큼 밀렸다", stage, stage), allShifted)
 
 		-- 상대 배치 보존. 첫 블록 기준 상대 벡터가 그대로여야 한다.
-		local relativeKept = true
+		--
+		-- ⚠️ **허용 폭을 넓혀서 통과시키는 것이 아니다.** 상한을 오프셋에서 유도한다:
+		-- moved[i]와 moved[1]은 둘 다 float32(base.X + origin.X)로 저장되므로 각각
+		-- 그 자리 격자의 절반까지 어긋난다. 둘을 빼면 최대 **한 칸**이다.
+		--
+		-- 2026-09-06 실측 최악값(격자 대비): 2층 0.375칸 / 3층 0.188칸 / 9층 0.484칸 /
+		-- 25층 0.129칸 — 전부 한 칸 안이다. 상한은 원래 이 크기였고, 옛 1e-6은
+		-- 3층 격자(3.05e-05)의 1/30이라 **어떤 코드로도 통과할 수 없는 값**이었다.
+		-- 실제 실패도 2·3·9층에서만 났다 (1층은 오프셋이 0이라 격자가 안 굵어진다).
+		--
+		-- 진짜 배치 버그는 studs 단위로 어긋나므로 이 상한을 지나지 못한다.
+		local tolerance = float32GapAt(origin.X)
+
+		local worst = 0
 		for i = 2, #base do
 			local before = base[i] - base[1]
 			local after = moved[i] - moved[1]
-			if (after - before).Magnitude > 1e-6 then
-				relativeKept = false
-			end
+			worst = math.max(worst, (after - before).Magnitude)
 		end
-		check(string.format("스테이지 %d: 블록 사이 상대 배치는 그대로", stage), relativeKept)
+
+		-- 기대값 0이면 checkClose는 절대오차로 떨어진다(원본 TestHelpers와 같은 규약).
+		-- 15개 중 최악값 하나로 판정한다 — 어느 블록이 걸렸는지보다 얼마나 어긋났는지가
+		-- 관심사이고, 그 값이 격자 몇 칸인지가 원인을 바로 말해준다.
+		check(
+			string.format("스테이지 %d: 블록 사이 상대 배치는 그대로", stage),
+			checkClose(worst, 0, tolerance),
+			string.format("최악 오차=%.3e 상한=%.3e (격자의 %.3f칸)", worst, tolerance, worst / tolerance)
+		)
 	end
 end
 
