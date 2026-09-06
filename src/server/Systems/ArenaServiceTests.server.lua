@@ -6,13 +6,10 @@
 -- (PadServiceTests / BlockServiceTests와 같은 방식). 실제로 벽에 막히는지는
 -- Studio Play 육안 확인 몫이다.
 --
--- ⚠️ TestHelpers.checkClose를 쓰지 못한다. 그 파일은 src/client/Tests에 있고
--- Rojo가 StarterPlayerScripts로 보내므로 서버 스크립트가 require할 수 없다.
--- 같은 상대오차(1e-6)로 같은 형태의 헬퍼를 아래에 둔다 — 기준을 바꾼 것이 아니다.
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
+local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local ArenaService = require(script.Parent.ArenaService)
 
 local pure = ArenaService._pure
@@ -29,14 +26,10 @@ local function check(name: string, ok: boolean, detail: string?)
 	end
 end
 
--- TestHelpers.checkClose와 같은 기준·같은 반환 형태(boolean, detail).
-local RELATIVE_TOLERANCE = 1e-6
-local function checkClose(actual: number, expected: number): (boolean, string)
-	local diff = actual - expected
-	local relative = if expected ~= 0 then diff / expected else diff
-	return math.abs(relative) < RELATIVE_TOLERANCE,
-		string.format("기대값=%.17g 실제값=%.17g 차이=%.3e", expected, actual, diff)
-end
+-- ⚠️ 사본을 만들지 말 것. 2026-09-07 이전에는 이 자리에 손으로 베낀 사본이 있었고,
+-- 원본이 실패 메시지에 함께 싣는 **상대오차 항을 떨어뜨리고 있었다**
+-- (→ Shared/TestHelpers.lua 상단).
+local checkClose = TestHelpers.checkClose
 
 local function findSpec(specs: { any }, name: string): any
 	for _, spec in ipairs(specs) do

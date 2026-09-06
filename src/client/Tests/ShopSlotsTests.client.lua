@@ -6,7 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ShopSlotConfig = require(ReplicatedStorage.Shared.Config.ShopSlotConfig)
 local Layout = require(script.Parent.Parent.UI.Layout)
 local ShopSlots = require(script.Parent.Parent.UI.Screens.Hud.ShopSlots)
-local TestHelpers = require(script.Parent.TestHelpers)
+local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local checkClose = TestHelpers.checkClose
 
 local passed = 0

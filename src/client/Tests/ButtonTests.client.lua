@@ -3,8 +3,10 @@
 -- 실행된다. U3-1 착수 준비. 생성한 Instance는 Parent를 세팅하지 않으므로 화면에는
 -- 나타나지 않는다.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local Button = require(script.Parent.Parent.UI.Components.Button)
-local TestHelpers = require(script.Parent.TestHelpers)
+local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local checkClose = TestHelpers.checkClose
 
 local passed = 0

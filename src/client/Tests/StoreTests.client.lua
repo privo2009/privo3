@@ -17,7 +17,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Store = require(script.Parent.Parent.UI.Store)
-local TestHelpers = require(script.Parent.TestHelpers)
+local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local checkClose = TestHelpers.checkClose
 
 type BigNumber = BigNum.BigNumber

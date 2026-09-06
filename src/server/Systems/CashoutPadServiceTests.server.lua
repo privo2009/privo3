@@ -6,12 +6,10 @@
 -- (RebirthServiceTests / WarpServiceTests와 같은 방식). 실제로 밟히는지는
 -- Studio Play 육안 확인 몫이다.
 --
--- ⚠️ TestHelpers.checkClose를 쓰지 못한다(src/client에 있어 서버가 require 불가).
--- ArenaServiceTests와 같은 이유로 같은 기준(1e-6)의 헬퍼를 파일 안에 둔다.
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
+local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local CashoutPadService = require(script.Parent.CashoutPadService)
 
 local pure = CashoutPadService._pure
@@ -28,13 +26,8 @@ local function check(name: string, ok: boolean, detail: string?)
 	end
 end
 
-local RELATIVE_TOLERANCE = 1e-6
-local function checkClose(actual: number, expected: number): (boolean, string)
-	local diff = actual - expected
-	local relative = if expected ~= 0 then diff / expected else diff
-	return math.abs(relative) < RELATIVE_TOLERANCE,
-		string.format("기대값=%.17g 실제값=%.17g 차이=%.3e", expected, actual, diff)
-end
+-- ⚠️ 사본을 만들지 말 것 (→ Shared/TestHelpers.lua 상단).
+local checkClose = TestHelpers.checkClose
 
 -- 런 상태를 흉내내는 세계. cashout은 성공하면 런을 지운다 — 그것이 "런당 1회"의
 -- 진짜 보장이므로, 그 동작을 그대로 재현해야 이 테스트가 의미를 갖는다.

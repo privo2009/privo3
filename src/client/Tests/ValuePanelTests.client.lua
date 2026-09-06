@@ -6,7 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local ValuePanel = require(script.Parent.Parent.UI.Components.ValuePanel)
-local TestHelpers = require(script.Parent.TestHelpers)
+local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local checkClose = TestHelpers.checkClose
 
 local passed = 0

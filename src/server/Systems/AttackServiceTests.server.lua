@@ -21,6 +21,7 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local BlockLayout = require(ReplicatedStorage.Shared.BlockLayout)
+local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local AttackService = require(script.Parent.AttackService)
 
 local pure = AttackService._pure
@@ -39,24 +40,13 @@ end
 
 local fakePlayer = { Name = "TestPlayer", UserId = 1 } :: any
 
--- ⚠️ TestHelpers.checkClose를 쓰지 못한다. 그 파일은 src/client/Tests에 있고 Rojo가
--- StarterPlayerScripts로 보내므로 서버 스크립트가 require할 수 없다
--- (ArenaServiceTests/CashoutPadServiceTests와 같은 제약·같은 처리).
--- 같은 상대오차(1e-6)로 같은 반환 형태(boolean, detail)를 쓴다 — 기준을 바꾼 것이 아니다.
+-- ⚠️ 사본을 만들지 말 것. 2026-09-07 이전에는 이 자리에 손으로 베낀 사본이 있었다
+-- (→ Shared/TestHelpers.lua 상단에 그 사본들이 어떻게 어긋났는지 적혀 있다).
 --
--- ⚠️ tol 인자는 **원본(TestHelpers.checkClose)에 원래 있는 것**이다. 새 비교 헬퍼를
--- 만든 것이 아니라 이 사본이 빠뜨리고 있던 매개변수를 맞춘 것이다. 오프셋이 실린
--- 좌표에서는 기본 1e-6이 float32 격자보다 작아 통과 자체가 불가능한 케이스가 있고
--- (2026-09-06 실측 — 아래 float32GapAt 주석), 그때만 유도한 값을 넘긴다.
+-- ⚠️ 오프셋이 실린 좌표에서는 기본 허용치(1e-6)가 float32 격자보다 작아 **통과
+-- 자체가 불가능한** 케이스가 있다. 그때만 tol에 유도한 값을 넘긴다.
 -- ⚠️ 호출부에 손으로 정한 숫자를 넘기지 말 것. 반드시 좌표에서 유도한다.
-local RELATIVE_TOLERANCE = 1e-6
-local function checkClose(actual: number, expected: number, tol: number?): (boolean, string)
-	local tolerance = tol or RELATIVE_TOLERANCE
-	local diff = actual - expected
-	local relative = if expected ~= 0 then diff / expected else diff
-	return math.abs(relative) < tolerance,
-		string.format("기대값=%.17g 실제값=%.17g 차이=%.3e", expected, actual, diff)
-end
+local checkClose = TestHelpers.checkClose
 
 -- newWorld()가 세우는 런의 층. 아래 positionAt이 이 층의 클러스터 원점을 기준으로
 -- 좌표를 만들므로, 둘이 갈리면 모든 거리 케이스가 통째로 틀어진다 — 상수를 하나 두고
@@ -110,20 +100,9 @@ local function snapToFloat32(value: number): number
 	return Vector3.new(value, 0, 0).X
 end
 
--- 어떤 값이 놓인 자리의 float32 격자 간격. `math.frexp`는 지수를 **정확히** 준다 —
--- `math.log(x, 2)`는 2의 거듭제곱 근처에서 한 칸 어긋날 수 있어 쓰지 않는다.
---
--- ⚠️ **격자는 값의 크기를 따라 굵어진다.** float32 유효숫자가 24비트로 고정이라
--- 절대 간격이 값에 비례한다. 2026-09-06 실측:
---   반경 자리 92.8      격자 7.63e-06
---   스테이지 3  X=400   격자 3.05e-05   (4배)
---   스테이지 9  X=1600  격자 1.22e-04   (16배)
---   스테이지 25 X=4800  격자 4.88e-04   (64배)
--- 이 파일이 오프셋 없는 좌표(1층)에서만 통과하던 원인이 전부 이것이다.
-local function float32GapAt(value: number): number
-	local _, exponent = math.frexp(value)
-	return 2 ^ (exponent - 24) -- float32 유효숫자 24비트
-end
+-- 격자 간격의 근거·실측값은 Shared/TestHelpers.lua에 있다. 이 파일이 오프셋 없는
+-- 좌표(1층)에서만 통과하던 원인이 전부 그것이다.
+local float32GapAt = TestHelpers.float32GapAt
 
 -- ===== 경계 이웃은 **월드 좌표에서** 밟는다 (2026-09-06) ================================
 --

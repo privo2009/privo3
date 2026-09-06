@@ -2,8 +2,10 @@
 -- Layout 검증. Studio에서 Rojo 연결 후 Play 하면 클라 시작 시 자동 실행된다.
 -- U3-2 착수 준비.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local Layout = require(script.Parent.Parent.UI.Layout)
-local TestHelpers = require(script.Parent.TestHelpers)
+local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local checkClose = TestHelpers.checkClose
 
 local passed = 0

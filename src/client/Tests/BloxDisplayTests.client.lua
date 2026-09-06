@@ -13,7 +13,7 @@ local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local Layout = require(script.Parent.Parent.UI.Layout)
 local Store = require(script.Parent.Parent.UI.Store)
 local BloxDisplay = require(script.Parent.Parent.UI.Screens.Hud.BloxDisplay)
-local TestHelpers = require(script.Parent.TestHelpers)
+local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local checkClose = TestHelpers.checkClose
 
 local passed = 0

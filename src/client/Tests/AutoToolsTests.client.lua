@@ -8,7 +8,7 @@ local AssetRegistry = require(ReplicatedStorage.Shared.Config.AssetRegistry)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local Layout = require(script.Parent.Parent.UI.Layout)
 local AutoTools = require(script.Parent.Parent.UI.Screens.Hud.AutoTools)
-local TestHelpers = require(script.Parent.TestHelpers)
+local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local checkClose = TestHelpers.checkClose
 
 local passed = 0

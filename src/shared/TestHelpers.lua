@@ -1,5 +1,24 @@
 --!strict
--- UI 테스트 공용 비교 헬퍼.
+-- 테스트 공용 비교 헬퍼. **서버·클라 양쪽이 쓴다.**
+--
+-- ===== 왜 src/shared에 있는가 (2026-09-07 이동) ==========================================
+--
+-- 원래 `src/client/Tests`에 있었고, Rojo가 그 폴더를 StarterPlayerScripts로 보내므로
+-- **서버 스크립트가 require할 수 없었다.** 그래서 서버 테스트마다 같은 함수를 손으로
+-- 베껴 두는 길밖에 없었고, 사본이 넷까지 늘었다
+-- (`ArenaServiceTests` · `CashoutPadServiceTests` · `AttackServiceTests` · `BlockServiceTests`).
+--
+-- ⚠️ **그 넷이 전부 어긋나 있었다.** CLAUDE.md가 "복사본은 반드시 어긋난다"고 적어둔
+-- 사고가 코드에서 그대로 일어났고, 어긋난 방식이 둘이었다:
+--   시그니처  넷 중 둘이 `tol` 인자를 빠뜨렸다 → 호출이 실패해서 **드러났다**
+--   detail    넷 **전부** 상대오차 항을 떨어뜨렸다 → 실패하지 않아 **안 드러났다**
+-- 뒤쪽이 더 나쁘다. 이 헬퍼가 실패 시 기대값·실제값·오차를 **함께** 돌려주는 이유가
+-- 아래 U3-3 기록에 적힌 그것인데, 사본들은 정확히 그 이유였던 필드를 잃었다.
+-- 조사에 시간을 쓴 전례가 두 번이다 — PanelTests 9건(U3-3), float32 6건(`733e060`).
+--
+-- ReplicatedStorage.Shared는 서버·클라가 둘 다 보므로 경로 문제가 사라진다.
+-- ⚠️ **사본을 다시 만들지 말 것.** 서버 테스트도 여기서 require한다:
+--   `require(game:GetService("ReplicatedStorage").Shared.TestHelpers)`
 --
 -- Roblox의 UDim.Scale · UIAspectRatioConstraint.AspectRatio · AbsoluteSize 등은
 -- float32로 저장된다. Lua number(double)로 값을 세팅해도 읽으면 이미 float32로
@@ -50,7 +69,10 @@ local TestHelpers = {}
 -- 실제값·오차가 자동으로 찍힌다.
 --
 -- expected가 0이면 상대오차가 정의되지 않으므로(0으로 나누기) 그때만 절대오차로
--- 대체한다 — 지금 호출부 중 expected가 0인 경우는 없지만 방어적으로 둔다.
+-- 대체한다. ⚠️ **이 갈래에 실제 호출부가 있다**(2026-09-07 기준 서버 2곳:
+-- `AttackServiceTests`의 "거리가 0이다", `BlockServiceTests`의 상대 배치 최악값).
+-- 원래 "방어적으로 둔다"고만 적혀 있었는데 그 사이 쓰이기 시작했다 — 이 갈래를
+-- 지우거나 error로 바꾸면 그 둘이 조용히 깨진다.
 function TestHelpers.checkClose(actual: number, expected: number, tol: number?): (boolean, string)
 	local tolerance = tol or RELATIVE_TOLERANCE
 	local diff = actual - expected
@@ -66,6 +88,39 @@ function TestHelpers.checkClose(actual: number, expected: number, tol: number?):
 	)
 
 	return ok, detail
+end
+
+-- ===== float32 격자 간격 ================================================================
+--
+-- value가 놓인 자리의 float32 격자(ulp) 크기. `Vector3` 성분이 float32이고 유효숫자가
+-- 24비트로 **고정**이라, 절대 간격이 값의 크기에 비례해서 굵어진다.
+--
+-- ⚠️ 이것이 선형 아레나에서 문제가 되는 이유: 아레나가 +X로 늘어서므로 **오프셋이
+-- X축에만 실린다.** 그래서 같은 거리를 세 축으로 재면 X만 다른 값이 나온다 — 축
+-- 대칭을 전제한 비교는 오프셋이 0인 1층에서만 통과한다.
+-- 2026-09-06 Play에서 테스트 6건이 이것 하나로 깨졌다 (→ `docs/PENDING.md` 함정 절).
+--
+-- 2026-09-06 실측:
+--   반경 자리 92.8       격자 7.63e-06     Y·Z는 층과 무관하게 이 크기다
+--   스테이지 3  X=400    격자 3.05e-05  (4배)
+--   스테이지 9  X=1600   격자 1.22e-04  (16배)
+--   스테이지 25 X=4800   격자 4.88e-04  (64배)
+--
+-- ⚠️ **판정에는 영향이 없다.** 최악인 25층에서도 격자 4.88e-04는 판정 반경 92.8의
+-- 5.26e-06배이고(반경 하나 = 190,054 격자), 거리 계산 최악 오차는 2.5e-04 studs로
+-- 기본 이동속도 19면 13µs 만에 지나가는 폭이다. 그래서 판정 계층(`AttackService`)을
+-- 스테이지 상대 좌표계로 바꾸지 않았다 — 고칠 것은 판정이 아니라 테스트였다.
+--
+-- ⚠️ **허용치를 손으로 정하지 말 것.** 이 함수로 유도한다. 두 값이 같은 자리에
+-- 저장되면 각각 반 칸까지 어긋나므로 차이는 최대 **한 칸**이다. 실측 최악값이
+-- 한 칸의 0.13~0.48이라 넓힌 것이 아니라 원래 이 크기였고, 옛 상수 1e-6은 3층
+-- 격자의 1/30이라 **어떤 코드로도 통과할 수 없는 값**이었다.
+--
+-- `math.frexp`를 쓰는 이유: 지수를 **정확히** 준다. `math.log(x, 2)`는 2의 거듭제곱
+-- 근처에서 한 칸 어긋날 수 있다.
+function TestHelpers.float32GapAt(value: number): number
+	local _, exponent = math.frexp(value)
+	return 2 ^ (exponent - 24) -- float32 유효숫자 24비트
 end
 
 return TestHelpers

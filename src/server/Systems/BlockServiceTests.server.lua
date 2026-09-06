@@ -12,6 +12,7 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local BlockLayoutConfig = require(ReplicatedStorage.Shared.Config.BlockLayoutConfig)
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local BlockLayout = require(ReplicatedStorage.Shared.BlockLayout)
+local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local BlockService = require(script.Parent.BlockService)
 
 local pure = BlockService._pure
@@ -188,31 +189,15 @@ end
 --
 -- ⚠️ 200이나 80을 여기 적지 않는다. ArenaConfig / BlockLayout에서 읽는다.
 
--- ⚠️ TestHelpers.checkClose를 쓰지 못한다(서버라 src/client를 require할 수 없다).
--- 같은 상대오차·같은 반환 형태의 헬퍼를 둔다 — AttackServiceTests와 같은 처리다.
---
--- ⚠️ tol 인자는 **원본(TestHelpers.checkClose)에 원래 있는 것**이다. 새 헬퍼를 만든
--- 것이 아니라 이 사본이 빠뜨리고 있던 매개변수를 맞춘 것이다.
--- ⚠️ 호출부에 손으로 정한 숫자를 넘기지 말 것. 반드시 좌표에서 유도한다.
-local RELATIVE_TOLERANCE = 1e-6
-local function checkClose(actual: number, expected: number, tol: number?): (boolean, string)
-	local tolerance = tol or RELATIVE_TOLERANCE
-	local diff = actual - expected
-	local relative = if expected ~= 0 then diff / expected else diff
-	return math.abs(relative) < tolerance,
-		string.format("기대값=%.17g 실제값=%.17g 차이=%.3e", expected, actual, diff)
-end
+-- ⚠️ 사본을 만들지 말 것 (→ Shared/TestHelpers.lua 상단).
+-- ⚠️ tol에 손으로 정한 숫자를 넘기지 말 것. 반드시 좌표에서 유도한다.
+local checkClose = TestHelpers.checkClose
 
--- 어떤 값이 놓인 자리의 float32 격자 간격. float32 유효숫자가 24비트로 고정이라
--- 절대 간격이 값의 크기에 비례한다 (AttackServiceTests에 같은 함수·같은 근거).
---
 -- ⚠️ **진행 축(X)에만 오프셋이 실린다는 것이 요점이다.** 블록 좌표는 Z에도 있지만
 -- Z는 원점 스케일에 남고 X만 굵은 격자로 간다. 축 대칭을 전제한 비교는 오프셋이
--- 0인 1층에서만 통과한다 — 2026-09-05 Play에서 이 파일의 fail 3건이 전부 그것이었다.
-local function float32GapAt(value: number): number
-	local _, exponent = math.frexp(value)
-	return 2 ^ (exponent - 24)
-end
+-- 0인 1층에서만 통과한다 — 2026-09-06 Play에서 이 파일의 fail 3건이 전부 그것이었다.
+-- 유도 근거와 실측값은 Shared/TestHelpers.lua에 있다.
+local float32GapAt = TestHelpers.float32GapAt
 
 do
 	-- 스테이지 1은 원점이라 4-2-a2b 이전과 완전히 같아야 한다. 회귀 확인용 층이다.
