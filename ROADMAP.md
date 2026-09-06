@@ -20,14 +20,14 @@
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
-| `Tests/ConfigTests.server.lua` | 70 | 모든 Config의 validate + 스모크 (`DroneConfig.validate` 포함) |
+| `Tests/ConfigTests.server.lua` | 71 | 모든 Config의 validate + 스모크 (`DroneConfig.validate` 포함) |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Tests/WarpConfigTests.server.lua` | 31 | 워프 비용 곡선(지수·단조)·순수성·거부 사유 3종 |
 | `Tests/AttackConfigTests.server.lua` | 29 | 펀치 속도·판정 반경 파생·경계(이하) |
 | `Data/SchemaTests.server.lua` | 33 | 프로필 스키마 검증 |
 | `Data/MigrationsTests.server.lua` | 20 | schemaVersion 마이그레이션·멱등성 |
 | `Systems/CurrencyServiceTests.server.lua` | 51 | 재화 단일 게이트·롤백·rebirths |
-| `Systems/BlockServiceTests.server.lua` | 30 | 배치·데미지 오버플로우·클리어 |
+| `Systems/BlockServiceTests.server.lua` | 51 | 배치·데미지 오버플로우·클리어 |
 | `Systems/ChallengeServiceTests.server.lua` | 74 | 타이머·보상 갱신·진입점 거부·source 식별 |
 | `Systems/ClickServiceTests.server.lua` | 47 | 입력 위생·초당 상한 윈도우·통지 억제·자동 경로 |
 | `Systems/PadServiceTests.server.lua` | 31 | 패드 배치·해금 경계·디바운스·세팅/클램프 |
@@ -35,7 +35,7 @@
 | `Systems/SpeedRequestServiceTests.server.lua` | 32 | 요청 빈도 상한·폐기·로그 억제·응답 payload |
 | `Systems/RebirthServiceTests.server.lua` | 66 | 거부 시 부작용 0·순서·누적·부분 실패 ※ |
 | `Systems/WarpServiceTests.server.lua` | 73 | 거부 시 차감 0·차감이 런 시작보다 먼저·부분 실패 3종 ※ |
-| `Systems/AttackServiceTests.server.lua` | 41 | 반경 밖 미호출·이중 계산 방지·경계(float32 이웃)·방향 독립 |
+| `Systems/AttackServiceTests.server.lua` | 73 | 반경 밖 미호출·이중 계산 방지·경계(float32 이웃)·방향 독립 |
 | `Systems/DroneServiceTests.server.lua` | 32 | 나머지 보존·오프라인 상한·시각 되감김 방어·droneStage 없음·count 배수·in-flight 겹침·lifetimeBlox 연동 |
 | `Tests/UiThemeTests.server.lua` | 33 | 색 역할 8종 존재·밝은/기본/어두운 3단계·Color3 타입 |
 | `Tests/AssetRegistryTests.server.lua` | 130 | 25종 등록·source/scaleType/placeholderRole 검증·resolve() 도착·미도착 판정 ※ |
@@ -46,7 +46,7 @@
 | `Tests/PanelTests.client.lua` | 19 | 크기 2종 규격·제목/X버튼/여백의 화면 기준 환산 일치(root-상대 Scale 보정) |
 | `Tests/ButtonTests.client.lua` | 37 | 색 6종 생성·크기 2종·비활성 gray 전환·미도착/도착 눌림 처리 ※ |
 | `Tests/ValuePanelTests.client.lua` | 15 | 8자/4자 폭 AspectRatio·TextScaled·MaxTextSize·잘림 방지 |
-| `Tests/LayoutTests.client.lua` | 20 | 구역 비율·중앙 금지 판정 경계·getBounds AnchorPoint 보정 |
+| `Tests/LayoutTests.client.lua` | 22 | 구역 비율·중앙 금지 판정 경계·getBounds AnchorPoint 보정 |
 | `Tests/BloxDisplayTests.client.lua` | 13 | 중앙 금지 미침범·Store 구독 반영·8자 잘림 방지 |
 | `Tests/ChallengeInfoTests.client.lua` | 17 | 상단 정보 15% 안·타이머 특대 단계·active=false 레이아웃 유지 |
 | `Tests/MenuRailTests.client.lua` | 59 | 6개 생성·좌측 레일 폭·세로 합계·BloxDisplay 비침범·AspectRatio·라벨 2~4자·격자 열 수 구성값 ※ |
@@ -57,7 +57,7 @@
 | `Tests/AutoToolsTests.client.lua` | 28 | 자동 도구 아이콘 배치 |
 | `Systems/ArenaServiceTests.server.lua` | 31 | 스폰 좌표·경계 높이·스테이지 수에 따른 경계 확장·출입구 개방·어깨 벽 |
 | `Systems/CashoutPadServiceTests.server.lua` | 40 | 발판 좌표·측면 오프셋·디바운스·런당 1회·플레이어별 격리·source 경로 |
-| **합계** | **1218** | |
+| **합계** | **1899** | |
 
 ※ 일곱 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53, 실측 66), `WarpServiceTests`는
@@ -77,8 +77,31 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-09-04 Studio Play 런타임 실측 (부분).** U3-9 격리 + 4-2-a 아레나
-배치가 낳은 행들을 반영했다.
+최근 갱신: **2026-09-06 Studio Play 런타임 실측 (전량).** 39개 행 전부가 한 Play에
+찍혔다. **1899 passed / 0 failed** — 서버 1133 + 클라 766.
+
+```
+갱신   AttackServiceTests       41  → 73    낡은 원점 계약 1건을 3건으로,
+                                            방향 독립 1건을 2건으로 나눔 + 경계 파생 1건
+       BlockServiceTests        30  → 51
+       ConfigTests              70  → 71    스테이지 N의 입구 X (5f908fb)
+       LayoutTests              20  → 22
+유지   나머지 35행
+```
+
+⚠️ **합계 줄이 실측으로 채워진 것은 이번이 처음이다.** 그전까지는 "전체 Play
+로그가 한 번에 나올 때까지 합계를 임의로 계산하지 않는다"고 유예해 뒀고,
+그 조건이 이번에 충족됐다 — 39개 행이 같은 Play에서 자기 줄을 찍었다.
+
+⚠️ 그렇다고 **합계 대조로 개별 행을 검산하지 말 것.** 위 ⚠️ 문단(상쇄 사고)이
+그대로 유효하다. 행 수와 합계가 안 맞으면 계산이 아니라 **옮겨 적기**를 다시 본다.
+
+⚠️ 이 Play가 `733e060`(테스트 6건 수정)의 검증이기도 하다. 직전 Play의
+`AttackServiceTests` 3 failed · `BlockServiceTests` 3 failed가 전부 사라졌다
+(→ 4-2-a2b 절, `docs/PENDING.md` 해소 기록·함정 절).
+
+직전 갱신: **2026-09-04 Studio Play 런타임 실측 (부분).** U3-9 격리 + 4-2-a 아레나
+배치가 낳은 행들을 반영했다. 합계는 이때 재지 않아 1218로 남아 있었다.
 
 ```
 갱신   ConfigTests              61  → 70    ArenaConfig.validate + 파생 검사 5건
@@ -93,12 +116,7 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
        (4-2-a 원점 이동이 이 셋을 하나도 안 깼다는 것이 확인 목적이었다)
 ```
 
-⚠️ **합계(1218)는 이번에도 다시 재지 않았다.** 위 10행 말고는 2026-09-01 값
-그대로라 합계와 표가 서로 안 맞는다. 전체 Play 로그가 한 번에 나올 때까지
-합계 줄을 임의로 계산해 고치지 않는다 — 역산으로 채운 칸이 어떻게 조용히
-틀렸는지는 바로 위 ⚠️ 문단에 있다.
-
-⚠️ `BloxDisplayTests`(13)는 이번 Play에서 **1 fail**이 났으나 개수는 그대로다.
+⚠️ `BloxDisplayTests`(13)는 그 Play에서 **1 fail**이 났으나 개수는 그대로였다.
 코드 회귀가 아니라 인셋을 두 번 재는 하네스 문제였고 `5174bdb`에서 해소됐다
 (→ `docs/PENDING.md` 함정 "create 시점의 환경값과 검사 시점의 환경값").
 
@@ -472,7 +490,7 @@ d·e의 "진입점 없음"과 같은 상태이며, 셋 다 Phase 6 UI 또는 파
 
 ```
 [Bootstrap][ADVANCE] stage=1->2 x=120.0 result=ok
-[Bootstrap][ATTACK]  dist=80.1/92.8 (in)
+[Bootstrap][ATTACK]  result=ok dist=80.1/92.8 (in)
 ```
 
 ⚠️ **두 줄이 함께 있어야 검증이다.** 첫 줄은 층이 바뀌었다는 것만 말하고, 판정과
@@ -486,8 +504,9 @@ d·e의 "진입점 없음"과 같은 상태이며, 셋 다 Phase 6 UI 또는 파
 오프셋이 붙는 층에서만 깨졌다: 위 ⚠️의 "1층만 보면 멀쩡해 보인다"가 게임이 아니라
 테스트에서 실제로 일어난 사례다. 원인과 처리는 `docs/PENDING.md` 해소 기록·함정 절.
 
-⚠️ 위 개수는 **이번 Play 실측값**이다(수정 전). 수정 후 개수는 다음 Play에서 잰다 —
-정적 카운트를 쓰지 말 것.
+✅ **2026-09-06 Play에서 6건 전부 사라졌다.** `AttackServiceTests` 73 · 
+`BlockServiceTests` 51로 둘 다 0 failed다(위 개수는 수정 **전** 값이다). 그 Play가
+전량 실측이라 "테스트 현황"의 합계 줄도 이때 처음 실측으로 채워졌다.
 
 ```
 BlockLayout.getStageOrigin(stage)     유일한 유도처. 200을 여기서만 계산한다
