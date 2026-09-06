@@ -39,6 +39,46 @@ local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 -- 지금 false인 이유: 4-2-a 검증이 끝났다(발판 지급·스폰 복귀 실측 확인).
 local KEEP_RUN_ALIVE = false
 
+-- ── 개발용 플래그: ADVANCE_VERIFY_ENABLED ─────────────────────────────────────
+-- 위치: 이 줄. 사용처는 **두 곳**이다:
+--   1. 아래 [ATTACK] 관측 루프 — 결과 코드 dedupe를 우회해 매 폴링마다 찍는다
+--   2. 아래 VERIFY_CHALLENGE 블록의 클리어 확인 직후 — advance()를 1회 부른다
+-- ⚠️ Studio에서 켜고 끄는 값이 아니다. **이 줄을 true로 고치고 Rojo sync.**
+--    (KEEP_RUN_ALIVE / CHALLENGE_REVERIFY_ON_RESPAWN과 같은 패턴)
+--
+-- ⚠️ **선언이 파일 상단인 이유가 있다.** 사용처 1이 이 파일 위쪽(PlayerAdded 핸들러)에
+-- 있어서, 선언이 아래에 있으면 그 클로저가 지역이 아니라 전역을 조회해 항상 nil이 된다.
+-- 조용히 우회가 꺼지고 증상은 "줄이 안 찍힌다" 하나뿐이라 원인이 보이지 않는다.
+-- 사용처 2 근처로 내리지 말 것.
+--
+-- 왜 필요한가: 4-2-a2b가 판정 원점과 렌더 원점을 함께 스테이지 중심으로 옮겼는데
+-- (cdc44a6), **그것이 실물에서 맞는지 볼 방법이 없다.** 원점 이동은 2층부터 의미가
+-- 생기고, 2층으로 가는 길은 advance() 하나뿐이며, advance를 부르는 실물 경로인
+-- 진행 벽(3c)이 아직 없기 때문이다. 그래서 cdc44a6이 미검증으로 남아 있다.
+-- 이 플래그가 벽을 대신해 advance()를 한 번 부른다.
+--
+-- 무엇을 보는가 (진리표. 렌더와 판정 중 한쪽만 옮겨졌으면 증상이 갈린다):
+--   렌더 200 / 판정 200 -> 블록 정면 + dist=80.1        (정상)
+--   렌더 0   / 판정 200 -> 블록이 안 보이는데 딜이 들어감
+--   렌더 200 / 판정 0   -> 블록이 보이는데 out_of_range dist=280
+--   렌더 0   / 판정 0   -> 블록도 없고 out_of_range
+-- 스테이지 1 입구에서 dist=80.1/92.8이 나왔다. 2층 입구는 **같은 상대 위치**이므로
+-- dist가 다시 80.1로 재현되면 둘 다 옮겨진 것이다.
+-- ⚠️ 이 값을 코드에 기대치로 박지 말 것. 육안·로그 확인 대상이지 자동 테스트가 아니다.
+--
+-- ⚠️ **advance 뒤의 cashout은 반드시 거부된다.** 새 런은 cleared=false이기 때문이다.
+-- 그래서 이 플래그를 켜면 cashout 절이 "거부 → 증가분 비교 불가 → 런 종료 여부=false"로
+-- 찍힌다. 설계된 결과이지 회귀가 아니다. cashout 호출을 지우거나 옮기지 않는 이유는
+-- 플래그를 껐을 때 원래 검증이 한 글자도 달라지면 안 되기 때문이다.
+--
+-- ⚠️ **3c(진행 벽)가 붙으면 위 두 사용처를 함께 삭제한다** (docs/PENDING.md 잔재).
+-- advance 호출부만 지우고 dedupe 우회를 남기면, 조건이 사라진 분기가 상시 켜진 채로
+-- 남아 초당 2줄이 영구히 찍힌다. 벽이 서면 걸어서 통과할 수 있으므로 둘 다 이유가 없다.
+--
+-- ⚠️ 기본 false로 커밋할 것. Play에서 켠 값을 커밋하지 말 것 — 2f0758c에서 검증
+-- 플래그를 원복한 전례가 있다.
+local ADVANCE_VERIFY_ENABLED = false
+
 print("[Bootstrap] ProfileManager.init() 호출 시작")
 ProfileManager.init()
 print("[Bootstrap] ProfileManager.init() 호출 완료")
@@ -212,16 +252,28 @@ Players.PlayerAdded:Connect(function(player: Player)
 	--
 	-- ⚠️ 매 틱 찍지 않는다. 펀치는 초당 2회라 그대로 찍으면 다른 로그가 전부 묻힌다.
 	-- **결과 코드가 바뀔 때만** 찍는다 — 상태 전이가 관심사이지 매회의 값이 아니다.
+	--
+	-- ⚠️ 단 ADVANCE_VERIFY_ENABLED가 켜져 있으면 그 억제를 우회한다. 이유는 **dist가
+	-- dedupe 키가 아니기 때문**이다: 4-2-a2b 검증에서 볼 것은 결과 코드가 아니라 dist
+	-- 값(80.1 재현)인데, advance와 입구 재배치가 같은 프레임에 끝나므로 공격 루프가
+	-- 그 사이를 한 번도 샘플링하지 않을 수 있다. 그러면 클리어 직후의 마지막 코드가
+	-- ok인 채로 남아 재배치 후에도 ok — 전이가 없어 줄이 아예 안 나오고, Play를
+	-- 통째로 버리게 된다.
+	-- **3c에서 ADVANCE_VERIFY_ENABLED를 지울 때 아래 verbose 분기도 함께 사라진다.**
 	local AttackService = require(script.Parent.Systems.AttackService)
 
 	task.spawn(function()
 		local lastResult: string? = nil
 
+		-- ⚠️ 억제 로직 자체를 지운 것이 아니다. 플래그가 false면 아래 조건은
+		-- outcome.result ~= lastResult 하나로 남아 기존 동작 그대로다.
+		local verbose = ADVANCE_VERIFY_ENABLED
+
 		while player.Parent ~= nil do
 			task.wait(ATTACK_VERIFY_POLL_SEC)
 
 			local outcome = AttackService.getLastOutcome(player)
-			if outcome ~= nil and outcome.result ~= lastResult then
+			if outcome ~= nil and (verbose or outcome.result ~= lastResult) then
 				lastResult = outcome.result
 
 				-- 배수는 AttackService가 모른다(힘 트랙이다). 여기서 직접 만든다 —
@@ -419,38 +471,6 @@ local VERIFY_CHALLENGE = true
 -- 하나 더 있는 것일 뿐이고, 회피 경로를 여는 값이 사람의 기억에 걸려 있으면 안 된다.
 -- 진짜 방어선은 Phase 6 UI에서 이 블록을 통째로 지우는 것이다(docs/PENDING.md 잔재).
 local CHALLENGE_REVERIFY_ON_RESPAWN = false
-
--- ── 개발용 플래그: ADVANCE_VERIFY_ENABLED ─────────────────────────────────────
--- 위치: 이 줄. 사용처는 아래 VERIFY_CHALLENGE 블록의 클리어 확인 직후 한 곳뿐이다.
--- ⚠️ Studio에서 켜고 끄는 값이 아니다. **이 줄을 true로 고치고 Rojo sync.**
---    (KEEP_RUN_ALIVE / CHALLENGE_REVERIFY_ON_RESPAWN과 같은 패턴)
---
--- 왜 필요한가: 4-2-a2b가 판정 원점과 렌더 원점을 함께 스테이지 중심으로 옮겼는데
--- (cdc44a6), **그것이 실물에서 맞는지 볼 방법이 없다.** 원점 이동은 2층부터 의미가
--- 생기고, 2층으로 가는 길은 advance() 하나뿐이며, advance를 부르는 실물 경로인
--- 진행 벽(3c)이 아직 없기 때문이다. 그래서 cdc44a6이 미검증으로 남아 있다.
--- 이 플래그가 벽을 대신해 advance()를 한 번 부른다.
---
--- 무엇을 보는가 (진리표. 렌더와 판정 중 한쪽만 옮겨졌으면 증상이 갈린다):
---   렌더 200 / 판정 200 -> 블록 정면 + dist=80.1        (정상)
---   렌더 0   / 판정 200 -> 블록이 안 보이는데 딜이 들어감
---   렌더 200 / 판정 0   -> 블록이 보이는데 out_of_range dist=280
---   렌더 0   / 판정 0   -> 블록도 없고 out_of_range
--- 스테이지 1 입구에서 dist=80.1/92.8이 나왔다. 2층 입구는 **같은 상대 위치**이므로
--- dist가 다시 80.1로 재현되면 둘 다 옮겨진 것이다.
--- ⚠️ 이 값을 코드에 기대치로 박지 말 것. 육안·로그 확인 대상이지 자동 테스트가 아니다.
---
--- ⚠️ **advance 뒤의 cashout은 반드시 거부된다.** 새 런은 cleared=false이기 때문이다.
--- 그래서 이 플래그를 켜면 cashout 절이 "거부 → 증가분 비교 불가 → 런 종료 여부=false"로
--- 찍힌다. 설계된 결과이지 회귀가 아니다. cashout 호출을 지우거나 옮기지 않는 이유는
--- 플래그를 껐을 때 원래 검증이 한 글자도 달라지면 안 되기 때문이다.
---
--- ⚠️ **3c(진행 벽)가 붙으면 이 블록을 삭제한다** (docs/PENDING.md 잔재). 벽이 서면
--- advance를 실물로 부를 수단이 생겨 존재 이유가 사라진다.
---
--- ⚠️ 기본 false로 커밋할 것. Play에서 켠 값을 커밋하지 말 것 — 2f0758c에서 검증
--- 플래그를 원복한 전례가 있다.
-local ADVANCE_VERIFY_ENABLED = false
 
 if VERIFY_CHALLENGE then
 	-- ReplicatedStorage / BigNum / CurrencyService는 파일 상단에서 이미 require했다.
