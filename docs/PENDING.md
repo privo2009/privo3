@@ -102,6 +102,13 @@
   4. [Bootstrap][ADVANCE] <이름> stage=1->2 x=120.0 result=ok 를 확인
   5. 이어지는 [Bootstrap][ATTACK] 줄의 dist가 다시 80.1/92.8이면 통과
   ```
+  ⚠️ **플래그를 켜면 `[ATTACK]`이 매 폴링(0.5초)마다 찍힌다.** 평소에는 결과 코드가
+  바뀔 때만 찍는데, 그 억제를 같은 플래그가 우회한다 (`dfee635`). **dist는 dedupe
+  키가 아니기 때문**이다 — advance와 입구 재배치가 같은 프레임에 끝나므로 공격
+  루프가 그 사이를 한 번도 샘플링하지 않을 수 있고, 그러면 클리어 직후의 마지막
+  코드가 `ok`인 채로 남아 재배치 후에도 `ok`다. 코드 전이가 없으니 줄이 아예 안
+  나오고, 이번 Play에서 볼 것은 바로 그 안 나오는 줄의 dist 값이다.
+  로그가 시끄러운 것은 감수한다 — 조용하면 Play를 통째로 버린다.
   ⚠️ **판정 기준은 dist=80.1의 재현 하나다.** 1층 입구에서 나온 값이고, 2층 입구는
   같은 상대 위치(중심 − 폭/2)이므로 층과 무관하게 같아야 한다. 재현되면 렌더 원점과
   판정 원점이 **둘 다** 옮겨진 것이다. 한쪽만 옮겨졌으면 증상이 갈린다:
@@ -610,7 +617,7 @@ Studio에서는 정상 동작해 드러나지 않는다. clone·롤백·Team Cre
 | `StandardPathReport` 모듈 자체 | `DroneRateReport`가 소비자다 — 그쪽이 먼저 지워지거나 의존이 끊긴 뒤에만 (아래 ⚠️) |
 | `DroneRateReport` / `Bootstrap`의 `DRONE_RATE_REPORT_ENABLED` 블록 | 드론 스테이지 오프셋 재검토가 끝난 뒤 (아래 ⚠️) |
 | `Bootstrap`의 `DRONE_VERIFY_ENABLED` 블록 | 진행 벽·수령 발판 파트가 붙어 maxStage를 정상 경로로 올릴 수 있게 된 뒤 (아래 ⚠️) |
-| `Bootstrap`의 `ADVANCE_VERIFY_ENABLED` 블록 | **3c 진행 벽 완료 후** (아래 ⚠️) |
+| `Bootstrap`의 `ADVANCE_VERIFY_ENABLED` 블록 **+ `[ATTACK]`의 dedupe 우회 분기** | **3c 진행 벽 완료 후** (아래 ⚠️) |
 
 ⚠️ **`Workspace/_OldBlocks`는 코드로 지울 수 없다. 사람이 Studio에서 지워야 한다**
 (2026-08-28 재확인). 정리 세션에서 처리되지 않고 계속 남는 이유가 이것이다 —
@@ -683,6 +690,13 @@ VERIFY 플래그들과 성격이 다르다 — 저것들은 "UI가 없어 실물
 플래그를 원복한 전례가 있다. 이 플래그는 프로필을 오염시키지 않지만(`advance`는
 재화를 건드리지 않는다) 켠 채로 남으면 1층 검증이 매번 2층으로 넘어가 버려서,
 다음 세션이 `cashout` 거부 로그를 회귀로 오독한다.
+
+⚠️ **삭제 대상은 두 곳이다.** `advance()` 호출부(`VERIFY_CHALLENGE` 블록의 클리어 확인
+직후)와 `[ATTACK]` 관측 루프의 **dedupe 우회 분기**(`local verbose = ADVANCE_VERIFY_ENABLED`
+와 조건의 `verbose or`)다. 호출부만 지우면 조건이 사라진 분기가 상시 켜진 채로 남아
+초당 2줄이 영구히 찍힌다 — 그리고 그 소음은 `[ATTACK]`이 원래 하려던 일(상태 전이를
+눈에 띄게 하는 것)을 정확히 무너뜨린다. **억제 로직 자체는 지우지 않는다.** 잔재는
+우회 분기뿐이고, `outcome.result ~= lastResult`는 상시 유지다.
 
 ⚠️ **`ADVANCE_VERIFY_ENABLED`를 지울 때 `moveToStageEntrance`의 `stage` 인자는 남긴다.**
 플래그 블록과 함께 1층 고정으로 되돌리지 말 것 — 좌표 유도(`ArenaConfig.getStageEntranceX`)
