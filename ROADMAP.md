@@ -59,17 +59,24 @@
 | `Systems/CashoutPadServiceTests.server.lua` | 40 | 발판 좌표·측면 오프셋·디바운스·런당 1회·플레이어별 격리·source 경로 |
 | **합계** | **1899** | |
 
-※ 일곱 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
+※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53, 실측 66), `WarpServiceTests`는
 3개 check를 묶은 `checkRejectedCleanly`를 거부 케이스마다 부른다. `AssetRegistryTests`
-(정적 78, 실측 130) · `ButtonTests`(정적 22, 실측 37) · `MenuRailTests`(정적 18, 실측 58)는
+(정적 78, 실측 130) · `ButtonTests`(정적 22, 실측 37) · `MenuRailTests`(정적 18)는
 항목 목록(색 6종·아이콘 6개)을 순회하는 루프 안에 check가 여러 개 있고, `TextScaleTests`
-(정적 4, 실측 16)는 5단계 루프, `HudVisibilityTests`(정적 6, 실측 16)는 화면 3종 루프
-안에 check가 있다. `HudLayoutTests`(실측 198, 정적 카운트 없음 — 처음부터 실측만 기록)는
+(정적 4, 실측 16)는 5단계 루프, `HudVisibilityTests`(정적 6)는 화면 3종 루프
+안에 check가 있다. `HudLayoutTests`(정적 카운트 없음 — 처음부터 실측만 기록)는
 HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍을 순회하는 검사 3, 행을
 순회하는 검사 4가 전부 루프 안에 있다. 정적 세기에는 루프/헬퍼 안의 check가 한 번만
 잡히고 런타임에는 반복 횟수만큼 돈다 — 어긋나는 것이 **정상**이다. 이 여덟 행은
 실측만 믿을 것.
+
+⚠️ **이 각주에서 옛 실측값 셋(`MenuRailTests` 58 · `HudVisibilityTests` 16 ·
+`HudLayoutTests` 198)을 뺐다** (2026-09-07). 어느 Play의 값인지 확정할 수 없는
+숫자였고 표 본문(59 · 31 · 381)과 어긋나 있었다. 각주가 하려는 말은 "정적 카운트와
+실측이 어긋나는 것이 정상"이고 그건 숫자 없이 성립한다. **실측값은 표 본문에만
+적는다** — 두 군데 적으면 반드시 어긋난다는 것이 이 절 첫 줄의 규칙이다.
+남아 있는 실측값(66 · 130 · 37 · 16)은 표 본문과 일치하는 것만 확인하고 둔 것이다.
 
 ⚠️ **역산으로 채운 칸은 합계가 맞아도 틀릴 수 있다.** `AttackConfigTests`는 한동안
 합계에서 역산한 38이었고 실측은 **29**였다. 같은 시점에 `ClickServiceTests`가 38 → **47**로
