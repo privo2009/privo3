@@ -74,65 +74,6 @@
   파트가 하나뿐이라 `CanCollide` 하나로 "A는 클리어, B는 미클리어"를 동시에
   만족시킬 수 없다. 블록이 4-2-a2에서 같은 이유로 클라로 갔다.
 
-- **4-2-a2b 블록 스테이지 이동 — 2026-09-05 착수. Play 미검증.**
-  ```
-  e2d5b4f  BlockLayout.getStageOrigin + computeLayout(count, stage?)
-  cdc44a6  판정 원점(AttackService) + 렌더 셋(BlockService/RemoteReceiver/
-           BlockModelGenerator) + 테스트
-  ```
-  ⚠️ **판정 좌표 = 표시 좌표 계약이 이 작업의 전부다.** 넷이 전부
-  `BlockLayout.getStageOrigin` 하나를 통과한다 — 한 곳이라도 자기 식으로
-  200×(N-1)을 계산하면 "블록이 보이는데 안 맞는" 상태가 되고, 그 증상은
-  층을 옮겨야만 나타나서 1층만 보면 멀쩡해 보인다.
-
-  다음 Play에서 볼 것:
-  ```
-  스테이지 1이 기존과 동일한가 (X=0이라 회귀가 없어야 한다. dist=80.1/92.8 재현)
-  advance 후 블록이 다음 스테이지 중심에 차오르는가
-  그 위치에서 공격이 닿는가 (dist 로그로 확인)
-  스테이지 사이를 걸을 때 이전 스테이지 블록이 안 맞는가
-  ```
-  **검증 방법 (2026-09-05 확정, `5f908fb`).** 진행 벽(3c)이 없어 `advance`를 실물로
-  부를 경로가 없으므로, `Bootstrap`의 `ADVANCE_VERIFY_ENABLED`가 벽을 대신한다:
-  ```
-  1. Bootstrap.server.lua의 ADVANCE_VERIFY_ENABLED를 true로 고치고 Rojo sync
-  2. 1층 클리어 직후 advance(player, "bootstrap_verify")가 1회 불린다
-  3. 성공하면 캐릭터를 스테이지 2 입구로 옮긴다
-     — ArenaConfig.getStageEntranceX(2) = 120. 1층 입구와 같은 상대 위치다
-  4. [Bootstrap][ADVANCE] <이름> stage=1->2 x=120.0 result=ok 를 확인
-  5. 이어지는 [Bootstrap][ATTACK] 줄의 dist가 다시 80.1/92.8이면 통과
-  ```
-  ⚠️ **플래그를 켜면 `[ATTACK]`이 매 폴링(0.5초)마다 찍힌다.** 평소에는 결과 코드가
-  바뀔 때만 찍는데, 그 억제를 같은 플래그가 우회한다 (`dfee635`). **dist는 dedupe
-  키가 아니기 때문**이다 — advance와 입구 재배치가 같은 프레임에 끝나므로 공격
-  루프가 그 사이를 한 번도 샘플링하지 않을 수 있고, 그러면 클리어 직후의 마지막
-  코드가 `ok`인 채로 남아 재배치 후에도 `ok`다. 코드 전이가 없으니 줄이 아예 안
-  나오고, 이번 Play에서 볼 것은 바로 그 안 나오는 줄의 dist 값이다.
-  로그가 시끄러운 것은 감수한다 — 조용하면 Play를 통째로 버린다.
-  ⚠️ **판정 기준은 dist=80.1의 재현 하나다.** 1층 입구에서 나온 값이고, 2층 입구는
-  같은 상대 위치(중심 − 폭/2)이므로 층과 무관하게 같아야 한다. 재현되면 렌더 원점과
-  판정 원점이 **둘 다** 옮겨진 것이다. 한쪽만 옮겨졌으면 증상이 갈린다:
-
-  | 렌더 | 판정 | 증상 |
-  |---|---|---|
-  | 200 | 200 | 블록 정면 + `dist=80.1` (정상) |
-  | 0 | 200 | 블록이 안 보이는데 딜이 들어감 |
-  | 200 | 0 | 블록이 보이는데 `out_of_range dist=280` |
-  | 0 | 0 | 블록도 없고 `out_of_range` |
-
-  ⚠️ **80.1을 코드에 기대치로 박지 말 것.** 육안·로그 확인 대상이지 자동 테스트가
-  아니다. `ConfigTests`가 재는 것은 입구 X의 **유도**(층마다 중심 − 폭/2)까지고,
-  실제 캐릭터가 선 거리는 아바타 크기·물리 보정이 섞여 Play에서만 나온다.
-
-  ⚠️ **advance 뒤의 cashout은 반드시 거부된다.** 새 런이 `cleared=false`이기 때문이다.
-  플래그를 켜면 cashout 절이 "거부 → 증가분 비교 불가 → 런 종료 여부=false"로 찍힌다.
-  **설계된 결과이고 회귀가 아니다.** cashout 호출을 지우거나 옮기지 않은 이유는
-  플래그를 껐을 때 원래 검증이 한 글자도 달라지면 안 되기 때문이다.
-
-  ⚠️ **기본 false로 커밋한다. Play에서 켠 것을 커밋하지 말 것.** `2f0758c`에서 검증
-  플래그를 원복한 전례가 있다 — 켠 채로 들어가면 다음 세션이 "왜 1층에서 끝나지
-  않지"를 코드가 아니라 로그로 쫓게 된다.
-
 - **환생 직후의 런은 반드시 시간 초과된다.** — 2026-09-04, 코드에서 확인(미관측).
   `RebirthService`가 3단계에서 `abandonRun`(→ 스폰 복귀, X=-400)을 부르고 9단계에서
   `startRun`으로 1층 런을 세운다. 그런데 환생 직후는 힘 1 → 레벨 0 → 최대속도 16이고
@@ -537,6 +478,44 @@ Play가 1~11번 전부 통과하면 다음은 **U4**다. 실패가 있으면 U4 
   코드가 새로 생기면 그 테스트도 캡처 방식이어야 한다.
   현재 그런 곳은 `BloxDisplay`·`ChallengeInfo` 둘뿐이다(2026-09-04 전수 확인).
 
+- **선형 아레나에서는 진행 축(X)만 float32 격자가 굵다. 축 대칭을 전제한 비교는
+  오프셋이 0인 1층에서만 통과한다.** — 2026-09-06, Play 실측 6건으로 확인.
+
+  `Vector3` 성분은 float32이고 유효숫자가 24비트로 고정이라, 격자 간격이 값의
+  크기에 비례해서 커진다. 아레나가 +X로 늘어서므로 **오프셋이 X에만 실린다**:
+
+  ```
+  반경 자리 92.8       격자 7.63e-06      Y·Z는 층과 무관하게 이 크기다
+  스테이지 3  X=400    격자 3.05e-05  (4배)
+  스테이지 9  X=1600   격자 1.22e-04  (16배)
+  스테이지 25 X=4800   격자 4.88e-04  (64배)
+  ```
+
+  그래서 같은 거리를 세 축으로 재면 **X만 다른 값이 나온다.** 실측(3층):
+  X = 46.399993896484375, Y = Z = 46.400001525878906 — 차이 7.63e-06으로 그 자리
+  격자의 정확히 1/4이다. 버그가 아니라 좌표계의 성질이다.
+
+  ⚠️ **한 칸 밟기를 원점 스케일에서 만들어 오프셋 좌표에 더하지 말 것.** 더하는
+  순간 굵은 격자로 반올림돼 원래 자리로 돌아온다. 경계 테스트가 "반경 + 1 ulp"를
+  92.8 자리(격자 7.6e-06)에서 만들어 X=400에 더했더니 float32(492.800003) =
+  492.79998779로 내려앉아 **반경 안**으로 판정됐다 — 실측 `result="ok"`. 판정에는
+  결함이 없었고 테스트가 도달 불가능한 점을 요구한 것이다. 이웃은 **판정이 실제로
+  다루는 좌표(오프셋이 실린 월드 X)에서** 밟는다.
+
+  ⚠️ **그렇다고 허용 폭을 넓히지 말 것** — 위 첫 항목과 같은 이유다. 상한은
+  `float32GapAt(오프셋)`으로 **유도**한다. 근거: 두 값이 같은 자리에 저장되면 각각
+  반 칸까지 어긋나므로 차이는 최대 한 칸이다. 실측 최악값은 한 칸의 0.13~0.48이라
+  넓힌 것이 아니라 원래 이 크기였고, 옛 상수 1e-6은 3층 격자의 1/30이라 **어떤
+  코드로도 통과할 수 없는 값**이었다. 진짜 배치·방향 버그는 studs 단위로 어긋나
+  이 상한을 지나지 못한다.
+
+  ⚠️ **1층에서 통과했다는 것이 근거가 되지 않는다.** 스테이지 1은 원점이 X=0이라
+  격자가 굵어지지 않는다. 좌표를 다루는 테스트는 오프셋이 붙는 층(2 이상)에서
+  최소 한 번은 재야 한다 — `AttackServiceTests.RUN_STAGE`가 3인 이유가 이것이다.
+  25층까지 재도 판정에는 영향이 없다: 거리 계산 최악 오차 2.5e-04 studs로 반경
+  92.8의 2.7e-06배이고, 기본 이동속도 19로 그 폭을 지나는 데 13µs다. 그래서
+  **판정 계층(AttackService)은 스테이지 상대 좌표계로 바꾸지 않았다.**
+
 미결도 잔재도 아니지만 세션을 넘어 살아야 한다. 여기 걸리면 **검증 결과 자체가 거짓이 된다** —
 "고쳤는데 로그가 그대로다"로 시간을 태우는 대신 아래를 먼저 본다.
 
@@ -809,3 +788,4 @@ then ... end`)만 지운다.
 | 2026-09-02 | 리포트 3종(CurveReport / StandardPathReport / WarpConversionReport)이 전량 출력돼 [ATTACK]·[Bootstrap] 관측 로그가 묻힘 | 이번 커밋 — **끄는 방식이 리포트마다 다르다.** `CurveReport`·`WarpConversionReport`는 코드 플래그가 없는 auto-run `Script`라(`Tests/` 안의 `.server.lua`, Bootstrap이 require하지 않고 엔진이 자동 실행) `src/server/Tests/CurveReport.meta.json` · `src/server/Tests/WarpConversionReport.meta.json`을 신설해 `Script.Enabled = false`로 껐다 — Lua는 한 줄도 안 건드렸다. `StandardPathReport`는 기존 Lua 플래그가 있어 `Bootstrap.server.lua`의 `STANDARD_PATH_REPORT_ENABLED`를 `true → false`로 내렸다(원래 값 `true`). 되돌리는 법: 앞 둘은 두 `.meta.json` 파일을 지운다, 뒤는 그 줄을 다시 `true`로 |
 | 2026-09-02 | HUD 표시 상태 육안 3건 (좌상단 블럭스·좌측 레일 타일 6개·상단 타이머 안 보임 / "대기중" 잘림) | `b3eac79`(검사1: `AspectType=FitWithinMaxSize`에서 상자 역할을 하는 `Size.X`를 `0→1`로, `BloxDisplay`/`ChallengeInfo`/`MenuRail` 4곳) + `9701df9`(검사2: 세 `ScreenGui`의 `IgnoreGuiInset`을 `true→false`로) + `813daf3`(그 둘의 부작용으로 깨진 게이트·검사2 기준선을 `IgnoreGuiInset` 기준으로 재계산) — `HudLayoutTests` 최종 실측 **182 passed / 0 failed**. red→green 경과: 22 fail(첫 실측, U3-4A 전) → 9 fail(크기 해소, U3-4A) → 0 fail(인셋·기준선 해소, U3-4B). `AbsolutePosition`이 GUI 인셋을 포함하지 않는다는 함정은 위 "함정" 절에 별도 기록 |
 | 2026-09-03 | U3-1이 Play 미검증이다 (`ScreenController`/`Store`/`Panel`/`Button`/`ValuePanel`/`TextScale` + 테스트 6종) | U3-2(관측 리포트) → U3-3(`HudLayoutTests` 신설) → U3-4A(`b3eac79`, 크기 0 수정) → U3-4B(`9701df9` 인셋 + `813daf3` 게이트/기준선) → U3-4C(`151977d` MenuRail 2열 전환 + `c1b5d74` 격자 검증을 `HudLayoutTests`로 이전) 연쇄로 실물 검증이 끝났다. `ScreenController`/`Store`/`Panel`/`Button`/`ValuePanel`/`TextScale`은 이 체인이 실제로 렌더한 HUD 3종(BloxDisplay/ChallengeInfo/MenuRail)을 통해 검증됐다. 최종 실측(2026-09-03): `HudLayoutTests` **198 passed / 0 failed**, `MenuRailTests` **59 passed / 0 failed** |
+| 2026-09-06 | 4-2-a2b 블록 스테이지 이동이 Play 미검증 (`e2d5b4f` + `cdc44a6`) | 진행 벽(3c)이 없어 `advance`를 부를 실물 경로가 없었다. `Bootstrap`의 `ADVANCE_VERIFY_ENABLED`(`5f908fb` 플래그·스테이지 입구 일반화 + `dfee635` `[ATTACK]` dedupe 우회)가 벽을 대신했다. **실측: `[Bootstrap][ADVANCE] stage=1->2 x=120.0 result=ok` + `[Bootstrap][ATTACK] dist=80.1/92.8 (in)`.** 1층 입구에서 나온 dist가 2층 입구에서 그대로 재현됐다 = 렌더 원점과 판정 원점이 **둘 다** 옮겨졌다(한쪽만이면 `dist=280`이거나 블록이 안 보인다). ⚠️ 같은 Play에서 **테스트 6건이 fail**로 나왔다 — `AttackServiceTests` 66 passed / 3 failed, `BlockServiceTests` 48 passed / 3 failed. 여섯 건 전부 테스트 쪽 문제였고 판정 코드는 안 건드렸다(`733e060`). 갈래는 둘이다: (1) **낡은 계약** 1건 — "클러스터 원점은 (0,0,0)이다"는 a2b가 정면으로 뒤집은 것이고 실측 "400, 0, 0"이 3층 원점의 정답이었다. 지금의 계약(`pure.clusterOriginFor` == `getStageOrigin`)을 재도록 갈았다. (2) **오프셋 축의 float32 격자** 5건 — 아래 함정 절. ⚠️ **여섯 건 전부 스테이지 1(X=0)에서는 통과했다.** 4-2-a2b가 스스로 경고한 "1층만 보면 멀쩡해 보인다"가 게임이 아니라 **테스트에서** 실제로 일어난 사례다. 수정 후 개수는 다음 Play에서 잰다 — 위 개수는 수정 **전** 실측이다 |
