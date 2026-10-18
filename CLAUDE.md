@@ -1,6 +1,6 @@
 # privo3 — Roblox 방치형 블록 파괴 게임
 
-문서 갱신: 2026-08-29
+문서 갱신: 2026-10-19
 
 ## 개요
 힘을 키워 거대 블록을 부수고, 20초 챌린지로 블럭스를 획득하는
@@ -29,6 +29,7 @@ UI 작업은 자체 단계(U0~U8)로 코드 Phase와 독립 진행한다.
 - Rojo 7.7.0 — 파일 ↔ Studio 동기화
 - Wally 0.3.2 — 패키지 관리
 - ProfileStore (lm-loleris/profilestore@1.0.3, 서버 전용)
+- Roblox Studio 내장 MCP 서버 (Roblox_Studio) — 관측·Play 전용. 규칙은 절대 규칙 8. 등록은 PC마다 local 범위
 
 ## 디렉토리
 ```
@@ -139,6 +140,52 @@ ServerPackages/ → Wally 패키지 (직접 수정 금지)
 프로필 템플릿에 `schemaVersion` 유지. 로드 시 버전 비교 후
 `Migrations.lua`를 태우는 구조.
 
+## 8. Studio MCP는 관측과 Play에만 쓴다
+`Roblox_Studio` MCP 서버는 쓰기 도구도 제공하지만, 쓰기는 Rojo 단방향 동기화와 충돌하고
+이 플레이스는 Team Create라 변경이 디자인 담당 쪽에도 즉시 퍼진다.
+
+허용 도구:
+```
+get_studio_state, start_stop_play, get_console_output, screen_capture,
+script_read, script_search, script_grep, search_game_tree, inspect_instance,
+list_roblox_studios, character_navigation, user_keyboard_input, user_mouse_input
+```
+
+금지 도구:
+```
+multi_edit
+execute_luau (datamodel_type = Edit)
+generate_mesh, generate_material, generate_procedural_model,
+insert_asset, upload_image, store_image
+```
+- `multi_edit` — 스크립트 편집. Rojo가 덮어쓰고, Team Create라 디자인 담당 쪽에도
+  즉시 퍼진다. 스크립트 수정은 언제나 파일 → Rojo 경로로만 한다
+- `execute_luau` (`datamodel_type = Edit`) — 플레이스 자체를 바꾼다. 위와 같은 이유
+- 에셋 생성·업로드 도구 — 에셋 업로드와 ID 관리는 코드 담당의 수동 작업이고
+  기록 지점은 `AssetConfig`다
+
+### Play 중 execute_luau (datamodel_type = Server 또는 Client)
+**읽기만 허용한다.** Play를 멈추면 인스턴스 변경은 사라지지만 프로필은 사라지지 않는다 —
+Studio Play에서도 ProfileStore는 실제로 저장된다.
+
+- 재화·힘·maxStage·lifetimeBlox·rebirths를 바꾸는 호출, 서비스의 상태 변경 함수 호출은 금지
+- 이유 1: 절대 규칙 2 CurrencyService 단일 게이트를 우회하는 길이 된다
+- 이유 2: `docs/PENDING.md`가 경고한 측정 오염(힘 누적, maxStage 오염)을 한 줄로 다시 만든다
+- 측정 전 초기화처럼 상태 변경이 꼭 필요한 경우는 그때마다 사람의 명시적 결정을 받는다
+
+### 여러 Studio 창
+모든 호출은 `studio_id`로 대상을 지정한다. 먼저 `list_roblox_studios`로
+privo3 플레이스의 ID를 확인하고 그 ID만 쓴다.
+
+### Play 실측과의 관계
+`start_stop_play`로 돌리고 `get_console_output`으로 읽은 테스트 줄은 Play 실측으로 인정한다.
+실제 Play의 Output이기 때문이다. `ROADMAP.md` "테스트 현황"의 실측 규칙은 그대로다.
+
+### Rojo 연결 확인은 MCP로 대신하지 않는다
+Rojo 플러그인 창의 Connect 상태는 MCP로 읽을 수 없고,
+"Rojo 연결 성공!"(Hello:1) 로그는 미연결에서도 찍힌다 (`docs/PENDING.md` 함정 절).
+**Play 전 Connect 상태는 사람이 눈으로 확인한다.**
+
 ---
 
 # 금지 사항
@@ -152,6 +199,8 @@ ServerPackages/ → Wally 패키지 (직접 수정 금지)
 - ❌ 자동 롤 시 롤 1회당 RemoteEvent (배치 처리할 것)
 - ❌ 반복 루프에서 `Instance.new` (풀링할 것)
 - ❌ Studio에서 스크립트 직접 편집 (Rojo가 덮어씀)
+- ❌ MCP multi_edit로 스크립트 수정 (Studio 직접 편집과 같다. 파일 → Rojo로만)
+- ❌ MCP execute_luau를 Edit 데이터 모델에서 실행, 또는 Play 중 프로필 상태를 바꾸는 호출 (절대 규칙 8)
 - ❌ 힘 배수 게임패스 중첩 적용 (최고 단계만 적용)
 - ❌ 클릭 입력으로 블록에 데미지를 넣는 것 (클릭은 힘 트랙 전용. 블록은 근접 자동 공격)
 - ❌ 펀치 속도를 1회 데미지에 곱하는 것 (이중 계산 — 실제 DPS가 속도의 제곱이 된다.
