@@ -55,8 +55,8 @@ LevelConfig.MIN_FRAMES_ON_PART = 3
 
 -- ===== 깊이 소스 =====================================================================
 --
--- ⚠️ 상한은 **가장 얕은 파트**가 결정한다. 지금 등록된 소스는 클릭 파워 패드 하나뿐이지만,
--- 수령 발판·진행 벽 파트가 들어오면 여기에 줄을 추가하기만 하면 min()이 알아서 잡는다.
+-- ⚠️ 상한은 **가장 얕은 파트**가 결정한다. 지금 등록된 소스는 클릭 파워 패드 · 수령 발판 ·
+-- 진행 벽 셋이다. 파트가 더 들어오면 여기에 줄을 추가하기만 하면 min()이 알아서 잡는다.
 -- 소스가 하나라고 min()을 지우지 말 것 — 파트가 늘어나는 것이 전제다.
 --
 -- get이 함수인 이유: 모듈 로드 시점에 값을 복사해두면 PAD_SIZE가 교체돼도 안 따라온다.
@@ -93,7 +93,14 @@ LevelConfig.DEPTH_SOURCES = {
 			return depthAlong(ArenaConfig.CASHOUT_PAD_SIZE, ArenaConfig.AXIS)
 		end,
 	},
-	-- TODO(4-2-a 커밋 3c): 진행 벽이 생기면 같은 형태로 추가한다.
+	-- 3c 커밋 1에서 추가. 진행 벽은 통과(Touched)로 advance를 부르므로 수령 발판과
+	-- 같은 관통 하한이 걸린다. 깊이의 정본은 ArenaConfig.ADVANCE_WALL_DEPTH다.
+	{
+		name = "진행 벽",
+		get = function(): number
+			return depthAlong(ArenaConfig.getAdvanceWallSize(), ArenaConfig.AXIS)
+		end,
+	},
 } :: { DepthSource }
 
 -- 등록된 파트 중 가장 얕은 깊이(studs).

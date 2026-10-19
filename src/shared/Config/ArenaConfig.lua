@@ -113,6 +113,20 @@ ArenaConfig.BOUNDARY_HEIGHT = 50
 -- 이동속도 상한이 근거 없이 따라 내려간다.
 ArenaConfig.BOUNDARY_THICKNESS = 8
 
+-- ===== 진행 벽 =======================================================================
+--
+-- 위치는 getAdvanceX(아래 파생)이고, 여기는 크기와 열린 모습만 답한다.
+-- "런 상태 → 벽 모습" 판정은 Shared/AdvanceWallView다 — 이 파일에 쓰지 말 것.
+
+-- 진행 방향 깊이. 발판·벽 최소 깊이 규약값이다(docs/UI_ASSET_SPEC.md "5-1").
+--
+-- ⚠️ LevelConfig.DEPTH_SOURCES가 이 값을 읽어 이동속도 상한을 유도한다. 8 아래로
+-- 내리면 상한이 따라 내려간다 (CASHOUT_PAD_SIZE 주석과 같은 이유).
+ArenaConfig.ADVANCE_WALL_DEPTH = 8
+
+-- 열린 벽의 투명도. 닫힌 벽은 불투명(0)이다.
+ArenaConfig.ADVANCE_WALL_OPEN_TRANSPARENCY = 0.5
+
 -- ===== 파생 =========================================================================
 
 -- 스테이지 한 주기 = 스테이지 폭 + 띠 폭. 스테이지 N과 N+1의 블록 중심 간 거리다.
@@ -160,6 +174,18 @@ end
 -- 캐릭터는 그냥 걸어나간다.** 거부와 차단은 다른 일이다.
 function ArenaConfig.getAdvanceX(stage: number): number
 	return ArenaConfig.getStageCenterX(stage) + ArenaConfig.getAdvanceOffset()
+end
+
+-- 진행 벽 크기. 깊이(진행축 X)만 1차 상수이고, 폭과 높이는 새 숫자를 만들지 않는다:
+--   폭(Z)   챌린지 통로 폭 전체 = CHALLENGE_ZONE_Z_HALF × 2 — 통로 어디로 걸어도 막힌다
+--   높이(Y) 아레나 경계 높이 BOUNDARY_HEIGHT — 경계와 같은 이유로 점프로 못 넘는다
+-- ⚠️ 축이 X라는 전제다(AXIS). 축을 틀면 이 함수의 성분 배치도 함께 바꿀 것.
+function ArenaConfig.getAdvanceWallSize(): Vector3
+	return Vector3.new(
+		ArenaConfig.ADVANCE_WALL_DEPTH,
+		ArenaConfig.BOUNDARY_HEIGHT,
+		ArenaConfig.CHALLENGE_ZONE_Z_HALF * 2
+	)
 end
 
 -- 스테이지 N의 시작 면 X. 걸어 들어온 유저가 그 층에서 처음 서게 되는 자리다.
@@ -351,6 +377,13 @@ function ArenaConfig.validate(): boolean
 	assert(
 		type(ArenaConfig.BOUNDARY_THICKNESS) == "number" and ArenaConfig.BOUNDARY_THICKNESS > 0,
 		string.format("ArenaConfig: BOUNDARY_THICKNESS(%s)는 0보다 커야 함", tostring(ArenaConfig.BOUNDARY_THICKNESS))
+	)
+
+	-- 진행 벽 크기 세 축이 양수인지.
+	local wallSize = ArenaConfig.getAdvanceWallSize()
+	assert(
+		wallSize.X > 0 and wallSize.Y > 0 and wallSize.Z > 0,
+		string.format("ArenaConfig: 진행 벽 크기(%s)의 축 중 양수가 아닌 것이 있음", tostring(wallSize))
 	)
 
 	-- 경계 끝이 최종 진행 벽보다 뒤에 있어야 한다. 앞에 있으면 마지막 벽이 경계 밖에 선다.
