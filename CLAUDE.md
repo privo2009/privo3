@@ -177,9 +177,44 @@ Studio Play에서도 ProfileStore는 실제로 저장된다.
 모든 호출은 `studio_id`로 대상을 지정한다. 먼저 `list_roblox_studios`로
 privo3 플레이스의 ID를 확인하고 그 ID만 쓴다.
 
-### Play 실측과의 관계
-`start_stop_play`로 돌리고 `get_console_output`으로 읽은 테스트 줄은 Play 실측으로 인정한다.
-실제 Play의 Output이기 때문이다. `ROADMAP.md` "테스트 현황"의 실측 규칙은 그대로다.
+### 테스트 개수 실측 — LogService 필터 읽기
+Play 중 `execute_luau`를 Server와 Client 데이터 모델에서 각각 실행해
+`LogService:GetLogHistory()`를 읽고, `"%d+ passed, %d+ failed"` 패턴의 줄만 걸러 받는다.
+위 "Play 중 execute_luau" 소절의 읽기 전용 조건 안에 드는 사용이다.
+**읽기 코드는 매번 새로 쓰지 않고 아래 전문을 그대로 쓴다.**
+```luau
+local h = game:GetService("LogService"):GetLogHistory()
+local out = { tostring(#h) }
+if h[1] then table.insert(out, h[1].timestamp .. " " .. h[1].message) end
+for _, e in h do
+  if string.find(e.message, "%d+ passed, %d+ failed") then
+    table.insert(out, e.timestamp .. " " .. e.message)
+  end
+end
+return table.concat(out, "\n")
+```
+반환값은 첫 줄이 전체 로그 항목 수, 둘째 줄이 첫 항목, 그 뒤가 요약 줄이다.
+
+판정:
+- `ROADMAP.md` "테스트 현황" 표의 `.server` 행 전부가 Server 결과에서,
+  `.client` 행 전부가 Client 결과에서 잡혀야 한다
+- **개수가 아니라 행 집합으로 대조한다.** 빠진 행이 하나라도 있으면 통과로 치지 않고 보고한다
+- 이 문서에 행 수를 적지 않는다. 원본은 ROADMAP 표다 ("문서" 절의 수치 복사 금지와 같은 이유)
+- 찍히는 순서는 Play마다 다르다. 순서로 대조하지 않는다
+  (2026-10-19 실측: 서버 첫 요약이 한 Play에서는 `RebirthServiceTests`, 다른 Play에서는 `WarpConfigTests`)
+- 같은 파일의 요약 줄이 두 번 잡히면 그것도 보고한다
+- 이렇게 얻은 개수는 Play 실측으로 인정한다. `ROADMAP.md` "테스트 현황"의 실측 규칙은 그대로다
+
+기다리기: 행 집합이 다 모이거나 90초가 지날 때까지 몇 초 간격으로 다시 읽는다.
+"빨리 읽어서 잘리기 전에 잡는" 방식이 아니라 조건이 찰 때까지 기다리는 방식이라
+늦게 읽어도 결과가 같다.
+
+**`get_console_output`은 개수 실측에 쓰지 않는다.**
+- 이유: 출력 앞부분을 길이 제한으로 자른다. 2026-10-19 실측에서 368줄 중 173줄만 돌아왔고
+  타임스탬프·출처 표기가 없었다. 테스트 요약 줄은 Play 맨 앞에 찍히므로 정확히 잘리는 쪽에 걸린다
+- 쓰는 곳: 출력 꼬리 관측 (Bootstrap 검증 줄 등)
+- `[TRUNCATED DUE TO LENGTH LIMIT]`이 보이면 앞부분은 없는 것으로 다룬다.
+  보이지 않는 줄을 "안 찍혔다"로 판단하지 않는다
 
 ### Rojo 연결 확인은 MCP로 대신하지 않는다
 Rojo 플러그인 창의 Connect 상태는 MCP로 읽을 수 없고,
