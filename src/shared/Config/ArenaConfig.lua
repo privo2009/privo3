@@ -127,6 +127,12 @@ ArenaConfig.ADVANCE_WALL_DEPTH = 8
 -- 열린 벽의 투명도. 닫힌 벽은 불투명(0)이다.
 ArenaConfig.ADVANCE_WALL_OPEN_TRANSPARENCY = 0.5
 
+-- 같은 플레이어의 진행 벽 접촉을 다시 처리하기까지의 최소 간격(초).
+-- 창의 의미는 CashoutPadService.TOUCH_DEBOUNCE_SEC과 같다(창 안의 재접촉은 무시,
+-- 창 밖 접촉은 런이 없어도 시각을 갱신). 그쪽 상수를 읽지 않는 이유도 같다 —
+-- 발판 디바운스를 튜닝했다고 벽이 따라 변하면 안 된다.
+ArenaConfig.ADVANCE_WALL_DEBOUNCE_SEC = 0.5
+
 -- ===== 파생 =========================================================================
 
 -- 스테이지 한 주기 = 스테이지 폭 + 띠 폭. 스테이지 N과 N+1의 블록 중심 간 거리다.
@@ -186,6 +192,24 @@ function ArenaConfig.getAdvanceWallSize(): Vector3
 		ArenaConfig.BOUNDARY_HEIGHT,
 		ArenaConfig.CHALLENGE_ZONE_Z_HALF * 2
 	)
+end
+
+-- 스테이지 N 진행 벽의 중심 좌표 (x, y, z 숫자 셋).
+--   x  getAdvanceX(stage)
+--   y  지면(Y=0) + 벽 높이 절반. CashoutPadService.getPadPosition이 발판 Y를
+--      PAD_SIZE.Y / 2로 두는 것과 같은 기준이다 (ArenaService.groundedY도 같다)
+--   z  챌린지 구간 Z 중심(0). 경계 옆벽이 ±CHALLENGE_ZONE_Z_HALF에 대칭으로 선다
+--
+-- ⚠️ 서버 트리거(AdvanceWallService)와 클라 벽(AdvanceWallView → 렌더러)이 **둘 다** 이
+-- 함수로 위치를 얻는다. 어느 쪽에서도 Y·Z를 따로 계산하지 말 것 — 두 벌이 되면
+-- 보이는 벽과 판정하는 벽이 갈라진다.
+-- ⚠️ Vector3가 아니라 숫자로 돌려준다. Vector3에 넣으면 float32 격자로 X가 어긋나서
+-- 양쪽을 비교할 때 원본이 흐려진다 (TestHelpers.float32GapAt).
+function ArenaConfig.getAdvanceWallCenter(stage: number): (number, number, number)
+	local x = ArenaConfig.getAdvanceX(stage)
+	local y = ArenaConfig.getAdvanceWallSize().Y / 2
+	local z = 0
+	return x, y, z
 end
 
 -- 스테이지 N의 시작 면 X. 걸어 들어온 유저가 그 층에서 처음 서게 되는 자리다.

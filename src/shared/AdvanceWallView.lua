@@ -11,8 +11,9 @@
 --   active, cleared, canAdvance=true      → 열림 (진행·도박 보라, 반투명, 충돌 X)
 --   active, cleared, canAdvance=false     → 닫힘 (최종층 — 위 닫힘과 같은 모습)
 --
--- ⚠️ 위치는 ArenaConfig.getAdvanceX(stage)를 **부른다.** 같은 식을 여기서 다시 계산하지
--- 말 것 — 두 벌이 되면 폭을 바꿨을 때 벽만 옛 자리에 남는다.
+-- ⚠️ 위치는 ArenaConfig.getAdvanceWallCenter(stage)를 **부른다** (x는 그 안에서
+-- getAdvanceX다). 같은 식을 여기서 다시 계산하지 말 것 — 두 벌이 되면 폭을 바꿨을 때
+-- 벽만 옛 자리에 남고, 서버 트리거(같은 함수를 쓴다)와 보이는 벽이 갈라진다.
 -- ⚠️ 색은 hex가 아니라 UiTheme 역할 키다. 실제 Color3는 렌더 쪽이 UiTheme.Colors에서 꺼낸다.
 
 local ArenaConfig = require(script.Parent.Config.ArenaConfig)
@@ -35,6 +36,8 @@ export type View = {
 	transparency: number,
 	-- stage가 유효할 때만 채운다. 없거나 잘못됐으면 nil.
 	x: number?,
+	y: number?,
+	z: number?,
 	size: Vector3?,
 	-- nil이 아닌 잘못된 stage(0·음수·소수·NaN 등)일 때만 "invalid_stage".
 	-- nil 입력·stage 없음은 정상 상황이라 넣지 않는다. 경고를 찍을지는 호출자 몫이다.
@@ -45,7 +48,7 @@ local CLOSED_TRANSPARENCY = 0
 
 -- 보이지 않는 벽은 막지도 않는다. 렌더 쪽이 visible을 빠뜨리고 값을 그대로 꽂아도
 -- 안 보이고 안 막히게 하려는 값이다 (투명 1 · 충돌 X).
-local function hidden(x: number?, size: Vector3?, invalid: string?): View
+local function hidden(x: number?, y: number?, z: number?, size: Vector3?, invalid: string?): View
 	return {
 		visible = false,
 		open = false,
@@ -53,6 +56,8 @@ local function hidden(x: number?, size: Vector3?, invalid: string?): View
 		colorRole = "neutral",
 		transparency = 1,
 		x = x,
+		y = y,
+		z = z,
 		size = size,
 		invalid = invalid,
 	}
@@ -64,19 +69,19 @@ end
 
 function AdvanceWallView.compute(state: Input?): View
 	if state == nil or state.stage == nil then
-		return hidden(nil, nil, nil)
+		return hidden(nil, nil, nil, nil, nil)
 	end
 
 	if not isValidStage(state.stage) then
-		return hidden(nil, nil, "invalid_stage")
+		return hidden(nil, nil, nil, nil, "invalid_stage")
 	end
 
 	local stage = state.stage :: number
-	local x = ArenaConfig.getAdvanceX(stage)
+	local x, y, z = ArenaConfig.getAdvanceWallCenter(stage)
 	local size = ArenaConfig.getAdvanceWallSize()
 
 	if state.active ~= true then
-		return hidden(x, size, nil)
+		return hidden(x, y, z, size, nil)
 	end
 
 	if state.cleared == true and state.canAdvance == true then
@@ -87,6 +92,8 @@ function AdvanceWallView.compute(state: Input?): View
 			colorRole = "advance",
 			transparency = ArenaConfig.ADVANCE_WALL_OPEN_TRANSPARENCY,
 			x = x,
+			y = y,
+			z = z,
 			size = size,
 			invalid = nil,
 		}
@@ -100,6 +107,8 @@ function AdvanceWallView.compute(state: Input?): View
 		colorRole = "neutral",
 		transparency = CLOSED_TRANSPARENCY,
 		x = x,
+		y = y,
+		z = z,
 		size = size,
 		invalid = nil,
 	}

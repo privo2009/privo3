@@ -104,6 +104,12 @@ PadService.init()
 local CashoutPadService = require(script.Parent.Systems.CashoutPadService)
 CashoutPadService.init()
 
+-- 진행 벽 트리거를 세운다 (3c).
+-- ⚠️ 순서: CashoutPadService.init()과 같은 이유로 ArenaService.init() 뒤다. ChallengeService와의
+-- 선후는 상관없다 — 트리거는 모듈 로드 시점에 advance 참조만 잡고, 실제 호출은 통과했을 때다.
+local AdvanceWallService = require(script.Parent.Systems.AdvanceWallService)
+AdvanceWallService.init()
+
 -- 드론을 연다 (Phase 5).
 -- ⚠️ 순서: ProfileManager.init() 뒤여야 한다. PadService.init()과 같은 이유로,
 -- DroneService.init()도 내부에서 ProfileManager.onLoaded로 로드 훅을 건다 — 그 전에

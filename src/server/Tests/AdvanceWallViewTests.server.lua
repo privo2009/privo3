@@ -159,6 +159,33 @@ end
 -- 1층만 보면 층 오프셋을 빠뜨려도 멀쩡해 보인다 (docs/PENDING.md 함정 절).
 check("위치: 3층 x ≠ 1층 x (층 오프셋이 실린다)", xAt(3) ~= xAt(1), string.format("1층=%s 3층=%s", tostring(xAt(1)), tostring(xAt(3))))
 
+-- y·z — 서버 트리거와 같은 함수(getAdvanceWallCenter)에서 나오는가 (3c 커밋 2).
+local function viewAt(stage: number): AdvanceWallView.View
+	return AdvanceWallView.compute({ active = true, stage = stage, cleared = false, canAdvance = false })
+end
+
+for _, stage in ipairs({ 1, 3, LAST_STAGE }) do
+	local v = viewAt(stage)
+	local cx, cy, cz = ArenaConfig.getAdvanceWallCenter(stage)
+	check(string.format("위치: %d층 x == getAdvanceWallCenter x", stage), v.x == cx, string.format("x=%s 기대=%s", tostring(v.x), tostring(cx)))
+	check(string.format("위치: %d층 y == getAdvanceWallCenter y", stage), v.y == cy, string.format("y=%s 기대=%s", tostring(v.y), tostring(cy)))
+	check(string.format("위치: %d층 z == getAdvanceWallCenter z", stage), v.z == cz, string.format("z=%s 기대=%s", tostring(v.z), tostring(cz)))
+end
+
+do
+	local v1, v3 = viewAt(1), viewAt(3)
+	check("위치: 3층 y == 1층 y (층이 바뀌어도 높이는 같다)", v1.y ~= nil and v1.y == v3.y, string.format("1층=%s 3층=%s", tostring(v1.y), tostring(v3.y)))
+	check("위치: 3층 z == 1층 z (층이 바뀌어도 통로 중심은 같다)", v1.z ~= nil and v1.z == v3.z, string.format("1층=%s 3층=%s", tostring(v1.z), tostring(v3.z)))
+end
+
+-- stage가 없거나 잘못됐으면 y·z도 x와 같이 비어 있다.
+do
+	local vNil = AdvanceWallView.compute(nil)
+	check("nil 입력: y·z 없음", vNil.y == nil and vNil.z == nil)
+	local vBad = AdvanceWallView.compute({ active = true, stage = 0, cleared = false, canAdvance = false })
+	check("잘못된 stage(0): y·z 없음", vBad.y == nil and vBad.z == nil)
+end
+
 -- 4. LevelConfig 깊이 소스 ------------------------------------------------------------
 do
 	local found = false
