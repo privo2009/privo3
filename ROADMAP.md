@@ -1,6 +1,6 @@
 # 개발 로드맵
 
-문서 갱신: 2026-09-03
+문서 갱신: 2026-10-21
 
 ## 원칙
 - 아래에서 위로 쌓는다. BigNum이 흔들리면 전부 무너진다
@@ -55,9 +55,12 @@
 | `Tests/PowerBlockTests.client.lua` | 49 | 세 행 Y 범위·하단 띠·8자/4자 규격·진행률 경계·Store 구독 반영·다른 인스턴스 미유출 |
 | `Tests/ShopSlotsTests.client.lua` | 34 | 상점 4구좌 배치·ShopConfig 원본 참조 |
 | `Tests/AutoToolsTests.client.lua` | 28 | 자동 도구 아이콘 배치 |
-| `Systems/ArenaServiceTests.server.lua` | 31 | 스폰 좌표·경계 높이·스테이지 수에 따른 경계 확장·출입구 개방·어깨 벽 |
+| `Systems/ArenaServiceTests.server.lua` | 119 | 스폰 좌표·경계 높이·스테이지 수에 따른 경계 확장·출입구 개방·어깨 벽·바닥 파생과 파트 상한 분할(층 수 흔들기)·전 층 바닥 위 |
 | `Systems/CashoutPadServiceTests.server.lua` | 40 | 발판 좌표·측면 오프셋·디바운스·런당 1회·플레이어별 격리·source 경로 |
-| **합계** | **1899** | |
+| `Tests/AdvanceWallViewTests.server.lua` | 97 | 런 상태 → 벽 모습(숨김·닫힘·열림)·크기 파생·층별 위치·잘못된 stage·LevelConfig 깊이 소스 등록 |
+| `Tests/AdvanceWallServiceTests.server.lua` | 26 | 트리거 스펙(최종층 없음·중심·크기)·층 대조·런 없음·디바운스 창·플레이어 격리 |
+| `Tests/AdvanceWallRendererTests.client.lua` | 62 | 상태별 충돌·투명·색(닫힘·열림·최종층·숨김)·create 계약(Anchored·CanTouch=false) |
+| **합계** | **2172** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53, 실측 66), `WarpServiceTests`는
@@ -84,7 +87,17 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-09-06 Studio Play 런타임 실측 (전량).** 39개 행 전부가 한 Play에
+최근 갱신: **2026-10-21 Studio Play 런타임 실측 (전량).** 42개 행 전부가 한 Play에
+찍혔다(LogService 필터 읽기 — CLAUDE.md 절대 규칙 8). **2172 passed / 0 failed** — 서버 1344 + 클라 828.
+
+```
+갱신   ArenaServiceTests        31  → 119   바닥 파생·파트 상한 분할(b5f7e18) 포함
+신설   AdvanceWallViewTests     97          AdvanceWallServiceTests  26
+       AdvanceWallRendererTests 62          (3c — af70b06 · d6fd191)
+유지   나머지 38행
+```
+
+직전 갱신: **2026-09-06 Studio Play 런타임 실측 (전량).** 39개 행 전부가 한 Play에
 찍혔다. **1899 passed / 0 failed** — 서버 1133 + 클라 766.
 
 ```
@@ -406,7 +419,7 @@ d·e의 "진입점 없음"과 같은 상태이며, 셋 다 Phase 6 UI 또는 파
 정할 수 없고, 해당 모듈 구현 직전에 정한다. 미리 찍어두면 근거 없는 수치가
 코드에 박힌다.
 
-#### 4-2-a. 진입점 배선 [선행 조건] — 진행 벽만 남음
+#### 4-2-a. 진입점 배선 [선행 조건] ✅ 완료
 
 **2026-09-04 Play 검증.** 아레나 3D 배치가 실물에서 돌았다.
 
@@ -418,17 +431,22 @@ d·e의 "진입점 없음"과 같은 상태이며, 셋 다 Phase 6 UI 또는 파
                     reason=challenge_cashout_cashout_pad_stage_1, 한 줄만(디바운스 동작)
 ✅ 3d 스폰 복귀     수령·실패·환생 셋이 ChallengeService.endRun 하나를 지난다
                     수령 뒤 dist=399.4 관측
-◐ 3c 진행 벽       미배치 — 아래
+✅ 3c 진행 벽       걸어서 통과하면 advance — 2026-10-20 Play, 1→8층 층마다 1회·거부 0줄
+                    클라 렌더 벽(막기·표시) + 서버 트리거(판정 신호) 두 파트
+✅ 3a 보강 바닥     스폰 한 장 + 챌린지 구간을 파트 상한으로 나눈 여러 장, 먼 층도 바닥 위
 ```
+
+**3c 결과 (2026-10-20 ~ 10-21).** 커밋 `af70b06`(계산 계층 — 크기 파생 · `AdvanceWallView` ·
+`LevelConfig` 깊이 소스) → `d6fd191`(`AdvanceWallService` 트리거 · `AdvanceWallRenderer` ·
+벽 중심 좌표 계약) → `b5f7e18`(바닥 분할) → `5bebdf2`(`ADVANCE_VERIFY_ENABLED` 잔재 제거 —
+벽이 진입점을 대신한다). 구조와 근거는 `DESIGN.md` "1. 챌린지 > 진행 벽".
+⚠️ 닫힌 벽에 실제로 막히는 장면과 최종층 벽은 **아직 관측하지 못했다** (→ `docs/PENDING.md` 미결).
 
 ✅ **선행 조건이던 4-2-a2b가 끝났다** (2026-09-05). 블록이 스테이지 중심으로 가고
 서버 거리 판정도 같은 자리를 기준으로 잰다 — "통과하면 다음 블록이 정면에 있다"가
 성립한다. 좌표는 `ArenaConfig.getAdvanceX()`에 이미 있다.
 
-⚠️ 3c에 남은 것은 **벽 개폐 방식 구현**뿐이고, **클라 렌더링으로 결정됐다.**
-파트가 Workspace에 하나뿐이라 `CanCollide` 하나로 "A는 클리어, B는 미클리어"를
-동시에 만족시킬 수 없다. 블록이 4-2-a2에서 같은 이유로 클라로 넘어갔고,
-벽도 같은 길을 간다.
+벽 개폐는 블록(4-2-a2)과 같은 이유로 **클라 렌더링**이다 (→ `DESIGN.md` "1. 챌린지 > 진행 벽").
 
 관련 커밋: `c9d0698` `87e72bb` `e612268` `fde74f8` `437590f` `0504a46` `0534ea8`
 
@@ -493,7 +511,8 @@ d·e의 "진입점 없음"과 같은 상태이며, 셋 다 Phase 6 UI 또는 파
 
 **2026-09-05 구현.** `e2d5b4f`(계산 계층) + `cdc44a6`(판정 원점 + 렌더 셋 + 테스트).
 **2026-09-06 Play 검증 완료.** 진행 벽(3c)이 없어 `Bootstrap`의
-`ADVANCE_VERIFY_ENABLED`(`5f908fb` + `dfee635`)가 벽을 대신했다.
+`ADVANCE_VERIFY_ENABLED`(`5f908fb` + `dfee635`)가 벽을 대신했다. 플래그는 3c 완료 뒤
+`5bebdf2`에서 지웠다 — 지금은 벽이 진입점이다.
 
 ```
 [Bootstrap][ADVANCE] stage=1->2 x=120.0 result=ok
@@ -561,7 +580,7 @@ BlockModelGenerator.previewLayout     stage 선택 인자 (커맨드 바 도구�
 stage는 플레이어별 값이 아니라 런 상태값이므로 그 경고와 충돌하지 않는다.
 
 번호를 a2 뒤에 붙인 이유: 같은 "블록이 어디에 서는가" 문제의 연장이고,
-4-2-a의 남은 조각(3c 진행 벽)이 이것을 기다린다.
+4-2-a의 남은 조각(3c 진행 벽)이 이것을 기다렸다 (3c 완료 → 4-2-a 절).
 
 #### 4-2-b. 클릭 파워 패드 ✅ 완료
 
@@ -889,8 +908,9 @@ d153228  AttackConfig 순수 계층 + BlockLayout.OUTER_RADIUS 노출
 패드 1만 안인 것은 자연스럽다: `basePower`이고 해금 조건이 0이라
 "아무것도 고르지 않은 상태"이므로 거기 서 있는 동안 딜이 유지되는 쪽이 맞다.
 
-⚠️ 수령 발판 · 진행 벽 · 스폰 지점 · 물리적 아레나 경계는 **전부 미배치다.**
-그것들이 배치되면 위 실측의 전제가 함께 무너진다 — 배율만 만지지 말고 실측부터 다시 낼 것.
+⚠️ 위 실측은 수령 발판 · 진행 벽 · 스폰 지점 · 물리적 아레나 경계가 **놓이기 전**의 것이다.
+그것들은 이제 전부 배치됐다(4-2-a ✅). 배율을 만질 일이 생기면 배율만 만지지 말고
+지금 배치에서 실측부터 다시 낼 것.
 
 **구조:**
 
