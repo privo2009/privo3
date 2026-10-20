@@ -280,6 +280,89 @@ local function checkMenuRailGrid()
 	end
 end
 
+-- 검사 7 — 항목 칸 안의 자식은 그 칸 안에 있다 (2026-10-21, U3-10b) ----------------
+--
+-- MenuRail 항목과 AutoTools 항목은 "칸(itemRow) 하나 = 타일/아이콘 + 라벨 + (HitArea)"다.
+-- 칸 안쪽 배치가 UIListLayout이던 시절 HitArea가 리스트에 끼어 타일·라벨을 칸 높이만큼
+-- 아래로 밀었는데, 검사 3(같은 부모 형제끼리)은 형제가 함께 밀려서 못 잡았고 검사 4는
+-- 칸 자체(itemRow)의 자리만 봐서 못 잡았다. 여기서는 칸의 직계 자식이 칸 사각형 안에
+-- 있는지 본다. 허용치 1px — sub-pixel 반올림만 거른다.
+local function checkItemChildrenInsideCell(records: { ElementRecord })
+	local cellParents: { [Instance]: boolean } = {}
+	for _, name in ipairs({ "MenuRail", "AutoTools" }) do
+		local entry = ScreenController._debug.entries[name]
+		local root = if entry ~= nil then entry.instance else nil
+		check(string.format("%s가 실물로 있다(검사 7 전제)", name), root ~= nil)
+		if root ~= nil then
+			for _, cell in ipairs(root:GetChildren()) do
+				if cell:IsA("GuiObject") then
+					cellParents[cell] = true
+				end
+			end
+		end
+	end
+
+	for _, rec in ipairs(records) do
+		local cell = rec.parent
+		if cellParents[cell] and cell:IsA("GuiObject") then
+			local cx0, cy0 = cell.AbsolutePosition.X, cell.AbsolutePosition.Y
+			local cx1, cy1 = cx0 + cell.AbsoluteSize.X, cy0 + cell.AbsoluteSize.Y
+			local x0, y0 = rec.absPos.X, rec.absPos.Y
+			local x1, y1 = x0 + rec.absSize.X, y0 + rec.absSize.Y
+			check(
+				string.format("'%s'가 자기 칸 안에 있다", rec.path),
+				x0 >= cx0 - 1 and y0 >= cy0 - 1 and x1 <= cx1 + 1 and y1 <= cy1 + 1,
+				string.format("자식=(%d,%d)-(%d,%d) 칸=(%d,%d)-(%d,%d)", x0, y0, x1, y1, cx0, cy0, cx1, cy1)
+			)
+		end
+	end
+end
+
+-- 검사 8 — 서로 다른 HUD 컴포넌트의 요소끼리 겹치지 않는다 (2026-10-21, U3-10b) --------
+--
+-- 검사 3은 같은 부모의 형제끼리만 비교한다. 2026-09-04에 AutoTools 아이콘이 ShopSlots
+-- 타일과 실제로 겹쳤는데 부모가 달라 쌍으로 잡히지 않았다(docs/PENDING.md U3 진행 상태).
+-- 여기서는 HudGui 직계 자식(컴포넌트)이 다른 요소 쌍을 화면 좌표로 전부 비교한다.
+-- 예외는 검사 3과 같다 — HitArea(항목 전체를 덮는 탭 버튼)와 퇴화 교차(0px).
+local function checkCrossComponentOverlaps(hud: Instance, records: { ElementRecord })
+	local function componentOf(inst: Instance): Instance?
+		local node: Instance? = inst
+		while node ~= nil and node.Parent ~= hud do
+			node = node.Parent
+		end
+		return node
+	end
+
+	local tagged = {}
+	for _, rec in ipairs(records) do
+		table.insert(tagged, { rec = rec, component = componentOf(rec.instance) })
+	end
+
+	local overlaps = 0
+	for i = 1, #tagged do
+		for j = i + 1, #tagged do
+			local a, b = tagged[i], tagged[j]
+			if a.component ~= nil and b.component ~= nil and a.component ~= b.component then
+				if a.rec.instance.Name ~= "HitArea" and b.rec.instance.Name ~= "HitArea" then
+					local iw, ih = rectIntersection(a.rec.absPos, a.rec.absSize, b.rec.absPos, b.rec.absSize)
+					if math.floor(iw) >= 1 and math.floor(ih) >= 1 then
+						overlaps += 1
+						check(
+							string.format("'%s' <-> '%s' (다른 컴포넌트) 겹치지 않는다", a.rec.path, b.rec.path),
+							false,
+							string.format("교차 %.2fx%.2fpx", iw, ih)
+						)
+					end
+				end
+			end
+		end
+	end
+	-- 쌍마다 pass를 세면 개수가 요소 수의 제곱으로 불어 다른 행을 묻는다. 겹침이 없으면 한 건으로 센다.
+	if overlaps == 0 then
+		check("다른 컴포넌트끼리 겹치는 요소 쌍이 없다", true)
+	end
+end
+
 -- 검사 5 — PowerBlock 예산 일치 (U3-5) --------------------------------------------
 --
 -- 블록의 AbsolutePosition/AbsoluteSize가 확정 예산(PowerBlock.BlockWidth/BlockHeight/
@@ -508,6 +591,12 @@ task.defer(function()
 
 	-- 검사 6 — ShopSlots · AutoTools 예산 일치 (U3-6) ----------------------------------
 	checkShopSlotsAndAutoToolsBudget()
+
+	-- 검사 7 — 항목 칸 안의 자식은 칸 안에 (U3-10b) -------------------------------------
+	checkItemChildrenInsideCell(records)
+
+	-- 검사 8 — 다른 컴포넌트끼리 겹침 (U3-10b) ------------------------------------------
+	checkCrossComponentOverlaps(hud, records)
 
 	finish()
 end)

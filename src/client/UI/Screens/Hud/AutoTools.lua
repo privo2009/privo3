@@ -28,10 +28,12 @@
 -- 분기해서 세팅해야 한다 — `Button.lua`의 `setTint`와 같은 분기다(그 함수는
 -- local이라 가져다 쓸 수 없어 재현한다).
 --
--- ⚠️ UIListLayout은 각 타일 "내부"(아이콘 위 라벨 아래)에만 쓴다 — MenuRail.createTile과
--- 같은 관례이고, 이 안쪽 배치는 테스트가 Position으로 재지 않는다. 두 타일을
--- 나란히 놓는 "바깥" 배치는 명시적 Position/Size다(문서 "함정" 절 — 격자/리스트
--- 레이아웃은 자식 Position을 검증 불가능하게 만든다).
+-- ⚠️ 타일 "내부"(아이콘 위 라벨 아래)도 명시적 Position이다 — MenuRail.createTile과
+-- 같다. 예전에는 내부만 UIListLayout이었는데 자동 클리커의 HitArea(항목 전체 크기)가
+-- 그 리스트에 끼어 아이콘·라벨을 항목 높이만큼 아래로 밀었고, 그 아이콘이 ShopSlots와
+-- 겹쳤다(2026-10-21 Play 관측, docs/PENDING.md U3-10b). 두 타일을 나란히 놓는 "바깥"
+-- 배치도 명시적 Position/Size다(문서 "함정" 절 — 격자/리스트 레이아웃은 자식
+-- Position을 검증 불가능하게 만든다).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local AssetRegistry = require(ReplicatedStorage.Shared.Config.AssetRegistry)
@@ -108,15 +110,12 @@ local function createItem(name: string, assetKey: string, label: string, layoutO
 	itemRow.BorderSizePixel = 0
 	-- Size/Position은 여기서 정하지 않는다 — AutoTools.create가 바깥 2열 배치를 잡는다.
 
-	local itemLayout = Instance.new("UIListLayout")
-	itemLayout.FillDirection = Enum.FillDirection.Vertical
-	itemLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	itemLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	itemLayout.Parent = itemRow
-
+	-- 안쪽 배치는 명시적 Position이다 (파일 상단 ⚠️, MenuRail.createTile과 같은 이유).
 	local icon = AssetImage.create(AssetRegistry.resolve(assetKey))
 	icon.Name = "Icon"
 	icon.LayoutOrder = 1
+	icon.AnchorPoint = Vector2.new(0.5, 0)
+	icon.Position = UDim2.fromScale(0.5, 0)
 	-- X=1 (0이 아니다): AspectType 기본값 FitWithinMaxSize에서 Size가 상자다 —
 	-- X=0이면 상자 폭 0으로 결과가 0x0이 된다(MenuRail/Tile 등과 같은 관례).
 	icon.Size = UDim2.fromScale(1, TILE_HEIGHT / ITEM_HEIGHT)
@@ -132,6 +131,7 @@ local function createItem(name: string, assetKey: string, label: string, layoutO
 	textLabel.BackgroundTransparency = 1
 	textLabel.BorderSizePixel = 0
 	textLabel.Size = UDim2.fromScale(1, LABEL_HEIGHT / ITEM_HEIGHT)
+	textLabel.Position = UDim2.fromScale(0, TILE_HEIGHT / ITEM_HEIGHT) -- 아이콘 바로 아래
 	textLabel.Text = label
 	textLabel.TextScaled = true
 	textLabel.TextColor3 = Color3.new(1, 1, 1)

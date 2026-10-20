@@ -89,15 +89,20 @@ local function createTile(item: { assetKey: string, label: string, screenName: s
 	-- itemRow 자신의 Size/Position은 여기서 정하지 않는다 — MenuRail.create의
 	-- UIGridLayout이 CellSize로 직접 관리한다(U3-4C, 2열x3행 전환).
 
-	local itemLayout = Instance.new("UIListLayout")
-	itemLayout.FillDirection = Enum.FillDirection.Vertical
-	itemLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	itemLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	itemLayout.Parent = itemRow
+	-- ⚠️ 항목 안쪽(타일 위 · 라벨 아래)은 UIListLayout이 아니라 명시적 Position이다.
+	-- 예전에는 UIListLayout이었는데, 아래 HitArea(항목 전체 크기, LayoutOrder 0)도 그
+	-- 리스트에 들어가 맨 앞에 놓이면서 타일·라벨을 항목 높이만큼 아래로 밀어냈다 —
+	-- 보이는 타일이 아래 칸의 HitArea 위에 서서, 누르면 다른 화면이 열렸다(2026-10-21
+	-- Play 관측: 6칸 전부 +56px). 리스트 레이아웃에는 "이 자식은 빼라"는 속성이 없다.
+	-- 그래서 HitArea를 리스트 밖으로 빼는 대신 리스트 자체를 없앴다. 패딩이 0이었으므로
+	-- 위치는 TILE_HEIGHT / LABEL_HEIGHT 비율 그대로다 — 새 숫자는 없다.
+	-- (HudLayoutTests 검사 7이 "칸 안의 자식은 칸 안에 있다"로 이 회귀를 잡는다)
 
 	local tile = AssetImage.create(AssetRegistry.resolve(item.assetKey))
 	tile.Name = "Tile"
 	tile.LayoutOrder = 1
+	tile.AnchorPoint = Vector2.new(0.5, 0)
+	tile.Position = UDim2.fromScale(0.5, 0)
 	-- X=1 (0이 아니다): 아래 AspectRatioConstraint는 AspectType 기본값 FitWithinMaxSize라
 	-- Size가 상자다 — X=0이면 상자 폭 0으로 결과가 0x0이 된다 (BloxDisplay/Icon·Value·
 	-- ChallengeInfo/Timer에도 같은 관례가 손으로 반복돼 있다, U3-2 관측).
@@ -114,6 +119,7 @@ local function createTile(item: { assetKey: string, label: string, screenName: s
 	label.BackgroundTransparency = 1
 	label.BorderSizePixel = 0
 	label.Size = UDim2.fromScale(1, LABEL_HEIGHT / itemHeight) -- itemRow 기준
+	label.Position = UDim2.fromScale(0, TILE_HEIGHT / itemHeight) -- 타일 바로 아래
 	label.Text = item.label
 	label.TextScaled = true
 	label.TextColor3 = Color3.new(1, 1, 1)
