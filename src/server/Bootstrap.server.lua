@@ -49,6 +49,12 @@ CashoutPadService.init()
 local AdvanceWallService = require(script.Parent.Systems.AdvanceWallService)
 AdvanceWallService.init()
 
+-- 챌린지 입장 게이트를 세운다. 지나가면 1층 런이 선다 — 런 시작 = 입장 순간이다.
+-- ⚠️ 순서: 위 트리거들과 같은 이유로 ArenaService.init() 뒤다. ChallengeService와의
+-- 선후는 상관없다 — 게이트는 모듈 로드 시점에 startRun 참조만 잡고, 실제 호출은 지났을 때다.
+local EntranceGateService = require(script.Parent.Systems.EntranceGateService)
+EntranceGateService.init()
+
 -- 드론을 연다 (Phase 5).
 -- ⚠️ 순서: ProfileManager.init() 뒤여야 한다. PadService.init()과 같은 이유로,
 -- DroneService.init()도 내부에서 ProfileManager.onLoaded로 로드 훅을 건다 — 그 전에
@@ -386,7 +392,7 @@ local VERIFY_CHALLENGE = true
 -- 한 번 실패하면 나가서 다시 들어오는 수밖에 없었다.
 --
 -- **쓰는 법: Esc → Reset Character.** 그러면 스폰에서 다시 살아나고, 이 훅이
--- 캐릭터를 챌린지 입구로 옮긴 뒤 런을 새로 세운다.
+-- 캐릭터를 입장 게이트 앞으로 옮겨 걸어 지나가게 한다(런은 게이트가 세운다).
 --
 -- ⚠️ 리스폰이라는 **명시적 사람 동작**에만 걸린다. 주기 재시작으로 하지 않은 이유가
 -- 이것이다 — 폴링으로 런을 다시 세우면 플레이 중에 끼어들고, 캐릭터까지 옮기면
@@ -420,62 +426,66 @@ if VERIFY_CHALLENGE then
 		return string.format("{m=%s, e=%s}", tostring(bn.m), tostring(bn.e))
 	end
 
-	-- 캐릭터를 **스테이지 N의 입구**로 옮긴다. 4-2-a 원점 이동의 낙진을 메우는 자리다.
+	-- 게이트가 런을 세우기까지 기다리는 최대 시간(초). 게이트 앞에서 출발해 한 깊이를
+	-- 걷는 데 1초 안쪽이 걸린다 — 넉넉히 잡되 Play 하나를 붙잡을 만큼 길지 않게.
+	local GATE_RUN_WAIT_SEC = 5
+
+	-- 캐릭터를 **입장 게이트 바로 앞**에 세우고 게이트 너머로 걸어가게 한다.
 	--
-	-- 왜 필요한가: 스폰이 X=-400으로 옮겨지면서 블록(X=0)까지 320 studs가 됐다.
-	-- 기본 속도 19로 17초가 걸리고 타이머는 20초라, 도착해도 깰 시간이 없다.
-	-- 실측으로 result=out_of_range dist=400.0/92.8이 찍혔고 cleared=false로 끝났다.
-	-- **버그가 아니라 구조 변경이다** — 그래서 게임 쪽(타이머·스폰·반경·좌표)을
-	-- 건드리지 않고 검증 스크립트가 출발선을 옮긴다.
+	-- 왜 걷는가: 런은 게이트를 지나는 순간 선다(EntranceGateService). 이 검증은 더 이상
+	-- startRun을 직접 부르지 않고 게이트가 세운 런을 쓴다 — 그래서 매 Play가 게이트를
+	-- 저절로 검증한다. 게이트 **안으로** 순간이동만 하면 Touched가 나지 않을 수 있어서,
+	-- 앞에 세운 뒤 서버 Humanoid:MoveTo로 실제로 지나가게 한다.
 	--
-	-- ⚠️ 왜 하필 입구인가: 유도된 자리이기 때문이다. 입구는 그 스테이지의 시작 면이라
-	-- 블록 클러스터 중심에서 STAGE_WIDTH/2 = 80 떨어져 있고,
-	--   블록 바깥면 68.8  <  80  <  판정 반경 92.8
-	-- 이라 **블록 안은 아니면서 사거리 안**이다. 걸어 들어온 유저가 처음 서게 되는
-	-- 자리와 같다 — 임의로 고른 좌표가 아니고, 폭을 조정하면 따라 움직인다.
-	-- 아래에서 실제 거리를 찍는 이유도 이것이다. Config가 바뀌어 이 관계가 깨지면
-	-- 로그가 먼저 말해준다.
-	--
-	-- ⚠️ stage를 인자로 받는다(4-2-a2b). 예전에는 getEntranceX() 한 곳만 불러 1층
-	-- 전용이었다. 일반화를 부른 ADVANCE_VERIFY_ENABLED는 3c에서 지웠지만 **인자는 남긴다** —
-	-- 1층 고정으로 되돌리지 말 것. **좌표는 여전히 ArenaConfig 파생뿐이다** — 여기에 200이나
-	-- 80 같은 숫자를 손으로 쓰면 4-2-a2b가 되돌리려던 이중 정의가 되살아난다.
-	local function moveToStageEntrance(player: Player, stage: number): boolean
+	-- ⚠️ 좌표는 ArenaConfig 파생뿐이다. 출발점 = 게이트 중심 − 게이트 깊이(앞면에서 반 깊이
+	-- 떨어진 스폰 쪽), 도착점 = 게이트 중심 + 게이트 깊이(먼 면에서 반 깊이 지난 챌린지 쪽).
+	-- 도착점은 스테이지 1 블록 바깥면보다 멀고 판정 반경보다 가까워야 한다 — 아래에서
+	-- 실제 거리를 찍는다. Config가 바뀌어 이 관계가 깨지면 로그가 먼저 말해준다.
+	-- ⚠️ 도착점이 게이트 밖인 이유: 게이트 안에 서 있으면 cashout으로 런이 끝난 뒤의
+	-- 접촉이 새 런을 세운다.
+	local function walkThroughEntranceGate(player: Player): boolean
 		local character = player.Character
 		if character == nil then
-			warn(string.format("[Bootstrap][VERIFY_CHALLENGE] %s: 캐릭터 없음 - 입구 이동 건너뜀", player.Name))
+			warn(string.format("[Bootstrap][VERIFY_CHALLENGE] %s: 캐릭터 없음 - 게이트 통과 건너뜀", player.Name))
 			return false
 		end
-		if character:FindFirstChild("HumanoidRootPart") == nil then
-			warn(string.format("[Bootstrap][VERIFY_CHALLENGE] %s: HumanoidRootPart 없음 - 입구 이동 건너뜀", player.Name))
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if character:FindFirstChild("HumanoidRootPart") == nil or humanoid == nil then
+			warn(string.format("[Bootstrap][VERIFY_CHALLENGE] %s: HumanoidRootPart/Humanoid 없음 - 게이트 통과 건너뜀", player.Name))
 			return false
 		end
 
-		local entranceX = ArenaConfig.getStageEntranceX(stage)
+		local gateX = ArenaConfig.getEntranceGateCenter()
+		local gateDepth = ArenaConfig.getEntranceGateSize().X
+		local startX = gateX - gateDepth
+		local targetX = gateX + gateDepth
 
 		local ok, err = pcall(function()
 			-- 지면(Y=0) 위에 세운다. PivotTo는 모델 중심을 맞추므로 절반을 올린다 —
 			-- 높이는 아바타마다 달라서 상수로 박지 않는다(ArenaService.returnToSpawn과 같은 이유).
 			local extents = character:GetExtentsSize()
-			character:PivotTo(CFrame.new(Vector3.new(entranceX, extents.Y / 2, 0)))
+			character:PivotTo(CFrame.new(Vector3.new(startX, extents.Y / 2, 0)))
 		end)
-
 		if not ok then
-			warn(string.format("[Bootstrap][VERIFY_CHALLENGE] %s: 입구 이동 실패 - %s", player.Name, tostring(err)))
+			warn(string.format("[Bootstrap][VERIFY_CHALLENGE] %s: 게이트 앞 이동 실패 - %s", player.Name, tostring(err)))
 			return false
 		end
 
-		-- 그 층의 블록 클러스터 중심까지의 거리. 반경과 함께 찍어서 "사거리 안에서
-		-- 시작했는가"를 로그만 보고 알 수 있게 한다.
-		-- ⚠️ math.abs(entranceX)로 쓰지 말 것. 1층에서만 맞는다(중심이 원점이라서).
-		-- 2층부터는 중심이 200이므로 중심을 빼야 층과 무관하게 80이 나온다.
-		local distance = math.abs(entranceX - ArenaConfig.getStageCenterX(stage))
+		-- 순간이동 직후 한 프레임은 물리가 자리를 잡는 중이다. 바로 MoveTo를 걸면 옛 위치
+		-- 기준으로 계산될 수 있다.
+		task.wait()
+		humanoid:MoveTo(Vector3.new(targetX, 0, 0))
+
+		-- 스테이지 1 블록 클러스터 중심까지의 거리. "사거리 안에서 멈추는가"를 로그만 보고
+		-- 알 수 있게 한다. ⚠️ math.abs(targetX)로 쓰지 말 것 — 중심을 빼야 Config가 바뀌어도 맞다.
+		local distance = math.abs(targetX - ArenaConfig.getStageCenterX(1))
 		local radius = AttackConfig.getRadius()
 		print(string.format(
-			"[Bootstrap][VERIFY_CHALLENGE] %s 스테이지 %d 입구로 이동 X=%.1f (블록까지 %.1f / 반경 %.1f -> %s)",
+			"[Bootstrap][VERIFY_CHALLENGE] %s 입장 게이트 통과 걷기 X=%.1f -> %.1f (게이트 X=%.1f, 도착점에서 블록까지 %.1f / 반경 %.1f -> %s)",
 			player.Name,
-			stage,
-			entranceX,
+			startX,
+			targetX,
+			gateX,
 			distance,
 			radius,
 			AttackConfig.isInRange(distance) and "사거리 안" or "사거리 밖"
@@ -483,12 +493,24 @@ if VERIFY_CHALLENGE then
 
 		if not AttackConfig.isInRange(distance) then
 			warn(string.format(
-				"[Bootstrap][VERIFY_CHALLENGE] %s: 입구가 사거리 밖이다 - ArenaConfig/AttackConfig 관계가 깨졌다. 검증은 계속하지만 클리어는 안 된다",
+				"[Bootstrap][VERIFY_CHALLENGE] %s: 도착점이 사거리 밖이다 - ArenaConfig/AttackConfig 관계가 깨졌다. 검증은 계속하지만 클리어는 안 된다",
 				player.Name
 			))
 		end
 
 		return true
+	end
+
+	-- 게이트가 세운 런을 기다린다. 섰으면 걸린 시간을, 안 섰으면 nil을 준다.
+	local function waitForGateRun(player: Player): number?
+		local startedAt = os.clock()
+		while os.clock() - startedAt < GATE_RUN_WAIT_SEC do
+			if ChallengeService.getRunState(player) ~= nil then
+				return os.clock() - startedAt
+			end
+			task.wait(0.1)
+		end
+		return nil
 	end
 
 	local function runChallengeVerification(player: Player)
@@ -498,17 +520,39 @@ if VERIFY_CHALLENGE then
 			return
 		end
 
-		-- 캐릭터가 서기를 기다린 뒤 출발선으로 옮긴다. startRun보다 **앞**이어야 한다 —
-		-- 런이 먼저 서면 20초 타이머가 이동 전에 돌기 시작한다.
+		-- 캐릭터가 서기를 기다린 뒤 게이트 앞에 세우고 걸어서 지나가게 한다.
 		if player.Character == nil then
 			player.CharacterAdded:Wait()
 		end
-		moveToStageEntrance(player, 1)
+
+		-- 이미 런이 있으면 게이트는 아무것도 하지 않는다 — 그러면 아래 대기가 "게이트가
+		-- 세웠다"로 오독된다. 걸어가기 전에 확인해서 따로 찍는다.
+		if ChallengeService.getRunState(player) ~= nil then
+			warn(string.format("[Bootstrap][VERIFY_CHALLENGE] %s: 이미 활성 런이 있다 - 게이트 검증을 할 수 없어 중단", player.Name))
+			return
+		end
+
+		if not walkThroughEntranceGate(player) then
+			return
+		end
 
 		local ok, err = pcall(function()
-			-- 1. startRun(player, 1)
-			local startOk = ChallengeService.startRun(player, 1)
-			print(string.format("[Bootstrap][VERIFY_CHALLENGE] %s startRun(1) = %s", player.Name, tostring(startOk)))
+			-- 1. 게이트가 런을 세웠는가 (startRun은 EntranceGateService가 부른다)
+			local waited = waitForGateRun(player)
+			if waited == nil then
+				warn(string.format(
+					"[Bootstrap][VERIFY_CHALLENGE] %s: 게이트가 런을 세우지 않았다 (%.1f초 대기) - 검증 중단",
+					player.Name,
+					GATE_RUN_WAIT_SEC
+				))
+				return
+			end
+			print(string.format(
+				"[Bootstrap][VERIFY_CHALLENGE] %s 게이트가 런을 세움 = true (걷기 시작 후 %.2f초, stage=%d)",
+				player.Name,
+				waited,
+				(ChallengeService.getRunState(player) :: any).stage
+			))
 
 			-- 2. getSnapshot으로 블록 좌표를 받아 각 좌표에 압도적 데미지로 applyDamage
 			local snapshot = BlockService.getSnapshot(player)
@@ -525,8 +569,8 @@ if VERIFY_CHALLENGE then
 			-- 보이지 않는다** — 블록이 이미 없어진 뒤에 AttackService가 돌기 때문이다.
 			-- timeLeft가 항상 20.0이었던 것도 이 때문이다 (→ docs/PENDING.md).
 			--
-			-- ⚠️ 그렇다고 이 블록을 통째로 끄지도 않는다. 끄면 startRun·getSnapshot·cashout
-			-- 이라는 기존 진입점 검증이 관측 밖으로 나간다. 런을 세우는 데까지가 이 블록의
+			-- ⚠️ 그렇다고 이 블록을 통째로 끄지도 않는다. 끄면 입장 게이트·getSnapshot·cashout
+			-- 이라는 진입점 검증이 관측 밖으로 나간다. 런을 세우는 데까지가 이 블록의
 			-- 몫이고, 부수는 것은 AttackService가 한다.
 			--
 			-- 그래서 아래 클리어 검사는 **캐릭터가 반경 안에 있을 때만** 통과한다.

@@ -250,6 +250,34 @@ function ArenaConfig.getEntranceX(): number
 	return ArenaConfig.getStageEntranceX(1)
 end
 
+-- ===== 챌린지 입장 게이트 ===========================================================
+--
+-- 런은 이 게이트를 지나는 순간 선다(EntranceGateService → ChallengeService.startRun).
+-- 보이지 않는 서버 트리거 하나다 — 시각 표시는 U4(3D 안내) 몫이다.
+--
+-- ⚠️ 새 숫자를 만들지 않는다. 진행 벽 트리거와 같은 모양이다:
+--   중심 X  getEntranceX() — 스폰 구역과 챌린지 구간의 경계 = 스테이지 1 시작 면
+--   깊이 X  ADVANCE_WALL_DEPTH — Touched 최소 깊이 규약(이동속도 상한과 묶인 값)
+--   높이 Y  BOUNDARY_HEIGHT — 점프로 넘어가 런 없이 들어가지 못한다
+--   폭   Z  CHALLENGE_ZONE_Z_HALF × 2 — 통로 어디로 걸어도 닿는다
+--   바닥    지면 Y=0에 아랫면이 닿는다(중심 Y = 높이 / 2)
+-- ⚠️ 진행 벽 크기(getAdvanceWallSize)를 부르지 않고 같은 상수로 따로 조립한다. 벽 크기가
+-- 바뀐다고 게이트가 따라 변할 이유는 없다 — 지금 같은 값인 것은 근거가 같아서다.
+
+-- 입장 게이트 크기.
+function ArenaConfig.getEntranceGateSize(): Vector3
+	return Vector3.new(
+		ArenaConfig.ADVANCE_WALL_DEPTH,
+		ArenaConfig.BOUNDARY_HEIGHT,
+		ArenaConfig.CHALLENGE_ZONE_Z_HALF * 2
+	)
+end
+
+-- 입장 게이트 중심 (x, y, z 숫자 셋). Vector3로 주지 않는 이유는 getAdvanceWallCenter와 같다.
+function ArenaConfig.getEntranceGateCenter(): (number, number, number)
+	return ArenaConfig.getEntranceX(), ArenaConfig.BOUNDARY_HEIGHT / 2, 0
+end
+
 -- 스폰 지점에서 챌린지 입구까지의 거리. 패드 24장이 이 사이에 들어간다.
 -- "체감상 적절한가"는 Play에서 볼 값이고, 여기서는 얼마인지만 답한다.
 function ArenaConfig.getSpawnToEntrance(): number
@@ -531,6 +559,16 @@ function ArenaConfig.validate(stageCount: number?): boolean
 		string.format(
 			"ArenaConfig: 진행 벽 크기(%s)의 축이 0 초과 MAX_PART_SIZE(%s) 이하가 아님",
 			tostring(wallSize),
+			tostring(ArenaConfig.MAX_PART_SIZE)
+		)
+	)
+
+	local gateSize = ArenaConfig.getEntranceGateSize()
+	assert(
+		isPartAxisOk(gateSize.X) and isPartAxisOk(gateSize.Y) and isPartAxisOk(gateSize.Z),
+		string.format(
+			"ArenaConfig: 입장 게이트 크기(%s)의 축이 0 초과 MAX_PART_SIZE(%s) 이하가 아님",
+			tostring(gateSize),
 			tostring(ArenaConfig.MAX_PART_SIZE)
 		)
 	)
