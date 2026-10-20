@@ -38,6 +38,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
+local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local ChallengeService = require(script.Parent.ChallengeService)
 
 local CashoutPadService = {}
@@ -49,8 +50,9 @@ local CONTAINER_NAME = "CashoutPads"
 -- (그 이유는 ArenaConfig의 해당 주석에 있다).
 local PAD_SIZE = ArenaConfig.CASHOUT_PAD_SIZE
 
--- 수령 = 노랑. docs/UI.md "3. 색"이 원본이다.
-local PAD_COLOR = Color3.fromHex("#FFC61A")
+-- 수령 = 수령·안전 역할 색. 배정 근거는 docs/UI.md "3. 색", 값은 UiTheme이 원본이다.
+-- ⚠️ hex를 여기 적지 않는다 — 진행 벽(AdvanceWallView.colorRole)과 같은 방식이다.
+local PAD_COLOR = UiTheme.Colors.cashout.base
 
 -- 같은 발판을 다시 처리하기까지의 최소 간격(초).
 -- PadService.TOUCH_DEBOUNCE_SEC과 같은 값이고 같은 이유다 — 서 있기만 해도 팔다리
