@@ -123,11 +123,6 @@ local function depsFor(w: World)
 			w.currentWorld = 1
 			return true
 		end,
-		startRun = function(_p: any)
-			record("startRun")
-			w.runActive = true
-			return true
-		end,
 		-- ⚠️ 이 시점의 힘을 그대로 기록해 둔다. 순서 검증의 핵심이다 —
 		-- 실제 SpeedService.onRebirth도 힘을 "그 시점에" 다시 읽어 최대치를 계산한다.
 		onRebirth = function(_p: any)
@@ -238,7 +233,7 @@ do
 	check("maxStage가 템플릿 값으로 돌아갔다", w.maxStage == TEMPLATE_MAX_STAGE, tostring(w.maxStage))
 	check("currentWorld가 1로 돌아갔다", w.currentWorld == 1, tostring(w.currentWorld))
 	check("unlockedWorlds는 유지된다 (영구 진행)", w.unlockedWorlds == 3, tostring(w.unlockedWorlds))
-	check("런이 다시 서 있다 (1층 재시작)", w.runActive == true)
+	check("환생 뒤 런이 서 있지 않다 (런은 입장 게이트가 세운다)", w.runActive == false)
 end
 
 do
@@ -277,15 +272,15 @@ do
 	local iSetBlox = indexOf(w.calls, "setBlox")
 	local iAddReb = indexOf(w.calls, "addRebirths")
 	local iSetStr = indexOf(w.calls, "setStrength")
-	local iStart = indexOf(w.calls, "startRun")
 	local iSpeed = indexOf(w.calls, "onRebirth")
 	local order = table.concat(w.calls, " -> ")
 
-	-- 9개다. 순서 목록의 2번(판정)은 순수 계산이라 바깥 세계를 부르지 않는다.
-	check("바깥 세계 호출이 9개 전부 났다", #w.calls == 9, order)
+	-- 8개다. 순서 목록의 2번(판정)은 순수 계산이라 바깥 세계를 부르지 않고,
+	-- 9번(1층 재시작)은 없앴다 — 환생은 런을 세우지 않는다.
+	check("바깥 세계 호출이 8개 전부 났다", #w.calls == 8, order)
 	check("런 소멸이 재화 조작보다 먼저다", iAbandon > 0 and iAbandon < iSetBlox, order)
 	check("blox 소모가 배수 가산보다 먼저다", iSetBlox < iAddReb, order)
-	check("1층 재시작이 진행도 되돌리기보다 뒤다", iStart > indexOf(w.calls, "resetMaxStage"), order)
+	check("마지막 호출은 속도 재적용이다 (그 뒤에 런을 세우지 않는다)", w.calls[#w.calls] == "onRebirth", order)
 
 	-- ⚠️ 이 두 줄이 4-2-d에서 제일 자주 어긋나는 지점이다.
 	check("속도 재적용이 힘 초기화보다 뒤다", iSetStr > 0 and iSpeed > iSetStr, order)

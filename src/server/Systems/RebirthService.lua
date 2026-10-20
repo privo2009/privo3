@@ -4,7 +4,7 @@
 --
 -- 이 프로젝트에서 **4개 서비스를 한 흐름 안에서 건드리는 첫 모듈**이다:
 --   CurrencyService   blox / rebirths / strength
---   ChallengeService  진행 중 런 소멸 + 진행도 되돌리기 + 1층 재시작
+--   ChallengeService  진행 중 런 소멸(→ 스폰 복귀) + 진행도 되돌리기
 --   SpeedService      최대 이동속도 재적용
 --   Schema            초기값 출처
 -- 그래서 이 파일에는 계산이 거의 없다. 하는 일은 **순서를 지키는 것**이다.
@@ -21,7 +21,7 @@
 --
 -- ⚠️ 아래 rebirth() 안에 task.wait · task.delay · profile:Save() · WaitForChild ·
 --    DataStore 호출을 **절대 넣지 말 것.** 호출하는 함수들도 전부 yield하지 않는 것을
---    확인해 두었다(CurrencyService 전체 / ChallengeService.abandonRun·startRun·reset* /
+--    확인해 두었다(CurrencyService 전체 / ChallengeService.abandonRun·reset* /
 --    SpeedService.onRebirth). 그 계약이 깨지면 여기가 먼저 조용히 틀린다.
 --
 -- ===== SpeedRequestService를 거치지 않는다 ============================================
@@ -131,7 +131,6 @@ export type Deps = {
 	setStrength: (Player, BigNumber, string) -> boolean,
 	resetMaxStage: (Player) -> boolean,
 	resetCurrentWorld: (Player) -> boolean,
-	startRun: (Player) -> boolean,
 	onRebirth: (Player) -> number,
 }
 
@@ -195,8 +194,10 @@ local function runRebirth(deps: Deps, player: Player, source: string?): (boolean
 	deps.resetMaxStage(player)
 	deps.resetCurrentWorld(player)
 
-	-- 9. 1층부터 다시 시작. startRun이 기존 런을 덮어쓰므로 3번과 겹치지 않는다.
-	deps.startRun(player)
+	-- 9. (없앴다) 예전에는 여기서 1층 런을 세웠다. 환생은 **런을 세우지 않는다** —
+	-- 런은 입장 게이트를 지나는 순간 선다(EntranceGateService). 서버가 스폰에서 런을 세우면
+	-- 걷는 동안 20초가 흘러, 환생 직후(최대속도 최저)의 런이 반드시 시간 초과됐다.
+	-- 스폰 복귀는 3번(abandonRun → endRun)이 이미 했다. 번호는 계약이라 비워 둔다.
 
 	-- 10. 최대 이동속도 재적용.
 	-- ⚠️ 반드시 6번 뒤여야 한다. onRebirth는 힘을 **그 시점에 다시 읽어** 최대치를
@@ -240,9 +241,6 @@ local REAL: Deps = {
 	end,
 	resetCurrentWorld = function(player: Player)
 		return ChallengeService.resetCurrentWorld(player)
-	end,
-	startRun = function(player: Player)
-		return ChallengeService.startRun(player, 1)
 	end,
 	onRebirth = function(player: Player)
 		return SpeedService.onRebirth(player)

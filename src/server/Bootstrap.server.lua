@@ -55,6 +55,12 @@ AdvanceWallService.init()
 local EntranceGateService = require(script.Parent.Systems.EntranceGateService)
 EntranceGateService.init()
 
+-- 런 중 사망 = 포기. 캐릭터마다 Humanoid.Died에 abandonRun을 건다.
+-- ⚠️ 순서: 플레이어 훅만 거므로 다른 init과의 선후는 상관없다. 이미 들어와 있던
+-- 플레이어도 init 안에서 건다.
+local RunDeathService = require(script.Parent.Systems.RunDeathService)
+RunDeathService.init()
+
 -- 드론을 연다 (Phase 5).
 -- ⚠️ 순서: ProfileManager.init() 뒤여야 한다. PadService.init()과 같은 이유로,
 -- DroneService.init()도 내부에서 ProfileManager.onLoaded로 로드 훅을 건다 — 그 전에
