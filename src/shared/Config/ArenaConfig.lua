@@ -113,6 +113,25 @@ ArenaConfig.BOUNDARY_HEIGHT = 50
 -- 이동속도 상한이 근거 없이 따라 내려간다.
 ArenaConfig.BOUNDARY_THICKNESS = 8
 
+-- ===== 아레나 바닥 ===================================================================
+--
+-- 범위는 새 숫자를 만들지 않는다 — 스폰 구역·챌린지 구간 상수와 getChallengeEndX에서
+-- 나온다(getFloorSpecs). 여기 1차 상수는 두께 하나뿐이다.
+--
+-- ⚠️ 윗면이 지면 Y=0이다. groundedY·발판·블록·진행 벽(getAdvanceWallCenter)이 전부
+-- 이 지면을 전제하므로, 두께를 바꿔도 윗면은 움직이지 않고 아래로만 자란다.
+-- ⚠️ 이 바닥이 생기기 전에는 플레이스 파일의 Baseplate(X·Z ±1024)뿐이었고,
+-- 6층(X 1024 근처)에서 캐릭터가 떨어졌다.
+ArenaConfig.FLOOR_THICKNESS = 4
+
+-- 로블록스 파트 한 축의 최대 크기.
+--
+-- ⚠️ 게임 수치가 아니라 엔진 상한이다. 이보다 큰 Size를 넣으면 오류 없이 이 값으로
+-- 잘려 세워진다 — 챌린지 바닥(X 5060)이 2048로 잘려 X 1446~3494만 덮었다(2026-10-19 실측).
+-- 숫자 스펙만 보는 테스트는 이것을 못 잡으므로 validate가 모든 파트 스펙을 이 값과 비교하고,
+-- 긴 바닥은 이 값 이하로 나눈다(getFloorSpecs).
+ArenaConfig.MAX_PART_SIZE = 2048
+
 -- ===== 진행 벽 =======================================================================
 --
 -- 위치는 getAdvanceX(아래 파생)이고, 여기는 크기와 열린 모습만 답한다.
@@ -251,7 +270,99 @@ function ArenaConfig.getChallengeEndX(stageCount: number): number
 	return ArenaConfig.getStagePitch() * stageCount
 end
 
-function ArenaConfig.validate(): boolean
+-- 바닥 한 장의 명세. 위치·크기를 숫자로 준다 — 파트를 세우는 쪽(ArenaService)은
+-- 이것을 소비만 한다. Vector3로 주지 않는 이유는 getAdvanceWallCenter와 같다.
+export type FloorSpec = {
+	name: string,
+	xMin: number,
+	xMax: number,
+	zMin: number,
+	zMax: number,
+	topY: number,
+	centerX: number,
+	centerY: number,
+	centerZ: number,
+	sizeX: number,
+	sizeY: number,
+	sizeZ: number,
+}
+
+local function floorSpec(name: string, xMin: number, xMax: number, zHalf: number): FloorSpec
+	local thickness = ArenaConfig.FLOOR_THICKNESS
+	local topY = 0 -- 지면. 위 "아레나 바닥" 절의 ⚠️
+	return {
+		name = name,
+		xMin = xMin,
+		xMax = xMax,
+		zMin = -zHalf,
+		zMax = zHalf,
+		topY = topY,
+		centerX = (xMin + xMax) / 2,
+		centerY = topY - thickness / 2,
+		centerZ = 0,
+		sizeX = xMax - xMin,
+		sizeY = thickness,
+		sizeZ = zHalf * 2,
+	}
+end
+
+-- 챌린지 바닥의 장 수. 길이를 파트 크기 상한으로 나눠 올림한다.
+function ArenaConfig.getChallengeFloorCount(stageCount: number): number
+	local length = ArenaConfig.getChallengeEndX(stageCount) - ArenaConfig.SPAWN_ZONE_X_MAX
+	return math.ceil(length / ArenaConfig.MAX_PART_SIZE)
+end
+
+-- 아레나 바닥.
+--   스폰 바닥     X SPAWN_ZONE_X_MIN ~ SPAWN_ZONE_X_MAX,         Z ±SPAWN_ZONE_Z_HALF   (한 장)
+--   챌린지 바닥   X SPAWN_ZONE_X_MAX ~ getChallengeEndX(층 수),  Z ±CHALLENGE_ZONE_Z_HALF
+--                 → getChallengeFloorCount장으로 같은 길이로 나눈다 (MAX_PART_SIZE)
+--
+-- ⚠️ 이웃 장은 맞닿고 겹치지 않는다. 같은 높이의 면이 겹치면 화면이 깜빡인다.
+-- 챌린지 바닥이 입구(getEntranceX)가 아니라 스폰 구역 끝에서 시작하는 이유도 그것이다 —
+-- 두 구역이 X로 겹치는 출입구 띠는 스폰 바닥이 덮는다.
+-- ⚠️ i번째 경계는 시작 + 길이 × i / 장 수로 **직접** 계산한다. 앞 장의 xMax에 길이를
+-- 더해 가면 오차가 쌓여 마지막 xMax가 끝 X에서 어긋난다. 이웃 장은 같은 경계 값을
+-- 나눠 쓰므로 맞닿음은 정확히 성립한다.
+-- ⚠️ 층 수는 인자다. ArenaService가 경계 벽에 쓰는 findLastStage() 값을 그대로 넘긴다
+-- (getChallengeEndX가 인자를 받는 것과 같은 이유).
+function ArenaConfig.getFloorSpecs(stageCount: number): { FloorSpec }
+	local specs: { FloorSpec } = {
+		floorSpec("ArenaFloorSpawn", ArenaConfig.SPAWN_ZONE_X_MIN, ArenaConfig.SPAWN_ZONE_X_MAX, ArenaConfig.SPAWN_ZONE_Z_HALF),
+	}
+
+	local startX = ArenaConfig.SPAWN_ZONE_X_MAX
+	local endX = ArenaConfig.getChallengeEndX(stageCount)
+	local length = endX - startX
+	local count = ArenaConfig.getChallengeFloorCount(stageCount)
+	local function boundary(i: number): number
+		if i == count then
+			return endX -- 끝 X는 원본 함수 값 그대로 (나눗셈을 거치지 않는다)
+		end
+		return startX + length * i / count
+	end
+
+	for i = 1, count do
+		table.insert(
+			specs,
+			floorSpec(
+				string.format("ArenaFloorChallenge_%02d", i),
+				boundary(i - 1),
+				boundary(i),
+				ArenaConfig.CHALLENGE_ZONE_Z_HALF
+			)
+		)
+	end
+	return specs
+end
+
+-- 파트 스펙의 한 축이 엔진이 그대로 세울 수 있는 크기인지 (0 초과 MAX_PART_SIZE 이하).
+local function isPartAxisOk(size: number): boolean
+	return type(size) == "number" and size == size and size > 0 and size <= ArenaConfig.MAX_PART_SIZE
+end
+
+-- stageCount는 선택이다. 주면 그 층 수의 바닥 스펙도 함께 본다(ArenaServiceTests가 실제
+-- 마지막 층을 넘긴다). 이 파일은 StageConfig를 require하지 않으므로 스스로는 층 수를 모른다.
+function ArenaConfig.validate(stageCount: number?): boolean
 	assert(
 		type(ArenaConfig.STAGE_WIDTH) == "number" and ArenaConfig.STAGE_WIDTH > 0,
 		string.format("ArenaConfig: STAGE_WIDTH(%s)는 0보다 커야 함", tostring(ArenaConfig.STAGE_WIDTH))
@@ -409,6 +520,51 @@ function ArenaConfig.validate(): boolean
 		wallSize.X > 0 and wallSize.Y > 0 and wallSize.Z > 0,
 		string.format("ArenaConfig: 진행 벽 크기(%s)의 축 중 양수가 아닌 것이 있음", tostring(wallSize))
 	)
+
+	-- ===== 파트 크기 상한 ============================================================
+	--
+	-- 상한을 넘는 Size는 오류 없이 잘려 세워진다(MAX_PART_SIZE 주석). 스펙 숫자로는
+	-- 멀쩡해 보이므로 여기서 막는다.
+
+	assert(
+		isPartAxisOk(wallSize.X) and isPartAxisOk(wallSize.Y) and isPartAxisOk(wallSize.Z),
+		string.format(
+			"ArenaConfig: 진행 벽 크기(%s)의 축이 0 초과 MAX_PART_SIZE(%s) 이하가 아님",
+			tostring(wallSize),
+			tostring(ArenaConfig.MAX_PART_SIZE)
+		)
+	)
+
+	assert(
+		type(ArenaConfig.FLOOR_THICKNESS) == "number" and ArenaConfig.FLOOR_THICKNESS > 0,
+		string.format("ArenaConfig: FLOOR_THICKNESS(%s)는 0보다 커야 함", tostring(ArenaConfig.FLOOR_THICKNESS))
+	)
+
+	-- 바닥을 볼 층 수. 1층, 위 경계 검사의 임의 층(3), 챌린지 바닥이 최소 세 장으로
+	-- 나뉘는 층 수(분할 경로를 반드시 지나게), 그리고 호출자가 준 층 수.
+	local splitStageCount = math.ceil(
+		(ArenaConfig.MAX_PART_SIZE * 2 + ArenaConfig.SPAWN_ZONE_X_MAX) / pitch
+	) + 1
+	local floorStageCounts = { 1, 3, splitStageCount }
+	if stageCount ~= nil then
+		table.insert(floorStageCounts, stageCount)
+	end
+	for _, count in ipairs(floorStageCounts) do
+		for _, spec in ipairs(ArenaConfig.getFloorSpecs(count)) do
+			assert(
+				isPartAxisOk(spec.sizeX) and isPartAxisOk(spec.sizeY) and isPartAxisOk(spec.sizeZ),
+				string.format(
+					"ArenaConfig: 바닥 %s(층 수 %d) 크기 (%s, %s, %s)의 축이 0 초과 MAX_PART_SIZE(%s) 이하가 아님",
+					spec.name,
+					count,
+					tostring(spec.sizeX),
+					tostring(spec.sizeY),
+					tostring(spec.sizeZ),
+					tostring(ArenaConfig.MAX_PART_SIZE)
+				)
+			)
+		end
+	end
 
 	-- 경계 끝이 최종 진행 벽보다 뒤에 있어야 한다. 앞에 있으면 마지막 벽이 경계 밖에 선다.
 	local lastStage = 3 -- 임의의 층. 스테이지 수와 무관하게 성립해야 하는 관계다.

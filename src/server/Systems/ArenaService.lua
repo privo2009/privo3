@@ -23,6 +23,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
+local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 
 local ArenaService = {}
 
@@ -206,6 +207,25 @@ local function createWallPart(spec: WallSpec, parent: Instance): BasePart
 	return part
 end
 
+-- 바닥 파트. 범위·두께는 ArenaConfig.getFloorSpecs가 정하고 여기서는 소비만 한다.
+--   - Anchored = true    (물리 시뮬레이션 금지 — CLAUDE.md 절대 규칙 4)
+--   - CanCollide = true  (서 있는 면이다)
+--   - 색은 UiTheme 중립 역할의 어두운 단계. hex를 여기 적지 않는다
+local function createFloorPart(spec: ArenaConfig.FloorSpec, parent: Instance): BasePart
+	local part = Instance.new("Part")
+	part.Name = spec.name
+	part.Size = Vector3.new(spec.sizeX, spec.sizeY, spec.sizeZ)
+	part.Position = Vector3.new(spec.centerX, spec.centerY, spec.centerZ)
+	part.Anchored = true
+	part.CanCollide = true
+	part.Material = Enum.Material.Plastic
+	part.Color = UiTheme.Colors.neutral.dark
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = parent
+	return part
+end
+
 -- init()이 세운 SpawnLocation. 복귀가 이 파트의 실제 좌표를 쓴다 — ArenaConfig.SPAWN_X를
 -- 다시 계산하지 않는 이유는 파트가 옮겨졌을 때(지환이 Studio에서 만지는 경우) 복귀도
 -- 따라가야 하기 때문이다. 파트가 없으면 Config에서 만들어 쓴다(아래 fallback).
@@ -327,6 +347,21 @@ function ArenaService.init()
 	for _, spec in ipairs(buildWallSpecs(lastStage)) do
 		createWallPart(spec, boundsFolder)
 	end
+
+	-- 바닥. 경계 벽과 같은 층 수로 끝이 정해진다 — 벽은 5000까지 서는데 바닥이 짧으면
+	-- 벽 안쪽에서 떨어진다(6층 X 1024 근처 실측 사고). 챌린지 바닥은 파트 크기 상한
+	-- (ArenaConfig.MAX_PART_SIZE)에 맞춰 여러 장으로 나뉘어 온다 — 여기서 나누지 않는다.
+	local floorSpecs = ArenaConfig.getFloorSpecs(lastStage)
+	for _, spec in ipairs(floorSpecs) do
+		createFloorPart(spec, boundsFolder)
+	end
+	print(string.format(
+		"[ArenaService] 바닥 %d장 (X %.1f ~ %.1f, 윗면 Y=%.1f)",
+		#floorSpecs,
+		floorSpecs[1].xMin,
+		floorSpecs[#floorSpecs].xMax,
+		floorSpecs[1].topY
+	))
 
 	print(string.format(
 		"[ArenaService] 스폰 X=%.1f, 경계 %d개 (스테이지 %d층까지, 끝 X=%.1f)",

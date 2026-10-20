@@ -219,6 +219,222 @@ do
 	check("그 다음 스테이지는 없다 (그래서 마지막이다)", not StageConfig.hasStage(last + 1))
 end
 
+-- 8. 바닥 스펙 — 범위가 원천 상수·함수에서 나온다 (4-2-a 3a 보강) ------------------------
+--
+-- ⚠️ 숫자를 적지 않는다. 기대값은 전부 ArenaConfig 상수·함수다.
+
+local StageConfigForFloor = require(ReplicatedStorage.Shared.Config.StageConfig)
+local PadLayout = require(ReplicatedStorage.Shared.PadLayout)
+local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
+local CashoutPadSize = ArenaConfig.CASHOUT_PAD_SIZE
+
+local LAST_STAGE = pure.findLastStage()
+local floorSpecs = ArenaConfig.getFloorSpecs(LAST_STAGE)
+
+local spawnFloor = findSpec(floorSpecs, "ArenaFloorSpawn")
+
+-- 챌린지 바닥 장들. 이름 순서(_01, _02, ...)로 모은다 — 목록 순서에 기대지 않는다.
+local function collectChallengeFloors(specs: { any }): { any }
+	local out = {}
+	local i = 1
+	while true do
+		local spec = findSpec(specs, string.format("ArenaFloorChallenge_%02d", i))
+		if spec == nil then
+			break
+		end
+		table.insert(out, spec)
+		i += 1
+	end
+	return out
+end
+
+local challengeFloors = collectChallengeFloors(floorSpecs)
+
+-- 챌린지 바닥 장 목록의 분할 규칙 검사. 층 수를 흔들어 여러 번 부른다.
+local function checkChallengeSplit(label: string, stageCount: number, specs: { any })
+	local chunks = collectChallengeFloors(specs)
+	local startX = ArenaConfig.SPAWN_ZONE_X_MAX
+	local endX = ArenaConfig.getChallengeEndX(stageCount)
+	local expectedCount = math.ceil((endX - startX) / ArenaConfig.MAX_PART_SIZE)
+
+	check(
+		label .. ": 장 수 == ceil(길이 / MAX_PART_SIZE)",
+		#chunks == expectedCount and ArenaConfig.getChallengeFloorCount(stageCount) == expectedCount,
+		string.format("장=%d 함수=%d 기대=%d (층 수 %d, X %s~%s)", #chunks, ArenaConfig.getChallengeFloorCount(stageCount), expectedCount, stageCount, tostring(startX), tostring(endX))
+	)
+	check(
+		label .. ": 바닥 목록 == 스폰 1장 + 챌린지 장들",
+		#specs == 1 + #chunks and findSpec(specs, "ArenaFloorSpawn") ~= nil,
+		string.format("목록=%d 챌린지=%d", #specs, #chunks)
+	)
+	if #chunks == 0 then
+		return
+	end
+
+	check(
+		label .. ": 첫 장 xMin == SPAWN_ZONE_X_MAX",
+		chunks[1].xMin == startX,
+		string.format("xMin=%s 기대=%s", tostring(chunks[1].xMin), tostring(startX))
+	)
+	check(
+		label .. ": 마지막 장 xMax == getChallengeEndX(층 수)",
+		chunks[#chunks].xMax == endX,
+		string.format("xMax=%s 기대=%s (층 수 %d)", tostring(chunks[#chunks].xMax), tostring(endX), stageCount)
+	)
+
+	local problems: { string } = {}
+	local covered = 0
+	local expectedLength = (endX - startX) / #chunks
+	for i, chunk in ipairs(chunks) do
+		covered += chunk.xMax - chunk.xMin
+		if not (chunk.sizeX > 0 and chunk.sizeX <= ArenaConfig.MAX_PART_SIZE) then
+			table.insert(problems, string.format("%s 길이=%s > MAX_PART_SIZE", chunk.name, tostring(chunk.sizeX)))
+		end
+		if not checkClose(chunk.sizeX, expectedLength) then
+			table.insert(problems, string.format("%s 길이=%s 같은 길이 기대=%s", chunk.name, tostring(chunk.sizeX), tostring(expectedLength)))
+		end
+		if chunk.zMin ~= -ArenaConfig.CHALLENGE_ZONE_Z_HALF or chunk.zMax ~= ArenaConfig.CHALLENGE_ZONE_Z_HALF then
+			table.insert(problems, string.format("%s Z=%s~%s", chunk.name, tostring(chunk.zMin), tostring(chunk.zMax)))
+		end
+		if i > 1 and chunks[i - 1].xMax ~= chunk.xMin then
+			-- 같지 않으면 빈틈(<) 또는 겹침(>)이다.
+			table.insert(problems, string.format("%s xMax=%s ≠ %s xMin=%s", chunks[i - 1].name, tostring(chunks[i - 1].xMax), chunk.name, tostring(chunk.xMin)))
+		end
+	end
+	check(label .. ": 각 장 길이 ≤ MAX_PART_SIZE · 같은 길이 · 이웃 맞닿음", #problems == 0, #problems > 0 and table.concat(problems, " / ") or nil)
+	check(
+		label .. ": 장 길이의 합 == 전 구간 길이",
+		checkClose(covered, endX - startX),
+		string.format("합=%s 구간=%s", tostring(covered), tostring(endX - startX))
+	)
+end
+
+do
+	check("스폰 바닥이 있다", spawnFloor ~= nil)
+	check("챌린지 바닥이 한 장 이상", #challengeFloors >= 1, tostring(#challengeFloors))
+
+	if spawnFloor then
+		check("스폰 바닥 xMin == SPAWN_ZONE_X_MIN", spawnFloor.xMin == ArenaConfig.SPAWN_ZONE_X_MIN, tostring(spawnFloor.xMin))
+		check("스폰 바닥 xMax == SPAWN_ZONE_X_MAX", spawnFloor.xMax == ArenaConfig.SPAWN_ZONE_X_MAX, tostring(spawnFloor.xMax))
+		check("스폰 바닥 zMin == -SPAWN_ZONE_Z_HALF", spawnFloor.zMin == -ArenaConfig.SPAWN_ZONE_Z_HALF, tostring(spawnFloor.zMin))
+		check("스폰 바닥 zMax == SPAWN_ZONE_Z_HALF", spawnFloor.zMax == ArenaConfig.SPAWN_ZONE_Z_HALF, tostring(spawnFloor.zMax))
+	end
+	if spawnFloor and #challengeFloors >= 1 then
+		check(
+			"스폰 바닥과 챌린지 첫 장이 맞닿는다 (스폰 xMax == 챌린지 xMin, 겹침 없음)",
+			spawnFloor.xMax == challengeFloors[1].xMin,
+			string.format("스폰 xMax=%s 챌린지 xMin=%s", tostring(spawnFloor.xMax), tostring(challengeFloors[1].xMin))
+		)
+	end
+
+	-- 실제 마지막 층과, 층 수를 흔든 경우(한 장 / 상한 딱 근처 / 여러 장).
+	checkChallengeSplit("마지막 층", LAST_STAGE, floorSpecs)
+	for _, count in ipairs({ 1, 3, 10, 11, 20, 50 }) do
+		checkChallengeSplit(string.format("층 수 %d", count), count, ArenaConfig.getFloorSpecs(count))
+	end
+
+	-- validate가 실제 마지막 층의 바닥에서 통과한다 (파트 크기 상한 포함).
+	local ok, err = pcall(ArenaConfig.validate, LAST_STAGE)
+	check("ArenaConfig.validate(마지막 층) 통과", ok, tostring(err))
+
+	for _, spec in ipairs(floorSpecs) do
+		-- 윗면 = 중심 + 두께/2. 숫자 필드끼리 다시 계산해 topY와 0을 함께 본다.
+		local top = spec.centerY + spec.sizeY / 2
+		check(spec.name .. ": 윗면 Y == 0 (topY)", spec.topY == 0, tostring(spec.topY))
+		check(spec.name .. ": 중심 + 두께/2 == 0", top == 0, tostring(top))
+		check(spec.name .. ": 두께 == FLOOR_THICKNESS", spec.sizeY == ArenaConfig.FLOOR_THICKNESS, tostring(spec.sizeY))
+		check(
+			spec.name .. ": 세 축 모두 0 초과 MAX_PART_SIZE 이하",
+			spec.sizeX > 0 and spec.sizeX <= ArenaConfig.MAX_PART_SIZE
+				and spec.sizeY > 0 and spec.sizeY <= ArenaConfig.MAX_PART_SIZE
+				and spec.sizeZ > 0 and spec.sizeZ <= ArenaConfig.MAX_PART_SIZE,
+			string.format("(%s, %s, %s)", tostring(spec.sizeX), tostring(spec.sizeY), tostring(spec.sizeZ))
+		)
+		check(spec.name .. ": 크기 X == xMax - xMin", spec.sizeX == spec.xMax - spec.xMin)
+		check(spec.name .. ": 크기 Z == zMax - zMin", spec.sizeZ == spec.zMax - spec.zMin)
+		check(spec.name .. ": 중심 X == 범위 중앙", spec.centerX == (spec.xMin + spec.xMax) / 2)
+		check(spec.name .. ": 중심 Z == 범위 중앙", spec.centerZ == (spec.zMin + spec.zMax) / 2)
+	end
+end
+
+-- 9. 회귀 — 모든 층의 서 있을 자리가 바닥 위에 있다 -----------------------------------------
+--
+-- ⚠️ 이번 사고를 잡는 검사다. 바닥이 Baseplate(±1024)뿐이었을 때 6층에서 떨어졌다.
+-- 1층만 보면 멀쩡해 보인다 — 층 범위는 리터럴이 아니라 StageConfig에서 구한다.
+
+-- 점 (x, z)가 바닥 장 중 하나 안에 있는가 (경계 포함). 모든 장의 합 기준이다.
+local function onFloor(x: number, z: number): boolean
+	for _, spec in ipairs(floorSpecs) do
+		if x >= spec.xMin and x <= spec.xMax and z >= spec.zMin and z <= spec.zMax then
+			return true
+		end
+	end
+	return false
+end
+
+do
+	local stageCount = 0
+	local missing: { string } = {}
+	local stage = 1
+	while StageConfigForFloor.hasStage(stage) do
+		stageCount += 1
+
+		local centerX = ArenaConfig.getStageCenterX(stage)
+		if not onFloor(centerX, 0) then
+			table.insert(missing, string.format("%d층 블록 중심 x=%.1f z=0", stage, centerX))
+		end
+
+		local padX = ArenaConfig.getCashoutX(stage)
+		local padZMin = ArenaConfig.CASHOUT_LATERAL_OFFSET - CashoutPadSize.Z / 2
+		local padZMax = ArenaConfig.CASHOUT_LATERAL_OFFSET + CashoutPadSize.Z / 2
+		for _, z in ipairs({ padZMin, ArenaConfig.CASHOUT_LATERAL_OFFSET, padZMax }) do
+			if not onFloor(padX, z) then
+				table.insert(missing, string.format("%d층 수령 발판 x=%.1f z=%.1f", stage, padX, z))
+			end
+		end
+
+		local wallX, _, wallZ = ArenaConfig.getAdvanceWallCenter(stage)
+		if not onFloor(wallX, wallZ) then
+			table.insert(missing, string.format("%d층 진행 벽 x=%.1f z=%.1f", stage, wallX, wallZ))
+		end
+
+		stage += 1
+	end
+
+	check("회귀: 검사한 층 수 == 마지막 층", stageCount == LAST_STAGE and stageCount >= 1, string.format("검사=%d 마지막=%d", stageCount, LAST_STAGE))
+	check(
+		"회귀: 전 층의 블록 중심·수령 발판·진행 벽이 바닥 위",
+		#missing == 0,
+		#missing > 0 and table.concat(missing, " / ") or nil
+	)
+end
+
+do
+	check("회귀: SPAWN_X가 바닥 위", onFloor(ArenaConfig.SPAWN_X, 0), string.format("x=%.1f z=0", ArenaConfig.SPAWN_X))
+	check("회귀: 챌린지 입구 X가 바닥 위", onFloor(ArenaConfig.getEntranceX(), 0), string.format("x=%.1f z=0", ArenaConfig.getEntranceX()))
+
+	-- 클릭 파워 패드 전부. 정의된 월드마다 패드 세트를 펼쳐 축 방향 양 끝을 본다.
+	local missing: { string } = {}
+	local padCount = 0
+	local halfX = PadLayout.PAD_SIZE.X / 2
+	local worldId = 1
+	while WorldConfig.get(worldId) ~= nil do
+		local world = WorldConfig.get(worldId) :: any
+		local positions = PadLayout.computeLayout(world.clickPadSet.count)
+		for i, pos in ipairs(positions) do
+			padCount += 1
+			for _, x in ipairs({ pos.X - halfX, pos.X + halfX }) do
+				if not onFloor(x, pos.Z) then
+					table.insert(missing, string.format("월드 %d 패드 %d x=%.1f z=%.1f", worldId, i, x, pos.Z))
+				end
+			end
+		end
+		worldId += 1
+	end
+	check("회귀: 클릭 파워 패드가 하나 이상 검사됐다", padCount > 0, tostring(padCount))
+	check("회귀: 클릭 파워 패드 전부의 X 범위가 바닥 위", #missing == 0, #missing > 0 and table.concat(missing, " / ") or nil)
+end
+
 print(string.format("[ArenaServiceTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[ArenaServiceTests] %d test(s) failed", failed))
