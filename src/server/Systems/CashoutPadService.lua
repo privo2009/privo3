@@ -138,20 +138,31 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	states[player] = nil
 end)
 
--- deps로 cashout을 주입받는다. 테스트가 진짜 ChallengeService 없이 호출 순서와
--- 횟수를 잴 수 있게 하기 위한 이음매다 (RebirthService/WarpService와 같은 패턴).
+-- deps로 cashout·getRunState를 주입받는다. 테스트가 진짜 ChallengeService 없이 호출
+-- 순서와 횟수를 잴 수 있게 하기 위한 이음매다 (RebirthService/WarpService와 같은 패턴).
 export type Deps = {
+	getRunState: (Player) -> { stage: number }?,
 	cashout: (Player, string?) -> (boolean, any),
 	now: () -> number,
 }
 
 local defaultDeps: Deps = {
+	getRunState = ChallengeService.getRunState :: any,
 	cashout = ChallengeService.cashout,
 	now = os.clock, -- 챌린지 타이머와 같은 시계 (CLAUDE.md 절대 규칙 3)
 }
 
--- 밟힘 처리. 디바운스를 통과하면 cashout을 부른다.
+-- 밟힘 처리.
+--   1. 플레이어 단위 디바운스
+--   2. 런이 있는데 그 층이 이 발판의 층이 아니면 아무것도 안 한다 (로그 없음)
+--      — 발판은 전원 공용이라, 스폰 쪽으로 되돌아가다 지난 층 발판을 밟으면 지금 층
+--        보상으로 수령되는 길이 된다. 진행 벽 트리거의 층 대조와 같은 규칙이다
+--        (AdvanceWallService.handleTouch)
+--   3. cashout. 런이 없을 때도 부른다 — 실패 사유(런 없음 / 미클리어 / 지급 거부)는
+--      전부 cashout이 로깅한다. 여기서 미리 걸러 warn을 만들면 같은 사실이 두 곳에서 찍힌다
 --
+-- ⚠️ 층 대조는 판정이 아니다. 클리어 여부·보상액은 여전히 cashout이 런 상태로 정한다 —
+-- 여기서 읽는 것은 "이 발판이 이 플레이어의 지금 층 것인가" 하나뿐이다.
 -- ⚠️ 이 함수 안에 yield가 없다. 있으면 같은 프레임의 두 접촉이 둘 다 "런이 살아
 -- 있음"을 보고 지나가는 창이 생긴다 — 그 창이 곧 이중 지급이다.
 local function handleTouch(deps: Deps, player: Player, stage: number)
@@ -163,8 +174,11 @@ local function handleTouch(deps: Deps, player: Player, stage: number)
 		return
 	end
 
-	-- 실패 사유(런 없음 / 미클리어 / 지급 거부)는 전부 cashout이 로깅한다.
-	-- 여기서 미리 걸러 warn을 만들면 같은 사실이 두 곳에서 찍힌다.
+	local run = deps.getRunState(player)
+	if run ~= nil and run.stage ~= stage then
+		return
+	end
+
 	deps.cashout(player, "cashout_pad_stage_" .. tostring(stage))
 end
 

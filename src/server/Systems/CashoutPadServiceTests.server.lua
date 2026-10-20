@@ -52,11 +52,12 @@ local checkClose = TestHelpers.checkClose
 -- 하네스만으로 충분하다. 테스트가 만든 states 항목은 가짜 플레이어라
 -- PlayerRemoving이 걷어가지 않고 Play 세션 동안 남는다 — 케이스 수만큼이라 무시 가능하다.
 local nextPlayerId = 0
-local function newWorld(cleared: boolean)
+-- runStage는 런이 서 있는 층이다. 생략하면 1 — 기존 케이스는 1층 발판을 1층 런에서 밟는다.
+local function newWorld(cleared: boolean, runStage: number?)
 	nextPlayerId += 1
 
 	local w = {
-		run = { cleared = cleared } :: any,
+		run = { cleared = cleared, stage = runStage or 1 } :: any,
 		cashoutCalls = 0,
 		sources = {} :: { string },
 		clock = 100.0,
@@ -65,6 +66,9 @@ local function newWorld(cleared: boolean)
 	}
 
 	local deps = {
+		getRunState = function(_player: Player): any
+			return w.run
+		end,
 		cashout = function(_player: Player, source: string?): (boolean, any)
 			w.cashoutCalls += 1
 			table.insert(w.sources, source or "nil")
@@ -242,7 +246,7 @@ end
 -- (CLAUDE.md 절대 규칙 2 — 누수 추적을 한 지점으로 좁힌다).
 
 do
-	local w, deps = newWorld(true)
+	local w, deps = newWorld(true, 7)
 	CashoutPadService._handleTouch(deps, w.player, 7)
 
 	check("source가 비어 있지 않다", #w.sources == 1 and #w.sources[1] > 0, w.sources[1] or "없음")
@@ -253,7 +257,41 @@ do
 	)
 end
 
--- 6. 세울 발판 목록 ------------------------------------------------------------------------
+-- 6. 층 대조 — 밟은 발판의 층이 런의 층과 다르면 cashout을 부르지 않는다 ------------------
+--
+-- 2층 런에서 스폰 쪽으로 되돌아가 1층 발판을 밟는 상황이다. 지금 층 보상으로
+-- 수령되면 안 된다 (진행 벽 트리거의 층 대조와 같은 규칙).
+
+do
+	local w, deps = newWorld(true, 2)
+
+	CashoutPadService._handleTouch(deps, w.player, 1)
+	check("층 불일치(런 2, 발판 1): cashout 0회", w.cashoutCalls == 0, tostring(w.cashoutCalls))
+	check("층 불일치: 런이 그대로 남는다", w.run ~= nil and w.run.stage == 2)
+
+	-- 같은 플레이어가 창 밖에서 자기 층 발판을 밟으면 정상 수령된다.
+	w.clock += pure.TOUCH_DEBOUNCE_SEC + 0.01
+	CashoutPadService._handleTouch(deps, w.player, 2)
+	check("층 일치(런 2, 발판 2): cashout 1회", w.cashoutCalls == 1, tostring(w.cashoutCalls))
+	check("층 일치: 수령으로 런이 끝났다", w.run == nil)
+end
+
+do
+	-- 위층 발판도 같다. 런 1층에서 아직 열리지 않은 앞쪽 발판에 닿는 경우.
+	local w, deps = newWorld(true, 1)
+	CashoutPadService._handleTouch(deps, w.player, 3)
+	check("층 불일치(런 1, 발판 3): cashout 0회", w.cashoutCalls == 0, tostring(w.cashoutCalls))
+end
+
+do
+	-- 런이 없을 때는 지금처럼 cashout을 부른다 — "활성 런 없음" 로그는 cashout이 찍는다.
+	local w, deps = newWorld(true)
+	w.run = nil
+	CashoutPadService._handleTouch(deps, w.player, 4)
+	check("런 없음: 층과 무관하게 cashout은 불린다 (기존 동작)", w.cashoutCalls == 1, tostring(w.cashoutCalls))
+end
+
+-- 7. 세울 발판 목록 ------------------------------------------------------------------------
 
 do
 	local stages = pure.stagesToBuild(5)
