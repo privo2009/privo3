@@ -379,7 +379,7 @@ check("ArenaConfig: 스테이지 폭을 흔들면 주기·발판·벽이 전부 
 end)
 
 check("ArenaConfig: 스테이지 N의 입구 X가 중심을 따라 움직인다", function()
-	-- 검증 스크립트(Bootstrap ADVANCE_VERIFY_ENABLED)가 캐릭터를 세우는 자리다.
+	-- 검증 스크립트(Bootstrap moveToStageEntrance)가 캐릭터를 세우는 자리다.
 	-- 층마다 "중심 - 폭/2"여야 하고, 그 상대 위치가 같아야 dist가 층과 무관하게 80으로
 	-- 재현된다. 어긋나면 스테이지 2에서만 out_of_range가 뜨고 원인이 안 보인다.
 	local stageEdge = ArenaConfig.STAGE_WIDTH / 2
