@@ -83,7 +83,7 @@ print(
 -- 위치: 이 파일 맨 끝, 위 register+open 호출 *뒤*. 아직 열리지도 않은 화면을
 -- 관측하려 든다는 오해를 피하려고 앞이 아니라 여기 둔다.
 -- Studio에서 켜고 끄는 값이 아니다. 코드에서 고치고 Rojo sync 해야 반영된다
--- (Bootstrap의 DRONE_VERIFY_ENABLED와 같은 패턴).
+-- (Bootstrap의 REBIRTH_VERIFY_ENABLED와 같은 패턴).
 --
 -- 왜 필요한가: HUD 표시 상태에서 육안으로 3건이 깨져 있다(docs/PENDING.md "HUD
 -- 표시 상태에서 육안으로 3건이 보였다" 참고) — 좌측 레일 라벨이 타일에 겹치고,
