@@ -113,6 +113,8 @@ Scale은 X가 화면 너비, Y가 화면 높이 기준이라 화면비가 바뀌
 스폰            X = -400
 패드 1~24       X = -380 ~ -104, 간격 12            8 × 1 × 8
 챌린지 입구      X = -80
+입장 게이트      챌린지 입구 위, 진행 벽과 같은 모양(깊이 8 × 높이·폭 파생). 보이지 않는다
+                지나면 1층 런 시작 (원본 ArenaConfig.getEntranceGateCenter / Size)
 
 경계(스폰)      X -420~-60,  Z ±120,  높이 50
 경계(챌린지)    X -80 ~ (주기 × 스테이지수),  Z ±100,  높이 50
@@ -172,6 +174,7 @@ Scale은 X가 화면 너비, Y가 화면 높이 기준이라 화면비가 바뀌
 아레나 경계 (물리)  배치 완료
 진행 벽            배치 완료   (2026-10-20 Play — 걸어서 통과하면 다음 층, 1→8층 확인)
 아레나 바닥         배치 완료   (2026-10-20 Play — 먼 층에서도 바닥 위)
+입장 게이트         배치 완료   (2026-10-21 Play — 걸어서 지나면 런이 선다)
 ```
 
 진행 벽은 블록과 같이 클라가 그리고, 판정은 보이지 않는 서버 트리거가 따로 한다
@@ -180,6 +183,8 @@ Scale은 X가 화면 너비, Y가 화면 높이 기준이라 화면비가 바뀌
 플레이스 파일에 있던 `Baseplate`, 원점의 `SpawnLocation`, `_OldBlocks`는 **지웠다**
 (2026-10-21). Baseplate는 새 바닥과 높이가 같아 겹쳐 깜빡였고, 원점 SpawnLocation은
 리스폰을 1층 한가운데로 보낼 수 있었다. 스폰 지점은 코드가 세우는 `ArenaSpawnLocation` 하나다.
+
+입장 게이트는 **보이지 않는 서버 트리거라 디자인 담당 에셋이 필요 없다.** 시각 표시는 U4(3D 안내)에서 따로 정한다.
 
 ⚠️ 진행 벽을 직접 만들어 바꿀 때 **폭과 높이는 고르는 값이 아니다** (`docs/UI_ASSET_SPEC.md` "5-1").
 
@@ -196,6 +201,8 @@ Scale은 X가 화면 너비, Y가 화면 높이 기준이라 화면비가 바뀌
 > - 수령 발판 크기(`ArenaConfig.CASHOUT_PAD_SIZE`)가 Config에 있는 이유는
 >   `LevelConfig`가 진행 방향 깊이를 읽어 이동속도 상한을 유도하기 때문이다.
 >   깊이를 8 아래로 내리면 상한이 따라 내려간다 (아래 "5-1" 참고).
+> - 입장 게이트는 `EntranceGateService`(서버, 투명·충돌 X·CanQuery X·Touched)가 세우는 파트 하나다.
+>   런이 없을 때만 `ChallengeService.startRun(player, 1)`을 부른다.
 > - 진행 벽은 두 파트다 — 판정 트리거 `AdvanceWallService`(서버, 투명·충돌 X·Touched)와
 >   보이고 막는 벽 `AdvanceWallRenderer`(클라, 모습은 `AdvanceWallView`가 계산).
 >   위치는 둘 다 `ArenaConfig.getAdvanceWallCenter`. 진행 벽 깊이도 `LevelConfig`

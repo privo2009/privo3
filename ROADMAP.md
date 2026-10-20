@@ -56,11 +56,13 @@
 | `Tests/ShopSlotsTests.client.lua` | 34 | 상점 4구좌 배치·ShopConfig 원본 참조 |
 | `Tests/AutoToolsTests.client.lua` | 28 | 자동 도구 아이콘 배치 |
 | `Systems/ArenaServiceTests.server.lua` | 119 | 스폰 좌표·경계 높이·스테이지 수에 따른 경계 확장·출입구 개방·어깨 벽·바닥 파생과 파트 상한 분할(층 수 흔들기)·전 층 바닥 위 |
-| `Systems/CashoutPadServiceTests.server.lua` | 40 | 발판 좌표·측면 오프셋·디바운스·런당 1회·플레이어별 격리·source 경로 |
+| `Systems/CashoutPadServiceTests.server.lua` | 46 | 발판 좌표·측면 오프셋·디바운스·런당 1회·플레이어별 격리·source 경로·층 불일치 무시 |
 | `Tests/AdvanceWallViewTests.server.lua` | 97 | 런 상태 → 벽 모습(숨김·닫힘·열림)·크기 파생·층별 위치·잘못된 stage·LevelConfig 깊이 소스 등록 |
 | `Tests/AdvanceWallServiceTests.server.lua` | 26 | 트리거 스펙(최종층 없음·중심·크기)·층 대조·런 없음·디바운스 창·플레이어 격리 |
 | `Tests/AdvanceWallRendererTests.client.lua` | 62 | 상태별 충돌·투명·색(닫힘·열림·최종층·숨김)·create 계약(Anchored·CanTouch=false) |
-| **합계** | **2172** | |
+| `Tests/EntranceGateServiceTests.server.lua` | 25 | 런 없음→1층 startRun·런 있음 무동작·서 있기 반복·디바운스 공유·플레이어 격리·스펙 파생(지면·블록 바깥면 앞) |
+| `Tests/RunDeathServiceTests.server.lua` | 9 | 런 있음 abandon 1회·런 없음 0회·같은 죽음 두 번 차단·리스폰 뒤 새 죽음 |
+| **합계** | **2212** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53, 실측 66), `WarpServiceTests`는
@@ -87,7 +89,17 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-10-21 Studio Play 런타임 실측 (전량).** 42개 행 전부가 한 Play에
+최근 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 런 생명주기 4단계 뒤).** 44개 행 전부가
+한 Play에 찍혔다. **2212 passed / 0 failed** — 서버 1384 + 클라 828.
+
+```
+갱신   CashoutPadServiceTests   40  → 46    층 불일치 무시 (dbd7411)
+신설   EntranceGateServiceTests 25          RunDeathServiceTests      9
+       (5af8110 · 70c9865)
+유지   나머지 41행 (RebirthServiceTests 66은 검사 1건 교체라 개수 같음)
+```
+
+직전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 3c 뒤).** 42개 행 전부가 한 Play에
 찍혔다(LogService 필터 읽기 — CLAUDE.md 절대 규칙 8). **2172 passed / 0 failed** — 서버 1344 + 클라 828.
 
 ```
@@ -97,7 +109,7 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 유지   나머지 38행
 ```
 
-직전 갱신: **2026-09-06 Studio Play 런타임 실측 (전량).** 39개 행 전부가 한 Play에
+그 전 갱신: **2026-09-06 Studio Play 런타임 실측 (전량).** 39개 행 전부가 한 Play에
 찍혔다. **1899 passed / 0 failed** — 서버 1133 + 클라 766.
 
 ```
@@ -399,8 +411,9 @@ maxStage    환생 시 리셋. 드론 전용. 워프는 참조하지 않음
 착수 순서대로. 앞이 뒤의 선행 조건이다.
 
 ```
-a  진입점 배선          ◐  서비스 쪽만. 3D 파트 배선 미착수
+a  진입점 배선          ✅  2026-10-20 진행 벽(3c)으로 완료
 a2 블록 렌더링 클라 이관 ✅
+a3 입장 게이트 + 런 생명주기 ✅  2026-10-21 Play 검증 (아래 4-2-a3)
 b  클릭 파워 패드        ✅
 c  레벨 + 커스텀 스피드  ✅
 d  RebirthService       ✅  2026-08-27 Play 검증 (잔여 1건 — 아래 참조)
@@ -409,11 +422,10 @@ e2 근접 자동 공격        ✅  2026-08-28 Play 검증 (747 passed / 0 faile
 f  실측 튜닝            ✗  미착수 ← 다음. **선행 조건 해소됨**
 ```
 
-⚠️ `a`가 ◐인 이유: `cashout()` · `advance()`는 완성됐지만 그것을 **부르는 3D 파트가
-없다.** `Touched → cashout/advance` 연결이 코드 어디에도 없고, `PadService`의 `Touched`는
-클릭 파워 패드 전용이다. 수령 발판·진행 벽 파트는 디자인 담당 에셋 대기 중이다
-(→ `docs/UI_ASSET_SPEC.md` "5-1. 수령 발판 · 진행 벽 — 최소 깊이").
-d·e의 "진입점 없음"과 같은 상태이며, 셋 다 Phase 6 UI 또는 파트 작업에서 함께 붙는다.
+✅ `a`는 더 이상 ◐가 아니다. 수령 발판(3b)·진행 벽(3c) 파트가 `cashout()`·`advance()`를
+부르고, 입장 게이트(a3)가 `startRun()`을 부른다. 파트는 지금 코드가 세우는 임시 모양이고
+디자인 담당 에셋으로 교체할 수 있다(→ `docs/UI_ASSET_SPEC.md` "5-1"). d·e(환생·워프)의
+진입점은 여전히 Phase 6 UI 몫이다.
 
 각 항목의 **[착수 전 확정]** 은 설계가 덜 끝난 부분이다. 지금은 근거가 없어
 정할 수 없고, 해당 모듈 구현 직전에 정한다. 미리 찍어두면 근거 없는 수치가
@@ -429,7 +441,7 @@ d·e의 "진입점 없음"과 같은 상태이며, 셋 다 Phase 6 UI 또는 파
 ✅ 3a 스폰·경계     SpawnLocation + 경계 벽 + 어깨 벽
 ✅ 3b 수령 발판     밟으면 지급된다 — 로그 실측
                     reason=challenge_cashout_cashout_pad_stage_1, 한 줄만(디바운스 동작)
-✅ 3d 스폰 복귀     수령·실패·환생 셋이 ChallengeService.endRun 하나를 지난다
+✅ 3d 스폰 복귀     수령·실패·포기(환생·런 중 사망)가 ChallengeService.endRun 하나를 지난다
                     수령 뒤 dist=399.4 관측
 ✅ 3c 진행 벽       걸어서 통과하면 advance — 2026-10-20 Play, 1→8층 층마다 1회·거부 0줄
                     클라 렌더 벽(막기·표시) + 서버 트리거(판정 신호) 두 파트
@@ -440,7 +452,7 @@ d·e의 "진입점 없음"과 같은 상태이며, 셋 다 Phase 6 UI 또는 파
 `LevelConfig` 깊이 소스) → `d6fd191`(`AdvanceWallService` 트리거 · `AdvanceWallRenderer` ·
 벽 중심 좌표 계약) → `b5f7e18`(바닥 분할) → `5bebdf2`(`ADVANCE_VERIFY_ENABLED` 잔재 제거 —
 벽이 진입점을 대신한다). 구조와 근거는 `DESIGN.md` "1. 챌린지 > 진행 벽".
-⚠️ 닫힌 벽에 실제로 막히는 장면과 최종층 벽은 **아직 관측하지 못했다** (→ `docs/PENDING.md` 미결).
+✅ 닫힌 벽 막힘은 2026-10-21 환생 직후 Play에서 관측했다(→ `docs/PENDING.md` 해소 기록). ⚠️ 최종층 벽은 **아직 관측하지 못했다** (→ `docs/PENDING.md` 미결).
 
 ✅ **선행 조건이던 4-2-a2b가 끝났다** (2026-09-05). 블록이 스테이지 중심으로 가고
 서버 거리 판정도 같은 자리를 기준으로 잰다 — "통과하면 다음 블록이 정면에 있다"가
@@ -582,6 +594,26 @@ stage는 플레이어별 값이 아니라 런 상태값이므로 그 경고와 �
 번호를 a2 뒤에 붙인 이유: 같은 "블록이 어디에 서는가" 문제의 연장이고,
 4-2-a의 남은 조각(3c 진행 벽)이 이것을 기다렸다 (3c 완료 → 4-2-a 절).
 
+#### 4-2-a3. 입장 게이트 + 런 생명주기 ✅ 완료
+
+**2026-10-21 Play 검증.** 런이 언제 서고 언제 끝나는가를 유저 행동에 묶었다.
+규칙과 근거는 `DESIGN.md` "1. 챌린지 > 런 시작".
+
+```
+✅ 입장 게이트      지나는 순간 1층 런 (EntranceGateService)      5af8110
+                    걸어서 통과: start timeLeft 20.0 → 1층 클리어 때 19.8
+✅ 환생 런 미시작   RebirthService 9단계(startRun) 삭제            70c9865
+✅ 사망 = 포기      Humanoid.Died → abandonRun (RunDeathService)   70c9865
+                    Esc 리셋: abandon 통지 1회 · 스폰 리스폰
+✅ 발판 층 일치     밟은 발판 층 ≠ 런 층이면 무시                  dbd7411
+                    2층 런에서 1층 발판 위: cashout 0 / 2층 발판: 1회
+✅ 잔재 제거        DRONE_VERIFY_ENABLED · KEEP_RUN_ALIVE           5195114
+```
+
+`Bootstrap` `VERIFY_CHALLENGE`는 이제 `startRun`을 직접 부르지 않는다 — 캐릭터를 게이트
+앞에 세우고 서버 `Humanoid:MoveTo`로 지나가게 한 뒤 게이트가 세운 런을 기다린다.
+그래서 매 Play가 게이트를 저절로 검증한다(로그 "게이트가 런을 세움 = true").
+
 #### 4-2-b. 클릭 파워 패드 ✅ 완료
 
 힘 성장의 주 수단. 이것이 없으면 `RebirthService` 검증이 불가능하다.
@@ -645,6 +677,11 @@ schemaVersion을 올릴 일이 없다 (→ `DESIGN.md` "커스텀 스피드").
 Prompt 1(순수 계층) · Prompt 2(RebirthService 본체) · Prompt 3(Bootstrap 배선).
 
 검증 근거: **REBIRTH_VERIFY 1회 점등 — WalkSpeed 36.0 → 16.0, max와 일치. 배선 정상.**
+
+⚠️ **2026-10-21 정정 — 환생은 런을 세우지 않는다.** 원래 마지막 단계(9)가 1층 런을
+세웠으나 지웠다(`70c9865`). 환생은 진행 중 런을 버리고(3단계 → 스폰 복귀) 속도를
+재적용하는 데서 끝나고, 다음 런은 입장 게이트가 세운다(4-2-a3). 같은 날 개발 계정
+실제 환생 1회로 확인: 환생 뒤 런 시작 줄 0, WalkSpeed 36.0 → 16.0.
 
 진입점(3D 파트 · Remote)은 아직 없다. 환생을 부르는 경로는 Bootstrap의
 `REBIRTH_VERIFY_ENABLED` 블록 하나뿐이고, 진입점은 Phase 6 UI 또는 별도 파트
@@ -936,8 +973,9 @@ d153228  AttackConfig 순수 계층 + BlockLayout.OUTER_RADIUS 노출
 통째로 틀어진다. `AttackServiceTests`가 이 회귀를 잡는다 — 그 케이스를 지우지 말 것.
 
 **`HUGE_DAMAGE` 제거.** 선언·사용 각 1곳뿐이었고 둘 다 없앴다.
-`VERIFY_CHALLENGE`는 런을 세우고 블록 개수를 찍은 뒤 3초 기다렸다가 클리어 여부를 본다.
-통째로 끄지 않은 이유는 `startRun`·`getSnapshot`·`cashout` 검증이 관측 밖으로 나가기
+`VERIFY_CHALLENGE`는 런을 세우고(2026-10-21부터는 입장 게이트가 세운다) 블록 개수를 찍은 뒤
+3초 기다렸다가 클리어 여부를 본다.
+통째로 끄지 않은 이유는 런 진입·`getSnapshot`·`cashout` 검증이 관측 밖으로 나가기
 때문이고, 그대로 두지 않은 이유는 한 프레임에 전 블록이 사라져 새 공격 경로가 도는지
 보이지 않기 때문이다. ⚠️ 캐릭터가 반경 밖이면 **클리어 실패로 빠지는 것이 정상이다.**
 
