@@ -51,18 +51,18 @@
 | `Tests/ChallengeInfoTests.client.lua` | 17 | 상단 정보 15% 안·타이머 특대 단계·active=false 레이아웃 유지 |
 | `Tests/MenuRailTests.client.lua` | 59 | 6개 생성·좌측 레일 폭·세로 합계·BloxDisplay 비침범·AspectRatio·라벨 2~4자·격자 열 수 구성값 ※ |
 | `Tests/HudVisibilityTests.client.lua` | 31 | PlayerGui 부착·Visible·Enabled·AbsoluteSize·10프레임 지속 관찰 ※ |
-| `Tests/HudLayoutTests.client.lua` | 381 | 뷰포트 게이트 뒤 실물 HudGui — 크기 0·인셋/뷰포트 경계 침범·형제 겹침·MenuRail 격자 배치(AbsolutePosition) ※ |
+| `Tests/HudLayoutTests.client.lua` | 407 | 뷰포트 게이트 뒤 실물 HudGui — 크기 0·인셋/뷰포트 경계 침범·형제 겹침·MenuRail 격자 배치(AbsolutePosition)·칸 안 자식·컴포넌트 간 겹침 ※ |
 | `Tests/PowerBlockTests.client.lua` | 49 | 세 행 Y 범위·하단 띠·8자/4자 규격·진행률 경계·Store 구독 반영·다른 인스턴스 미유출 |
 | `Tests/ShopSlotsTests.client.lua` | 34 | 상점 4구좌 배치·ShopConfig 원본 참조 |
 | `Tests/AutoToolsTests.client.lua` | 28 | 자동 도구 아이콘 배치 |
 | `Systems/ArenaServiceTests.server.lua` | 119 | 스폰 좌표·경계 높이·스테이지 수에 따른 경계 확장·출입구 개방·어깨 벽·바닥 파생과 파트 상한 분할(층 수 흔들기)·전 층 바닥 위 |
-| `Systems/CashoutPadServiceTests.server.lua` | 46 | 발판 좌표·측면 오프셋·디바운스·런당 1회·플레이어별 격리·source 경로·층 불일치 무시 |
+| `Systems/CashoutPadServiceTests.server.lua` | 47 | 발판 좌표·측면 오프셋·디바운스·런당 1회·플레이어별 격리·source 경로·층 불일치 무시·UiTheme 색 |
 | `Tests/AdvanceWallViewTests.server.lua` | 97 | 런 상태 → 벽 모습(숨김·닫힘·열림)·크기 파생·층별 위치·잘못된 stage·LevelConfig 깊이 소스 등록 |
 | `Tests/AdvanceWallServiceTests.server.lua` | 26 | 트리거 스펙(최종층 없음·중심·크기)·층 대조·런 없음·디바운스 창·플레이어 격리 |
 | `Tests/AdvanceWallRendererTests.client.lua` | 62 | 상태별 충돌·투명·색(닫힘·열림·최종층·숨김)·create 계약(Anchored·CanTouch=false) |
 | `Tests/EntranceGateServiceTests.server.lua` | 25 | 런 없음→1층 startRun·런 있음 무동작·서 있기 반복·디바운스 공유·플레이어 격리·스펙 파생(지면·블록 바깥면 앞) |
 | `Tests/RunDeathServiceTests.server.lua` | 9 | 런 있음 abandon 1회·런 없음 0회·같은 죽음 두 번 차단·리스폰 뒤 새 죽음 |
-| **합계** | **2212** | |
+| **합계** | **2239** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53, 실측 66), `WarpServiceTests`는
@@ -89,7 +89,16 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 런 생명주기 4단계 뒤).** 44개 행 전부가
+최근 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, U3-10b 뒤).** 44개 행 전부가 한 Play에
+찍혔다. **2239 passed / 0 failed** — 서버 1385 + 클라 854.
+
+```
+갱신   CashoutPadServiceTests   46  → 47    UiTheme 색 (ef50c2b)
+       HudLayoutTests          381  → 407   검사 7·8 (fa026b1)
+유지   나머지 42행
+```
+
+직전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 런 생명주기 4단계 뒤).** 44개 행 전부가
 한 Play에 찍혔다. **2212 passed / 0 failed** — 서버 1384 + 클라 828.
 
 ```
@@ -99,7 +108,7 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 유지   나머지 41행 (RebirthServiceTests 66은 검사 1건 교체라 개수 같음)
 ```
 
-직전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 3c 뒤).** 42개 행 전부가 한 Play에
+그 전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 3c 뒤).** 42개 행 전부가 한 Play에
 찍혔다(LogService 필터 읽기 — CLAUDE.md 절대 규칙 8). **2172 passed / 0 failed** — 서버 1344 + 클라 828.
 
 ```
@@ -109,7 +118,7 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 유지   나머지 38행
 ```
 
-그 전 갱신: **2026-09-06 Studio Play 런타임 실측 (전량).** 39개 행 전부가 한 Play에
+그 이전 갱신: **2026-09-06 Studio Play 런타임 실측 (전량).** 39개 행 전부가 한 Play에
 찍혔다. **1899 passed / 0 failed** — 서버 1133 + 클라 766.
 
 ```
@@ -768,12 +777,9 @@ timeLeft 동결       처음 관측됐다. 20.0이 아니라 17.9 / 19.9 / 19.8
 cashout             증가분 = 보상액 일치, 런 종료 확인
 ```
 
-⚠️ **아직 관측되지 않은 것 — `result=out_of_range`를 실물에서 보지 못했다.**
-테스트로는 덮여 있으나 Play에서 캐릭터를 반경 밖으로 걸어나가게 한 적이 없다.
-**거리 폴링을 택한 근거 자체**이므로 한 번은 실물 확인이 필요하다 —
-반경이 아레나를 덮어버리면 "이름만 거리 폴링인 상시 발동"이 되고, 그것을 가르는 것은
-이 로그 한 줄뿐이다. Phase 6 UI 진입 시 또는 다음 Play 기회에 확인한다
-(→ `docs/PENDING.md`).
+✅ **`result=out_of_range` 실물 관측됨** (2026-09-04, 2026-10-21 재관측 — 반경 밖 ↔ 안 전이).
+**거리 폴링을 택한 근거 자체**라 남겨 둔다 — 반경이 아레나를 덮어버리면 "이름만 거리 폴링인
+상시 발동"이 되고, 그것을 가르는 것은 이 로그 한 줄뿐이다 (상태 원본 → `docs/PENDING.md`).
 
 ⚠️ **이 작업은 지금까지 어느 Phase에도 배정된 적이 없다.**
 4-2-b가 펀치 속도 수치만 **[확정됨]** 으로 정하고 구현 절을 만들지 않았고,

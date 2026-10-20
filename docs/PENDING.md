@@ -109,8 +109,8 @@ Roblox Studio 및 Assistant 플러그인
 ### 그 밖의 재개 대상
 
 ```
-U3-5~U3-7 Play 검증   순서표가 이 문서 "다음 Play 검증 순서 (U3-8)"에 있다
-U3-10b 우하단 겹침    배치와 검사를 함께 고쳐야 한다
+U3-5~U3-7 Play 검증   ✅ 2026-10-21 (결과는 "다음 Play 검증 순서 (U3-8)" 절 첫머리). 남은 것: 9번 모바일, 11번 판단
+U3-10b 우하단 겹침    ✅ 2026-10-21 fa026b1 (해소 기록)
 지환 G2               panel_frame.png + texture_lego.png 2장 대기. 별도 세션
 ```
 
@@ -206,11 +206,9 @@ ModuleScript **67개 중 아무도 require하지 않는 고아는
   발판은 지금 상태와 무관하게 항상 노랑이다(진행 벽만 상태별 색). 미클리어에 밟으면 cashout이
   거부되는 판정은 있다 — 없는 것은 보이는 차이다. 벽처럼 클라 렌더로 상태를 줄지 정해야 한다.
 
-- **`CashoutPadService`에 발판 색 hex가 하드코딩돼 있다.** — 2026-10-21.
-  `PAD_COLOR = Color3.fromHex(...)`. 진행 벽은 `UiTheme` 역할 키(`AdvanceWallView.colorRole`)로
-  색을 받는데 발판만 hex 사본이다. `UiTheme`으로 옮길 것 — 두 벌이면 한쪽만 고쳐진다.
-
-- **U3 진행 상태 (2026-09-03, U3-7까지 갱신).** HUD 7개 항목(화면 모듈 6개 —
+- **U3 진행 상태 (2026-09-03, U3-7까지 갱신).** ✅ **2026-10-21 Play 검증됨** — 결과는 아래
+  "다음 Play 검증 순서 (U3-8)" 절 첫머리. 아래 본문은 검증 전 기록이다(목록·롤백 절차 참고용).
+  HUD 7개 항목(화면 모듈 6개 —
   자동 클리커 토글·자동 진행 버튼은 `AutoTools` 하나로 합쳤다)이 전부 코드로
   붙었다. 3종(블럭스 · 챌린지 정보 · 메뉴 레일)은 실측·게이트·인셋·격자까지
   `HudLayoutTests`로 검증 완료(위 해소 기록 참고). 나머지 3종(PowerBlock ·
@@ -501,6 +499,10 @@ ModuleScript **67개 중 아무도 require하지 않는 고아는
   ⚠️ 이 항목을 안 남기면 "2열로 바꿨는데 왜 안 커졌지"를 다음 세션에
   다시 묻는다.
 
+  **2026-10-21 실측 (판단 근거).** HUD 영역 1607×535에서 메뉴 레일 y 29~213(타일 42px,
+  칸 100×56, 2열 3행), 그 아래 하단 띠(y 401)까지 빈 세로 188px. 타일 크기는 `docs/UI.md`
+  "7. 아이콘 > 타일 규격" 변경이라 **사람(디자인 포함) 결정**이다 — 코드는 판단을 기다린다.
+
   **판단 시점 도래 (U3-6/U3-7, 2026-09-03).**
   ```
   배경   U3-4C의 2열 전환으로 가로 여유가 생겼으나 TILE_HEIGHT는 그대로다.
@@ -519,6 +521,30 @@ ModuleScript **67개 중 아무도 require하지 않는 고아는
 ---
 
 ## 다음 Play 검증 순서 (U3-8)
+
+✅ **2026-10-21 Play로 수행했다** (뷰포트 1607×593, HUD 영역 1607×535 — Studio 창 하나):
+
+```
+1  자동 테스트       ✅ 전 행 0 failed (ROADMAP "테스트 현황")
+2  maxStage 오염     ✅ 개발 계정 환생으로 리셋 (해소 기록)
+3  out_of_range      ✅ 반경 밖 dist=102.6·98.3 (out) ↔ 안 90.1 (in) 전이 (09-04에도 관측됨)
+4  드론 상한 절단    ✅ 2026-10-19 (해소 기록)
+5  PowerBlock        ✅ 하단 띠 안(y 418~506 / 띠 401~535), "999.00Qi" TextFits, 레벨 바
+                        BarBackground + Fill 두 층, 양끝 라벨 20·21 안 겹침, 속도 5678 · "/ 최대 9999"
+                        TextFits, 연필 아이콘 자리 있음
+6  ShopSlots         ✅ 2행 2열, 타일 42px = 7.85%(≈8%), 가격 라벨 4개 TextFits·타일 안,
+                        띠 윗변과 11px(2.06%) 여유
+7  AutoTools         ✅ 토글 아랫변 401 = 띠 경계(0.75) 바로 위, 칸 100×56 = MenuRail 칸과 같음,
+                        자동 진행 어두운 회색(잠김)
+8  우하단 미겹침     ❌ → ✅ 자동클릭 아이콘이 ShopSlots strengthTier1과 13×31px 겹침.
+                        원인은 칸 안 UIListLayout에 HitArea가 끼어 아이콘을 56px 밀어낸 것 —
+                        MenuRail 6칸도 같았다. fa026b1로 고침(롤백 대신 앞으로 고쳤다)
+9  모바일 구분       ⏸ 미관측 — MCP로 기기 해상도를 바꿀 수 없다
+10 밝기 순서         ✅ 잠김 6b6b6b(휘도 0.42) < 꺼짐 b0b0b0(0.69) < 켜짐 e8e8e8(0.91) + 노란 테두리
+11 메뉴 타일 크기    ⏸ 판단 항목 — 사람 결정 대기 (아래 "미결 > 메뉴 타일 크기")
+```
+
+스크린샷: 세션 로그 `HANDOFF/2026-10-21-session.md` (사라질 수 있는 기록이라 결론만 여기 둔다).
 
 U3-5~U3-7 코드 커밋 9개(위 "미결 > U3 진행 상태")가 전부 Play 미검증이다.
 확인할 것이 이 문서 여러 절에 흩어져 있고 선후 관계가 없었다 — 순서 없이
@@ -847,6 +873,9 @@ then ... end`)만 지운다.
 | 2026-09-02 | HUD 표시 상태 육안 3건 (좌상단 블럭스·좌측 레일 타일 6개·상단 타이머 안 보임 / "대기중" 잘림) | `b3eac79`(검사1: `AspectType=FitWithinMaxSize`에서 상자 역할을 하는 `Size.X`를 `0→1`로, `BloxDisplay`/`ChallengeInfo`/`MenuRail` 4곳) + `9701df9`(검사2: 세 `ScreenGui`의 `IgnoreGuiInset`을 `true→false`로) + `813daf3`(그 둘의 부작용으로 깨진 게이트·검사2 기준선을 `IgnoreGuiInset` 기준으로 재계산) — `HudLayoutTests` 최종 실측 **182 passed / 0 failed**. red→green 경과: 22 fail(첫 실측, U3-4A 전) → 9 fail(크기 해소, U3-4A) → 0 fail(인셋·기준선 해소, U3-4B). `AbsolutePosition`이 GUI 인셋을 포함하지 않는다는 함정은 위 "함정" 절에 별도 기록 |
 | 2026-09-03 | U3-1이 Play 미검증이다 (`ScreenController`/`Store`/`Panel`/`Button`/`ValuePanel`/`TextScale` + 테스트 6종) | U3-2(관측 리포트) → U3-3(`HudLayoutTests` 신설) → U3-4A(`b3eac79`, 크기 0 수정) → U3-4B(`9701df9` 인셋 + `813daf3` 게이트/기준선) → U3-4C(`151977d` MenuRail 2열 전환 + `c1b5d74` 격자 검증을 `HudLayoutTests`로 이전) 연쇄로 실물 검증이 끝났다. `ScreenController`/`Store`/`Panel`/`Button`/`ValuePanel`/`TextScale`은 이 체인이 실제로 렌더한 HUD 3종(BloxDisplay/ChallengeInfo/MenuRail)을 통해 검증됐다. 최종 실측(2026-09-03): `HudLayoutTests` **198 passed / 0 failed**, `MenuRailTests` **59 passed / 0 failed** |
 | 2026-09-06 | 4-2-a2b 블록 스테이지 이동이 Play 미검증 (`e2d5b4f` + `cdc44a6`) | 진행 벽(3c)이 없어 `advance`를 부를 실물 경로가 없었다. `Bootstrap`의 `ADVANCE_VERIFY_ENABLED`(`5f908fb` 플래그·스테이지 입구 일반화 + `dfee635` `[ATTACK]` dedupe 우회)가 벽을 대신했다. **실측: `[Bootstrap][ADVANCE] stage=1->2 x=120.0 result=ok` + `[Bootstrap][ATTACK] dist=80.1/92.8 (in)`.** 1층 입구에서 나온 dist가 2층 입구에서 그대로 재현됐다 = 렌더 원점과 판정 원점이 **둘 다** 옮겨졌다(한쪽만이면 `dist=280`이거나 블록이 안 보인다). ⚠️ 같은 Play에서 **테스트 6건이 fail**로 나왔다 — `AttackServiceTests` 66 passed / 3 failed, `BlockServiceTests` 48 passed / 3 failed. 여섯 건 전부 테스트 쪽 문제였고 판정 코드는 안 건드렸다(`733e060`). 갈래는 둘이다: (1) **낡은 계약** 1건 — "클러스터 원점은 (0,0,0)이다"는 a2b가 정면으로 뒤집은 것이고 실측 "400, 0, 0"이 3층 원점의 정답이었다. 지금의 계약(`pure.clusterOriginFor` == `getStageOrigin`)을 재도록 갈았다. (2) **오프셋 축의 float32 격자** 5건 — 아래 함정 절. ⚠️ **여섯 건 전부 스테이지 1(X=0)에서는 통과했다.** 4-2-a2b가 스스로 경고한 "1층만 보면 멀쩡해 보인다"가 게임이 아니라 **테스트에서** 실제로 일어난 사례다. ✅ **2026-09-06 Play에서 6건 전부 사라졌다** — `AttackServiceTests` **73** / `BlockServiceTests` **51**, 둘 다 0 failed. 위 66/48은 수정 **전** 실측이다. 그 Play가 39개 행 전량 실측이라 ROADMAP "테스트 현황"의 합계 줄도 이때 처음 실측(1899)으로 채워졌다 |
+| 2026-10-21 | `CashoutPadService`에 발판 색 hex 하드코딩 | `ef50c2b` — `UiTheme.Colors.cashout.base`로. 테스트 1건(색 일치). 실물 색 ffc61a 그대로 |
+| 2026-10-21 | U3-10b 우하단 겹침 (AutoTools 아이콘 ↔ ShopSlots) + 검사 3이 부모가 다른 쌍을 못 잡음 | `fa026b1` — 원인은 MenuRail·AutoTools 칸 안 UIListLayout에 HitArea가 끼어 타일·아이콘을 칸 높이(56px)만큼 민 것. 안쪽을 명시적 Position으로 바꿈(새 숫자 없음). HudLayoutTests 검사 7(칸 안 자식은 칸 안) · 검사 8(다른 컴포넌트끼리 화면 좌표 겹침) 신설 — 381 → 407. 메뉴 Shop·Settings 클릭이 각자 이름으로 open 시도 |
+| 2026-10-21 | U3-5~U3-7 코드 9커밋 Play 미검증 | U3-8 순서표 1~8·10번 수행 — 결과는 그 절 첫머리. 9번(모바일)·11번(판단)만 남음 |
 | 2026-10-21 | 환생 직후의 런은 반드시 시간 초과된다 (2026-09-04부터 미결) + 런 시작 규칙 미결정 | `5af8110` 입장 게이트(지나는 순간 1층 런) + `70c9865` 환생 9단계(startRun) 삭제 — 사람 결정(작업 지시서 #2 A·B). 걸어서 통과: start timeLeft 20.0 → 1층 클리어 때 19.8 (예전 실측 3.8). 개발 계정 환생 뒤 런 시작 줄 0 |
 | 2026-10-21 | 런 중 사망 시 런 동작 미정 | `70c9865` RunDeathService — Humanoid.Died → abandonRun. Play: Esc 리셋에 서버 abandon 1줄 · 클라 reason=abandon · 스폰 리스폰 |
 | 2026-10-21 | 수령 발판이 밟힌 발판의 층과 런 층을 대조하지 않는다 | `dbd7411` — 층 다르면 무시(로그 없음). Play: 2층 런에서 1층 발판 위 cashout 0 / 2층 발판 1회 + 스폰 복귀 |
