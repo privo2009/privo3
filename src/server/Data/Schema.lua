@@ -12,7 +12,7 @@ Schema.VERSION = 4 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드
 -- 구조적 상한값. DESIGN.md 5/6/9장 수치와 같지만 Schema는 Config를 몰라야 하므로 별도로 둔다.
 -- TODO: Phase 8 전후로 ShopConfig/PetConfig/AuraConfig와 단일 출처로 합칠 것 (지금은 중복 관리).
 Schema.LIMITS = {
-	MAX_DRONES = 5,
+	MAX_DRONES = 5, -- ⚠️ 드론 폐기(2026-10-21) — drones 필드와 함께 다음 스키마 변경 때 정리
 	MAX_PET_SLOTS = 6, -- 기본 2 + 업그레이드 최대 +1 + 게임패스 +3
 	MAX_AURA_PACKS = 5,
 }
@@ -89,6 +89,8 @@ local function buildTemplate()
 			petSlots = 0, -- 최대 +1
 		},
 
+		-- ⚠️ 드론 폐기(2026-10-21 사람 결정, 태그 drone-archive-2026-10-21) — 다음 스키마 변경 때 정리.
+		--    이 필드만을 위해 스키마를 올리지 않는다(지시서 #4 1단계). validate 검사도 기존 프로필 호환을 위해 그때까지 남긴다.
 		drones = {
 			count = 1,
 			-- [수정 3] 템플릿 단계에서는 서버 시각을 알 수 없어 0으로만 둔다.
@@ -216,7 +218,7 @@ function Schema.validate(data: any): (boolean, { string })
 		addError(errors, "upgrades 테이블이 없음")
 	end
 
-	-- drones ----------------------------------------------------------------------
+	-- drones (폐기 2026-10-21 — 다음 스키마 변경 때 이 검사와 필드를 같이 지운다) -------------
 
 	if type(data.drones) == "table" then
 		local count = data.drones.count
