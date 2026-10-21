@@ -1,6 +1,6 @@
 # 개발 로드맵
 
-문서 갱신: 2026-10-21
+문서 갱신: 2026-10-22
 
 ## 원칙
 - 아래에서 위로 쌓는다. BigNum이 흔들리면 전부 무너진다
@@ -20,7 +20,7 @@
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
-| `Tests/ConfigTests.server.lua` | 73 | 모든 Config의 validate + 스모크 (`DroneConfig.validate` 포함) |
+| `Tests/ConfigTests.server.lua` | 71 | 모든 Config의 validate + 스모크 |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Tests/WarpConfigTests.server.lua` | 31 | 워프 비용 곡선(지수·단조)·순수성·거부 사유 3종 |
 | `Tests/AttackConfigTests.server.lua` | 29 | 펀치 속도·판정 반경 파생·경계(이하) |
@@ -36,9 +36,8 @@
 | `Systems/RebirthServiceTests.server.lua` | 71 | 거부 시 부작용 0·순서·누적·부분 실패·패드 되돌리기(11단계) ※ |
 | `Systems/WarpServiceTests.server.lua` | 73 | 거부 시 차감 0·차감이 런 시작보다 먼저·부분 실패 3종 ※ |
 | `Systems/AttackServiceTests.server.lua` | 73 | 반경 밖 미호출·이중 계산 방지·경계(float32 이웃)·방향 독립 |
-| `Systems/DroneServiceTests.server.lua` | 32 | 나머지 보존·오프라인 상한·시각 되감김 방어·droneStage 없음·count 배수·in-flight 겹침·lifetimeBlox 연동 |
 | `Tests/UiThemeTests.server.lua` | 33 | 색 역할 8종 존재·밝은/기본/어두운 3단계·Color3 타입 |
-| `Tests/AssetRegistryTests.server.lua` | 130 | 25종 등록·source/scaleType/placeholderRole 검증·resolve() 도착·미도착 판정 ※ |
+| `Tests/AssetRegistryTests.server.lua` | 125 | 24종 등록·source/scaleType/placeholderRole 검증·resolve() 도착·미도착 판정 ※ |
 | `Tests/AssetImageTests.server.lua` | 16 | 미도착→Frame·도착→ImageLabel·SliceCenter·UIStroke 3px |
 | `Tests/TextScaleTests.server.lua` | 16 | 글자 5단계 존재·heightFraction·maxTextSize 값 일치 ※ |
 | `Tests/ScreenControllerTests.client.lua` | 29 | ScreenGui 3층·지연 생성·Window 단일 오픈·Overlay 다중·배경 흐리게·오류 케이스·closeAll이 자기 인스턴스에만 닿음 |
@@ -65,12 +64,12 @@
 | `Tests/AdvanceWallRendererTests.client.lua` | 62 | 상태별 충돌·투명·색(닫힘·열림·최종층·숨김)·create 계약(Anchored·CanTouch=false) |
 | `Tests/EntranceGateServiceTests.server.lua` | 25 | 런 없음→1층 startRun·런 있음 무동작·서 있기 반복·디바운스 공유·플레이어 격리·스펙 파생(지면·블록 바깥면 앞) |
 | `Tests/RunDeathServiceTests.server.lua` | 9 | 런 있음 abandon 1회·런 없음 0회·같은 죽음 두 번 차단·리스폰 뒤 새 죽음 |
-| **합계** | **2383** | |
+| **합계** | **2344** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
-7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53, 실측 66), `WarpServiceTests`는
+7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
 3개 check를 묶은 `checkRejectedCleanly`를 거부 케이스마다 부른다. `AssetRegistryTests`
-(정적 78, 실측 130) · `ButtonTests`(정적 22, 실측 37) · `MenuRailTests`(정적 18)는
+(정적 78) · `ButtonTests`(정적 22, 실측 37) · `MenuRailTests`(정적 18)는
 항목 목록(색 6종·아이콘 6개)을 순회하는 루프 안에 check가 여러 개 있고, `TextScaleTests`
 (정적 4, 실측 16)는 5단계 루프, `HudVisibilityTests`(정적 6)는 화면 3종 루프
 안에 check가 있다. `HudLayoutTests`(정적 카운트 없음 — 처음부터 실측만 기록)는
@@ -84,7 +83,8 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 숫자였고 표 본문(59 · 31 · 381)과 어긋나 있었다. 각주가 하려는 말은 "정적 카운트와
 실측이 어긋나는 것이 정상"이고 그건 숫자 없이 성립한다. **실측값은 표 본문에만
 적는다** — 두 군데 적으면 반드시 어긋난다는 것이 이 절 첫 줄의 규칙이다.
-남아 있는 실측값(66 · 130 · 37 · 16)은 표 본문과 일치하는 것만 확인하고 둔 것이다.
+남아 있는 실측값(37 · 16)은 표 본문과 일치하는 것만 확인하고 둔 것이다.
+(2026-10-22: `RebirthServiceTests` 66 · `AssetRegistryTests` 130도 표 본문과 어긋나 뺐다 — 같은 이유다.)
 
 ⚠️ **역산으로 채운 칸은 합계가 맞아도 틀릴 수 있다.** `AttackConfigTests`는 한동안
 합계에서 역산한 38이었고 실측은 **29**였다. 같은 시점에 `ClickServiceTests`가 38 → **47**로
@@ -92,7 +92,17 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 공허 훈련 구역 뒤 · 리포트 끈 Play).** 47개 행 전부가
+최근 갱신: **2026-10-22 Studio Play 런타임 실측 (전량, 드론 폐기 뒤 · 리포트 끈 Play).** 46개 행 전부가
+한 Play에 찍혔다. **2344 passed / 0 failed** — 서버 1490 + 클라 854.
+
+```
+삭제   DroneServiceTests        32          드론 폐기 (946bff5, 태그 drone-archive-2026-10-21)
+갱신   ConfigTests              73  → 71    DroneConfig 검사 2개 삭제 (946bff5)
+       AssetRegistryTests      130  → 125   icon_drone 삭제 (8f6f59f)
+유지   나머지 44행
+```
+
+직전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 공허 훈련 구역 뒤 · 리포트 끈 Play).** 47개 행 전부가
 한 Play에 찍혔다. **2383 passed / 0 failed** — 서버 1529 + 클라 854.
 
 ```
@@ -457,15 +467,16 @@ HP 곡선만으로는 "20초 안에 깰 수 있는가"를 판단할 수 없다.
 환생        전액 소모 + 버림. floor(blox/1000)만큼 rebirths 가산.
             블럭스 → 0. 힘 → 초기화. maxStage → 초기화
 rebirths    저장한다. 파생값 아님 (소모라 역산 불가)
-maxStage    환생 시 리셋. 드론 전용. 워프는 참조하지 않음
+maxStage    환생 시 리셋. 워프는 참조하지 않음. 드론 폐기 뒤로 읽는 규칙 없음 (docs/PENDING.md)
 워프        전 구간 유료. 진행 상태 무관한 순수 함수
 레벨        힘의 지수 기반. 레벨당 최대 이동속도 +1
 커스텀스피드  저장 안 함. 접속·환생 시 최대로 리셋. 서버 검증 필수
-클릭패드     월드별 세트 + 세트 내 lifetimeBlox 순차 해금.
-            파워 2배씩 / 조건 3배씩. 월드 첫 패드는 조건 0
+클릭패드     월드별 세트 + 세트 내 lifeBlox(이번 생애 누적) 순차 해금 — 환생하면 다시 잠김.
+            파워 2배씩 / 조건 1·3 사다리. 월드 첫 패드는 조건 0
+운동기구     환생 수로 해금(환생해도 유지) + 로벅스 전용 공허. 기구 위 클릭에만 배수
 월드 1       25층. 클리어 시 자동 전환.
             다음 월드 없으면 진행 벽 막힘 (정식 동작)
-커브         HP 세그먼트 3.0/4.0/7.0, 보상 고정 2.7. 정지선 37%
+커브         HP 세그먼트(값은 WorldConfig — 2026-10-21 확정), 보상 고정 2.7. 정지선 37%
 목표 성공률   구간별 95% / 65~85% / 40~55%
 ```
 
@@ -485,7 +496,7 @@ c  레벨 + 커스텀 스피드  ✅
 d  RebirthService       ✅  2026-08-27 Play 검증 (잔여 1건 — 아래 참조)
 e  WarpService          ✅  2026-08-28 Play 검증
 e2 근접 자동 공격        ✅  2026-08-28 Play 검증 (747 passed / 0 failed)
-f  실측 튜닝            ✗  미착수 ← 다음. **선행 조건 해소됨**
+f  실측 튜닝            ◐  시뮬레이션 기준 완료 (HP 곡선 · 운동기구 · 패드 가격). 실플레이 대기: 패드 시작 파워 · 워프 가격
 ```
 
 ✅ `a`는 더 이상 ◐가 아니다. 수령 발판(3b)·진행 벽(3c) 파트가 `cashout()`·`advance()`를
@@ -1183,33 +1194,19 @@ RATIO는 정상 진행 하한(보상 성장률 2.7) 위이고 25층 누적 12.5�
 
 ---
 
-## Phase 5 — 드론 (코드) ✅ 완료
+## Phase 5 — 드론 — 폐기 (2026-10-21 사람 결정)
+
+드론(maxStage 기반 자동 채집 · 오프라인 정산)은 2026-08-31 코드 완료 · Play 검증까지 갔지만 **폐기했다.**
+
 ```
-DroneService — maxStage - STAGE_OFFSET, 60초당 1회
+이유   구현 부담이 크고, 이 장르에서 열심인 유저는 잠수를 태우므로 오프라인 수입의 중요도가 낮다
+보관   git 태그 drone-archive-2026-10-21 (지우기 직전 상태)
+삭제   946bff5 (코드) · 8f6f59f (UI — 메뉴 레일 드론 → 워프, icon_drone)
+저장   프로필 drones 필드는 다음 스키마 변경 때 정리 (571a960)
 ```
 
-오프셋 값은 `Shared/Config/DroneConfig.lua`가 원본이다. 온라인 주기 루프와
-오프라인(로드 시 1회) 정산이 같은 계산이라 별도 OfflineService는 두지 않는다
-— DroneService.collect 하나가 지급 경로다.
-
-⚠️ 지급 → lastCollectAt 갱신 → 저장 순서. **실패 시 롤백하지 않는다** —
-DroneService는 되돌리는 대신 ERROR 로그만 남긴다. 되돌리기가 또 실패하면
-어느 상태인지 알 수 없어지므로, RebirthService·WarpService가 이미 도달한
-것과 같은 판단이다("이 줄이 유일한 복구 근거다" 형태). 순서(지급 → 갱신 → 저장)
-자체는 그대로 유효하다.
-
-**검증**: 나갔다 1시간 뒤 접속 시 정확한 보상. 시계 조작 무효
-
-**진행 상태** — ✅ 완료 (2026-08-31 Play 검증). DroneServiceTests 32 passed / 0 failed,
-전체 781 passed / 0 failed(개수 → "테스트 현황").
-
-검증 근거: 로드 훅(`reason=drone_collect_load`)에서 지급이 실물로 확인됐다 —
-droneStage·cycles로 산출한 기대 지급액이 로그의 실지급액과 정확히 일치했고,
-blox·lifetimeBlox가 같은 폭으로 올랐으며, lastCollectAt이 소진한 사이클만큼만
-전진했다(나머지 보존, now로 덮지 않음).
-
-⚠️ **이 완료 표시는 코드에 대한 것이다.** 드론 수령 UI(Phase 6)와 게임패스 2종
-(오프라인 상한 24시간 연장, 드론 구매 — Phase 8)은 여전히 미착수다.
+되살린다면 오프라인 수입이 아닌 다른 용도로 재설계한다 — 근거와 기록은 `DESIGN.md` "5. 드론".
+"능동 플레이가 드론보다 분당 20~60배" 규약도 함께 폐기됐다.
 
 ---
 
@@ -1244,10 +1241,24 @@ HUD 3종(`BloxDisplay`/`ChallengeInfo`/`MenuRail`) 배치 — **여기까지 Pla
 
 U3-5(힘·레벨·속도 블록, `PowerBlock`) · U3-6(로벅스 구좌 `ShopSlots` + 자동 클리커
 토글/자동 진행 버튼 `AutoTools`) · U3-7(토글 밝기 채널 정정)로 남은 HUD 4종의
-코드가 전부 붙어 **HUD 7종 전체가 코드로는 완성됐다.** 세 세션(U3-5~U3-7) 다
-Studio Play를 돌릴 수 없었다(RC 환경) — 이 셋은 **Play 미검증**이다. 다음
-세션의 첫 작업은 이 Play 검증이다(새 화면 착수가 아니다). 미검증 커밋·롤백
-절차·확인 목록은 `docs/PENDING.md` "U3 진행 상태" 참고.
+코드가 전부 붙어 **HUD 7종 전체가 코드로는 완성됐다.**
+✅ **2026-10-21 Play로 확인했다** — U3-8 순서표 1~8 · 10번 통과, 11번(메뉴 타일 크기)은 사람 결정으로 유지,
+8번에서 나온 우하단 겹침은 U3-10b(`fa026b1`)로 고쳤다. 남은 것은 9번(모바일 해상도에서 토글 구분 —
+MCP로 기기 해상도를 바꿀 수 없다) 하나다(→ `docs/PENDING.md` "다음 Play 검증 순서 (U3-8)").
+
+```
+상태 (2026-10-22)
+U0 · U1   완료
+U2        지환 진행 중 — G1 통과(2026-08-23), G2(패널 2층) 대기
+U3        HUD 7종 코드 완료 · Play 확인 · U3-10b 해소. 남은 것: 모바일 관측(9번) · G4(세이프존, G1~G3 선행)
+U4 이후   미착수
+환생 창   없다 — 게임 안 환생 진입점(UI)이 없다. MenuRail "환생" 칸은 등록된 창이 없어 warn만 낸다
+워프      MenuRail 셋째 칸이 드론 → "워프"(월드·워프 창 진입)로 바뀌었다(8f6f59f). 창은 없다
+```
+
+**다음: Phase 6 — U3 남은 확인(9번 모바일) → U4(코어 화면 + 3D 안내) → 환생 창.**
+(지시서 #4는 "U3 화면 확인 → U3-10b → U4 → 환생 창"으로 적었지만, U3 화면 확인 대부분과
+U3-10b는 2026-10-21에 이미 끝나 있어 남은 것만 적었다.)
 
 ⚠️ 이 단계가 전체에서 가장 오래 걸린다
 
