@@ -140,9 +140,9 @@ do
 		string.format("깊이=%.1f", pure.PAD_SIZE.X)
 	)
 
-	-- 색은 UiTheme 수령·안전 역할 색이다. hex 사본이 다시 생기면 여기서 갈린다.
+	-- 처음 색은 UiTheme 꺼짐(중립) 역할 색이다. hex 사본이 다시 생기면 여기서 갈린다.
 	local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
-	check("발판 색 = UiTheme.Colors.cashout.base", pure.PAD_COLOR == UiTheme.Colors.cashout.base, tostring(pure.PAD_COLOR))
+	check("처음 색 = 꺼짐(UiTheme.Colors.neutral.base) — 켜짐은 클라가 칠한다", pure.PAD_COLOR == UiTheme.Colors.neutral.base, tostring(pure.PAD_COLOR))
 end
 
 -- 2. 디바운스 — 같은 창 안의 재접촉은 처리되지 않는다 ---------------------------------------
