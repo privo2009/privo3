@@ -239,6 +239,45 @@ do
 	check("걸어간 런: 걷기 시간이 기록된다", walkedP.lastWalkSec ~= nil and walkedP.lastWalkSec > 0)
 end
 
+-- 11. 진행 문턱 구간 비교 ------------------------------------------------------------------
+do
+	local bands = SuccessRateReport.THRESHOLD_BANDS
+	check("문턱 구간 3개", #bands == 3, tostring(#bands))
+	check("문턱 구간 순서 50~90 · 30~70 · 10~50",
+		bands[1].min == 0.5 and bands[1].max == 0.9
+			and bands[2].min == 0.3 and bands[2].max == 0.7
+			and bands[3].min == 0.1 and bands[3].max == 0.5)
+	check("첫 구간만 목표 기준", bands[1].target and not bands[2].target and not bands[3].target)
+	check("첫 구간 = 결정 모델 문턱",
+		bands[1].min == MODEL.ADVANCE_THRESHOLD_MIN and bands[1].max == MODEL.ADVANCE_THRESHOLD_MAX)
+
+	-- segmentSums: 직접 만든 첫 시도 표를 구간별로 더한다.
+	local fake = {
+		[1] = { attempts = 2, successes = 1 },
+		[2] = { attempts = 3, successes = 3 },
+	}
+	local sums = SuccessRateReport.segmentSums(fake, 2)
+	check("segmentSums: maxStage 위 구간은 빠진다", #sums == 1, tostring(#sums))
+	check("segmentSums: 첫 구간 1~2층으로 잘림", sums[1] ~= nil and sums[1].from == 1 and sums[1].to == 2)
+	check("segmentSums: 합산", sums[1] ~= nil and sums[1].attempts == 5 and sums[1].successes == 4)
+
+	-- 같은 seed면 같은 결과. 작은 표본(2명, 3층까지)으로 두 번 돌린다.
+	local savedMin, savedMax = MODEL.ADVANCE_THRESHOLD_MIN, MODEL.ADVANCE_THRESHOLD_MAX
+	local a = SuccessRateReport.runBand(bands[3], 2, 3)
+	local b = SuccessRateReport.runBand(bands[3], 2, 3)
+	local same = #a.segments == #b.segments and a.medianFinalMin == b.medianFinalMin and a.reached == b.reached
+	for i, seg in ipairs(a.segments) do
+		local other = b.segments[i]
+		if other == nil or other.attempts ~= seg.attempts or other.successes ~= seg.successes then
+			same = false
+		end
+	end
+	check("runBand: 같은 seed → 같은 결과", same)
+	check("runBand: 끝나면 MODEL 문턱이 원래대로",
+		MODEL.ADVANCE_THRESHOLD_MIN == savedMin and MODEL.ADVANCE_THRESHOLD_MAX == savedMax)
+	check("runBand: 플레이어 수 기록", a.players == 2)
+end
+
 print(string.format("[SuccessRateReportTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[SuccessRateReportTests] %d test(s) failed", failed))

@@ -603,6 +603,95 @@ local function runModel(label: string, full: boolean, compact: boolean?)
 	end
 end
 
+-- ===== 진행 문턱 구간 비교 ==============================================================
+--
+-- 같은 플레이어 모델·같은 seed에서 진행 문턱 구간만 바꿔 HP 구간별 성공률과 최종층 첫 진입
+-- 중앙값을 한 표로 나란히 찍는다. 첫 줄(50~90%)이 목표 기준이다(2026-10-21 사람 결정 —
+-- 성공률 목표는 조심형 플레이어 기준, DESIGN.md "목표 성공률 > 측정 규약").
+-- ⚠️ 판단 재료이지 결정이 아니다. 나머지 두 줄은 "덜 조심하면 얼마나 떨어지는가"를 보는 자리다.
+export type Band = { label: string, min: number, max: number, target: boolean }
+SuccessRateReport.THRESHOLD_BANDS = {
+	{ label = "50~90%", min = 0.50, max = 0.90, target = true },
+	{ label = "30~70%", min = 0.30, max = 0.70, target = false },
+	{ label = "10~50%", min = 0.10, max = 0.50, target = false },
+} :: { Band }
+
+export type SegmentSum = { from: number, to: number, attempts: number, successes: number }
+
+-- HP 구간별 첫 시도 합산. 구간 경계는 WorldConfig에서 읽고 maxStage에서 자른다.
+-- maxStage보다 위에서 시작하는 구간은 넣지 않는다.
+function SuccessRateReport.segmentSums(firstTry: { [number]: Tally }, maxStage: number): { SegmentSum }
+	local out: { SegmentSum } = {}
+	for _, seg in ipairs(hpSegments()) do
+		if seg.from <= maxStage then
+			local sum: SegmentSum = { from = seg.from, to = math.min(seg.to, maxStage), attempts = 0, successes = 0 }
+			for stage = sum.from, sum.to do
+				local t = firstTry[stage]
+				if t ~= nil then
+					sum.attempts += t.attempts
+					sum.successes += t.successes
+				end
+			end
+			table.insert(out, sum)
+		end
+	end
+	return out
+end
+
+export type BandResult = { band: Band, segments: { SegmentSum }, medianFinalMin: number?, reached: number, players: number }
+
+-- 문턱 구간 하나를 같은 seed로 돌린다. MODEL은 잠깐 바꿨다가 (에러가 나도) 되돌린다.
+function SuccessRateReport.runBand(band: Band, players: number, maxStage: number): BandResult
+	local savedMin, savedMax = MODEL.ADVANCE_THRESHOLD_MIN, MODEL.ADVANCE_THRESHOLD_MAX
+	MODEL.ADVANCE_THRESHOLD_MIN, MODEL.ADVANCE_THRESHOLD_MAX = band.min, band.max
+	local ok, result = pcall(function(): BandResult
+		local rng = Random.new(SIM.SEED)
+		local firstTry: { [number]: Tally } = {}
+		local finals: { number } = {}
+		for _ = 1, players do
+			local r = SuccessRateReport.simulatePlayer(rng, maxStage, firstTry)
+			if r.reachedFinal and r.finalFirstSec ~= nil then
+				table.insert(finals, r.finalFirstSec / 60)
+			end
+			task.wait()
+		end
+		return {
+			band = band,
+			segments = SuccessRateReport.segmentSums(firstTry, maxStage),
+			medianFinalMin = median(finals),
+			reached = #finals,
+			players = players,
+		}
+	end)
+	MODEL.ADVANCE_THRESHOLD_MIN, MODEL.ADVANCE_THRESHOLD_MAX = savedMin, savedMax
+	if not ok then
+		error(result)
+	end
+	return result
+end
+
+local function printBandTable()
+	local maxStage = findLastStage()
+	print("[SUCCESSRATE] ===== 진행 문턱 구간 비교 (목표 기준 = 50~90%, 나머지 모델·seed 동일) =====")
+	local header = { "문턱" }
+	for _, seg in ipairs(hpSegments()) do
+		table.insert(header, string.format("%d~%d층(×%g)", seg.from, seg.to, seg.growth))
+	end
+	table.insert(header, string.format("%d층 첫 진입 중앙값", maxStage))
+	print("[SUCCESSRATE] " .. table.concat(header, " | "))
+	for _, band in ipairs(SuccessRateReport.THRESHOLD_BANDS) do
+		local r = SuccessRateReport.runBand(band, SIM.PLAYERS, maxStage)
+		local cells = { band.label .. (if band.target then " (목표 기준)" else "") }
+		for _, seg in ipairs(r.segments) do
+			table.insert(cells, pct({ attempts = seg.attempts, successes = seg.successes }))
+		end
+		table.insert(cells, if r.medianFinalMin ~= nil
+			then string.format("%.1f분 (%d/%d명)", r.medianFinalMin, r.reached, r.players)
+			else string.format("- (%d/%d명)", r.reached, r.players))
+		print("[SUCCESSRATE] " .. table.concat(cells, " | "))
+	end
+end
+
 -- 워프 비교. 첫 줄이 현재 가격, 나머지는 "얼마면 쓰이는가"를 보는 가격 배율이다.
 -- ⚠️ 판단 재료이지 결정이 아니다 — 워프 가격은 사람이 정한다(게임 수치).
 local WARP_VARIANTS: { { label: string, override: { [string]: any } } } = {
@@ -651,6 +740,7 @@ function SuccessRateReport.run()
 			(MODEL :: any)[k] = v
 		end
 	end
+	printBandTable()
 	print("[SUCCESSRATE] 끝.")
 end
 
