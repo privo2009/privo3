@@ -20,20 +20,20 @@
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
-| `Tests/ConfigTests.server.lua` | 71 | 모든 Config의 validate + 스모크 (`DroneConfig.validate` 포함) |
+| `Tests/ConfigTests.server.lua` | 73 | 모든 Config의 validate + 스모크 (`DroneConfig.validate` 포함) |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Tests/WarpConfigTests.server.lua` | 31 | 워프 비용 곡선(지수·단조)·순수성·거부 사유 3종 |
 | `Tests/AttackConfigTests.server.lua` | 29 | 펀치 속도·판정 반경 파생·경계(이하) |
 | `Data/SchemaTests.server.lua` | 33 | 프로필 스키마 검증 |
-| `Data/MigrationsTests.server.lua` | 20 | schemaVersion 마이그레이션·멱등성 |
-| `Systems/CurrencyServiceTests.server.lua` | 51 | 재화 단일 게이트·롤백·rebirths |
+| `Data/MigrationsTests.server.lua` | 25 | schemaVersion 마이그레이션·멱등성·v4 lifeBlox |
+| `Systems/CurrencyServiceTests.server.lua` | 59 | 재화 단일 게이트·롤백·rebirths·lifeBlox(이번 생애 누적) |
 | `Systems/BlockServiceTests.server.lua` | 51 | 배치·데미지 오버플로우·클리어 |
 | `Systems/ChallengeServiceTests.server.lua` | 74 | 타이머·보상 갱신·진입점 거부·source 식별 |
 | `Systems/ClickServiceTests.server.lua` | 47 | 입력 위생·초당 상한 윈도우·통지 억제·자동 경로 |
 | `Systems/PadServiceTests.server.lua` | 31 | 패드 배치·해금 경계·디바운스·세팅/클램프 |
 | `Systems/SpeedServiceTests.server.lua` | 21 | 요청값 클램프·입력 위생·환생 하향·최대치 상승 불변 |
 | `Systems/SpeedRequestServiceTests.server.lua` | 32 | 요청 빈도 상한·폐기·로그 억제·응답 payload |
-| `Systems/RebirthServiceTests.server.lua` | 66 | 거부 시 부작용 0·순서·누적·부분 실패 ※ |
+| `Systems/RebirthServiceTests.server.lua` | 71 | 거부 시 부작용 0·순서·누적·부분 실패·패드 되돌리기(11단계) ※ |
 | `Systems/WarpServiceTests.server.lua` | 73 | 거부 시 차감 0·차감이 런 시작보다 먼저·부분 실패 3종 ※ |
 | `Systems/AttackServiceTests.server.lua` | 73 | 반경 밖 미호출·이중 계산 방지·경계(float32 이웃)·방향 독립 |
 | `Systems/DroneServiceTests.server.lua` | 32 | 나머지 보존·오프라인 상한·시각 되감김 방어·droneStage 없음·count 배수·in-flight 겹침·lifetimeBlox 연동 |
@@ -57,14 +57,15 @@
 | `Tests/AutoToolsTests.client.lua` | 28 | 자동 도구 아이콘 배치 |
 | `Systems/ArenaServiceTests.server.lua` | 119 | 스폰 좌표·경계 높이·스테이지 수에 따른 경계 확장·출입구 개방·어깨 벽·바닥 파생과 파트 상한 분할(층 수 흔들기)·전 층 바닥 위 |
 | `Systems/CashoutPadServiceTests.server.lua` | 47 | 발판 좌표·측면 오프셋·디바운스·런당 1회·플레이어별 격리·source 경로·층 불일치 무시·UiTheme 색 |
-| `Tests/SuccessRateReportTests.server.lua` | 52 | 확률 시뮬레이터 식 — 펀치 간격·속도 미곱·반경 밖 지연·런 중 클릭·걷기 시간·진행 규칙 2종·모델 범위·seed 결정성·워프 비교(판단·워프 런)·문턱 구간 비교(구간 수·순서·합산·seed 재현) |
+| `Tests/SuccessRateReportTests.server.lua` | 58 | 확률 시뮬레이터 식 — 펀치 간격·속도 미곱·반경 밖 지연·런 중 클릭·걷기 시간·진행 규칙 2종·모델 범위·seed 결정성·워프 비교(판단·워프 런)·문턱 구간 비교(구간 수·순서·합산·seed 재현)·운동기구 훈련 |
+| `Systems/GymServiceTests.server.lua` | 28 | 운동기구 조건·배수·가격 순증가·해금 경계·스폰 구역 안·게이트 앞·패드와 안 겹침·발판 판정·배수 결정 |
 | `Tests/CashoutPadViewTests.server.lua` | 23 | 런 상태 → 발판 켜짐(클리어 + 같은 층)·꺼짐(미클리어·다른 층·런 없음)·켜진 발판 1개·역할 키 |
 | `Tests/AdvanceWallViewTests.server.lua` | 97 | 런 상태 → 벽 모습(숨김·닫힘·열림)·크기 파생·층별 위치·잘못된 stage·LevelConfig 깊이 소스 등록 |
 | `Tests/AdvanceWallServiceTests.server.lua` | 26 | 트리거 스펙(최종층 없음·중심·크기)·층 대조·런 없음·디바운스 창·플레이어 격리 |
 | `Tests/AdvanceWallRendererTests.client.lua` | 62 | 상태별 충돌·투명·색(닫힘·열림·최종층·숨김)·create 계약(Anchored·CanTouch=false) |
 | `Tests/EntranceGateServiceTests.server.lua` | 25 | 런 없음→1층 startRun·런 있음 무동작·서 있기 반복·디바운스 공유·플레이어 격리·스펙 파생(지면·블록 바깥면 앞) |
 | `Tests/RunDeathServiceTests.server.lua` | 9 | 런 있음 abandon 1회·런 없음 0회·같은 죽음 두 번 차단·리스폰 뒤 새 죽음 |
-| **합계** | **2314** | |
+| **합계** | **2368** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53, 실측 66), `WarpServiceTests`는
@@ -91,7 +92,20 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 문턱 구간 비교 뒤 · 리포트 끈 Play).** 46개 행 전부가
+최근 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 운동기구 뒤 · 리포트 끈 Play).** 47개 행 전부가
+한 Play에 찍혔다. **2368 passed / 0 failed** — 서버 1514 + 클라 854.
+
+```
+신설   GymServiceTests          28          (cb215b3)
+갱신   CurrencyServiceTests     51  → 59    lifeBlox (3fc5262)
+       MigrationsTests          20  → 25    v4 (3fc5262)
+       RebirthServiceTests      66  → 71    11단계 (3fc5262)
+       ConfigTests              71  → 73    1·3 사다리 (3fc5262)
+       SuccessRateReportTests   52  → 58    운동기구 훈련 (cb215b3)
+유지   나머지 41행
+```
+
+직전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 문턱 구간 비교 뒤 · 리포트 끈 Play).** 46개 행 전부가
 한 Play에 찍혔다. **2314 passed / 0 failed** — 서버 1460 + 클라 854.
 
 ```
@@ -99,7 +113,7 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 유지   나머지 45행
 ```
 
-직전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 워프 비교 뒤).** 46개 행 전부가 한 Play에
+그 전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 워프 비교 뒤).** 46개 행 전부가 한 Play에
 찍혔다. **2304 passed / 0 failed** — 서버 1450 + 클라 854.
 
 ```
@@ -107,7 +121,7 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 유지   나머지 45행
 ```
 
-그 전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 성공률 시뮬레이터 뒤).** 46개 행 전부가 한 Play에
+그 이전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 성공률 시뮬레이터 뒤).** 46개 행 전부가 한 Play에
 찍혔다. **2290 passed / 0 failed** — 서버 1436 + 클라 854.
 
 ```
@@ -115,7 +129,7 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 유지   나머지 45행
 ```
 
-그 이전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 발판 켜짐 뒤).** 45개 행 전부가 한 Play에
+더 이전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 발판 켜짐 뒤).** 45개 행 전부가 한 Play에
 찍혔다. **2262 passed / 0 failed** — 서버 1408 + 클라 854.
 
 ```
@@ -123,7 +137,7 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 유지   나머지 44행 (CashoutPadServiceTests 47은 색 검사 1건 교체라 개수 같음)
 ```
 
-더 이전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, U3-10b 뒤).** 44개 행 전부가 한 Play에
+그보다 전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, U3-10b 뒤).** 44개 행 전부가 한 Play에
 찍혔다. **2239 passed / 0 failed** — 서버 1385 + 클라 854.
 
 ```
@@ -132,7 +146,7 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 유지   나머지 42행
 ```
 
-그보다 전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 런 생명주기 4단계 뒤).** 44개 행 전부가
+그보다 더 전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 런 생명주기 4단계 뒤).** 44개 행 전부가
 한 Play에 찍혔다. **2212 passed / 0 failed** — 서버 1384 + 클라 828.
 
 ```
@@ -142,7 +156,7 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 유지   나머지 41행 (RebirthServiceTests 66은 검사 1건 교체라 개수 같음)
 ```
 
-그보다 더 전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 3c 뒤).** 42개 행 전부가 한 Play에
+한참 전 갱신: **2026-10-21 Studio Play 런타임 실측 (전량, 3c 뒤).** 42개 행 전부가 한 Play에
 찍혔다(LogService 필터 읽기 — CLAUDE.md 절대 규칙 8). **2172 passed / 0 failed** — 서버 1344 + 클라 828.
 
 ```
@@ -1145,6 +1159,11 @@ RATIO는 정상 진행 하한(보상 성장률 2.7) 위이고 25층 누적 12.5�
 ✅ **HP 곡선 확정 (2026-10-21 `efaade6`) — 2.8 / 3.8 / 6.0.** 측정 기준 플레이어에서 전 층이
 목표 성공률 ±10%p 안에 든다. 수치·후보 비교 원본은 `docs/PENDING.md` 해소 기록 "4-2-f HP 곡선",
 곡선 값 원본은 `WorldConfig`. 남은 4-2-f: basePower(TEMP) 실플레이 재확인 · 워프 TEMP 값.
+
+✅ **패드 리셋 + 운동기구 (2026-10-21 `3fc5262` · `cb215b3`, 사람 결정).** 패드는 이번 생애 블럭스
+(`lifeBlox`)로 열려 환생하면 다시 잠긴다. 가격은 1·3 단위. 운동기구 8개는 환생 수로 열리고 기구 위
+클릭에만 배수(`GymConfig` TEMP, 로벅스 선해금은 Phase 8). 성공률은 목표 안(95.1 / 73.1 / 52.0%),
+25층 첫 진입은 46.7 → 74.9분으로 늦어졌다 — 판단은 `docs/PENDING.md` 미결 "패드 리셋으로 25층 도달이 늦어졌다".
 
 **착수 전에 읽을 것 → `DESIGN.md` "4-2-f 튜닝 지도".**
 조정 대상이 서로 어떻게 물려 있는지(한쪽만 만지면 무엇이 조용히 어긋나는지)와
