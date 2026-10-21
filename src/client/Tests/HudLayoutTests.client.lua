@@ -15,7 +15,7 @@
 --      없다.** FitWithinMaxSize는 Size 자체를 "이 상자 안에 비율 유지하며 넣어라"로
 --      읽어서 상자 폭(Size.X)이 0이면 결과가 0x0이 된다. 영향받는 9개:
 --      BloxDisplay/Icon, BloxDisplay/Value, ChallengeInfo/Timer,
---      MenuRail/{Shop,Rebirth,Drone,Aura,Pet,Settings}/Tile.
+--      MenuRail/{Shop,Rebirth,Drone,Aura,Pet,Settings}/Tile. (Drone은 2026-10-21 Warp로 바뀜)
 --   2. 세 ScreenGui(Hud/Window/Overlay)가 전부 IgnoreGuiInset=true인데
 --      (ScreenController.lua createScreenGui), GetGuiInset() topLeft=(0,58)만큼의
 --      인셋을 아무도 빼주고 있지 않다. BloxDisplay·ChallengeInfo 계열이 로블록스

@@ -54,10 +54,9 @@ local Entries: { [string]: Entry } = {
 	panel_frame = { source = { "Panels", "panel_frame" }, scaleType = "Slice", placeholderRole = "neutral" },
 	texture_lego = { source = { "Panels", "texture_lego" }, scaleType = "Tile", placeholderRole = "neutral" },
 
-	-- 아이콘 17종 (전부 Stretch)
+	-- 아이콘 16종 (전부 Stretch). icon_drone은 드론 폐기(2026-10-21)로 뺐다
 	icon_shop = { source = { "Icons", "icon_shop" }, scaleType = "Stretch", placeholderRole = "neutral" },
 	icon_rebirth = { source = { "Icons", "icon_rebirth" }, scaleType = "Stretch", placeholderRole = "neutral" },
-	icon_drone = { source = { "Icons", "icon_drone" }, scaleType = "Stretch", placeholderRole = "neutral" },
 	icon_settings = { source = { "Icons", "icon_settings" }, scaleType = "Stretch", placeholderRole = "neutral" },
 	icon_aura = { source = { "Icons", "icon_aura" }, scaleType = "Stretch", placeholderRole = "neutral" },
 	icon_title = { source = { "Icons", "icon_title" }, scaleType = "Stretch", placeholderRole = "neutral" },
@@ -72,7 +71,7 @@ local Entries: { [string]: Entry } = {
 	icon_autoclick = { source = { "Icons", "icon_autoclick" }, scaleType = "Stretch", placeholderRole = "neutral" },
 	icon_autoadvance = { source = { "Icons", "icon_autoadvance" }, scaleType = "Stretch", placeholderRole = "neutral" },
 	-- 인라인 아이콘 — 타일 규격이 적용되지 않는다 (docs/UI.md "7. 아이콘 > 필요 목록").
-	-- 배치 코드가 나머지 16종과 다르게 다뤄야 할 수 있어 표시만 해 둔다.
+	-- 배치 코드가 나머지 15종과 다르게 다뤄야 할 수 있어 표시만 해 둔다.
 	icon_edit = { source = { "Icons", "icon_edit" }, scaleType = "Stretch", placeholderRole = "neutral" },
 }
 

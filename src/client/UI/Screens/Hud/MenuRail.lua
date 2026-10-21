@@ -8,6 +8,9 @@
 -- 6개다"에서 레일 6개로 확정했고, 타이틀은 아우라 창 안에서, 워프는 월드 창과
 -- 합쳐 그 창 안에서 진입한다. 근거를 이 파일에 다시 옮기지 않는다.
 --
+-- 셋째 칸은 원래 "드론"이었다. 드론 폐기(2026-10-21 사람 결정)로 그 자리를 월드·워프 창
+-- 진입 칸("워프", icon_warp)으로 바꿨다. 창 자체는 아직 없다 — 칸만 있다(아래 tap 처리 참고).
+--
 -- 타일은 전부 미도착 에셋이라 AssetImage가 역할색(중립 회색) Frame을 낸다. 6개가
 -- 전부 같은 회색이라 라벨이 유일한 구분 수단이다 — 라벨을 생략하지 않는다
 -- (docs "왜 9개가 아닌가"의 "라벨 제거" 대안이 기각된 이유와 같다).
@@ -47,7 +50,7 @@ local COLUMNS = 2
 local ITEMS = {
 	{ assetKey = "icon_shop", label = "상점", screenName = "Shop" },
 	{ assetKey = "icon_rebirth", label = "환생", screenName = "Rebirth" },
-	{ assetKey = "icon_drone", label = "드론", screenName = "Drone" },
+	{ assetKey = "icon_warp", label = "워프", screenName = "Warp" }, -- 월드·워프 창 (창은 아직 없다)
 	{ assetKey = "icon_aura", label = "아우라", screenName = "Aura" },
 	{ assetKey = "icon_pet", label = "펫 목록", screenName = "Pet" },
 	{ assetKey = "icon_settings", label = "설정", screenName = "Settings" },

@@ -21,11 +21,12 @@ local function check(name: string, ok: boolean, detail: string?)
 	end
 end
 
--- U3 착수 준비 명세의 25종 그대로. 개수를 하드코딩하지 않고 이 목록과 대조한다.
+-- U3 착수 준비 명세의 목록(25종에서 icon_drone을 뺀 24종 — 드론 폐기 2026-10-21).
+-- 개수를 하드코딩하지 않고 이 목록과 대조한다.
 local EXPECTED_KEYS = {
 	"btn_yellow", "btn_purple", "btn_blue", "btn_green", "btn_red", "btn_gray",
 	"panel_frame", "texture_lego",
-	"icon_shop", "icon_rebirth", "icon_drone", "icon_settings",
+	"icon_shop", "icon_rebirth", "icon_settings",
 	"icon_aura", "icon_title", "icon_pet", "icon_warp", "icon_world",
 	"icon_power", "icon_blox",
 	"icon_code", "icon_attend", "icon_close",
