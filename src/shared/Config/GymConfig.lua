@@ -24,9 +24,8 @@ local GymConfig = {}
 --
 -- ⚠️ TEMP — 4-2-f 시뮬레이션으로 정한 자리값이다(사람이 "적정양으로 대충" 위임). 근거는 아래.
 --
---   unlockRebirths  그 기구를 여는 환생 수. 10의 거듭제곱 사다리 — 환생 수는 지수로 크므로
---                   (환생 배수 = 1 + rebirths, 후반엔 수백만) 선형 사다리는 앞쪽에 몰린다.
---                   nil이면 로벅스 전용 기구다(환생으로 안 열림)
+--   unlockRebirths  그 기구를 여는 환생 수. 첫 환생에 바로 첫 기구가 열리고, 뒤로 갈수록 기구 사이 간격이
+--                   길어진다(아래 근거). nil이면 로벅스 전용 기구다(환생으로 안 열림)
 --   multiplier      클릭 힘 배수
 --   robuxPrice      선해금 가격(R$). Phase 8에서 게임패스로 판다. 지금은 숫자만.
 --                   로벅스 전용 기구는 ShopConfig.Gamepasses[gamepassKey]에서 읽는다(숫자를 두 곳에 두지 않는다)
@@ -40,34 +39,47 @@ export type Tier = {
 
 --
 -- 근거 (2026-10-21 SuccessRateReport, 결정 모델 + "막힌 런 뒤 기구에서 30초" — 그 해석은 시뮬레이터 MODEL 주석):
---   기준은 "HP 곡선은 그대로 두고 목표 성공률(1~8층 95% / 9~16층 65~85% / 17~25층 40~55%) 안에서
---   패드 리셋으로 늦어진 속도를 되찾는다"이다.
---                          1~8층  9~16층  17~25층   25층 첫 진입 중앙값
---     기구 없음             95.8   70.9    44.9     81.1분
---     이 표 (×1.5 … ×25)    95.1   73.1    52.0     74.9분   ← 채택
---     배수 2배 (×2 … ×50)   95.1   73.0    60.1     71.0분   17~25층이 목표 위
---   기구는 막혔을 때 힘을 더 주므로 처음 도달할 때의 여유가 커져 후반 성공률이 오른다. 그래서
---   배수를 더 키우면 속도보다 성공률이 먼저 목표를 넘는다. 기구 배수 × 훈련 시간이 효과를 정하므로
---   실제 유저가 기구에서 더 오래 있으면(60초: 17~25층 62.7%) 배수를 낮춰야 한다 — 실플레이로 재확인.
---   25층 첫 진입 때 환생 수 중앙값은 약 10^7 — 기구 8(10^8)은 월드 1 안에서는 열리지 않는 후반 목표다.
+--
+--   해금 시점 — 사람 결정(2026-10-21): "로그 모양 — 처음엔 빠르게 열리다가 뒤로 갈수록 무뎌진다.
+--   첫 기구가 늦으면 이탈한다." 첫 안(환생 10, 100, … 10의 거듭제곱)은 첫 기구가 20.9분에 열렸다
+--   (환생 10 = 블럭스 1만). 환생 수는 시간에 대해 지수로 늘어서 10배 사다리는 거의 같은 간격으로 열린다.
+--   그래서 조건을 "열리는 시각"에서 거꾸로 골랐다. 첫 환생 = 첫 기구.
+--     기구          1     2     3     4     5     6     7     8
+--     환생 수        1     2     3    10    50   500   10K    1M
+--     열리는 시각   9.5  12.2  20.5  24.4  33.4  43.3  49.5  71.0분 (200명 중앙값)
+--   ⚠️ 2 → 3 사이가 긴 것은 환생 리듬 때문이다 — 환생 2회째와 3회째 사이에 다른 환생 수가 없다
+--      (환생 수는 정수로 뛴다). 조건으로는 줄일 수 없다.
+--
+--   배수 — 기구가 일찍 열리면 같은 배수로도 후반 성공률이 오른다(첫 안 배수 ×1.5 … ×25 그대로면
+--   17~25층 67.6%). 목표 성공률(1~8층 95% / 9~16층 65~85% / 17~25층 40~55%) 안으로 다시 맞췄다.
+--                                   1~8층  9~16층  17~25층   25층 첫 진입 중앙값
+--     기구 없음                      95.8   70.9    44.9     81.1분
+--     첫 안 (환생 10의 거듭제곱)      95.1   73.1    52.0     74.9분
+--     이 표 (×1.2 … ×8)              95.2   72.8    51.3     75.5분   ← 채택
+--     이 조건 + ×1.2 … ×10           94.8   71.9    55.2     74.5분   17~25층이 목표 끝
+--     이 조건 + ×1.5 … ×25           94.8   77.3    67.6     67.0분   17~25층이 목표 위
+--   seed가 같아도 후보 사이 차이 ±3%p 안은 잡음 수준이다. 기구 배수 × 훈련 시간이 효과를 정하므로
+--   실제 유저가 기구에서 더 오래 있으면 배수를 낮춰야 한다 — 실플레이로 재확인.
 --   ⚠️ 패드 리셋 전(패드 유지)에는 46.7분이었다. 기구로는 이 속도를 되찾지 못한다(docs/PENDING.md).
 --
 --   robuxPrice는 29 → 449 R$ 자리값이다. 공허 훈련 구역(799 R$, DESIGN.md "수익화" 표의 기존 값)이
 --   가장 비싸야 하므로 그 아래에 펼쳤다. 기존 게임패스 가격 단위(29·49·79·99·149·199·299·449)를 따른다.
 --   Phase 8 수익화 때 다시 본다.
 --
---   공허 훈련 구역 배수 — "배수가 매우 높다"(사람 결정)를 최상위 환생 기구(×25)의 4배로 옮겼다(Claude 판단).
+--   공허 훈련 구역 ×100 — "배수가 매우 높다"(사람 결정). Claude 판단으로 정했다. 구매자 비교(×50 48.3분 /
+--   ×100 40.9분 / ×200 36.5분)에서 ×100 위로는 빨라지는 폭이 작다. 구매자는 처음부터 공허만 쓰므로
+--   환생 기구 표를 바꿔도 구매자 숫자는 그대로다.
 --   구매자 비교는 SuccessRateReport "공허 훈련 구역 구매자 (비교)" 줄. 성공률 목표는 무과금 기준이라
 --   구매자는 목표 밖이다.
 local TIERS: { Tier } = {
-	{ unlockRebirths = BigNum.new(1, 1), multiplier = 1.5, robuxPrice = 29 },
-	{ unlockRebirths = BigNum.new(1, 2), multiplier = 2, robuxPrice = 49 },
-	{ unlockRebirths = BigNum.new(1, 3), multiplier = 3, robuxPrice = 79 },
-	{ unlockRebirths = BigNum.new(1, 4), multiplier = 4, robuxPrice = 99 },
-	{ unlockRebirths = BigNum.new(1, 5), multiplier = 6, robuxPrice = 149 },
-	{ unlockRebirths = BigNum.new(1, 6), multiplier = 10, robuxPrice = 199 },
-	{ unlockRebirths = BigNum.new(1, 7), multiplier = 15, robuxPrice = 299 },
-	{ unlockRebirths = BigNum.new(1, 8), multiplier = 25, robuxPrice = 449 },
+	{ unlockRebirths = BigNum.new(1, 0), multiplier = 1.2, robuxPrice = 29 },
+	{ unlockRebirths = BigNum.new(2, 0), multiplier = 1.5, robuxPrice = 49 },
+	{ unlockRebirths = BigNum.new(3, 0), multiplier = 2, robuxPrice = 79 },
+	{ unlockRebirths = BigNum.new(1, 1), multiplier = 2.5, robuxPrice = 99 },
+	{ unlockRebirths = BigNum.new(5, 1), multiplier = 3, robuxPrice = 149 },
+	{ unlockRebirths = BigNum.new(5, 2), multiplier = 4, robuxPrice = 199 },
+	{ unlockRebirths = BigNum.new(1, 4), multiplier = 5, robuxPrice = 299 },
+	{ unlockRebirths = BigNum.new(1, 6), multiplier = 8, robuxPrice = 449 },
 	{
 		unlockRebirths = nil,
 		multiplier = 100,
