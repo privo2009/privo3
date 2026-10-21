@@ -505,4 +505,40 @@ function ChallengeService.getRunState(player: Player): RunStateView?
 	return buildView(run)
 end
 
+-- 런이 없을 때 sync로 보내는 자리 채움 view. active=false와 함께 가므로 수신부는 내용을 읽지
+-- 않는다 — nil을 보낼 수 없어서 채운다(Remotes.lua RunStateChangedPayload 주석).
+local function idleView(): RunStateView
+	return {
+		stage = 1,
+		reward = BigNum.new(0, 0),
+		timeLeft = StageConfig.CHALLENGE_TIMER_SEC,
+		cleared = false,
+		canAdvance = false,
+	}
+end
+
+-- 지금 런 상태를 이 플레이어에게 한 번 다시 보낸다 (reason = "sync", Phase 6 지시서 #5).
+-- 접속 직후 · 리스폰 직후 · 클라가 SyncRequest를 보냈을 때 PlayerStateService가 부른다.
+-- 런이 있으면 지금 블록 세트의 시드까지 실어 보낸다 — 클라가 그 층 블록을 다시 세울 수 있게.
+-- 런이 없으면 active=false로 보낸다 — 진행 벽 · 수령 발판이 "런 없음" 모습으로 맞춰진다.
+-- 상태를 바꾸지 않는다(읽기 + 통지).
+function ChallengeService.syncRunState(player: Player)
+	if not isRealPlayer(player) then
+		return
+	end
+	local run = runs[player]
+	if run == nil then
+		local payload: Remotes.RunStateChangedPayload = {
+			active = false,
+			reason = "sync",
+			state = idleView(),
+			seeds = {},
+		}
+		channels.runStateChanged:FireClient(player, payload)
+		return
+	end
+	local snapshot = BlockService.getSnapshot(player)
+	notifyRunState(player, run, true, "sync", if snapshot ~= nil then seedsOf(snapshot) else {})
+end
+
 return ChallengeService

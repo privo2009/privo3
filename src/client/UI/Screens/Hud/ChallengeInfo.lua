@@ -25,6 +25,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local ValuePanel = require(script.Parent.Parent.Parent.Components.ValuePanel)
+local StateSync = require(script.Parent.Parent.Parent.Parent.Net.StateSync)
 
 local ChallengeInfo = {}
 
@@ -109,6 +110,8 @@ function ChallengeInfo.create(): ChallengeInfoHandle
 
 	local channels = Remotes.getClient()
 	channels.runStateChanged.OnClientEvent:Connect(apply)
+	-- 리스너를 붙였으니 지금 런 상태를 받는다(Net/StateSync.lua). 서버가 요청을 모아 한 번만 답한다.
+	StateSync.request()
 
 	return {
 		root = root,

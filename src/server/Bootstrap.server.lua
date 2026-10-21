@@ -118,6 +118,13 @@ AttackService.init()
 local RebirthService = require(script.Parent.Systems.RebirthService)
 RebirthService.init()
 
+-- 플레이어 상태 채널을 연다 (Phase 6 지시서 #5 — HUD가 서버 값을 보인다).
+-- ⚠️ 순서: ProfileManager · PadService · SpeedService · ChallengeService가 준비된 뒤여야 한다.
+-- 스냅샷은 그 넷에서 읽고, 접속 직후 런 상태 sync는 ChallengeService.syncRunState가 보낸다.
+-- 아무 상태도 바꾸지 않는다(읽기 + 통지).
+local PlayerStateService = require(script.Parent.Systems.PlayerStateService)
+PlayerStateService.init()
+
 -- 프로필 읽기 print. 검증용 임시 코드가 아니라 상시 유지 대상이다.
 --
 -- ⚠️ lifetimeBlox를 지우지 말 것. 이 값은 클릭 파워 패드 해금(ClickPadConfig)과

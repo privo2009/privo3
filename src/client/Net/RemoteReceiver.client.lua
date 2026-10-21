@@ -22,6 +22,7 @@ local BlockModelBuilder = require(ReplicatedStorage.Shared.BlockModelBuilder)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local ChunkBreaker = require(script.Parent.Parent.Effects.ChunkBreaker)
+local StateSync = require(script.Parent.StateSync)
 
 -- ===== 블록 모델은 클라가 만든다 (4-2-a2) ==============================================
 --
@@ -239,3 +240,6 @@ channels.runStateChanged.OnClientEvent:Connect(function(payload: Remotes.RunStat
 		BigNum.tostring(state.reward)
 	))
 end)
+
+-- 리스너를 붙였으니 지금 런 상태를 받는다(접속 직후 · 리스폰 직후 맞춤 — Net/StateSync.lua).
+StateSync.request()

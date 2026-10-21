@@ -112,7 +112,9 @@ local function computeProgress(power: BigNumber): number
 	return math.clamp(math.log(power.m, 10), 0, 1)
 end
 
-function PowerBlock.create(): PowerBlockHandle
+-- store: 구독할 Store 인스턴스. 생략하면 싱글톤(BloxDisplay.create와 같은 이유).
+function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
+	local source: Store.StoreInstance = store or (Store :: any)
 	local root = Instance.new("Frame")
 	root.Name = "PowerBlock"
 	root.AnchorPoint = Vector2.new(0.5, 1)
@@ -283,20 +285,20 @@ function PowerBlock.create(): PowerBlockHandle
 		maxLabel.Text = string.format("/ 최대 %d", maxSpeed)
 	end
 
-	applyPower(Store.get("strength"))
-	applySpeed(Store.get("walkSpeed"), Store.get("maxWalkSpeed"))
+	applyPower(source.get("strength"))
+	applySpeed(source.get("walkSpeed"), source.get("maxWalkSpeed"))
 
 	-- walkSpeed/maxWalkSpeed는 서로 다른 Store 키라 독립적으로 갱신될 수 있다 —
 	-- 표시 문자열은 항상 둘 다 필요하므로, 어느 쪽이 바뀌든 Store.get으로 나머지
 	-- 한쪽을 다시 읽어 함께 적용한다(둘 다 구독하되 반쪽 값으로 렌더하지 않는다).
-	Store.subscribe("strength", function(value: BigNumber)
+	source.subscribe("strength", function(value: BigNumber)
 		applyPower(value)
 	end)
-	Store.subscribe("walkSpeed", function(value: number)
-		applySpeed(value, Store.get("maxWalkSpeed"))
+	source.subscribe("walkSpeed", function(value: number)
+		applySpeed(value, source.get("maxWalkSpeed"))
 	end)
-	Store.subscribe("maxWalkSpeed", function(value: number)
-		applySpeed(Store.get("walkSpeed"), value)
+	source.subscribe("maxWalkSpeed", function(value: number)
+		applySpeed(source.get("walkSpeed"), value)
 	end)
 
 	return {

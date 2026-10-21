@@ -44,4 +44,21 @@ export type RunStateView = {
 	canAdvance: boolean,
 }
 
+-- 플레이어 상태의 클라 노출본 (PlayerState 채널, Phase 6 지시서 #5).
+-- 서버가 프로필과 서비스 상태에서 만든다 — 클라는 이 값을 Store에 넣고 화면은 Store만 본다.
+-- 레벨 · 다음 레벨 진행률은 싣지 않는다: strength 하나에서 LevelConfig(서버 SpeedService와 같은
+-- 함수)로 파생되는 값이라, 따로 실으면 strength와 다른 시점에 갱신될 위험이 생긴다
+-- (client/UI/Store.lua "level 필드는 없다" 참고).
+export type PlayerStateView = {
+	blox: BigNumber,
+	strength: BigNumber,
+	lifetimeBlox: BigNumber, -- 평생 누적
+	lifeBlox: BigNumber, -- 이번 생애 누적 (패드 해금 기준)
+	rebirths: BigNumber,
+	walkSpeed: number, -- 서버 Humanoid.WalkSpeed (캐릭터가 없으면 0)
+	maxWalkSpeed: number, -- SpeedService.getMaxSpeed
+	maxStage: number,
+	padIndex: number, -- 지금 세팅된 클릭 파워 패드
+}
+
 return GameTypes

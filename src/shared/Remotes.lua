@@ -10,6 +10,8 @@
 --   ClickRejected   서버→클라. 상한에 걸려 버려진 클릭이 있음 (4-2-b)
 --   SpeedRequest    클라→서버. 커스텀 스피드 요청 (4-2-c)
 --   SpeedApplied    서버→클라. 실제 적용된 속도 + 현재 최대치 (4-2-c)
+--   PlayerState     서버→클라. 플레이어 상태 전체 스냅샷 (Phase 6). 바뀔 때만, 플레이어당 빈도 상한
+--   SyncRequest     클라→서버. "지금 상태를 다시 보내 달라" (Phase 6). 접속 직후 동기화용
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --
@@ -65,6 +67,8 @@ Remotes.CLICK_INPUT = "ClickInput"
 Remotes.CLICK_REJECTED = "ClickRejected"
 Remotes.SPEED_REQUEST = "SpeedRequest"
 Remotes.SPEED_APPLIED = "SpeedApplied"
+Remotes.PLAYER_STATE = "PlayerState"
+Remotes.SYNC_REQUEST = "SyncRequest"
 
 -- ===== payload 타입 ====================================================================
 --
@@ -74,6 +78,7 @@ Remotes.SPEED_APPLIED = "SpeedApplied"
 
 export type BlockChange = GameTypes.BlockChange
 export type RunStateView = GameTypes.RunStateView
+export type PlayerStateView = GameTypes.PlayerStateView
 
 -- BlockDamaged: 타격 한 번으로 바뀐 블록들. 큐브 단위 정보는 들어가지 않는다.
 export type BlockDamagedPayload = { BlockChange }
@@ -198,6 +203,24 @@ export type SpeedAppliedPayload = {
 	maxSpeed: number,
 }
 
+-- PlayerState: 플레이어 상태 전체 스냅샷 (서버 → 클라). 부분 갱신이 아니라 매번 전체다 —
+-- 필드가 9개뿐이라 작고, 수신부가 "어느 필드가 왔나"를 조립할 필요가 없다.
+-- 보내는 시점·빈도 상한은 Server/Systems/PlayerStateService 상단.
+-- 직렬화 제약 3가지를 다 만족한다: 문자열 키뿐이고, 선택 필드가 없으며, BigNum은 프로필 값을
+-- 복사한 것이고 숫자는 유한하다(PlayerStateService.buildSnapshot이 보장).
+export type PlayerStatePayload = PlayerStateView
+
+-- SyncRequest: "지금 상태를 다시 보내 달라" (클라 → 서버).
+--
+-- 왜 필요한가: RunStateChanged를 듣는 클라 스크립트가 넷이다(블록 · HUD 챌린지 정보 · 발판 ·
+-- 진행 벽). 리스너가 붙기 전에 서버가 보낸 이벤트는 큐에 쌓였다가 **처음 붙은 리스너 하나에만**
+-- 전달된다 — 접속 직후 서버가 먼저 밀어 보내면 나머지 셋은 놓친다. 그래서 각 수신부가 리스너를
+-- 붙인 뒤 이 요청을 보내고, 서버는 짧은 창 안의 요청을 하나로 모아 한 번만 답한다
+-- (PlayerState 전체 + RunStateChanged reason="sync").
+--
+-- payload에 결과값을 담지 않는다(규약 2) — 비어 있는 테이블이다. 빈도는 서버가 자른다(규약 3).
+export type SyncRequestPayload = {}
+
 export type Channels = {
 	blockDamaged: RemoteEvent,
 	runStateChanged: RemoteEvent,
@@ -205,6 +228,8 @@ export type Channels = {
 	clickRejected: RemoteEvent,
 	speedRequest: RemoteEvent,
 	speedApplied: RemoteEvent,
+	playerState: RemoteEvent,
+	syncRequest: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -259,6 +284,8 @@ function Remotes.getServer(): Channels
 		clickRejected = ensureEvent(folder, Remotes.CLICK_REJECTED),
 		speedRequest = ensureEvent(folder, Remotes.SPEED_REQUEST),
 		speedApplied = ensureEvent(folder, Remotes.SPEED_APPLIED),
+		playerState = ensureEvent(folder, Remotes.PLAYER_STATE),
+		syncRequest = ensureEvent(folder, Remotes.SYNC_REQUEST),
 	}
 	cached = channels
 	return channels
@@ -299,6 +326,8 @@ function Remotes.getClient(): Channels
 		clickRejected = waitFor(folder, Remotes.CLICK_REJECTED) :: RemoteEvent,
 		speedRequest = waitFor(folder, Remotes.SPEED_REQUEST) :: RemoteEvent,
 		speedApplied = waitFor(folder, Remotes.SPEED_APPLIED) :: RemoteEvent,
+		playerState = waitFor(folder, Remotes.PLAYER_STATE) :: RemoteEvent,
+		syncRequest = waitFor(folder, Remotes.SYNC_REQUEST) :: RemoteEvent,
 	}
 	cached = channels
 	return channels

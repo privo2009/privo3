@@ -28,7 +28,10 @@ local function check(name: string, ok: boolean, detail: string?)
 	end
 end
 
-local handle = BloxDisplay.create()
+-- 자기 Store 인스턴스로 만든다. 싱글톤은 Phase 6부터 서버 PlayerState가 채운다 — 거기 테스트 값을
+-- 쓰면 실값을 덮는다(BloxDisplay.create 주석). 구독 경로는 싱글톤과 같은 코드다.
+local testStore = Store.new()
+local handle = BloxDisplay.create(testStore)
 
 -- ⚠️ **create() 바로 다음 줄이어야 한다. 사이에 yield를 넣지 말 것.**
 --
@@ -65,7 +68,7 @@ do
 	check("Value 라벨이 있다", valueLabel ~= nil)
 
 	local newBlox = BigNum.new(4.2, 10)
-	Store.setSource(function(setter)
+	testStore.setSource(function(setter)
 		setter("blox", newBlox)
 	end)
 	task.wait()
@@ -95,7 +98,7 @@ do
 
 	-- 8자 경계값: BigNum.new(9.99, 20) -> tier=6(Qi), displayM=999 -> "999.00Qi" (8자).
 	local boundaryValue = BigNum.new(9.99, 20)
-	Store.setSource(function(setter)
+	testStore.setSource(function(setter)
 		setter("blox", boundaryValue)
 	end)
 	task.wait()
@@ -121,10 +124,6 @@ do
 	)
 end
 
--- 원상 복구 (다른 테스트가 이 테스트의 잔여값을 보지 않게 한다).
-Store.setSource(function(setter)
-	setter("blox", BigNum.new(9.99, 23))
-end)
 
 print(string.format("[BloxDisplayTests] %d passed, %d failed", passed, failed))
 if failed > 0 then

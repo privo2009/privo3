@@ -38,6 +38,7 @@ wall.Parent = getContainer()
 local warnedInvalid: { [string]: boolean } = {}
 
 local channels = Remotes.getClient()
+local StateSync = require(script.Parent.Parent.Net.StateSync)
 
 channels.runStateChanged.OnClientEvent:Connect(function(payload: Remotes.RunStateChangedPayload)
 	local state = payload.state
@@ -60,3 +61,5 @@ channels.runStateChanged.OnClientEvent:Connect(function(payload: Remotes.RunStat
 
 	AdvanceWallPart.applyView(wall, view)
 end)
+-- 리스너를 붙였으니 지금 런 상태를 받는다(접속 직후 벽 모습 맞춤 — Net/StateSync.lua).
+StateSync.request()

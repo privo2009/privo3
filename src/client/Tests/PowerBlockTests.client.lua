@@ -34,12 +34,9 @@ local function check(name: string, ok: boolean, detail: string?)
 	end
 end
 
--- 원래 더미값 (Store.lua DUMMY_STATE와 동일 — 복원용).
-local ORIGINAL_STRENGTH = BigNum.new(9.99, 20)
-local ORIGINAL_WALK_SPEED = 5678
-local ORIGINAL_MAX_WALK_SPEED = 9999
-
-local handle = PowerBlock.create()
+-- 자기 Store 인스턴스로 만든다(BloxDisplayTests와 같은 이유 — 싱글톤은 서버 PlayerState가 채운다).
+local testStore = Store.new()
+local handle = PowerBlock.create(testStore)
 
 -- 1. 세 행의 부모 상대 Y 범위가 확정값과 일치한다 -------------------------------------
 --
@@ -187,16 +184,10 @@ end
 
 -- 6. Store 구독이 반영된다 -------------------------------------------------------------
 --
--- ⚠️ 이 절은 싱글톤을 쓴다. 바꿀 수 없어서가 아니라 그것이 검사 대상이기 때문이다 —
--- PowerBlock.create()가 싱글톤을 직접 구독하므로(PowerBlock.lua "표시 갱신" 절),
--- 여기서 자기 인스턴스를 쓰면 실물 HUD 경로를 하나도 안 재고 통과하게 된다.
--- create()에 store를 주입하도록 고치는 길도 있으나 그러면 통과한 화면 6종이 전부
--- 미검증으로 돌아간다(U3-9 범위 밖).
---
--- 이 절이 U3-9에서 "- 1000"으로 깨졌던 것은 여기 잘못이 아니라 StoreTests가
--- 같은 싱글톤에 walkSpeed=1000을 걸었기 때문이다. 그쪽이 자기 인스턴스로 옮겼으므로
--- 이제 싱글톤의 walkSpeed/strength/maxWalkSpeed를 쓰는 것은 이 파일뿐이다
--- (BloxDisplayTests는 blox만 건드린다 — 키가 겹치지 않는다).
+-- ⚠️ 이 절은 예전에 싱글톤을 썼다(실물 HUD 경로를 재려고). Phase 6(지시서 #5)부터 싱글톤은 서버
+-- PlayerState가 채우므로, 테스트 값을 거기 쓰면 실값을 덮는다. 그래서 create(store)로 자기
+-- 인스턴스를 주입한다 — 구독 코드는 싱글톤일 때와 같은 줄이다(PowerBlock.lua "표시 갱신").
+-- 실물 HUD가 서버 값을 그리는지는 Play 스크린샷으로 본다.
 
 do
 	local powerLabel = handle.root:FindFirstChild("PowerValue") :: TextLabel
@@ -206,7 +197,7 @@ do
 
 	if powerLabel and speedLabel and maxLabel then
 		local newStrength = BigNum.new(4.2, 9)
-		Store.setSource(function(setter)
+		testStore.setSource(function(setter)
 			setter("strength", newStrength)
 		end)
 		task.wait()
@@ -217,7 +208,7 @@ do
 			powerLabel.Text
 		)
 
-		Store.setSource(function(setter)
+		testStore.setSource(function(setter)
 			setter("walkSpeed", 33)
 			setter("maxWalkSpeed", 77)
 		end)
@@ -250,8 +241,8 @@ do
 			powerLabel.Text
 		)
 		check(
-			"다른 Store 인스턴스는 싱글톤 상태 자체도 바꾸지 않는다",
-			checkClose(Store.get("walkSpeed"), 33)
+			"다른 Store 인스턴스는 이 테스트 인스턴스의 상태도 바꾸지 않는다",
+			checkClose(testStore.get("walkSpeed"), 33)
 		)
 	else
 		check("Store 구독 반영 검사 전제(라벨 존재)", false, "PowerValue/SpeedValue/MaxLabel 중 일부가 없다")
@@ -290,12 +281,6 @@ do
 	end
 end
 
--- 원상 복구 (다른 테스트·향후 HUD가 이 테스트의 잔여값을 보지 않게 한다).
-Store.setSource(function(setter)
-	setter("strength", ORIGINAL_STRENGTH)
-	setter("walkSpeed", ORIGINAL_WALK_SPEED)
-	setter("maxWalkSpeed", ORIGINAL_MAX_WALK_SPEED)
-end)
 
 print(string.format("[PowerBlockTests] %d passed, %d failed", passed, failed))
 if failed > 0 then

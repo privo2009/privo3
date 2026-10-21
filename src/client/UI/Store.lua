@@ -1,9 +1,10 @@
 --!strict
 -- 서버 플레이어 상태의 클라 쪽 사본. 화면 코드가 구독해서 값 변화에 반응한다.
 --
--- ⚠️ 이번 단계(U3-1) 소스는 더미다. 서버 Remote를 아직 연결하지 않는다.
--- 화면 코드는 소스가 더미인지 실데이터인지 구분하지 못해야 한다 — 나중에
--- setSource()로 소스만 갈아끼우면 화면은 손대지 않아도 그대로 돈다.
+-- 초기값은 더미다. Phase 6(지시서 #5)부터 `Net/PlayerStateClient`가 서버 PlayerState 채널을
+-- setSource()로 붙인다 — 첫 스냅샷이 오면 더미는 전부 덮인다(로딩 화면이 그때까지 가린다).
+-- 화면 코드는 소스가 더미인지 실데이터인지 구분하지 못해야 한다 — setSource()로 소스만
+-- 갈아끼우면 화면은 손대지 않아도 그대로 돈다.
 -- AssetRegistry가 미도착 에셋을 다루는 방식과 같은 패턴: "아직 실물이 없다"를
 -- 소비자가 알 필요가 없게 만드는 단일 교체점.
 --
@@ -37,24 +38,30 @@ type BigNumber = BigNum.BigNumber
 
 local Store = {}
 
+-- 키 집합은 서버 PlayerStateView(Shared/GameTypes)와 같다 — PlayerStateClient가 payload의 키를
+-- 그대로 setter에 넣는다.
 export type State = {
 	strength: BigNumber,
 	blox: BigNumber,
 	lifetimeBlox: BigNumber,
+	lifeBlox: BigNumber,
 	rebirths: BigNumber,
 	walkSpeed: number,
 	maxWalkSpeed: number,
 	maxStage: number,
+	padIndex: number,
 }
 
 export type Key =
 	"strength"
 	| "blox"
 	| "lifetimeBlox"
+	| "lifeBlox"
 	| "rebirths"
 	| "walkSpeed"
 	| "maxWalkSpeed"
 	| "maxStage"
+	| "padIndex"
 
 export type Setter = (Key, any) -> ()
 export type Source = (Setter) -> ()
@@ -78,16 +85,19 @@ local DUMMY_STATE: State = {
 	strength = BigNum.new(9.99, 20), -- "999.00Qi" 근처
 	blox = BigNum.new(9.99, 23), -- "999.00Sx" 근처
 	lifetimeBlox = BigNum.new(5, 25),
+	lifeBlox = BigNum.new(5, 24),
 	rebirths = BigNum.fromNumber(37),
 	walkSpeed = 5678,
 	maxWalkSpeed = 9999,
 	maxStage = 17,
+	padIndex = 24,
 }
 
 local BIG_NUM_KEYS: { [Key]: boolean } = {
 	strength = true,
 	blox = true,
 	lifetimeBlox = true,
+	lifeBlox = true,
 	rebirths = true,
 }
 

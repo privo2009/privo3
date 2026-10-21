@@ -45,6 +45,7 @@ local function paintAll()
 end
 
 local channels = Remotes.getClient()
+local StateSync = require(script.Parent.Parent.Net.StateSync)
 
 channels.runStateChanged.OnClientEvent:Connect(function(payload: Remotes.RunStateChangedPayload)
 	local state = payload.state
@@ -55,6 +56,8 @@ channels.runStateChanged.OnClientEvent:Connect(function(payload: Remotes.RunStat
 	}
 	paintAll()
 end)
+-- 리스너를 붙였으니 지금 런 상태를 받는다(접속 직후 발판 색 맞춤 — Net/StateSync.lua).
+StateSync.request()
 
 -- 서버가 발판 폴더를 세우기 전에 이 스크립트가 돌 수 있다. 폴더가 나타나면 붙고,
 -- 그 뒤에 들어오는 발판(스트리밍 등)도 들어오는 순간 칠한다.

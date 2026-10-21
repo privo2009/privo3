@@ -27,7 +27,10 @@ export type BloxDisplayHandle = {
 	root: Frame,
 }
 
-function BloxDisplay.create(): BloxDisplayHandle
+-- store: 구독할 Store 인스턴스. 생략하면 실물 HUD가 쓰는 싱글톤이다. 테스트는 Store.new()를 넘긴다 —
+-- Phase 6부터 싱글톤은 서버 PlayerState가 채우므로, 테스트가 거기 값을 쓰면 실값을 덮는다.
+function BloxDisplay.create(store: Store.StoreInstance?): BloxDisplayHandle
+	local source: Store.StoreInstance = store or (Store :: any)
 	local height = TextScale.Levels[LEVEL].heightFraction
 
 	local root = Instance.new("Frame")
@@ -71,8 +74,8 @@ function BloxDisplay.create(): BloxDisplayHandle
 	valuePanel.label.Size = UDim2.fromScale(1, 1)
 	valuePanel.label.Parent = root
 
-	valuePanel.setValue(Store.get("blox"))
-	Store.subscribe("blox", function(value)
+	valuePanel.setValue(source.get("blox"))
+	source.subscribe("blox", function(value)
 		valuePanel.setValue(value)
 	end)
 

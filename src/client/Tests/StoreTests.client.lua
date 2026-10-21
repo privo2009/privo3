@@ -224,9 +224,13 @@ end
 -- 여기서 잠깐 바꾸는 동안 실물 PowerBlock이 그 값을 그리게 되고, PowerBlockTests와
 -- 다시 경쟁하게 된다. 그래도 끝에서 더미값으로 되돌린다.
 
+-- ⚠️ 싱글톤은 Phase 6부터 서버 PlayerState가 채운다. 이 테스트가 돌 때 이미 실값이 와 있을 수
+--    있으므로 "더미값이다"를 전제하지 않고, 바꾸기 전 값을 기억했다가 그 값으로 되돌린다
+--    (예전처럼 더미 17로 되돌리면 실값을 덮어쓴다 — 서버는 바뀐 값만 보내므로 그대로 남는다).
 do
 	check("Store.new가 함수다", type(Store.new) == "function")
-	check("싱글톤 get이 더미 maxStage를 돌려준다", checkClose(Store.get("maxStage"), DUMMY_MAX_STAGE))
+	local before = Store.get("maxStage")
+	check("싱글톤 get이 maxStage(number)를 돌려준다", type(before) == "number")
 
 	local received: number? = nil
 	local handle = Store.subscribe("maxStage", function(value: any)
@@ -251,12 +255,12 @@ do
 	task.wait()
 	check("자기 인스턴스 변경이 싱글톤으로 새지 않는다", checkClose(Store.get("maxStage"), 20))
 
-	-- 원상 복구 (싱글톤은 실물 HUD가 계속 쓴다).
+	-- 원상 복구 (싱글톤은 실물 HUD가 계속 쓴다). 더미가 아니라 바꾸기 전 값으로.
 	Store.setSource(function(setter)
-		setter("maxStage", DUMMY_MAX_STAGE)
+		setter("maxStage", before)
 	end)
 	task.wait()
-	check("싱글톤이 더미값으로 복구된다", checkClose(Store.get("maxStage"), DUMMY_MAX_STAGE))
+	check("싱글톤이 바꾸기 전 값으로 복구된다", checkClose(Store.get("maxStage"), before))
 end
 
 print(string.format("[StoreTests] %d passed, %d failed", passed, failed))

@@ -7,8 +7,8 @@
 -- HUD는 "항상 떠 있음"(docs/UI.md "1. 화면 목록")이라 register 직후 바로 open한다.
 -- 다른 화면처럼 유저 조작으로 열고 닫는 대상이 아니다.
 --
--- ⚠️ Store는 여전히 더미 소스다(U3-1 Store.lua 상단 참고). 이번 작업도 실데이터를
--- 붙이지 않는다 — setSource로 Remote 연결부를 붙이는 것은 이후 단계다.
+-- Store 소스는 서버 PlayerState 채널이다(Phase 6 지시서 #5 — Net/PlayerStateClient). 첫 스냅샷이
+-- 오기 전까지는 더미값이 들어 있다.
 
 local ScreenController = require(script.Parent.ScreenController)
 local Layout = require(script.Parent.Layout)
@@ -18,6 +18,11 @@ local MenuRail = require(script.Parent.Screens.Hud.MenuRail)
 local PowerBlock = require(script.Parent.Screens.Hud.PowerBlock)
 local ShopSlots = require(script.Parent.Screens.Hud.ShopSlots)
 local AutoTools = require(script.Parent.Screens.Hud.AutoTools)
+local Store = require(script.Parent.Store)
+local PlayerStateClient = require(script.Parent.Parent.Net.PlayerStateClient)
+
+-- 서버 상태를 Store에 붙인다. HUD 화면은 이 줄을 모른다 — Store만 구독한다.
+PlayerStateClient.start(Store)
 
 -- MenuRail은 BloxDisplay 바로 아래부터 시작한다(docs/UI.md 메뉴 진입 절 — 같은
 -- 좌측 레일을 위아래로 나눠 쓴다). 시작 위치를 새로 계산해 박지 않고 BloxDisplay가
