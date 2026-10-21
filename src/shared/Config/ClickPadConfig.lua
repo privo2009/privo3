@@ -70,7 +70,7 @@ end
 -- 패드 index를 해금하는 데 필요한 "이번 생애 누적 blox"(lifeBlox — 환생하면 0).
 --   index == 1 : 0 (시작 패드. 조건 없음)
 --   index >= 2 : bloxBase × (unlockStart에서 출발하는 1·3 사다리의 index-2번째 칸)
---                예) unlockStart 30 → 30, 100, 300, 1K, 3K, 10K …
+--                예) unlockStart 10 → 10, 30, 100, 300, 1K, 3K …   (30이면 30, 100, 300, 1K …)
 --
 -- ⚠️ bloxBase에서 유도하는 것이 핵심이다. 절대값으로 박으면 bloxBase를 튜닝하는 순간
 -- 패드 곡선만 옛 기준에 남아 조용히 어긋난다. 근거는 WorldConfig.ClickPadSet 주석.
