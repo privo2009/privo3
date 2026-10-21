@@ -26,6 +26,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 local CurrencyService = require(script.Parent.CurrencyService)
 local PadService = require(script.Parent.PadService)
+local GymService = require(script.Parent.GymService)
 
 type BigNumber = BigNum.BigNumber
 
@@ -278,7 +279,15 @@ function ClickService.processClicks(player: Player, count: number, source: strin
 		local multiplier = StrengthMultiplier.compute({
 			rebirths = CurrencyService.get(player, "rebirths"),
 		})
-		local gain = computeGain(PadService.getClickPower(player), accepted, multiplier)
+		-- 운동기구 배수. 기구 위에 서 있을 때만 1보다 크다(GymService — 그 순간의 위치로 판정).
+		-- 패드 파워에 곱해서 넘긴다 — 둘 다 "클릭 1회가 얼마짜리인가"를 정하는 자리값이고, 힘 배수
+		-- (StrengthMultiplier)와는 다른 축이다. 런 안에는 기구가 없어 런 중 클릭은 1이다.
+		local clickPower = PadService.getClickPower(player)
+		local gymMultiplier = GymService.getClickMultiplier(player)
+		if gymMultiplier ~= 1 then
+			clickPower = BigNum.mul(clickPower, BigNum.fromNumber(gymMultiplier))
+		end
+		local gain = computeGain(clickPower, accepted, multiplier)
 		-- 실패해도(프로필 미로드 등) 윈도우는 되돌리지 않는다. 윈도우가 재는 것은
 		-- "입력이 얼마나 빨리 들어왔는가"이지 "지급이 성공했는가"가 아니다.
 		-- CurrencyService가 실패 사유를 자체 warn으로 남긴다.

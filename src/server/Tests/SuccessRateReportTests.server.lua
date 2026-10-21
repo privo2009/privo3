@@ -14,6 +14,8 @@ local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
+local ClickPadConfig = require(ReplicatedStorage.Shared.Config.ClickPadConfig)
+local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 local WarpConfig = require(ReplicatedStorage.Shared.Config.WarpConfig)
 local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local SuccessRateReport = require(ServerScriptService.Server.Tools.SuccessRateReport)
@@ -262,9 +264,11 @@ do
 	check("segmentSums: 합산", sums[1] ~= nil and sums[1].attempts == 5 and sums[1].successes == 4)
 
 	-- 같은 seed면 같은 결과. 작은 표본(2명, 3층까지)으로 두 번 돌린다.
+	-- ⚠️ noYield = true. MODEL을 바꾼 채 yield하면 같은 Play의 리포트가 그 값으로 계산한다
+	--    (SuccessRateReport.runBand 주석). 이 테스트 파일은 처음부터 끝까지 yield하지 않아야 한다.
 	local savedMin, savedMax = MODEL.ADVANCE_THRESHOLD_MIN, MODEL.ADVANCE_THRESHOLD_MAX
-	local a = SuccessRateReport.runBand(bands[3], 2, 3)
-	local b = SuccessRateReport.runBand(bands[3], 2, 3)
+	local a = SuccessRateReport.runBand(bands[3], 2, 3, true)
+	local b = SuccessRateReport.runBand(bands[3], 2, 3, true)
 	local same = #a.segments == #b.segments and a.medianFinalMin == b.medianFinalMin and a.reached == b.reached
 	for i, seg in ipairs(a.segments) do
 		local other = b.segments[i]
@@ -276,6 +280,38 @@ do
 	check("runBand: 끝나면 MODEL 문턱이 원래대로",
 		MODEL.ADVANCE_THRESHOLD_MIN == savedMin and MODEL.ADVANCE_THRESHOLD_MAX == savedMax)
 	check("runBand: 플레이어 수 기록", a.players == 2)
+end
+
+-- 12. 운동기구 훈련 ------------------------------------------------------------------------
+do
+	local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
+	local p = SuccessRateReport.newPlayer(Random.new(7))
+	local before = BigNum.new(p.strength.m, p.strength.e)
+	check("환생 0이면 기구를 못 쓴다", SuccessRateReport.trainAtGym(p, 30) == 0)
+	check("기구를 못 쓰면 힘·시간 그대로", BigNum.eq(p.strength, before) and p.elapsedSec == 0)
+
+	p.rebirths = GymConfig.getUnlockRebirths(1)
+	local t0 = p.elapsedSec
+	check("기구 1 조건이면 기구 1을 쓴다", SuccessRateReport.trainAtGym(p, 30) == 1)
+	check("훈련 시간이 경과 시간에 더해진다", checkClose(p.elapsedSec - t0, 30))
+
+	-- 같은 클릭 수를 기구 없이 넣은 것보다 정확히 기구 배수만큼 더 오른다.
+	local a = SuccessRateReport.newPlayer(Random.new(8))
+	a.rebirths = GymConfig.getUnlockRebirths(1)
+	local b = SuccessRateReport.newPlayer(Random.new(8))
+	b.rebirths = GymConfig.getUnlockRebirths(1)
+	local base = BigNum.new(a.strength.m, a.strength.e)
+	SuccessRateReport.trainAtGym(a, 10)
+	-- 기구 없는 같은 클릭 수의 힘은 시뮬레이터와 같은 식(ClickService.computeGain)으로 따로 계산해 비율로 본다.
+	local gainA = BigNum.sub(a.strength, base)
+	local clicks = math.floor(a.clickRate * 10)
+	local padPower = ClickPadConfig.getPadPower(1, a.padIndex)
+	local mult = StrengthMultiplier.compute({ rebirths = a.rebirths })
+	local plain = BigNum.mul(BigNum.mul(padPower, BigNum.fromNumber(clicks)), mult)
+	check("기구 클릭 힘 = 기구 없는 클릭 힘 × 기구 배수",
+		checkClose(BigNum.toRatio(gainA, plain), GymConfig.getMultiplier(1)),
+		tostring(BigNum.toRatio(gainA, plain)))
+	check("훈련 0초면 아무것도 안 한다", SuccessRateReport.trainAtGym(b, 0) == 0)
 end
 
 print(string.format("[SuccessRateReportTests] %d passed, %d failed", passed, failed))

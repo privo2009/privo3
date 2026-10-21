@@ -58,6 +58,7 @@ local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
 local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local WarpConfig = require(ReplicatedStorage.Shared.Config.WarpConfig)
+local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 
 local Schema = require(script.Parent.Parent.Data.Schema)
@@ -100,6 +101,13 @@ local MODEL = {
 	WARP_POLICY = "none",
 	-- 워프 가격 배율(시뮬레이터 안에서만). 1이면 WarpConfig.cost 그대로. WarpConfig는 건드리지 않는다.
 	WARP_PRICE_SCALE = 1,
+
+	-- 운동기구에서 클릭하는 시간(초). "이번 생애 최고층을 못 넘긴 런" 뒤에 한 번, 열린 기구 중
+	-- 가장 좋은 것에서 평소 클릭 속도로 클릭한다. 열린 기구가 없으면 하지 않는다. 0이면 기구를 안 쓴다.
+	-- ⚠️ 사람 결정은 "아무 때나 힘을 올리고 싶을 때 기구 위에서 클릭"이다(2026-10-21). "막혔을 때
+	--    30초"는 그 결정을 시뮬레이터로 옮기면서 Claude가 고른 해석이다 — 사람 결정 모델 값이 아니다.
+	--    로벅스 선해금은 넣지 않는다(무과금 표준 플레이어). 기구까지 걷는 시간도 넣지 않는다.
+	GYM_TRAIN_SEC = 30,
 }
 SuccessRateReport.MODEL = MODEL
 
@@ -176,15 +184,32 @@ function SuccessRateReport.newPlayer(rng: Random): Player
 	}
 end
 
--- 클릭 n번만큼 힘을 올린다. ClickService.computeGain과 같은 식.
-local function addClicks(p: Player, clicks: number)
+-- 클릭 n번만큼 힘을 올린다. ClickService.computeGain과 같은 식. gymMultiplier는 운동기구 위에서만(없으면 1).
+local function addClicks(p: Player, clicks: number, gymMultiplier: number?)
 	if clicks <= 0 then
 		return
 	end
 	local padPower = ClickPadConfig.getPadPower(SIM.WORLD_ID, p.padIndex)
 	local multiplier = StrengthMultiplier.compute({ rebirths = p.rebirths })
 	local gain = BigNum.mul(BigNum.mul(padPower, BigNum.fromNumber(clicks)), multiplier)
+	if gymMultiplier ~= nil and gymMultiplier ~= 1 then
+		gain = BigNum.mul(gain, BigNum.fromNumber(gymMultiplier))
+	end
 	p.strength = BigNum.add(p.strength, gain)
+end
+
+-- 운동기구에서 sec초 클릭한다. 환생 수로 열린 기구 중 가장 좋은 것을 쓴다. 쓴 기구 번호(0 = 안 씀).
+function SuccessRateReport.trainAtGym(p: Player, sec: number): number
+	if sec <= 0 then
+		return 0
+	end
+	local index = GymConfig.getUnlockedCount(p.rebirths)
+	if index == 0 then
+		return 0
+	end
+	addClicks(p, math.floor(p.clickRate * sec), GymConfig.getMultiplier(index))
+	p.elapsedSec += sec
+	return index
 end
 
 -- 스폰 → 입장 게이트. 걷는 동안 평소 속도로 클릭한다. 걸린 초를 돌려준다.
@@ -391,6 +416,7 @@ export type PlayerResult = {
 	maxStageSeen: number,
 	warps: number,
 	warpStageSum: number,
+	finalRebirthsLog10: number?, -- 최고층 첫 진입 시점의 환생 수(rebirths) 상용로그
 }
 
 function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTry: { [number]: Tally }): PlayerResult
@@ -399,6 +425,7 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 	local bestThisLife = 0
 	local stale = 0
 	local finalFirstSec: number? = nil
+	local finalRebirthsLog10: number? = nil
 
 	while p.runCount < SIM.MAX_RUNS_PER_PLAYER and p.elapsedSec < SIM.MAX_SIM_SEC_PER_PLAYER do
 		local before = p.elapsedSec
@@ -414,6 +441,7 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 		local reached = runOnce(p, rng, firstTry, seen, warpTo)
 		if seen[maxStage] and finalFirstSec == nil then
 			finalFirstSec = before
+			finalRebirthsLog10 = if p.rebirths.m > 0 then math.log10(p.rebirths.m) + p.rebirths.e else nil
 			break
 		end
 
@@ -422,6 +450,7 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 			stale = 0
 		else
 			stale += 1
+			SuccessRateReport.trainAtGym(p, MODEL.GYM_TRAIN_SEC)
 		end
 		if stale >= SIM.REBIRTH_PATIENCE_RUNS and RebirthConfig.canRebirth(p.blox) then
 			rebirth(p)
@@ -446,6 +475,7 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 		maxStageSeen = maxSeen,
 		warps = p.warps,
 		warpStageSum = p.warpStageSum,
+		finalRebirthsLog10 = finalRebirthsLog10,
 	}
 end
 
@@ -485,6 +515,7 @@ end
 -- 옆에 놓고 보는 자리다. 첫 줄(빈 덮어쓰기)이 사람 결정 모델이고 표 전체를 찍는다.
 local VARIANTS: { { label: string, override: { [string]: any } } } = {
 	{ label = "결정 모델 (남은 시간 50~90%)", override = {} },
+	{ label = "운동기구 안 씀 (비교)", override = { GYM_TRAIN_SEC = 0 } },
 	{ label = "첫 결정 (남은 시간 10~50%)", override = { ADVANCE_THRESHOLD_MIN = 0.1, ADVANCE_THRESHOLD_MAX = 0.5 } },
 	{ label = "배율 인식 ±0", override = { ADVANCE_RULE = "growth_aware", ADVANCE_NOISE = 0 } },
 	{ label = "배율 인식 ±10%p", override = { ADVANCE_RULE = "growth_aware", ADVANCE_NOISE = 0.1 } },
@@ -593,10 +624,19 @@ local function runModel(label: string, full: boolean, compact: boolean?)
 		runsSum += r.runs
 	end
 	local med = median(finals)
+	local rebirthLogs: { number } = {}
+	for _, r in ipairs(results) do
+		if r.finalRebirthsLog10 ~= nil then
+			table.insert(rebirthLogs, r.finalRebirthsLog10)
+		end
+	end
+	local medRebirthLog = median(rebirthLogs)
 	print(string.format(
-		"[SUCCESSRATE] %d층 첫 진입: %d/%d명 · 중앙값 %s분 · 평균 런 %.0f · 평균 환생 %.1f회",
+		"[SUCCESSRATE] %d층 첫 진입: %d/%d명 · 중앙값 %s분 · 평균 런 %.0f · 평균 환생 %.1f회 · 그때 환생 수 중앙값 %s · 운동기구 %s초",
 		maxStage, reached, #results, if med ~= nil then string.format("%.1f", med) else "-",
-		runsSum / #results, rebirthsSum / #results
+		runsSum / #results, rebirthsSum / #results,
+		if medRebirthLog ~= nil then string.format("10^%.2f", medRebirthLog) else "-",
+		tostring(MODEL.GYM_TRAIN_SEC)
 	))
 	if MODEL.WARP_POLICY ~= "none" then
 		print(string.format(
@@ -646,7 +686,12 @@ end
 export type BandResult = { band: Band, segments: { SegmentSum }, medianFinalMin: number?, reached: number, players: number }
 
 -- 문턱 구간 하나를 같은 seed로 돌린다. MODEL은 잠깐 바꿨다가 (에러가 나도) 되돌린다.
-function SuccessRateReport.runBand(band: Band, players: number, maxStage: number): BandResult
+--
+-- ⚠️ noYield: 테스트는 반드시 true로 부른다. MODEL은 모듈 하나를 Play 전체가 공유한다 —
+--    MODEL을 바꾼 채 yield하면 그 사이 같은 Play에서 도는 리포트(Bootstrap SUCCESS_RATE_REPORT)가
+--    바뀐 문턱으로 계산한다. 2026-10-21 실측: 이 경합으로 리포트 결정 모델 줄이 Play마다 달랐다
+--    (25층 도달 200명 ↔ 197명). 테스트를 yield 없이 돌리면 원자적이라 끼어들 틈이 없다.
+function SuccessRateReport.runBand(band: Band, players: number, maxStage: number, noYield: boolean?): BandResult
 	local savedMin, savedMax = MODEL.ADVANCE_THRESHOLD_MIN, MODEL.ADVANCE_THRESHOLD_MAX
 	MODEL.ADVANCE_THRESHOLD_MIN, MODEL.ADVANCE_THRESHOLD_MAX = band.min, band.max
 	local ok, result = pcall(function(): BandResult
@@ -658,7 +703,9 @@ function SuccessRateReport.runBand(band: Band, players: number, maxStage: number
 			if r.reachedFinal and r.finalFirstSec ~= nil then
 				table.insert(finals, r.finalFirstSec / 60)
 			end
-			task.wait()
+			if not noYield then
+				task.wait()
+			end
 		end
 		return {
 			band = band,

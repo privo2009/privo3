@@ -80,6 +80,11 @@ DroneService.init()
 local ClickService = require(script.Parent.Systems.ClickService)
 ClickService.init()
 
+-- 운동기구를 세운다 (2026-10-21). 클릭 배수는 ClickService가 클릭 시점에 GymService.getClickMultiplier로
+-- 묻는다 — 상태가 없어 init 순서는 파트 생성뿐이다(클릭이 먼저 와도 배수 1로 답한다).
+local GymService = require(script.Parent.Systems.GymService)
+GymService.init()
+
 -- 이동속도 서버 권위를 연다 (4-2-c).
 -- ⚠️ 순서: ProfileManager.init() 뒤여야 한다. 최대치는 힘에서 나오고 힘은 프로필에 있어서,
 -- 프로필이 없으면 CurrencyService.get이 nil을 주고 전원이 기본 속도로 시작한다.
