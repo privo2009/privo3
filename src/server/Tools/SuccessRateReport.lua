@@ -397,8 +397,9 @@ local CURVE_VARIANTS: { { label: string, segments: { WorldConfig.GrowthSegment }
 		{ from = 1, to = 8, growth = 2.85 }, { from = 9, to = 16, growth = 4.0 }, { from = 17, to = 25, growth = 6.5 } } },
 	{ label = "C  1~8 ×2.8 / 9~16 ×4.0 / 17~25 ×6.0", segments = {
 		{ from = 1, to = 8, growth = 2.8 }, { from = 9, to = 16, growth = 4.0 }, { from = 17, to = 25, growth = 6.0 } } },
-	{ label = "D  1~8 ×2.8 / 9~16 ×3.8 / 17~25 ×6.0", segments = {
-		{ from = 1, to = 8, growth = 2.8 }, { from = 9, to = 16, growth = 3.8 }, { from = 17, to = 25, growth = 6.0 } } },
+	-- D(2.8 / 3.8 / 6.0)는 2026-10-21 채택돼 WorldConfig 현재값이 됐다. 대신 옛 곡선을 비교로 둔다.
+	{ label = "옛  1~8 ×3.0 / 9~16 ×4.0 / 17~25 ×7.0", segments = {
+		{ from = 1, to = 8, growth = 3.0 }, { from = 9, to = 16, growth = 4.0 }, { from = 17, to = 25, growth = 7.0 } } },
 }
 
 local function runModel(label: string, full: boolean, compact: boolean?)
