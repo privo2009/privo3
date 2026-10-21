@@ -22,6 +22,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RunService = game:GetService("RunService")
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local ValuePanel = require(script.Parent.Parent.Parent.Components.ValuePanel)
@@ -98,15 +99,32 @@ function ChallengeInfo.create(): ChallengeInfoHandle
 	timer.label.Text = INACTIVE_TIMER_TEXT
 	timer.label.Parent = root
 
+	-- 남은 시간 표시는 서버가 보낸 timeLeft에서 클라 시계로 줄여 보인다(표시 전용 — U4, 지시서 #5).
+	-- 판정은 서버 os.clock() 타이머가 한다(CLAUDE.md 절대 규칙 3). 전이 때마다 서버 값으로 다시 맞춘다.
+	-- 클리어하면 서버가 타이머를 멈추므로(frozenTimeLeft) 그 값에서 멈춘다.
+	local deadline: number? = nil
+
 	local function apply(payload: Remotes.RunStateChangedPayload)
 		if payload.active then
 			stageLabel.Text = string.format("스테이지 %d", payload.state.stage)
 			timer.label.Text = string.format("%.1f", payload.state.timeLeft)
+			deadline = if payload.state.cleared then nil else os.clock() + payload.state.timeLeft
 		else
 			stageLabel.Text = INACTIVE_STAGE_TEXT
 			timer.label.Text = INACTIVE_TIMER_TEXT
+			deadline = nil
 		end
 	end
+
+	local tick = RunService.Heartbeat:Connect(function()
+		local d = deadline
+		if d ~= nil then
+			timer.label.Text = string.format("%.1f", math.max(0, d - os.clock()))
+		end
+	end)
+	root.Destroying:Connect(function()
+		tick:Disconnect()
+	end)
 
 	local channels = Remotes.getClient()
 	channels.runStateChanged.OnClientEvent:Connect(apply)
