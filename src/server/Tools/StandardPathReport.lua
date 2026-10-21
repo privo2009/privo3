@@ -36,6 +36,12 @@
 --    패드를 밟으러 가는 이동 시간도 계산하지 않는다. 워프도 쓰지 않는다
 --    (blox를 환생과 같은 지갑에서 빼가 변수가 하나 늘어난다).
 --
+-- ===== 운동기구 (2026-10-22 지시서 #4) ==================================================
+--
+-- SuccessRateReport와 같은 해석을 쓴다 — "이번 생애 최고층을 못 넘긴 런" 뒤에 한 번, 환생 수로 열린
+-- 기구 중 가장 좋은 것에서 GYM_TRAIN_SEC초 클릭한다. 훈련 시간은 SuccessRateReport.MODEL에서 읽는다
+-- (같은 해석을 두 곳에 숫자로 두지 않는다). 로벅스 전용(공허)은 쓰지 않는다 — 무과금 표준이다.
+--
 -- 사용:
 --   Bootstrap의 STANDARD_PATH_REPORT_ENABLED 블록이 부른다. 출력이 필요 없을 때 그 플래그를 끈다.
 
@@ -51,6 +57,9 @@ local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 
 local Schema = require(script.Parent.Parent.Data.Schema)
+local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
+-- 운동기구 훈련 시간의 원본. 시뮬레이터 파라미터만 읽는다(이 모듈의 함수는 부르지 않는다).
+local SuccessRateReport = require(script.Parent.SuccessRateReport)
 
 type BigNumber = BigNum.BigNumber
 
@@ -400,6 +409,27 @@ local function maybeRebirth(state: SimState, reachedStage: number, maxStage: num
 	return state, 0 -- 새 생애
 end
 
+-- 운동기구 훈련 (파일 상단 "운동기구"). 쓴 기구 번호(0 = 안 씀).
+-- ClickService와 같은 식: padPower × 기구 배수 × 클릭수 × 환생 배수.
+local function trainAtGym(state: SimState, clickRate: number): number
+	local sec = SuccessRateReport.MODEL.GYM_TRAIN_SEC
+	if sec <= 0 then
+		return 0
+	end
+	local index = GymConfig.getUnlockedCount(state.rebirths)
+	if index == 0 then
+		return 0
+	end
+	local clicks = math.floor(clickRate * sec)
+	local padPower = ClickPadConfig.getPadPower(SIM.WORLD_ID, state.padIndex)
+	local multiplier = StrengthMultiplier.compute({ rebirths = state.rebirths })
+	local gain = BigNum.mul(BigNum.mul(padPower, BigNum.fromNumber(clicks)), multiplier)
+	gain = BigNum.mul(gain, BigNum.fromNumber(GymConfig.getMultiplier(index)))
+	state.strength = BigNum.add(state.strength, gain)
+	state.elapsedSec += sec
+	return index
+end
+
 -- ===== 클릭률 한 종 돌리기 ===========================================================
 
 -- export: StageRecord와 같은 이유로 외부에 노출한다.
@@ -432,7 +462,11 @@ local function simulateRate(clickRate: number, maxStage: number): RateResult
 		end
 
 		local reached: number
+		local bestBefore = bestThisLife
 		state, reached = runOnce(state, clickRate, records)
+		if reached <= bestBefore then
+			trainAtGym(state, clickRate) -- 이번 생애 최고층을 못 넘겼다 → 기구에서 힘을 올린다
+		end
 		local rebirthCountBefore = state.rebirthCount
 		state, bestThisLife = maybeRebirth(state, reached, maxStage, bestThisLife)
 		if state.rebirthCount > rebirthCountBefore then
@@ -1169,6 +1203,11 @@ function StandardPathReport.run()
 		AttackConfig.PUNCH_SPEED_BASE,
 		StageConfig.CHALLENGE_TIMER_SEC,
 		ClickPadConfig.getSet(SIM.WORLD_ID).count
+	))
+	print(string.format(
+		"  운동기구: 막힌 런 뒤 %d초 (SuccessRateReport.MODEL.GYM_TRAIN_SEC), 환생 기구 %d개, 로벅스 전용 안 씀",
+		SuccessRateReport.MODEL.GYM_TRAIN_SEC,
+		GymConfig.getRebirthTierCount()
 	))
 	print("  ⚠️ 거리 판정 없음 — 캐릭터가 반경 안에 계속 있다고 가정한 **이론 상한**이다.")
 	print("     이동 시간과 워프도 계산하지 않는다. 실제 딜은 이보다 작다.")
