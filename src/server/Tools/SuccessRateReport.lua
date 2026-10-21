@@ -39,7 +39,9 @@
 --
 --   - 클리어 뒤 진행 벽까지 걷는 시간·클리어 대기 중 클릭. 클리어한 런은 만료되지 않으므로
 --     실제 유저는 클리어 후 서서 힘을 더 모을 수 있다 — 여기서는 즉시 판단한다고 본다
---   - 워프·뽑기·게임패스·드론. 무과금 표준 플레이어다
+--   - 뽑기·게임패스·드론. 무과금 표준 플레이어다
+--   - 워프는 결정 모델에 없다(MODEL.WARP_POLICY = "none"). "greedy"는 비교용 상한이다 —
+--     아래 "워프 비교" 참고
 --   - 환생 시점 판단은 StandardPathReport와 같은 "정체" 규칙에 인내심(SIM.REBIRTH_PATIENCE_RUNS)을
 --     붙였다. 확률 모델에서는 한 번 운 나쁜 런으로 정체가 되기 때문이다
 --
@@ -55,6 +57,7 @@ local ClickPadConfig = require(ReplicatedStorage.Shared.Config.ClickPadConfig)
 local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
 local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
+local WarpConfig = require(ReplicatedStorage.Shared.Config.WarpConfig)
 local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 
 local Schema = require(script.Parent.Parent.Data.Schema)
@@ -91,6 +94,12 @@ local MODEL = {
 	-- 편차 ±ADVANCE_NOISE를 더한 문턱을 쓴다(r은 StageConfig에서 읽는다 — 새 숫자 없음).
 	ADVANCE_RULE = "time_left",
 	ADVANCE_NOISE = 0,
+
+	-- 워프 사용 규칙. "none"이 결정 모델이다(사람 결정 모델에 워프가 없다). "greedy"는
+	-- 비교용 상한 — 아래 chooseWarp 참고. 상한이라 실제 유저보다 워프를 잘 쓴다.
+	WARP_POLICY = "none",
+	-- 워프 가격 배율(시뮬레이터 안에서만). 1이면 WarpConfig.cost 그대로. WarpConfig는 건드리지 않는다.
+	WARP_PRICE_SCALE = 1,
 }
 SuccessRateReport.MODEL = MODEL
 
@@ -128,6 +137,14 @@ export type Player = {
 	elapsedSec: number,
 	runCount: number,
 	rebirthCount: number,
+	-- 워프 판단 재료. 마지막 "걸어서 시작한" 런의 값이다.
+	lastWalkSec: number?,
+	climbSec: { [number]: number }, -- climbSec[k] = 런 시작(게이트)부터 k층 클리어까지 걸린 초
+	-- 마지막 런(워프 포함)의 보상과 길이(걷기 포함). 벌이 속도 = 보상 ÷ 길이
+	lastRunReward: BigNumber?,
+	lastRunSec: number?,
+	warps: number,
+	warpStageSum: number,
 }
 
 local function copyBig(v: BigNumber): BigNumber
@@ -148,6 +165,12 @@ function SuccessRateReport.newPlayer(rng: Random): Player
 		elapsedSec = 0,
 		runCount = 0,
 		rebirthCount = 0,
+		lastWalkSec = nil,
+		climbSec = {},
+		lastRunReward = nil,
+		lastRunSec = nil,
+		warps = 0,
+		warpStageSum = 0,
 	}
 end
 
@@ -249,12 +272,26 @@ function SuccessRateReport.wantsAdvance(p: Player, stage: number, timeLeft: numb
 end
 
 -- 돌려주는 값: 이번 런에서 클리어한 최고층(0 = 1층도 못 깸).
-local function runOnce(p: Player, rng: Random, firstTry: { [number]: Tally }, seen: { [number]: boolean }): number
+-- startStage가 있으면 워프 런이다 — 걷지 않고(워프는 그 층에서 런을 바로 세운다,
+-- WarpService) 그 층부터 시작한다. 없으면 게이트를 지나 1층부터(EntranceGateService).
+function SuccessRateReport.runOnce(
+	p: Player,
+	rng: Random,
+	firstTry: { [number]: Tally },
+	seen: { [number]: boolean },
+	startStage: number?
+): number
 	p.runCount += 1
-	SuccessRateReport.walkToGate(p)
+	local runStartedAt = p.elapsedSec
+	local walked = startStage == nil
+	if walked then
+		p.lastWalkSec = SuccessRateReport.walkToGate(p)
+		table.clear(p.climbSec)
+	end
+	local gateAt = p.elapsedSec
 
 	local interval = 1 / AttackConfig.PUNCH_SPEED_BASE
-	local stage = 1
+	local stage = startStage or 1
 	local best = 0
 
 	while true do
@@ -264,9 +301,14 @@ local function runOnce(p: Player, rng: Random, firstTry: { [number]: Tally }, se
 		tally(firstTry, seen, stage, outcome.cleared)
 
 		if not outcome.cleared then
+			p.lastRunReward = BigNum.new(0, 0)
+			p.lastRunSec = p.elapsedSec - runStartedAt
 			return best -- 실패: 보상 0, 스폰 복귀
 		end
 		best = stage
+		if walked then
+			p.climbSec[stage] = p.elapsedSec - gateAt
+		end
 
 		local nextExists = StageConfig.hasStage(stage + 1)
 		if not (nextExists and SuccessRateReport.wantsAdvance(p, stage, outcome.timeLeft)) then
@@ -280,7 +322,49 @@ local function runOnce(p: Player, rng: Random, firstTry: { [number]: Tally }, se
 	p.blox = BigNum.add(p.blox, reward)
 	p.lifetimeBlox = BigNum.add(p.lifetimeBlox, reward)
 	p.padIndex = ClickPadConfig.getUnlockedPadCount(SIM.WORLD_ID, p.lifetimeBlox)
+	p.lastRunReward = reward
+	p.lastRunSec = p.elapsedSec - runStartedAt
 	return best
+end
+local runOnce = SuccessRateReport.runOnce
+
+-- ===== 워프 비교 =====================================================================
+--
+-- 질문: "워프로 아낀 시간이 그 비용을 버는 시간보다 큰가." 결정 모델에는 워프가 없으므로
+-- 이 규칙은 비교용 **상한**이다 — 워프를 가장 잘 쓰는 플레이어로도 이득이 없으면 실제
+-- 유저에게도 없다.
+--
+-- 매 런 전에 N = 2..(마지막으로 걸어서 깬 최고층)을 본다.
+--   아낀 시간  = 걷기 + 1층부터 N-1층 클리어까지(마지막으로 걸어서 시작한 런의 실측)
+--   비용 시간  = 워프 비용 ÷ 마지막 런 보상 × 마지막 런 길이 (그 돈을 다시 버는 시간)
+-- 이득(아낀 - 비용)이 가장 큰 N으로 워프한다. 양수인 N이 없거나 돈이 모자라면 걸어간다.
+-- ⚠️ 환생 배수 손실은 따로 세지 않는다 — blox는 배수로 선형 환산되므로 "다시 버는 시간"에 들어 있다.
+function SuccessRateReport.warpCost(stage: number): BigNumber
+	return BigNum.mul(WarpConfig.cost(stage), BigNum.fromNumber(MODEL.WARP_PRICE_SCALE))
+end
+
+function SuccessRateReport.chooseWarp(p: Player): number?
+	local reward, runSec, walkSec = p.lastRunReward, p.lastRunSec, p.lastWalkSec
+	if reward == nil or runSec == nil or walkSec == nil or reward.m <= 0 or runSec <= 0 then
+		return nil
+	end
+	local bestStage: number? = nil
+	local bestGain = 0
+	local n = 2
+	while p.climbSec[n - 1] ~= nil and StageConfig.hasStage(n) do
+		local cost = SuccessRateReport.warpCost(n)
+		if BigNum.gte(p.blox, cost) then
+			local saved = walkSec + p.climbSec[n - 1]
+			local costSec = BigNum.toRatio(cost, reward) * runSec
+			local gain = saved - costSec
+			if gain > bestGain then
+				bestGain = gain
+				bestStage = n
+			end
+		end
+		n += 1
+	end
+	return bestStage
 end
 
 -- RebirthService와 같은 대상: blox 0, 힘 초기값, rebirths 누적. lifetimeBlox·패드 유지.
@@ -289,6 +373,9 @@ local function rebirth(p: Player)
 	p.blox = BigNum.new(0, 0)
 	p.strength = copyBig(Schema.new().strength)
 	p.rebirthCount += 1
+	-- 힘이 초기화됐으니 지난 생애의 클리어 기록으로 워프를 고르면 못 깰 층으로 간다.
+	table.clear(p.climbSec)
+	p.lastWalkSec = nil
 end
 
 export type PlayerResult = {
@@ -297,6 +384,8 @@ export type PlayerResult = {
 	runs: number,
 	rebirths: number,
 	maxStageSeen: number,
+	warps: number,
+	warpStageSum: number,
 }
 
 function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTry: { [number]: Tally }): PlayerResult
@@ -308,7 +397,16 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 
 	while p.runCount < SIM.MAX_RUNS_PER_PLAYER and p.elapsedSec < SIM.MAX_SIM_SEC_PER_PLAYER do
 		local before = p.elapsedSec
-		local reached = runOnce(p, rng, firstTry, seen)
+		local warpTo: number? = nil
+		if MODEL.WARP_POLICY == "greedy" then
+			warpTo = SuccessRateReport.chooseWarp(p)
+		end
+		if warpTo ~= nil then
+			p.blox = BigNum.sub(p.blox, SuccessRateReport.warpCost(warpTo))
+			p.warps += 1
+			p.warpStageSum += warpTo
+		end
+		local reached = runOnce(p, rng, firstTry, seen, warpTo)
 		if seen[maxStage] and finalFirstSec == nil then
 			finalFirstSec = before
 			break
@@ -341,6 +439,8 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 		runs = p.runCount,
 		rebirths = p.rebirthCount,
 		maxStageSeen = maxSeen,
+		warps = p.warps,
+		warpStageSum = p.warpStageSum,
 	}
 end
 
@@ -475,7 +575,11 @@ local function runModel(label: string, full: boolean, compact: boolean?)
 	local reached = 0
 	local rebirthsSum = 0
 	local runsSum = 0
+	local warpsSum = 0
+	local warpStageSum = 0
 	for _, r in ipairs(results) do
+		warpsSum += r.warps
+		warpStageSum += r.warpStageSum
 		if r.reachedFinal and r.finalFirstSec ~= nil then
 			reached += 1
 			table.insert(finals, r.finalFirstSec / 60)
@@ -489,7 +593,23 @@ local function runModel(label: string, full: boolean, compact: boolean?)
 		maxStage, reached, #results, if med ~= nil then string.format("%.1f", med) else "-",
 		runsSum / #results, rebirthsSum / #results
 	))
+	if MODEL.WARP_POLICY ~= "none" then
+		print(string.format(
+			"[SUCCESSRATE] 워프: 런의 %.1f%% · 평균 목표층 %s · 가격 ×%g",
+			100 * warpsSum / math.max(runsSum, 1),
+			if warpsSum > 0 then string.format("%.1f", warpStageSum / warpsSum) else "-",
+			MODEL.WARP_PRICE_SCALE
+		))
+	end
 end
+
+-- 워프 비교. 첫 줄이 현재 가격, 나머지는 "얼마면 쓰이는가"를 보는 가격 배율이다.
+-- ⚠️ 판단 재료이지 결정이 아니다 — 워프 가격은 사람이 정한다(게임 수치).
+local WARP_VARIANTS: { { label: string, override: { [string]: any } } } = {
+	{ label = "워프 상한 · 현재 가격", override = { WARP_POLICY = "greedy", WARP_PRICE_SCALE = 1 } },
+	{ label = "워프 상한 · 가격 ×0.1", override = { WARP_POLICY = "greedy", WARP_PRICE_SCALE = 0.1 } },
+	{ label = "워프 상한 · 가격 ×0.01", override = { WARP_POLICY = "greedy", WARP_PRICE_SCALE = 0.01 } },
+}
 
 function SuccessRateReport.run()
 	print("[SUCCESSRATE] ===== 확률적 플레이어 성공률 (4-2-f) =====")
@@ -518,6 +638,19 @@ function SuccessRateReport.run()
 		end
 	end
 	world.hpGrowthSegments = original
+
+	print("[SUCCESSRATE] ===== 워프 비교 (결정 모델 + 워프 상한 규칙) =====")
+	for _, variant in ipairs(WARP_VARIANTS) do
+		local saved: { [string]: any } = {}
+		for k, v in pairs(variant.override) do
+			saved[k] = (MODEL :: any)[k]
+			;(MODEL :: any)[k] = v
+		end
+		runModel(variant.label, false, true)
+		for k, v in pairs(saved) do
+			(MODEL :: any)[k] = v
+		end
+	end
 	print("[SUCCESSRATE] 끝.")
 end
 

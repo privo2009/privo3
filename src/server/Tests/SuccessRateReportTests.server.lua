@@ -14,6 +14,7 @@ local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
+local WarpConfig = require(ReplicatedStorage.Shared.Config.WarpConfig)
 local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local SuccessRateReport = require(ServerScriptService.Server.Tools.SuccessRateReport)
 
@@ -179,6 +180,63 @@ do
 	check("결정성: 1층 첫 시도 결과 같음", (ta[1] and ta[1].successes) == (tb[1] and tb[1].successes))
 	check("2층 목표: 2층 첫 시도 기록됨", ta[2] ~= nil and ta[2].attempts == 1)
 	check("층마다 첫 시도는 플레이어당 1회", ta[1] ~= nil and ta[1].attempts == 1)
+end
+
+-- 10. 워프 비교 -------------------------------------------------------------------------
+check("결정 모델에는 워프가 없다", MODEL.WARP_POLICY == "none", tostring(MODEL.WARP_POLICY))
+check("가격 배율 1이면 WarpConfig.cost 그대로", MODEL.WARP_PRICE_SCALE == 1
+	and BigNum.eq(SuccessRateReport.warpCost(5), WarpConfig.cost(5)))
+
+-- 판단 재료를 직접 채운 플레이어. climbSec[k] = k초(층당 1초), 걷기 2초, 마지막 런 10초.
+local function warpReady(blox: BigNum.BigNumber, lastReward: BigNum.BigNumber)
+	local p = SuccessRateReport.newPlayer(Random.new(5))
+	p.blox = blox
+	p.lastWalkSec = 2
+	p.lastRunSec = 10
+	p.lastRunReward = lastReward
+	for k = 1, 4 do
+		p.climbSec[k] = k
+	end
+	return p
+end
+
+do
+	local fresh = SuccessRateReport.newPlayer(Random.new(5))
+	check("워프: 판단 재료가 없으면 걷는다", SuccessRateReport.chooseWarp(fresh) == nil)
+
+	local poor = warpReady(BigNum.new(0, 0), BigNum.new(1, 300))
+	check("워프: 돈이 모자라면 걷는다", SuccessRateReport.chooseWarp(poor) == nil)
+
+	-- 보상이 워프 비용에 비해 압도적이면 비용 시간 ≈ 0 → 아낀 시간이 가장 큰 층(5층) 선택.
+	local rich = warpReady(BigNum.new(1, 300), BigNum.new(1, 300))
+	check("워프: 거의 공짜면 걸어서 깬 최고층+1까지 간다", SuccessRateReport.chooseWarp(rich) == 5,
+		tostring(SuccessRateReport.chooseWarp(rich)))
+
+	-- 마지막 런 보상이 아주 작으면 비용 시간이 아낀 시간보다 크다.
+	local slow = warpReady(BigNum.new(1, 300), BigNum.new(1, -300))
+	check("워프: 비용을 버는 시간이 더 길면 걷는다", SuccessRateReport.chooseWarp(slow) == nil)
+
+	local failed_ = warpReady(BigNum.new(1, 300), BigNum.new(0, 0))
+	check("워프: 마지막 런 보상 0이면 걷는다", SuccessRateReport.chooseWarp(failed_) == nil)
+end
+
+-- 워프 런은 걷지 않고 그 층부터 시작한다.
+do
+	local p = playerWith(BigNum.new(1, 300))
+	local tally = {}
+	local seen = {}
+	local before = p.elapsedSec
+	SuccessRateReport.runOnce(p, Random.new(6), tally, seen, 3)
+	check("워프 런: 1·2층에 들어가지 않는다", seen[1] == nil and seen[2] == nil)
+	check("워프 런: 3층부터 시작", seen[3] == true)
+	check("워프 런: 클리어 기록(climbSec)을 덮지 않는다", next(p.climbSec) == nil)
+	check("워프 런: 걷지 않는다(걷기 시간 미기록)", p.lastWalkSec == nil)
+	check("워프 런: 런 길이 = 경과 시간", p.lastRunSec ~= nil and checkClose(p.lastRunSec, p.elapsedSec - before))
+
+	local walkedP = playerWith(BigNum.new(1, 300))
+	SuccessRateReport.runOnce(walkedP, Random.new(6), {}, {}, nil)
+	check("걸어간 런: climbSec[1]이 기록된다", walkedP.climbSec[1] ~= nil)
+	check("걸어간 런: 걷기 시간이 기록된다", walkedP.lastWalkSec ~= nil and walkedP.lastWalkSec > 0)
 end
 
 print(string.format("[SuccessRateReportTests] %d passed, %d failed", passed, failed))
