@@ -19,12 +19,12 @@ export type ClickPadSet = {
 	count: number, -- 패드 개수
 	basePower: BigNumber, -- 패드 1의 클릭 파워
 	powerGrowth: number, -- 패드 한 칸당 파워 배율
-	-- 패드 2의 해금 조건 = bloxBase × 이 값.
-	-- ⚠️ 절대값으로 박지 말 것. bloxBase는 4-2-f 튜닝 대상(확정값인지 임시값인지 아직
-	-- 미정)이라, 조건을 절대값으로 넣으면 bloxBase를 건드리는 순간 패드 곡선이 조용히
-	-- 어긋난다. 배수로 두면 bloxBase가 움직여도 "보상 몇 판어치"라는 의미가 유지된다.
-	unlockMultiplier: number,
-	unlockGrowth: number, -- 패드 한 칸당 해금 조건 배율
+	-- 패드 2의 해금 조건 = bloxBase × 이 값. 그 뒤로는 1·3 단위 사다리를 탄다
+	-- (30 → 100 → 300 → 1K → 3K …, 한 칸에 ×10/3 과 ×3 이 번갈아 — 평균 √10 ≈ 3.16배).
+	-- 계산은 ClickPadConfig.getPadUnlock. 그래서 이 값은 1×10^k 또는 3×10^k여야 한다(validate).
+	-- ⚠️ 절대값으로 박지 말 것. 배수로 두면 bloxBase가 움직여도 "보상 몇 판어치"라는 의미가
+	-- 유지된다. 단 bloxBase가 10의 거듭제곱이 아니면 결과가 깔끔한 단위에서 벗어난다.
+	unlockStart: number,
 }
 
 export type WorldDef = {
@@ -73,8 +73,11 @@ local Worlds: { [number]: WorldDef } = {
 		},
 		eggPacks = { 1, 2, 3 },
 		auraPacks = { 1, 2, 3, 4, 5 },
-		-- 클릭 파워 패드 24개. 파워는 패드당 2배(2 → 16.78M), 해금 조건은 패드당 3배로
-		-- 파워보다 가파르다 — 뒤 패드일수록 "한 칸 더"의 대가가 커져야 방치 시간이 의미를 갖는다.
+		-- 클릭 파워 패드 24개. 파워는 패드당 2배(2 → 16.78M), 해금 조건은 1·3 단위 사다리
+		-- (평균 약 3.16배)로 파워보다 가파르다 — 뒤 패드일수록 "한 칸 더"의 대가가 커져야 방치
+		-- 시간이 의미를 갖는다.
+		-- ✅ 2026-10-21 사람 결정: 해금 조건을 깔끔한 단위로(36·108·324… → 30·100·300·1K…).
+		--   예전 식은 bloxBase × 36 × 3^(n-2). 새 사다리는 패드 24에서 약 2.7배 비싸다.
 		--
 		-- ⚠️ TEMP — basePower는 4-2-f 실측 튜닝 대상이다. 확정값이 아니다.
 		--
@@ -96,8 +99,7 @@ local Worlds: { [number]: WorldDef } = {
 			count = 24,
 			basePower = BigNum.new(2, 0), -- 2
 			powerGrowth = 2.0,
-			unlockMultiplier = 36, -- 패드2 조건 = bloxBase × 36 (= 1층 보상 36판어치)
-			unlockGrowth = 3.0,
+			unlockStart = 30, -- 패드2 조건 = bloxBase × 30 (= 1층 보상 30판어치), 이후 1·3 사다리
 		},
 	},
 }
@@ -166,8 +168,15 @@ local function validateClickPadSet(worldId: number, world: WorldDef)
 	assert(BigNum.gt(set.basePower, BigNum.new(0, 0)), string.format("WorldConfig: 월드 %d의 clickPadSet.basePower는 0보다 커야 함", worldId))
 	-- growth가 1 이하면 뒤 패드가 앞 패드보다 약하거나 같아져서 패드를 늘리는 의미가 없다.
 	assert(set.powerGrowth > 1, string.format("WorldConfig: 월드 %d의 clickPadSet.powerGrowth(%.2f)는 1보다 커야 함", worldId, set.powerGrowth))
-	assert(set.unlockGrowth > 1, string.format("WorldConfig: 월드 %d의 clickPadSet.unlockGrowth(%.2f)는 1보다 커야 함", worldId, set.unlockGrowth))
-	assert(set.unlockMultiplier > 0, string.format("WorldConfig: 월드 %d의 clickPadSet.unlockMultiplier(%.2f)는 0보다 커야 함", worldId, set.unlockMultiplier))
+	-- 1·3 사다리의 출발점이라 1×10^k 또는 3×10^k(k ≥ 0 정수)여야 한다.
+	local start = set.unlockStart
+	local ok = type(start) == "number" and start >= 1
+	if ok then
+		local e = math.floor(math.log10(start) + 1e-9)
+		local m = start / 10 ^ e
+		ok = math.abs(m - 1) < 1e-9 or math.abs(m - 3) < 1e-9
+	end
+	assert(ok, string.format("WorldConfig: 월드 %d의 clickPadSet.unlockStart(%s)는 1×10^k 또는 3×10^k여야 함", worldId, tostring(start)))
 end
 
 function WorldConfig.validate(): boolean

@@ -4,11 +4,13 @@
 --
 -- 대상 재화:
 --   strength    — 힘. 환생(rebirth) 시 CurrencyService.set으로 초기화됨
---   blox        — 블럭스. add로 증가할 때마다 lifetimeBlox(환생 진척도)도 동일량 증가
+--   blox        — 블럭스. add로 증가할 때마다 lifetimeBlox(평생 누적)와 lifeBlox(이번 생애
+--                 누적 — 패드 해금 기준)도 동일량 증가
 --   rebirths    — 환생 배수. add로만 늘고 줄지 않는다 (4-2-d)
 --
--- ⚠️ lifetimeBlox는 여기 없다. 그건 blox add에 딸려 오르는 파생 필드이지 직접 증감 대상이
---    아니다. 목록에 넣으면 blox를 거치지 않고 진척도만 올리는 경로가 생긴다.
+-- ⚠️ lifetimeBlox · lifeBlox는 여기 없다. 둘 다 blox add에 딸려 오르는 파생 필드이지 직접 증감
+--    대상이 아니다. 목록에 넣으면 blox를 거치지 않고 진척도만 올리는 경로가 생긴다.
+--    lifeBlox를 0으로 되돌리는 길은 환생용 resetLifeBlox 하나뿐이다.
 --    rebirths는 반대다 — DESIGN "3. 화폐와 배수 > 환생"이 못박은 대로 **역산 불가능한
 --    독립 필드**이므로(누적 블럭스 파생값으로 두면 환생 버튼을 누를 이유가 사라진다)
 --    직접 증감 대상이 맞다.
@@ -50,7 +52,7 @@ end
 -- ===== 순수 계산 로직 (profile/Player 의존 없음) =====================================
 
 -- data[currency]에 amount를 더한 결과를 updates로 반환한다 (data는 수정하지 않음).
--- currency == "blox"면 lifetimeBlox도 같은 양만큼 증가시켜 updates에 함께 담는다.
+-- currency == "blox"면 lifetimeBlox · lifeBlox도 같은 양만큼 증가시켜 updates에 함께 담는다.
 -- 네 번째 반환값(isNoop)은 amount.m == 0이라 실질적으로 아무 것도 안 바뀌었음을 알리는 신호다 —
 -- 공개 API가 이걸 보고 로깅을 건너뛴다.
 local function applyAdd(currency: string, data: { [string]: any }, amount: any): (boolean, { [string]: BigNumber }?, string?, boolean?)
@@ -81,9 +83,24 @@ local function applyAdd(currency: string, data: { [string]: any }, amount: any):
 			return false, nil, "lifetimeBlox 현재값이 올바른 BigNum이 아님"
 		end
 		updates.lifetimeBlox = BigNum.add(currentLifetime, amount)
+
+		-- 이번 생애 누적. 패드 해금 기준이다(ClickPadConfig). 환생하면 resetLifeBlox로 0이 된다.
+		local currentLife = data.lifeBlox
+		if not Schema.isBigNum(currentLife) then
+			return false, nil, "lifeBlox 현재값이 올바른 BigNum이 아님"
+		end
+		updates.lifeBlox = BigNum.add(currentLife, amount)
 	end
 
 	return true, updates, nil, false
+end
+
+-- 환생 전용. lifeBlox(이번 생애 누적)를 0으로 되돌리는 updates를 만든다. 다른 필드는 건드리지 않는다.
+local function applyResetLife(data: { [string]: any }): (boolean, { [string]: BigNumber }?, string?)
+	if not Schema.isBigNum(data.lifeBlox) then
+		return false, nil, "lifeBlox 현재값이 올바른 BigNum이 아님"
+	end
+	return true, { lifeBlox = BigNum.new(0, 0) }, nil
 end
 
 -- data[currency]에서 amount를 뺀 결과를 updates로 반환한다. lifetimeBlox는 건드리지 않는다.
@@ -159,6 +176,7 @@ CurrencyService._pure = {
 	applySubtract = applySubtract,
 	applySet = applySet,
 	applyUpdatesWithRollback = applyUpdatesWithRollback,
+	applyResetLife = applyResetLife,
 }
 
 -- ===== 공개 API =====================================================================
@@ -292,6 +310,32 @@ function CurrencyService.subtract(player: Player, currency: string, amount: BigN
 	local newValue = (updates :: { [string]: BigNumber })[currency]
 	logChange("subtract", player, currency, amount, newValue, reason)
 	return true, newValue
+end
+
+-- 환생 전용. 이번 생애 누적 blox(lifeBlox)를 0으로 — 패드가 다시 잠긴다(DESIGN "클릭 파워 패드").
+function CurrencyService.resetLifeBlox(player: Player, reason: string): boolean
+	assert(type(reason) == "string" and #reason > 0, "CurrencyService.resetLifeBlox: reason은 필수 문자열이다")
+
+	local profile = ProfileManager.get(player)
+	if profile == nil then
+		warn(string.format("[CurrencyService] resetLifeBlox 실패: %s(%d) 프로필 없음 (reason=%s)", player.Name, player.UserId, reason))
+		return false
+	end
+
+	local ok, updates, err = applyResetLife(profile.Data)
+	if not ok then
+		logRejected("resetLifeBlox", player, "lifeBlox", reason, err or "알 수 없는 오류")
+		return false
+	end
+
+	local applyOk, applyErr = applyUpdatesWithRollback(profile.Data, updates :: { [string]: BigNumber })
+	if not applyOk then
+		warn(string.format("[CurrencyService][ERROR] resetLifeBlox 롤백: %s(%d) reason=%s - %s", player.Name, player.UserId, reason, applyErr))
+		return false
+	end
+
+	logChange("set", player, "lifeBlox", BigNum.new(0, 0), BigNum.new(0, 0), reason)
+	return true
 end
 
 -- 환생/관리 전용. 일반 재화 획득/소모 경로에서는 add/subtract를 쓸 것.

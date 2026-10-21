@@ -46,7 +46,7 @@ do
 	check("new()는 매번 독립된 깊은 복사본을 반환함", b.blox.m == 0)
 end
 
-check("Schema.VERSION == 3 (v3: progress.selectedPadIndex 추가)", Schema.VERSION == 3)
+check("Schema.VERSION == 4 (v4: lifeBlox 추가)", Schema.VERSION == 4)
 check("LIMITS.MAX_DRONES == 5", Schema.LIMITS.MAX_DRONES == 5)
 check("LIMITS.MAX_PET_SLOTS == 6", Schema.LIMITS.MAX_PET_SLOTS == 6)
 check("LIMITS.MAX_AURA_PACKS == 5", Schema.LIMITS.MAX_AURA_PACKS == 5)

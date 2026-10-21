@@ -6,7 +6,7 @@
 -- 패드는 스테이지 축이 아니라 월드 축이다. 스테이지를 오르내려도 패드 구성은 그대로고,
 -- 월드가 바뀔 때만 세트가 통째로 갈린다. 그래서 StageConfig에 넣지 않고 모듈을 나눴다.
 --
--- 해금 조건의 기준은 lifetimeBlox(누적 획득량)다. 현재 보유량이 아니다 — 보유량 기준이면
+-- 해금 조건의 기준은 lifeBlox(이번 생애 누적 획득량 — 환생하면 0)다. 현재 보유량이 아니다 — 보유량 기준이면
 -- 상점에서 쓰는 순간 이미 밟던 패드가 잠기기 때문이다.
 
 local BigNum = require(script.Parent.Parent.BigNum)
@@ -51,14 +51,29 @@ function ClickPadConfig.getPadPower(worldId: number, index: number): BigNumber
 	return BigNum.mul(set.basePower, BigNum.pow(BigNum.fromNumber(set.powerGrowth), index - 1))
 end
 
--- 패드 index를 해금하는 데 필요한 lifetimeBlox.
+-- 1·3 사다리의 k번째 칸(k = 0부터). start(1×10^e 또는 3×10^e)에서 출발해
+-- 1 → 3 → 10 → 30 … 순으로 오른다. 가수·지수를 정수로 직접 만든다 — ×10/3을 실수로
+-- 곱하면 99.999…가 되어 "깔끔한 단위"가 깨진다.
+local function ladderStep(start: number, k: number): BigNumber
+	local e0 = math.floor(math.log10(start) + 1e-9)
+	local startsAtThree = math.abs(start / 10 ^ e0 - 3) < 1e-9
+	if startsAtThree then
+		-- 3e0 → 1e(+1) → 3e(+1) → 1e(+2) …
+		local m = if k % 2 == 0 then 3 else 1
+		return BigNum.new(m, e0 + math.floor((k + 1) / 2))
+	end
+	-- 1e0 → 3e0 → 1e(+1) → 3e(+1) …
+	local m = if k % 2 == 0 then 1 else 3
+	return BigNum.new(m, e0 + math.floor(k / 2))
+end
+
+-- 패드 index를 해금하는 데 필요한 "이번 생애 누적 blox"(lifeBlox — 환생하면 0).
 --   index == 1 : 0 (시작 패드. 조건 없음)
---   index >= 2 : bloxBase × unlockMultiplier × unlockGrowth^(index-2)
+--   index >= 2 : bloxBase × (unlockStart에서 출발하는 1·3 사다리의 index-2번째 칸)
+--                예) unlockStart 30 → 30, 100, 300, 1K, 3K, 10K …
 --
 -- ⚠️ bloxBase에서 유도하는 것이 핵심이다. 절대값으로 박으면 bloxBase를 튜닝하는 순간
--- (4-2-f) 패드 곡선만 옛 기준에 남아 조용히 어긋난다. 근거는 WorldConfig.ClickPadSet 주석.
--- 지수가 index-2인 이유: 배수(unlockMultiplier)가 적용되는 첫 패드가 2번이므로,
--- 2번에서 growth가 0제곱(=1)이어야 조건이 정확히 bloxBase × unlockMultiplier가 된다.
+-- 패드 곡선만 옛 기준에 남아 조용히 어긋난다. 근거는 WorldConfig.ClickPadSet 주석.
 function ClickPadConfig.getPadUnlock(worldId: number, index: number): BigNumber
 	local world = getWorld(worldId)
 	local set = world.clickPadSet
@@ -68,18 +83,17 @@ function ClickPadConfig.getPadUnlock(worldId: number, index: number): BigNumber
 		return ZERO
 	end
 
-	local base = BigNum.mul(world.bloxBase, BigNum.fromNumber(set.unlockMultiplier))
-	return BigNum.mul(base, BigNum.pow(BigNum.fromNumber(set.unlockGrowth), index - 2))
+	return BigNum.mul(world.bloxBase, ladderStep(set.unlockStart, index - 2))
 end
 
 -- 조건을 만족하는 가장 높은 패드 인덱스. 패드 1은 조건이 0이라 항상 열려 있으므로 최소 1.
 -- 조건이 인덱스에 대해 순증가하는 것은 validate()가 보장하므로, 처음 막히는 지점에서 끊는다.
-function ClickPadConfig.getUnlockedPadCount(worldId: number, lifetimeBlox: BigNumber): number
+function ClickPadConfig.getUnlockedPadCount(worldId: number, lifeBlox: BigNumber): number
 	local set = ClickPadConfig.getSet(worldId)
 
 	local unlocked = 1
 	for index = 2, set.count do
-		if not BigNum.gte(lifetimeBlox, ClickPadConfig.getPadUnlock(worldId, index)) then
+		if not BigNum.gte(lifeBlox, ClickPadConfig.getPadUnlock(worldId, index)) then
 			break
 		end
 		unlocked = index
@@ -88,11 +102,11 @@ function ClickPadConfig.getUnlockedPadCount(worldId: number, lifetimeBlox: BigNu
 	return unlocked
 end
 
-function ClickPadConfig.isUnlocked(worldId: number, index: number, lifetimeBlox: BigNumber): boolean
+function ClickPadConfig.isUnlocked(worldId: number, index: number, lifeBlox: BigNumber): boolean
 	local set = ClickPadConfig.getSet(worldId)
 	assertIndex(worldId, set, index)
 
-	return BigNum.gte(lifetimeBlox, ClickPadConfig.getPadUnlock(worldId, index))
+	return BigNum.gte(lifeBlox, ClickPadConfig.getPadUnlock(worldId, index))
 end
 
 function ClickPadConfig.validate(): boolean

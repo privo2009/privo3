@@ -132,6 +132,7 @@ export type Player = {
 	strength: BigNumber,
 	blox: BigNumber,
 	lifetimeBlox: BigNumber,
+	lifeBlox: BigNumber, -- 이번 생애 누적 blox. 패드 해금 기준, 환생하면 0
 	rebirths: BigNumber,
 	padIndex: number,
 	elapsedSec: number,
@@ -160,8 +161,9 @@ function SuccessRateReport.newPlayer(rng: Random): Player
 		strength = copyBig(template.strength),
 		blox = copyBig(template.blox),
 		lifetimeBlox = copyBig(template.lifetimeBlox),
+		lifeBlox = copyBig(template.lifeBlox),
 		rebirths = copyBig(template.rebirths),
-		padIndex = ClickPadConfig.getUnlockedPadCount(SIM.WORLD_ID, template.lifetimeBlox),
+		padIndex = ClickPadConfig.getUnlockedPadCount(SIM.WORLD_ID, template.lifeBlox),
 		elapsedSec = 0,
 		runCount = 0,
 		rebirthCount = 0,
@@ -321,7 +323,8 @@ function SuccessRateReport.runOnce(
 	local reward = StageConfig.getBloxReward(best)
 	p.blox = BigNum.add(p.blox, reward)
 	p.lifetimeBlox = BigNum.add(p.lifetimeBlox, reward)
-	p.padIndex = ClickPadConfig.getUnlockedPadCount(SIM.WORLD_ID, p.lifetimeBlox)
+	p.lifeBlox = BigNum.add(p.lifeBlox, reward)
+	p.padIndex = ClickPadConfig.getUnlockedPadCount(SIM.WORLD_ID, p.lifeBlox)
 	p.lastRunReward = reward
 	p.lastRunSec = p.elapsedSec - runStartedAt
 	return best
@@ -367,11 +370,13 @@ function SuccessRateReport.chooseWarp(p: Player): number?
 	return bestStage
 end
 
--- RebirthService와 같은 대상: blox 0, 힘 초기값, rebirths 누적. lifetimeBlox·패드 유지.
+-- RebirthService와 같은 대상: blox 0, 힘 초기값, rebirths 누적, lifeBlox 0 · 패드 1. lifetimeBlox 유지.
 local function rebirth(p: Player)
 	p.rebirths = BigNum.add(p.rebirths, RebirthConfig.getGainedRebirths(p.blox))
 	p.blox = BigNum.new(0, 0)
 	p.strength = copyBig(Schema.new().strength)
+	p.lifeBlox = BigNum.new(0, 0)
+	p.padIndex = 1
 	p.rebirthCount += 1
 	-- 힘이 초기화됐으니 지난 생애의 클리어 기록으로 워프를 고르면 못 깰 층으로 간다.
 	table.clear(p.climbSec)

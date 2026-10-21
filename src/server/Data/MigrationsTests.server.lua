@@ -20,7 +20,25 @@ end
 
 -- 1. 기본 -----------------------------------------------------------------
 
-check("Migrations.CURRENT == 3 (변환 2개 등록됨: radius 제거 / selectedPadIndex 추가)", Migrations.CURRENT == 3)
+check("Migrations.CURRENT == 4 (변환 3개 등록됨: radius 제거 / selectedPadIndex 추가 / lifeBlox 추가)", Migrations.CURRENT == 4)
+
+-- v3 -> v4: lifeBlox = 지금 보유 blox (하한). 보유 blox가 깨졌으면 0.
+do
+	local data = { schemaVersion = 3, blox = { m = 2.5, e = 3 }, lifetimeBlox = { m = 9, e = 9 } }
+	local ok, err = Migrations.run(data)
+	check("v3->v4: 변환 성공", ok, err)
+	check("v3->v4: lifeBlox = 보유 blox(2.5e3), lifetimeBlox가 아니다",
+		data.lifeBlox ~= nil and data.lifeBlox.m == 2.5 and data.lifeBlox.e == 3)
+	check("v3->v4: lifeBlox는 blox의 복사본(같은 테이블 아님)", data.lifeBlox ~= data.blox)
+
+	local broken = { schemaVersion = 3 }
+	Migrations.run(broken)
+	check("v3->v4: blox가 없으면 lifeBlox 0", broken.lifeBlox ~= nil and broken.lifeBlox.m == 0 and broken.lifeBlox.e == 0)
+
+	local already = { schemaVersion = 3, blox = { m = 1, e = 0 }, lifeBlox = { m = 7, e = 1 } }
+	Migrations.run(already)
+	check("v3->v4: lifeBlox가 이미 있으면 덮지 않는다", already.lifeBlox.m == 7 and already.lifeBlox.e == 1)
+end
 
 -- 2. v1 -> v2 실제 마이그레이션: upgrades.radius 필드 제거 -------------------------------
 -- 데미지 오버플로우 도입으로 파괴 반경 개념이 없어져서 생긴 실제 마이그레이션(Migrations[1]).

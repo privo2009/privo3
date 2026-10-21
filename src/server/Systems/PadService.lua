@@ -8,7 +8,8 @@
 -- ===== 판정은 전부 서버다 (CLAUDE.md 3) ================================================
 --
 -- Touched는 신호일 뿐 권한이 아니다. 밟았다는 사실만으로 패드가 적용되지 않는다 —
--- 그 패드가 실제로 해금 상태인지는 서버가 프로필의 lifetimeBlox로 매번 판정한다.
+-- 그 패드가 실제로 해금 상태인지는 서버가 프로필의 lifeBlox(이번 생애 누적 blox)로 매번 판정한다.
+-- 환생하면 lifeBlox가 0이 되고 선택도 패드 1로 돌아간다(resetForRebirth — 2026-10-21 사람 결정).
 -- 클라는 파트를 밟는 것 외에 이 경로에 개입할 수단이 없다(RemoteEvent를 두지 않았다).
 --
 -- ===== 선택은 세팅이지 누적이 아니다 ===================================================
@@ -72,7 +73,7 @@ local function applyTouch(
 	state: PadState,
 	worldId: number,
 	index: number,
-	lifetimeBlox: BigNumber,
+	lifeBlox: BigNumber,
 	now: number
 ): (PadState, string)
 	if state.lastTouchIndex == index and (now - state.lastTouchAt) < TOUCH_DEBOUNCE_SEC then
@@ -86,7 +87,7 @@ local function applyTouch(
 		lastTouchAt = now,
 	}
 
-	if not ClickPadConfig.isUnlocked(worldId, index, lifetimeBlox) then
+	if not ClickPadConfig.isUnlocked(worldId, index, lifeBlox) then
 		return moved, "locked"
 	end
 
@@ -95,7 +96,7 @@ local function applyTouch(
 	return moved, "ok"
 end
 
--- 저장된 인덱스를 현재 Config + lifetimeBlox 기준으로 다시 재본다.
+-- 저장된 인덱스를 현재 Config + lifeBlox 기준으로 다시 재본다.
 --
 -- 왜 필요한가: 인덱스는 프로필에 남지만 그 인덱스의 해금 조건은 WorldConfig에 있다.
 -- 조건을 올리는 튜닝(4-2-f)을 하면 이미 저장된 인덱스가 조건 미달이 된다. 그대로 두면
@@ -104,7 +105,7 @@ end
 --
 -- 깨진 값(nil, 실수, 0 이하, count 초과)도 여기서 1..count로 접는다. Schema는 Config를
 -- 몰라야 해서 상한(count)을 검사할 수 없기 때문에, 상한 판정은 이쪽 책임이다.
-local function clampSelectedIndex(worldId: number, storedIndex: any, lifetimeBlox: BigNumber): number
+local function clampSelectedIndex(worldId: number, storedIndex: any, lifeBlox: BigNumber): number
 	local set = ClickPadConfig.getSet(worldId)
 
 	local index = storedIndex
@@ -114,7 +115,7 @@ local function clampSelectedIndex(worldId: number, storedIndex: any, lifetimeBlo
 		index = set.count
 	end
 
-	local maxUnlocked = ClickPadConfig.getUnlockedPadCount(worldId, lifetimeBlox)
+	local maxUnlocked = ClickPadConfig.getUnlockedPadCount(worldId, lifeBlox)
 	if index > maxUnlocked then
 		index = maxUnlocked
 	end
@@ -150,14 +151,14 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	states[player] = nil
 end)
 
--- 프로필에서 lifetimeBlox를 읽는다.
--- CurrencyService.get을 쓰지 않는 이유: lifetimeBlox는 CURRENCIES 목록에 없어서 assert로 막힌다
+-- 프로필에서 lifeBlox(이번 생애 누적 blox)를 읽는다.
+-- CurrencyService.get을 쓰지 않는 이유: lifeBlox는 CURRENCIES 목록에 없어서 assert로 막힌다
 -- (add로 blox를 넣을 때 파생 갱신되는 값이라 직접 증감 대상이 아니다). 여기서는 읽기만 하므로
 -- CLAUDE.md 규칙 2(직접 "수정" 금지)에 걸리지 않는다.
-local function readLifetimeBlox(profile: any): BigNumber
-	local raw = profile.Data.lifetimeBlox
+local function readLifeBlox(profile: any): BigNumber
+	local raw = profile.Data.lifeBlox
 	if type(raw) ~= "table" or type(raw.m) ~= "number" or type(raw.e) ~= "number" then
-		warn("[PadService] lifetimeBlox가 BigNum 형태가 아님 - 0으로 취급")
+		warn("[PadService] lifeBlox가 BigNum 형태가 아님 - 0으로 취급")
 		return BigNum.new(0, 0)
 	end
 	return BigNum.deserialize(raw)
@@ -173,7 +174,7 @@ local function handleTouch(player: Player, index: number)
 	local state = states[player]
 	if state == nil then
 		-- onLoaded보다 Touched가 먼저 온 경우. 저장값 기준으로 지금 만든다.
-		state = newPadState(clampSelectedIndex(PAD_WORLD_ID, profile.Data.progress.selectedPadIndex, readLifetimeBlox(profile)))
+		state = newPadState(clampSelectedIndex(PAD_WORLD_ID, profile.Data.progress.selectedPadIndex, readLifeBlox(profile)))
 		states[player] = state
 	end
 
@@ -184,7 +185,7 @@ local function handleTouch(player: Player, index: number)
 	local restingOnSamePad = state.lastTouchIndex == index
 		and (now - state.lastTouchAt) < NOTIFY_QUIET_SEC
 
-	local nextState, result = applyTouch(state, PAD_WORLD_ID, index, readLifetimeBlox(profile), now)
+	local nextState, result = applyTouch(state, PAD_WORLD_ID, index, readLifeBlox(profile), now)
 	states[player] = nextState
 
 	if result == "debounced" then
@@ -196,7 +197,7 @@ local function handleTouch(player: Player, index: number)
 		-- 다만 잠긴 패드 위에 서 있는 동안 같은 warn을 반복하지는 않는다.
 		if not restingOnSamePad then
 			warn(string.format(
-				"[PadService] %s(%d) 잠긴 패드 %d 밟음 - 무시 (필요 lifetimeBlox=%s)",
+				"[PadService] %s(%d) 잠긴 패드 %d 밟음 - 무시 (필요 lifeBlox=%s)",
 				player.Name,
 				player.UserId,
 				index,
@@ -219,7 +220,7 @@ local function handleTouch(player: Player, index: number)
 	end
 
 	-- 서 있는 동안의 "재확인"만 조용히 넘긴다.
-	-- ⚠️ changed는 restingOnSamePad보다 우선한다. 잠긴 패드 위에 서 있는 채로 lifetimeBlox가
+	-- ⚠️ changed는 restingOnSamePad보다 우선한다. 잠긴 패드 위에 서 있는 채로 lifeBlox가
 	-- 조건을 넘기는 경우(방치형이므로 실제로 일어난다) 발을 떼지 않고도 선택이 바뀌는데,
 	-- 이때는 서 있는 중이어도 반드시 알려야 한다.
 	if not changed and restingOnSamePad then
@@ -299,10 +300,10 @@ function PadService.init()
 		createPadPart(i, positions[i], container)
 	end
 
-	-- 로드 시 재검증. 저장된 인덱스를 지금의 Config + lifetimeBlox로 다시 재서 클램프한다.
+	-- 로드 시 재검증. 저장된 인덱스를 지금의 Config + lifeBlox로 다시 재서 클램프한다.
 	ProfileManager.onLoaded(function(player: Player, profile: any)
 		local stored = profile.Data.progress.selectedPadIndex
-		local clamped = clampSelectedIndex(PAD_WORLD_ID, stored, readLifetimeBlox(profile))
+		local clamped = clampSelectedIndex(PAD_WORLD_ID, stored, readLifeBlox(profile))
 
 		if clamped ~= stored then
 			warn(string.format(
@@ -336,6 +337,19 @@ end
 function PadService.getSelectedIndex(player: Player): number
 	local state = states[player]
 	return if state ~= nil then state.selectedIndex else 1
+end
+
+-- 환생 전용. 선택을 패드 1로 되돌린다 — lifeBlox가 0이 되어 패드 1 말고는 전부 잠긴다.
+-- 메모리 상태와 저장값을 함께 바꾼다. 프로필이 없으면 false(아무것도 안 바뀜).
+-- ⚠️ yield하지 않는다 (RebirthService.runRebirth 안에서 불린다).
+function PadService.resetForRebirth(player: Player): boolean
+	local profile = ProfileManager.get(player)
+	if profile == nil then
+		return false
+	end
+	profile.Data.progress.selectedPadIndex = 1
+	states[player] = newPadState(1)
+	return true
 end
 
 return PadService

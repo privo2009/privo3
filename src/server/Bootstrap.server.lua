@@ -140,15 +140,20 @@ Players.PlayerAdded:Connect(function(player: Player)
 
 	local b = profile.Data.blox
 	local lb = profile.Data.lifetimeBlox
+	local life = profile.Data.lifeBlox -- 패드 해금 기준 (이번 생애 누적, 환생하면 0)
 	print(string.format(
-		"[Bootstrap][VERIFY] %s firstJoin=%s lastCollectAt=%s blox={m=%s, e=%s} lifetimeBlox={m=%s, e=%s}",
+		"[Bootstrap][VERIFY] %s schema=%s firstJoin=%s lastCollectAt=%s blox={m=%s, e=%s} lifetimeBlox={m=%s, e=%s} lifeBlox={m=%s, e=%s} pad=%s",
 		player.Name,
+		tostring(profile.Data.schemaVersion),
 		tostring(profile.Data.stats.firstJoin),
 		tostring(profile.Data.drones.lastCollectAt),
 		tostring(b.m),
 		tostring(b.e),
 		tostring(lb.m),
-		tostring(lb.e)
+		tostring(lb.e),
+		tostring(life and life.m),
+		tostring(life and life.e),
+		tostring(profile.Data.progress.selectedPadIndex)
 	))
 
 	-- WalkSpeed 실측 print. 위 lifetimeBlox print와 같은 성격이라 **상시 유지**한다.

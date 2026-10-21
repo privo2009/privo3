@@ -29,6 +29,7 @@ local function freshData()
 		strength = BigNum.new(1, 0), -- 1
 		blox = BigNum.new(5, 1), -- 50
 		lifetimeBlox = BigNum.new(5, 1), -- 50
+		lifeBlox = BigNum.new(2, 1), -- 20. lifetimeBlox와 다른 값이라 "어느 쪽을 올렸나"가 갈린다
 		rebirths = BigNum.new(3, 0), -- 3. 0이 아닌 값으로 둬야 "가산인가 덮어쓰기인가"가 갈린다
 	}
 end
@@ -153,6 +154,33 @@ do
 	local data = freshData()
 	local ok, updates = pure.applyAdd("strength", data, BigNum.new(2, 0))
 	check("add(strength)는 lifetimeBlox를 건드리지 않음", ok and updates ~= nil and updates.lifetimeBlox == nil)
+end
+
+-- 3b. lifeBlox(이번 생애 누적) — blox add에만 따라 오르고, 환생 리셋으로만 0이 된다 ----------
+do
+	local data = freshData()
+	local ok, updates = pure.applyAdd("blox", data, BigNum.new(1, 1)) -- +10
+	check("add(blox): lifeBlox도 20 + 10 == 30", ok and updates ~= nil and updates.lifeBlox ~= nil
+		and BigNum.eq(updates.lifeBlox, BigNum.new(3, 1)))
+
+	local _, strUpdates = pure.applyAdd("strength", freshData(), BigNum.new(2, 0))
+	check("add(strength)는 lifeBlox를 건드리지 않음", strUpdates ~= nil and strUpdates.lifeBlox == nil)
+	local _, rbUpdates = pure.applyAdd("rebirths", freshData(), BigNum.new(2, 0))
+	check("add(rebirths)는 lifeBlox를 건드리지 않음", rbUpdates ~= nil and rbUpdates.lifeBlox == nil)
+	local _, subUpdates = pure.applySubtract("blox", freshData(), BigNum.new(1, 1))
+	check("subtract(blox)는 lifeBlox를 건드리지 않음 (써도 패드가 안 잠긴다)", subUpdates ~= nil and subUpdates.lifeBlox == nil)
+	local _, setUpdates = pure.applySet("blox", freshData(), BigNum.new(0, 0))
+	check("set(blox)은 lifeBlox를 건드리지 않음 (리셋은 resetLifeBlox만)", setUpdates ~= nil and setUpdates.lifeBlox == nil)
+
+	local noLife = freshData()
+	noLife.lifeBlox = nil
+	local okMissing = pure.applyAdd("blox", noLife, BigNum.new(1, 1))
+	check("add(blox): lifeBlox가 깨졌으면 거부", okMissing == false)
+
+	local resetOk, resetUpdates = pure.applyResetLife(freshData())
+	check("applyResetLife: lifeBlox만 0", resetOk and resetUpdates ~= nil
+		and BigNum.eq(resetUpdates.lifeBlox, BigNum.new(0, 0)) and resetUpdates.blox == nil and resetUpdates.lifetimeBlox == nil)
+	check("CURRENCIES.lifeBlox는 없음 (직접 증감 대상 아님)", CurrencyService.CURRENCIES.lifeBlox == nil)
 end
 
 -- 4. applyAdd: 음수 amount 거부 (add로 subtract 흉내내기 방지) -----------------------------

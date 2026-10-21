@@ -49,6 +49,8 @@ type World = {
 	strength: BigNum.BigNumber,
 	rebirths: BigNum.BigNumber,
 	lifetimeBlox: BigNum.BigNumber,
+	lifeBlox: BigNum.BigNumber,
+	selectedPad: number,
 	maxStage: number,
 	currentWorld: number,
 	unlockedWorlds: number,
@@ -64,6 +66,8 @@ local function newWorld(blox: BigNum.BigNumber?): World
 		strength = BigNum.new(7, 12), -- 7e12. 시작값(1)과 확실히 다르다
 		rebirths = BigNum.new(0, 0),
 		lifetimeBlox = BigNum.new(4, 9), -- 4e9. 환생 전후로 변하면 안 된다
+		lifeBlox = BigNum.new(3, 8), -- 3e8. 환생하면 0이어야 한다
+		selectedPad = 9, -- 환생하면 1이어야 한다
 		maxStage = 17,
 		currentWorld = 2,
 		unlockedWorlds = 3,
@@ -129,6 +133,19 @@ local function depsFor(w: World)
 			record("onRebirth")
 			w.strengthSeenBySpeed = w.strength
 			return 16
+		end,
+		resetLifeBlox = function(_p: any, _reason: string)
+			record("resetLifeBlox")
+			if w.failAt == "resetLifeBlox" then
+				return false
+			end
+			w.lifeBlox = BigNum.new(0, 0)
+			return true
+		end,
+		resetPad = function(_p: any)
+			record("resetPad")
+			w.selectedPad = 1
+			return true
 		end,
 	}
 end
@@ -234,6 +251,8 @@ do
 	check("currentWorld가 1로 돌아갔다", w.currentWorld == 1, tostring(w.currentWorld))
 	check("unlockedWorlds는 유지된다 (영구 진행)", w.unlockedWorlds == 3, tostring(w.unlockedWorlds))
 	check("환생 뒤 런이 서 있지 않다 (런은 입장 게이트가 세운다)", w.runActive == false)
+	check("lifeBlox(이번 생애 누적)가 0이 됐다 — 패드가 다시 잠긴다", BigNum.eq(w.lifeBlox, BigNum.new(0, 0)), BigNum.tostring(w.lifeBlox))
+	check("선택 패드가 1로 돌아갔다", w.selectedPad == 1, tostring(w.selectedPad))
 end
 
 do
@@ -275,12 +294,13 @@ do
 	local iSpeed = indexOf(w.calls, "onRebirth")
 	local order = table.concat(w.calls, " -> ")
 
-	-- 8개다. 순서 목록의 2번(판정)은 순수 계산이라 바깥 세계를 부르지 않고,
-	-- 9번(1층 재시작)은 없앴다 — 환생은 런을 세우지 않는다.
-	check("바깥 세계 호출이 8개 전부 났다", #w.calls == 8, order)
+	-- 10개다. 순서 목록의 2번(판정)은 순수 계산이라 바깥 세계를 부르지 않고,
+	-- 9번(1층 재시작)은 없앴다 — 환생은 런을 세우지 않는다. 11번(패드)이 둘을 부른다.
+	check("바깥 세계 호출이 10개 전부 났다", #w.calls == 10, order)
 	check("런 소멸이 재화 조작보다 먼저다", iAbandon > 0 and iAbandon < iSetBlox, order)
 	check("blox 소모가 배수 가산보다 먼저다", iSetBlox < iAddReb, order)
-	check("마지막 호출은 속도 재적용이다 (그 뒤에 런을 세우지 않는다)", w.calls[#w.calls] == "onRebirth", order)
+	check("속도 재적용 뒤에는 패드 되돌리기만 온다 (런을 세우지 않는다)",
+		w.calls[#w.calls - 2] == "onRebirth" and w.calls[#w.calls - 1] == "resetLifeBlox" and w.calls[#w.calls] == "resetPad", order)
 
 	-- ⚠️ 이 두 줄이 4-2-d에서 제일 자주 어긋나는 지점이다.
 	check("속도 재적용이 힘 초기화보다 뒤다", iSetStr > 0 and iSpeed > iSetStr, order)
@@ -341,6 +361,17 @@ do
 			and BigNum.eq(w.rebirths, BigNum.fromNumber(1))
 			and BigNum.eq(w.strength, BigNum.new(7, 12))
 	)
+end
+
+do
+	local w = newWorld(BigNum.fromNumber(COST))
+	w.failAt = "resetLifeBlox"
+	local ok, reason = pure.runRebirth(depsFor(w) :: any, fakePlayer, "test")
+
+	check("11단계 실패도 partial_failure", ok == false and reason == RebirthService.REASON_PARTIAL_FAILURE, tostring(reason))
+	check("11단계 실패 시 패드 선택은 되돌리지 않는다", indexOf(w.calls, "resetPad") == 0, table.concat(w.calls, ","))
+	check("11단계 실패 상태: 환생 본체(소각·가산·힘)는 끝났다",
+		BigNum.eq(w.blox :: any, BigNum.new(0, 0)) and BigNum.eq(w.rebirths, BigNum.fromNumber(1)) and BigNum.eq(w.strength, TEMPLATE_STRENGTH))
 end
 
 do

@@ -203,8 +203,34 @@ check("ClickPadConfig: 월드1 패드24 파워 = basePower × powerGrowth^23", f
 	return approxEq(ClickPadConfig.getPadPower(1, 24), expected)
 end)
 
-check("ClickPadConfig: 월드1 패드24 해금 조건 = 1.13T (bloxBase × 36 × 3^22)", function()
-	return approxEq(ClickPadConfig.getPadUnlock(1, 24), BigNum.new(1.129718145924, 12))
+check("ClickPadConfig: 월드1 패드2~5 해금 조건 = bloxBase × 30 · 100 · 300 · 1K (1·3 사다리)", function()
+	local base = (WorldConfig.get(1) :: any).bloxBase
+	local expected = { [2] = 30, [3] = 100, [4] = 300, [5] = 1000 }
+	for index, n in pairs(expected) do
+		if not BigNum.eq(ClickPadConfig.getPadUnlock(1, index), BigNum.mul(base, BigNum.fromNumber(n))) then
+			return false
+		end
+	end
+	return true
+end)
+
+check("ClickPadConfig: 월드1 패드24 해금 조건 = bloxBase × 3T (사다리 22칸)", function()
+	local base = (WorldConfig.get(1) :: any).bloxBase
+	return BigNum.eq(ClickPadConfig.getPadUnlock(1, 24), BigNum.mul(base, BigNum.new(3, 12)))
+end)
+
+check("ClickPadConfig: 모든 패드 조건의 가수가 1 또는 3 (bloxBase가 1일 때 깔끔한 단위)", function()
+	local base = (WorldConfig.get(1) :: any).bloxBase
+	if not BigNum.eq(base, BigNum.new(1, 0)) then
+		return true -- bloxBase가 1이 아니면 이 성질을 약속하지 않는다(WorldConfig 주석)
+	end
+	for index = 2, ClickPadConfig.getSet(1).count do
+		local m = ClickPadConfig.getPadUnlock(1, index).m
+		if m ~= 1 and m ~= 3 then
+			return false
+		end
+	end
+	return true
 end)
 
 check("ClickPadConfig: 패드1은 조건이 0이라 항상 열려 있다", function()
@@ -214,7 +240,7 @@ check("ClickPadConfig: 패드1은 조건이 0이라 항상 열려 있다", funct
 end)
 
 check("ClickPadConfig: lifetimeBlox 0이면 해금 개수 1", function()
-	-- 패드2 조건은 bloxBase × 36이므로 0으로는 절대 열리지 않는다.
+	-- 패드2 조건은 bloxBase × unlockStart(> 0)이므로 0으로는 절대 열리지 않는다.
 	return ClickPadConfig.getUnlockedPadCount(1, BigNum.new(0, 0)) == 1
 		and ClickPadConfig.isUnlocked(1, 2, BigNum.new(0, 0)) == false
 end)

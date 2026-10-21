@@ -148,6 +148,7 @@ type SimState = {
 	strength: BigNumber,
 	blox: BigNumber,
 	lifetimeBlox: BigNumber,
+	lifeBlox: BigNumber, -- 이번 생애 누적 blox. 패드 해금 기준, 환생하면 0
 	rebirths: BigNumber, -- 누적 환생 배수분. 배수 = 1 + 이 값
 	padIndex: number,
 	elapsedSec: number,
@@ -165,6 +166,7 @@ local function copyState(s: SimState): SimState
 		strength = copyBig(s.strength),
 		blox = copyBig(s.blox),
 		lifetimeBlox = copyBig(s.lifetimeBlox),
+		lifeBlox = copyBig(s.lifeBlox),
 		rebirths = copyBig(s.rebirths),
 		padIndex = s.padIndex,
 		elapsedSec = s.elapsedSec,
@@ -182,8 +184,9 @@ local function newState(): SimState
 		strength = copyBig(template.strength),
 		blox = copyBig(template.blox),
 		lifetimeBlox = copyBig(template.lifetimeBlox),
+		lifeBlox = copyBig(template.lifeBlox),
 		rebirths = copyBig(template.rebirths),
-		padIndex = ClickPadConfig.getUnlockedPadCount(SIM.WORLD_ID, template.lifetimeBlox),
+		padIndex = ClickPadConfig.getUnlockedPadCount(SIM.WORLD_ID, template.lifeBlox),
 		elapsedSec = 0,
 		runCount = 0,
 		rebirthCount = 0,
@@ -352,13 +355,14 @@ local function runOnce(state: SimState, clickRate: number, records: { [number]: 
 	end
 
 	-- 수령. 보상은 갱신(덮어쓰기)이라 도달한 층의 값 하나만 받는다 — 누적이 아니다.
-	-- CurrencyService.add가 blox와 lifetimeBlox를 함께 올리는 것과 같다.
+	-- CurrencyService.add가 blox와 lifetimeBlox · lifeBlox를 함께 올리는 것과 같다.
 	local reward = StageConfig.getBloxReward(stage)
 	state.blox = BigNum.add(state.blox, reward)
 	state.lifetimeBlox = BigNum.add(state.lifetimeBlox, reward)
+	state.lifeBlox = BigNum.add(state.lifeBlox, reward)
 
 	-- 파워는 세팅이지 누적이 아니다. 열린 패드가 있으면 즉시 그 패드로 바꾼다.
-	state.padIndex = ClickPadConfig.getUnlockedPadCount(SIM.WORLD_ID, state.lifetimeBlox)
+	state.padIndex = ClickPadConfig.getUnlockedPadCount(SIM.WORLD_ID, state.lifeBlox)
 
 	return state, stage
 end
@@ -373,8 +377,8 @@ end
 --    패드와 환생 배수로 적고 있는 것과도 맞는다.
 --
 -- ⚠️ RebirthService와 같은 순서·같은 대상이다. 특히 **힘이 1로 초기화된다** —
---    이걸 빼면 결과가 통째로 낙관적이 된다. lifetimeBlox와 rebirths는 유지된다
---    (그래서 패드는 환생해도 잠기지 않는다).
+--    이걸 빼면 결과가 통째로 낙관적이 된다. lifetimeBlox와 rebirths는 유지되고,
+--    lifeBlox는 0 · 패드는 1로 돌아간다(2026-10-21 — 패드는 환생하면 다시 잠긴다).
 --
 -- bestThisLife: 이번 생애에서 도달한 최고층. 갱신에 실패하면 정체로 본다.
 local function maybeRebirth(state: SimState, reachedStage: number, maxStage: number, bestThisLife: number): (SimState, number)
@@ -389,6 +393,8 @@ local function maybeRebirth(state: SimState, reachedStage: number, maxStage: num
 	state.rebirths = BigNum.add(state.rebirths, gained)
 	state.blox = BigNum.new(0, 0)
 	state.strength = copyBig(Schema.new().strength)
+	state.lifeBlox = BigNum.new(0, 0)
+	state.padIndex = 1
 	state.rebirthCount += 1
 	return state, 0 -- 새 생애
 end

@@ -44,6 +44,7 @@ local Schema = require(script.Parent.Parent.Data.Schema)
 local CurrencyService = require(script.Parent.CurrencyService)
 local ChallengeService = require(script.Parent.ChallengeService)
 local SpeedService = require(script.Parent.SpeedService)
+local PadService = require(script.Parent.PadService)
 
 type BigNumber = BigNum.BigNumber
 
@@ -132,6 +133,8 @@ export type Deps = {
 	resetMaxStage: (Player) -> boolean,
 	resetCurrentWorld: (Player) -> boolean,
 	onRebirth: (Player) -> number,
+	resetLifeBlox: (Player, string) -> boolean,
+	resetPad: (Player) -> boolean,
 }
 
 -- 환생 한 번. 순서는 아래 주석의 번호가 곧 계약이다.
@@ -206,6 +209,17 @@ local function runRebirth(deps: Deps, player: Player, source: string?): (boolean
 	-- 다닌다) 발판 깊이 관통이 열린다.
 	deps.onRebirth(player)
 
+	-- 11. 패드 되돌리기 (2026-10-21 사람 결정 — 패드는 환생하면 다시 잠긴다).
+	-- 이번 생애 누적 blox(lifeBlox)를 0으로, 선택 패드를 1로. 운동기구는 환생 수 기준이라
+	-- 여기서 건드리지 않는다(오히려 5번 가산으로 더 열린다).
+	-- ⚠️ 4번(setBlox) 뒤여야 한다는 제약은 없다 — set은 lifeBlox를 건드리지 않는다. 다만 되돌릴 수
+	--    없는 구간 안이라 실패는 부분 실패로 남긴다. resetPad는 프로필이 없을 때만 false라 무시한다
+	--    (resetMaxStage와 같은 취급).
+	if not deps.resetLifeBlox(player, reason) then
+		return reportPartialFailure(player, 11, "resetLifeBlox", gained, sourceTag, "환생은 끝났으나 패드 해금 기준(lifeBlox)이 0이 되지 않았다")
+	end
+	deps.resetPad(player)
+
 	local result: RebirthResult = { gained = gained, total = total }
 	return true, result
 end
@@ -244,6 +258,12 @@ local REAL: Deps = {
 	end,
 	onRebirth = function(player: Player)
 		return SpeedService.onRebirth(player)
+	end,
+	resetLifeBlox = function(player: Player, reason: string)
+		return CurrencyService.resetLifeBlox(player, reason)
+	end,
+	resetPad = function(player: Player)
+		return PadService.resetForRebirth(player)
 	end,
 }
 

@@ -45,6 +45,23 @@ Migrations[2] = function(data)
 	return data
 end
 
+-- v3 -> v4: 패드 해금 기준이 lifetimeBlox(평생 누적)에서 lifeBlox(이번 생애 누적, 환생하면 0)로
+-- 바뀌어 lifeBlox가 생김 (2026-10-21 사람 결정 — 패드는 환생하면 다시 잠긴다).
+-- 기존 프로필의 "마지막 환생 뒤 번 blox"는 기록이 없다. 하한으로 지금 보유 blox를 쓴다 —
+-- 환생하면 blox가 0이 되므로 지금 가진 blox는 전부 마지막 환생 뒤에 번 것이다.
+-- (사이에 쓴 blox는 알 수 없어 빠진다. 그만큼 패드가 덜 열린 채로 시작할 수 있다.)
+Migrations[3] = function(data)
+	if data.lifeBlox == nil then
+		local blox = data.blox
+		if type(blox) == "table" and type(blox.m) == "number" and type(blox.e) == "number" then
+			data.lifeBlox = { m = blox.m, e = blox.e }
+		else
+			data.lifeBlox = { m = 0, e = 0 }
+		end
+	end
+	return data
+end
+
 -- data.schemaVersion부터 Migrations.CURRENT까지 등록된 변환 함수를 순서대로 적용하고
 -- data.schemaVersion을 최종 버전으로 갱신한다. data는 in-place로 수정된다.
 --

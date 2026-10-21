@@ -6,7 +6,8 @@
 
 local Schema = {}
 
-Schema.VERSION = 3 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드, Phase 4-2-b)
+Schema.VERSION = 4 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드, Phase 4-2-b)
+-- v4: lifeBlox 추가 (이번 생애 누적 blox — 패드 해금 기준, 환생하면 0. 2026-10-21)
 
 -- 구조적 상한값. DESIGN.md 5/6/9장 수치와 같지만 Schema는 Config를 몰라야 하므로 별도로 둔다.
 -- TODO: Phase 8 전후로 ShopConfig/PetConfig/AuraConfig와 단일 출처로 합칠 것 (지금은 중복 관리).
@@ -60,7 +61,10 @@ local function buildTemplate()
 		-- BigNum: {m = 가수, e = 지수}
 		strength = newBigNum(1, 0),
 		blox = newBigNum(0, 0),
-		lifetimeBlox = newBigNum(0, 0), -- 환생 진척도
+		lifetimeBlox = newBigNum(0, 0), -- 평생 누적 blox. 환생해도 유지 (아우라 팩 해금 등)
+		-- 이번 생애 누적 blox. blox add 때 함께 오르고 환생하면 0. 클릭 파워 패드 해금 기준.
+		-- 보유량(blox)이 아니라 누적인 이유: 보유량이면 쓰는 순간 밟던 패드가 잠긴다.
+		lifeBlox = newBigNum(0, 0),
 		rebirths = newBigNum(0, 0), -- = 힘 배수
 
 		progress = {
@@ -173,9 +177,9 @@ function Schema.validate(data: any): (boolean, { string })
 		addError(errors, string.format("schemaVersion 불일치 (기대=%d, 실제=%s)", Schema.VERSION, tostring(data.schemaVersion)))
 	end
 
-	-- BigNum 필드 4개 -----------------------------------------------------------
+	-- BigNum 필드 5개 -----------------------------------------------------------
 
-	for _, field in ipairs({ "strength", "blox", "lifetimeBlox", "rebirths" }) do
+	for _, field in ipairs({ "strength", "blox", "lifetimeBlox", "lifeBlox", "rebirths" }) do
 		if not Schema.isBigNum(data[field]) then
 			addError(errors, field .. "이 올바른 BigNum({m,e}) 형태가 아님")
 		end

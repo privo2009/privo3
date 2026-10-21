@@ -31,9 +31,9 @@ end
 local WORLD_ID = 1
 local PAD_COUNT = ClickPadConfig.getSet(WORLD_ID).count
 
--- lifetimeBlox 픽스처.
+-- lifeBlox 픽스처.
 --   POOR = 0     → 패드 1만 열린다 (패드1 조건이 0이므로)
---   RICH = 1000  → 패드 5까지 열린다 (조건: 패드5 = 36×3^3 = 972, 패드6 = 2916)
+--   RICH = 1000  → 패드 5까지 열린다 (조건: 패드5 = 1K, 패드6 = 3K — 1·3 사다리)
 -- 절대값을 여기 박지 않고 아래에서 getUnlockedPadCount로 실제 경계를 함께 확인한다 —
 -- Config를 튜닝하면 이 주석의 숫자는 틀려지지만 테스트는 그 사실을 스스로 잡아낸다.
 local POOR = BigNum.new(0, 0)
@@ -101,11 +101,11 @@ end
 -- 2. 해금 경계 픽스처 확인 ---------------------------------------------------------------
 -- 아래 디바운스/선택 테스트가 이 경계를 전제로 하므로 먼저 못박는다.
 
-check("lifetimeBlox 0이면 패드 1만 해금", ClickPadConfig.getUnlockedPadCount(WORLD_ID, POOR) == 1)
+check("lifeBlox 0이면 패드 1만 해금", ClickPadConfig.getUnlockedPadCount(WORLD_ID, POOR) == 1)
 
 local richUnlocked = ClickPadConfig.getUnlockedPadCount(WORLD_ID, RICH)
 check(
-	string.format("lifetimeBlox 1000이면 패드 2개 이상 해금 (실제 %d개)", richUnlocked),
+	string.format("lifeBlox 1000이면 패드 2개 이상 해금 (실제 %d개)", richUnlocked),
 	richUnlocked >= 3 and richUnlocked < PAD_COUNT,
 	string.format("해금=%d, 전체=%d", richUnlocked, PAD_COUNT)
 )
@@ -132,7 +132,7 @@ do
 end
 
 -- 4. 해금 미달 패드를 밟으면 선택이 바뀌지 않는다 ----------------------------------------
--- Touched는 신호일 뿐 권한이 아니다 — 서버가 lifetimeBlox로 판정한다.
+-- Touched는 신호일 뿐 권한이 아니다 — 서버가 lifeBlox로 판정한다.
 
 do
 	local state = pure.newPadState(1)
@@ -163,10 +163,10 @@ do
 end
 
 -- 6. 로드 시 클램프 ----------------------------------------------------------------------
--- 저장된 인덱스를 지금의 Config + lifetimeBlox로 다시 잰다. Config 튜닝으로 조건이
+-- 저장된 인덱스를 지금의 Config + lifeBlox로 다시 잰다. Config 튜닝으로 조건이
 -- 올라가면 이미 저장된 인덱스가 조건 미달이 될 수 있다.
 
-check("클램프: lifetimeBlox 0인데 저장값 5면 1로 내려감", pure.clampSelectedIndex(WORLD_ID, 5, POOR) == 1)
+check("클램프: lifeBlox 0인데 저장값 5면 1로 내려감", pure.clampSelectedIndex(WORLD_ID, 5, POOR) == 1)
 check("클램프: 조건을 만족하면 저장값 그대로", pure.clampSelectedIndex(WORLD_ID, richUnlocked, RICH) == richUnlocked)
 check(
 	"클램프: 해금 개수를 넘는 저장값은 해금 최고치로 내려감",
