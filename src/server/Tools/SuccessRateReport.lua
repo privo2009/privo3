@@ -14,6 +14,7 @@
 --   반경 밖 시간     층마다 0~MODEL.OUT_OF_RADIUS_MAX_SEC 균등 무작위 (층 시작에 몰아 둔다)
 --   런 중 클릭       평소 속도 × MODEL.RUN_CLICK_FACTOR
 --   진행 판단        직전 층을 남은 시간 ≥ (타이머 × 문턱)으로 깼으면 진행, 아니면 수령.
+--                    클리어 뒤 서서 힘을 모으는 것은 게임이 허용하지만(DESIGN.md "런 시작") 여기서는 즉시 판단한다.
 --                    문턱은 플레이어마다 MODEL.ADVANCE_THRESHOLD_MIN~MAX 균등 무작위
 --
 -- 위 네 모델 값은 2026-10-21 사람 결정이다(4-2-f 플레이어 모델). 바꾸려면 사람 결정을 받는다.
@@ -80,8 +81,10 @@ local MODEL = {
 	RUN_CLICK_FACTOR = 0.5,
 
 	-- 진행 문턱 = 타이머 대비 남은 시간 비율. 직전 층을 이 비율 이상 남기고 깼으면 진행.
-	ADVANCE_THRESHOLD_MIN = 0.10,
-	ADVANCE_THRESHOLD_MAX = 0.50,
+	-- 2026-10-21 첫 결정은 10~50%였고, 돌려 보니 HP ×3 이상에서는 거의 언제나 못 깰 층에
+	-- 들어가는 규칙이라(손익분기 1 - 1/3 = 67%) 같은 날 50~90%로 다시 결정했다(docs/PENDING.md).
+	ADVANCE_THRESHOLD_MIN = 0.50,
+	ADVANCE_THRESHOLD_MAX = 0.90,
 
 	-- 진행 판단 규칙. "time_left"가 사람 결정(위 문턱). "growth_aware"는 비교용 변형이다 —
 	-- 다음 층 HP 배율 r에서 같은 DPS로 깰 수 있는 손익분기 남은 비율 1 - 1/r에 플레이어별
@@ -376,14 +379,29 @@ end
 -- 비교용 변형. ⚠️ 사람 결정 모델을 바꾸는 것이 아니라 "규칙이 결과를 얼마나 움직이는가"를
 -- 옆에 놓고 보는 자리다. 첫 줄(빈 덮어쓰기)이 사람 결정 모델이고 표 전체를 찍는다.
 local VARIANTS: { { label: string, override: { [string]: any } } } = {
-	{ label = "결정 모델 (남은 시간 10~50%)", override = {} },
-	{ label = "남은 시간 50~90%", override = { ADVANCE_THRESHOLD_MIN = 0.5, ADVANCE_THRESHOLD_MAX = 0.9 } },
+	{ label = "결정 모델 (남은 시간 50~90%)", override = {} },
+	{ label = "첫 결정 (남은 시간 10~50%)", override = { ADVANCE_THRESHOLD_MIN = 0.1, ADVANCE_THRESHOLD_MAX = 0.5 } },
 	{ label = "배율 인식 ±0", override = { ADVANCE_RULE = "growth_aware", ADVANCE_NOISE = 0 } },
 	{ label = "배율 인식 ±10%p", override = { ADVANCE_RULE = "growth_aware", ADVANCE_NOISE = 0.1 } },
 	{ label = "배율 인식 ±20%p", override = { ADVANCE_RULE = "growth_aware", ADVANCE_NOISE = 0.2 } },
 }
 
-local function runModel(label: string, full: boolean)
+-- HP 곡선 후보 스윕. ⚠️ WorldConfig를 고치는 것이 아니라 메모리에서 잠깐 갈아끼운다
+-- (StandardPathReport 파워 스윕과 같은 패턴). 끝나면 원래 표를 되돌린다. 후보는 결정 모델로만 돈다.
+-- ⚠️ 후보값은 판단 재료이지 결정이 아니다 — 고르는 것은 사람이다(게임 수치).
+-- 곡선 규약 1(HP > 보상 2.7)을 깨는 후보는 넣지 않는다.
+local CURVE_VARIANTS: { { label: string, segments: { WorldConfig.GrowthSegment } } } = {
+	{ label = "A  1~8 ×2.85 / 9~16 ×4.0 / 17~25 ×7.0", segments = {
+		{ from = 1, to = 8, growth = 2.85 }, { from = 9, to = 16, growth = 4.0 }, { from = 17, to = 25, growth = 7.0 } } },
+	{ label = "B  1~8 ×2.85 / 9~16 ×4.0 / 17~25 ×6.5", segments = {
+		{ from = 1, to = 8, growth = 2.85 }, { from = 9, to = 16, growth = 4.0 }, { from = 17, to = 25, growth = 6.5 } } },
+	{ label = "C  1~8 ×2.8 / 9~16 ×4.0 / 17~25 ×6.0", segments = {
+		{ from = 1, to = 8, growth = 2.8 }, { from = 9, to = 16, growth = 4.0 }, { from = 17, to = 25, growth = 6.0 } } },
+	{ label = "D  1~8 ×2.8 / 9~16 ×3.8 / 17~25 ×6.0", segments = {
+		{ from = 1, to = 8, growth = 2.8 }, { from = 9, to = 16, growth = 3.8 }, { from = 17, to = 25, growth = 6.0 } } },
+}
+
+local function runModel(label: string, full: boolean, compact: boolean?)
 	local maxStage = findLastStage()
 	local rng = Random.new(SIM.SEED)
 	local firstTry: { [number]: Tally } = {}
@@ -418,6 +436,15 @@ local function runModel(label: string, full: boolean)
 		end
 	end
 
+	if compact then
+		local cells = {}
+		for stage = 1, maxStage do
+			local t = firstTry[stage]
+			table.insert(cells, if t ~= nil and t.attempts > 0 then string.format("%d", math.floor(100 * t.successes / t.attempts + 0.5)) else "-")
+		end
+		print("[SUCCESSRATE] 층별% 1→" .. maxStage .. ": " .. table.concat(cells, " "))
+	end
+
 	-- HP 세그먼트별 합산. 구간 경계는 WorldConfig에서 읽는다 — 목표 % 는 여기 적지 않는다
 	-- (원본 DESIGN.md "목표 성공률" 표. 판정은 읽는 사람이 그 표와 대조한다).
 	for _, seg in ipairs(hpSegments()) do
@@ -435,7 +462,7 @@ local function runModel(label: string, full: boolean)
 			end
 		end
 		print(string.format(
-			"[SUCCESSRATE] 구간 %2d~%2d층 (HP ×%.1f): 합산 %s · 층별 %s~%s · 시도 %d",
+			"[SUCCESSRATE] 구간 %2d~%2d층 (HP ×%g): 합산 %s · 층별 %s~%s · 시도 %d",
 			seg.from, seg.to, seg.growth, pct(sum),
 			if lowest ~= nil then string.format("%.1f%%", lowest * 100) else "-",
 			if highest ~= nil then string.format("%.1f%%", highest * 100) else "-",
@@ -476,6 +503,20 @@ function SuccessRateReport.run()
 			(MODEL :: any)[k] = v
 		end
 	end
+
+	print("[SUCCESSRATE] ===== HP 곡선 후보 (결정 모델) =====")
+	local world = WorldConfig.get(SIM.WORLD_ID) :: WorldConfig.WorldDef
+	local original = world.hpGrowthSegments
+	for _, variant in ipairs(CURVE_VARIANTS) do
+		world.hpGrowthSegments = variant.segments
+		local ok, err = pcall(WorldConfig.validate)
+		if ok then
+			runModel(variant.label, false, true)
+		else
+			print(string.format("[SUCCESSRATE] %s — 규약 위반으로 건너뜀: %s", variant.label, tostring(err)))
+		end
+	end
+	world.hpGrowthSegments = original
 	print("[SUCCESSRATE] 끝.")
 end
 
