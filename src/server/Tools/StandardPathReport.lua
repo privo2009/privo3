@@ -281,7 +281,8 @@ end
 --
 -- "처음 도달했을 때" 기준이다 (DESIGN.md 측정 규약). 나중에 다시 온 값이 아니다.
 --
--- export: DroneRateReport 등 외부 소비자가 층별 결과를 읽는다 (StandardPathReport.simulateAll 참고).
+-- export: 층별 결과 타입. 지금 외부 소비자는 없다 — 유일한 소비자였던 DroneRateReport는 드론 폐기
+-- (2026-10-21)로 지웠다. simulateAll은 run()이 쓴다.
 export type StageRecord = {
 	stage: number,
 	runNo: number,
@@ -1124,9 +1125,9 @@ end
 
 -- ===== 외부 API =====================================================================
 --
--- DroneRateReport 등 외부 소비자가 층별 결과(진입 시점 힘·lifetimeBlox·경과 시각 등)를
--- 읽기 위한 창구. run()도 같은 함수를 호출한다 — 계산을 두 곳에 두면 하나만 고쳐질 위험이
--- 생긴다(파일 상단 여러 주석이 반복하는 원칙과 같다).
+-- 층별 결과(진입 시점 힘·lifetimeBlox·경과 시각 등)를 읽는 창구. 지금은 run()만 부른다 — 외부
+-- 소비자였던 DroneRateReport는 드론 폐기(2026-10-21)로 지웠다. 계산을 두 곳에 두지 않으려고
+-- run()도 같은 함수를 호출한다(파일 상단 여러 주석이 반복하는 원칙과 같다).
 --
 -- ⚠️ 이 함수는 아무것도 print하지 않는다. 로그 출력은 run()에서만 일어난다.
 function StandardPathReport.simulateAll(maxStage: number): { RateResult }

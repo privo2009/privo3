@@ -61,18 +61,6 @@ EntranceGateService.init()
 local RunDeathService = require(script.Parent.Systems.RunDeathService)
 RunDeathService.init()
 
--- 드론을 연다 (Phase 5).
--- ⚠️ 순서: ProfileManager.init() 뒤여야 한다. PadService.init()과 같은 이유로,
--- DroneService.init()도 내부에서 ProfileManager.onLoaded로 로드 훅을 건다 — 그 전에
--- 부르면 이미 접속해 있던 플레이어의 로드 직후 1회 수령을 놓친다.
--- PadService/ClickService와의 선후는 상관없다. 서로 읽는 값이 없다.
---
--- ⚠️ init()이 60초 주기 정산 루프를 띄운다. 이 줄이 빠지면 로드 시점 1회 수령만
--- 되고 접속 중 정산이 멈춘다 — 증상은 "로그인할 때만 드론 수입이 들어온다" 하나뿐이라
--- 원인이 눈에 보이지 않는다 (AttackService.init 주석과 같은 종류의 함정).
-local DroneService = require(script.Parent.Systems.DroneService)
-DroneService.init()
-
 -- 클릭 입력 수신을 연다 (4-2-b).
 -- ⚠️ 순서: PadService.init() 뒤여야 한다. 클릭 1회의 힘은 PadService.getClickPower가
 -- 정하므로, 패드가 서기 전에 클릭이 들어오면 전부 패드 1 파워로 처리된다.
@@ -147,11 +135,10 @@ Players.PlayerAdded:Connect(function(player: Player)
 	local lb = profile.Data.lifetimeBlox
 	local life = profile.Data.lifeBlox -- 패드 해금 기준 (이번 생애 누적, 환생하면 0)
 	print(string.format(
-		"[Bootstrap][VERIFY] %s schema=%s firstJoin=%s lastCollectAt=%s blox={m=%s, e=%s} lifetimeBlox={m=%s, e=%s} lifeBlox={m=%s, e=%s} pad=%s",
+		"[Bootstrap][VERIFY] %s schema=%s firstJoin=%s blox={m=%s, e=%s} lifetimeBlox={m=%s, e=%s} lifeBlox={m=%s, e=%s} pad=%s",
 		player.Name,
 		tostring(profile.Data.schemaVersion),
 		tostring(profile.Data.stats.firstJoin),
-		tostring(profile.Data.drones.lastCollectAt),
 		tostring(b.m),
 		tostring(b.e),
 		tostring(lb.m),
@@ -876,23 +863,6 @@ local STANDARD_PATH_REPORT_ENABLED = false
 
 if STANDARD_PATH_REPORT_ENABLED then
 	require(script.Parent.Tools.StandardPathReport).run()
-end
-
-
--- ── 개발용 플래그: DRONE_RATE_REPORT_ENABLED ──────────────────────────────────
--- 드론 수입 환산 리포트(4-2-f). DESIGN.md "5. 드론"의 "능동 플레이가 분당 20~60배
--- 효율이어야 한다"를 오프셋 0~5 × 층 1~25로 스윕해 확정한다.
---
--- ⚠️ STANDARD_PATH_REPORT_ENABLED와 같은 성격이다 — Config와 StandardPathReport의
---    정적 시뮬레이션 결과만 읽고 순수 계산 후 print한다. 프로필을 읽지도 쓰지도
---    않으므로 켠 채로 커밋해도 계정을 오염시키지 않는다.
---
--- 기본값 false인 이유는 오염이 아니라 소음이다 — StandardPathReport 표 뒤에 이 표까지
--- 매 Play마다 찍히면 로그가 길어진다. 필요할 때만 켠다.
-local DRONE_RATE_REPORT_ENABLED = false
-
-if DRONE_RATE_REPORT_ENABLED then
-	require(script.Parent.Tools.DroneRateReport).run()
 end
 
 

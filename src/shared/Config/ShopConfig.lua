@@ -19,12 +19,6 @@ export type StrengthMultTier = {
 	gamepassId: number,
 }
 
-export type DroneTier = {
-	count: number,
-	priceRobux: number,
-	gamepassId: number,
-}
-
 export type DeveloperProductDef = {
 	id: number, -- Roblox ProductId
 	name: string,
@@ -48,7 +42,6 @@ local Gamepasses: { [string]: GamepassDef } = {
 	autoCollect = { id = 0, name = "자동 수령", priceRobux = 199 },
 	auraLuck10x = { id = 0, name = "10x 아우라 행운", priceRobux = 299 },
 	titleLuck10x = { id = 0, name = "10x 타이틀 행운", priceRobux = 299 },
-	offline24h = { id = 0, name = "오프라인 24h", priceRobux = 349 },
 	voidTrainingZone = { id = 0, name = "공허 훈련 구역", priceRobux = 799 },
 	bundle = { id = 0, name = "게임패스 번들 (25% 할인)", priceRobux = 1499 },
 }
@@ -80,26 +73,8 @@ function ShopConfig.getActiveStrengthMultiplier(isGamepassOwned: (number) -> boo
 	return best
 end
 
--- 드론: 동일한 "최고 단계만 적용" 패턴. 기본 1대 + 구매한 단계 중 최고 대수.
-local DroneTiers: { DroneTier } = {
-	{ count = 2, priceRobux = 149, gamepassId = 0 },
-	{ count = 3, priceRobux = 299, gamepassId = 0 },
-	{ count = 4, priceRobux = 599, gamepassId = 0 },
-	{ count = 5, priceRobux = 999, gamepassId = 0 },
-}
-ShopConfig.DroneTiers = DroneTiers
-ShopConfig.BaseDroneCount = 1
-ShopConfig.MaxDroneCount = 5
-
-function ShopConfig.getActiveDroneCount(isGamepassOwned: (number) -> boolean): number
-	local best = ShopConfig.BaseDroneCount
-	for _, tier in ipairs(DroneTiers) do
-		if tier.count > best and isGamepassOwned(tier.gamepassId) then
-			best = tier.count
-		end
-	end
-	return best
-end
+-- 드론 단계(2~5대)와 "오프라인 24h" 게임패스는 드론 폐기(2026-10-21 사람 결정)로 지웠다.
+-- 마지막 정의는 태그 drone-archive-2026-10-21.
 
 -- 개발자 상품 -----------------------------------------------------------------
 
@@ -128,14 +103,6 @@ function ShopConfig.validate(): boolean
 		assert(tier.priceRobux > 0, string.format("ShopConfig: 힘 배수 계단 %d번째 가격이 0 이하", i))
 		prevMult = tier.multiplier
 	end
-
-	local prevCount = ShopConfig.BaseDroneCount
-	for i, tier in ipairs(DroneTiers) do
-		assert(tier.count > prevCount, string.format("ShopConfig: 드론 단계 %d번째 대수가 이전보다 크지 않음", i))
-		assert(tier.priceRobux > 0, string.format("ShopConfig: 드론 단계 %d번째 가격이 0 이하", i))
-		prevCount = tier.count
-	end
-	assert(prevCount <= ShopConfig.MaxDroneCount, "ShopConfig: 드론 최대 대수를 초과함")
 
 	for name, def in pairs(DeveloperProducts) do
 		assert(def.priceRobux > 0, "ShopConfig: 개발자 상품 " .. name .. "의 가격은 0보다 커야 함")

@@ -4,7 +4,7 @@
 -- nil을 반환할 수 있음 등). 이 파일은 ServerPackages/ProfileStore.luau 소스를 직접 읽고 작성했다.
 --
 -- 로드 순서 (반드시 이 순서): StartSessionAsync -> Migrations.run -> profile:Reconcile()
--- -> Schema.validate -> 신규 프로필 초기화(firstJoin/lastCollectAt)
+-- -> Schema.validate -> 신규 프로필 초기화(firstJoin)
 --
 -- 이 모듈이 하지 않는 것:
 --   - profile.Data의 재화 필드 직접 수정 (CurrencyService의 몫, Phase 2-2)
@@ -126,12 +126,10 @@ local function handlePlayerAdded(player: Player)
 	end
 
 	-- 신규 프로필 초기화. firstJoin이 0이면 이번이 첫 세션이라는 뜻.
-	-- ⚠️ 이걸 안 하면 lastCollectAt=0 상태로 오프라인 계산이 돌아서 첫 접속에
-	-- 8시간치 드론 보상이 즉시 지급된다 (DESIGN.md 5. 드론).
+	-- (drones.lastCollectAt도 여기서 채웠지만 드론 폐기(2026-10-21)로 뺐다 — 읽는 코드가 없다)
 	local isNewProfile = profile.Data.stats.firstJoin == 0
 	if isNewProfile then
 		profile.Data.stats.firstJoin = os.time()
-		profile.Data.drones.lastCollectAt = os.time()
 	end
 
 	profile.OnSessionEnd:Connect(function()
