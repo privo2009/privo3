@@ -108,6 +108,10 @@ local MODEL = {
 	--    30초"는 그 결정을 시뮬레이터로 옮기면서 Claude가 고른 해석이다 — 사람 결정 모델 값이 아니다.
 	--    로벅스 선해금은 넣지 않는다(무과금 표준 플레이어). 기구까지 걷는 시간도 넣지 않는다.
 	GYM_TRAIN_SEC = 30,
+
+	-- 공허 훈련 구역(로벅스 전용 기구)을 샀는가. 결정 모델은 false(무과금). true는 구매자 비교 줄 —
+	-- 처음부터 공허에서 GYM_TRAIN_SEC초 훈련한다(환생 기구보다 언제나 세다 — GymConfig.validate).
+	OWNS_VOID_ZONE = false,
 }
 SuccessRateReport.MODEL = MODEL
 
@@ -198,12 +202,16 @@ local function addClicks(p: Player, clicks: number, gymMultiplier: number?)
 	p.strength = BigNum.add(p.strength, gain)
 end
 
--- 운동기구에서 sec초 클릭한다. 환생 수로 열린 기구 중 가장 좋은 것을 쓴다. 쓴 기구 번호(0 = 안 씀).
+-- 운동기구에서 sec초 클릭한다. 환생 수로 열린 기구 중 가장 좋은 것을 쓴다(공허를 샀으면 공허).
+-- 쓴 기구 번호(0 = 안 씀).
 function SuccessRateReport.trainAtGym(p: Player, sec: number): number
 	if sec <= 0 then
 		return 0
 	end
 	local index = GymConfig.getUnlockedCount(p.rebirths)
+	if MODEL.OWNS_VOID_ZONE then
+		index = GymConfig.findByGamepass("voidTrainingZone") or index
+	end
 	if index == 0 then
 		return 0
 	end
@@ -516,6 +524,7 @@ end
 local VARIANTS: { { label: string, override: { [string]: any } } } = {
 	{ label = "결정 모델 (남은 시간 50~90%)", override = {} },
 	{ label = "운동기구 안 씀 (비교)", override = { GYM_TRAIN_SEC = 0 } },
+	{ label = "공허 훈련 구역 구매자 (비교)", override = { OWNS_VOID_ZONE = true } },
 	{ label = "첫 결정 (남은 시간 10~50%)", override = { ADVANCE_THRESHOLD_MIN = 0.1, ADVANCE_THRESHOLD_MAX = 0.5 } },
 	{ label = "배율 인식 ±0", override = { ADVANCE_RULE = "growth_aware", ADVANCE_NOISE = 0 } },
 	{ label = "배율 인식 ±10%p", override = { ADVANCE_RULE = "growth_aware", ADVANCE_NOISE = 0.1 } },

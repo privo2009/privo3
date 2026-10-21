@@ -312,6 +312,16 @@ do
 		checkClose(BigNum.toRatio(gainA, plain), GymConfig.getMultiplier(1)),
 		tostring(BigNum.toRatio(gainA, plain)))
 	check("훈련 0초면 아무것도 안 한다", SuccessRateReport.trainAtGym(b, 0) == 0)
+
+	-- 공허 구매자: 환생 0이어도 공허를 쓴다. ⚠️ MODEL을 바꾼 채 yield하지 않는다(runBand noYield와 같은 이유).
+	local void = GymConfig.findByGamepass("voidTrainingZone")
+	check("결정 모델은 공허를 사지 않는다", SuccessRateReport.MODEL.OWNS_VOID_ZONE == false)
+	local c = SuccessRateReport.newPlayer(Random.new(9))
+	local savedOwns = SuccessRateReport.MODEL.OWNS_VOID_ZONE
+	SuccessRateReport.MODEL.OWNS_VOID_ZONE = true
+	local usedVoid = SuccessRateReport.trainAtGym(c, 10)
+	SuccessRateReport.MODEL.OWNS_VOID_ZONE = savedOwns
+	check("공허 구매자는 환생 0이어도 공허를 쓴다", void ~= nil and usedVoid == void, tostring(usedVoid))
 end
 
 print(string.format("[SuccessRateReportTests] %d passed, %d failed", passed, failed))

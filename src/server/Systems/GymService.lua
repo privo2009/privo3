@@ -20,6 +20,7 @@
 --
 -- 환생 수(rebirths)로만 본다. 로벅스 선해금은 Phase 8이다 — 그때 게임패스 소유를 매 세션
 -- MarketplaceService로 확인해 메모리에만 두고(CLAUDE.md 절대 규칙 5) 여기 판정에 OR로 합친다.
+-- 로벅스 전용 기구(공허 훈련 구역)는 그때까지 누구에게도 열리지 않는다 — 올라서도 배수 1이다.
 
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -109,7 +110,11 @@ function GymService.init()
 		createGymPart(i, position, container)
 	end
 
-	print(string.format("[GymService] 운동기구 %d개 생성 완료 (Z=%.0f, 해금 = 환생 수)", #positions, GymLayout.LANE_Z))
+	local rebirthTiers = GymConfig.getRebirthTierCount()
+	print(string.format(
+		"[GymService] 운동기구 %d개 생성 완료 (Z=%.0f, 환생 해금 %d · 로벅스 전용 %d)",
+		#positions, GymLayout.LANE_Z, rebirthTiers, #positions - rebirthTiers
+	))
 end
 
 -- 지금 이 플레이어의 클릭에 붙는 기구 배수. 기구 위가 아니거나 잠겼으면 1.

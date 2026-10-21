@@ -12,6 +12,7 @@ local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local GymLayout = require(ReplicatedStorage.Shared.GymLayout)
 local PadLayout = require(ReplicatedStorage.Shared.PadLayout)
 local ClickPadConfig = require(ReplicatedStorage.Shared.Config.ClickPadConfig)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local GymService = require(ServerScriptService.Server.Systems.GymService)
 
 local passed = 0
@@ -27,6 +28,8 @@ local function check(name: string, ok: boolean, detail: string?)
 end
 
 local COUNT = GymConfig.getCount()
+local REBIRTH_COUNT = GymConfig.getRebirthTierCount()
+local VOID = GymConfig.findByGamepass("voidTrainingZone")
 local resolve = GymService._pure.resolve
 
 -- 1. GymConfig ---------------------------------------------------------------------------
@@ -35,14 +38,44 @@ check("기구가 1개 이상", COUNT >= 1)
 
 do
 	local increasing = true
-	for i = 2, COUNT do
-		if not (BigNum.gt(GymConfig.getUnlockRebirths(i), GymConfig.getUnlockRebirths(i - 1))
-			and GymConfig.getMultiplier(i) > GymConfig.getMultiplier(i - 1)
-			and GymConfig.getRobuxPrice(i) > GymConfig.getRobuxPrice(i - 1)) then
+	for i = 2, REBIRTH_COUNT do
+		if not BigNum.gt(GymConfig.getUnlockRebirths(i), GymConfig.getUnlockRebirths(i - 1)) then
 			increasing = false
 		end
 	end
-	check("조건·배수·가격이 기구마다 순증가", increasing)
+	check("환생 조건이 기구마다 순증가", increasing)
+
+	local stronger = true
+	for i = 2, COUNT do
+		if not (GymConfig.getMultiplier(i) > GymConfig.getMultiplier(i - 1)
+			and GymConfig.getRobuxPrice(i) > GymConfig.getRobuxPrice(i - 1)) then
+			stronger = false
+		end
+	end
+	check("배수·가격이 기구마다 순증가 (로벅스 전용 포함)", stronger)
+end
+
+-- 1b. 공허 훈련 구역 (로벅스 전용, 사람 결정 2026-10-21) -------------------------------------
+check("공허 훈련 구역이 기구 목록에 있음", VOID ~= nil)
+if VOID ~= nil then
+	check("공허 훈련 구역은 맨 끝 기구", VOID == COUNT)
+	check("공허 훈련 구역은 로벅스 전용", GymConfig.isRobuxOnly(VOID))
+	check("환생 기구는 로벅스 전용이 아님", not GymConfig.isRobuxOnly(1) and not GymConfig.isRobuxOnly(REBIRTH_COUNT))
+	check("환생 기구 수 = 공허 앞 기구 수", REBIRTH_COUNT == VOID - 1)
+	check("공허 가격 = ShopConfig 게임패스 가격",
+		GymConfig.getRobuxPrice(VOID) == ShopConfig.Gamepasses.voidTrainingZone.priceRobux)
+	local mostExpensive = true
+	local strongest = true
+	for i = 1, COUNT do
+		if i ~= VOID then
+			if GymConfig.getRobuxPrice(i) >= GymConfig.getRobuxPrice(VOID) then mostExpensive = false end
+			if GymConfig.getMultiplier(i) >= GymConfig.getMultiplier(VOID) then strongest = false end
+		end
+	end
+	check("공허가 가장 비싸다", mostExpensive)
+	check("공허가 가장 센 배수", strongest)
+	check("공허는 환생 조건이 없다 (getUnlockRebirths 에러)", not pcall(GymConfig.getUnlockRebirths, VOID))
+	check("환생 수가 아주 커도 공허는 환생으로 안 열림", not GymConfig.isUnlockedByRebirths(VOID, BigNum.new(1, 300)))
 end
 
 check("환생 0이면 열린 기구 0개", GymConfig.getUnlockedCount(BigNum.new(0, 0)) == 0)
@@ -51,8 +84,9 @@ do
 	check("기구 1 조건 딱 맞추면 1개", GymConfig.getUnlockedCount(first) == 1)
 	local justUnder = BigNum.mul(first, BigNum.new(9.9, -1))
 	check("기구 1 조건의 99%면 0개", GymConfig.getUnlockedCount(justUnder) == 0)
-	local last = GymConfig.getUnlockRebirths(COUNT)
-	check("마지막 기구 조건이면 전부 열림", GymConfig.getUnlockedCount(last) == COUNT)
+	local last = GymConfig.getUnlockRebirths(REBIRTH_COUNT)
+	check("마지막 환생 기구 조건이면 환생 기구 전부 열림", GymConfig.getUnlockedCount(last) == REBIRTH_COUNT)
+	check("환생 수가 아주 커도 열린 수는 환생 기구 수까지", GymConfig.getUnlockedCount(BigNum.new(1, 300)) == REBIRTH_COUNT)
 	check("isUnlockedByRebirths: 조건 이상 true", GymConfig.isUnlockedByRebirths(1, first))
 	check("isUnlockedByRebirths: 미만 false", not GymConfig.isUnlockedByRebirths(1, justUnder))
 end
@@ -149,6 +183,14 @@ do
 		local onGym2 = Vector3.new(c2.X, c2.Y + 3, c2.Z)
 		local onlyFirst = resolve(onGym2, unlock1)
 		check("기구 1만 열린 상태로 기구 2 위 → 배수 1 (높은 기구는 따로 열어야 한다)", onlyFirst.multiplier == 1 and onlyFirst.index == 2)
+	end
+
+	if VOID ~= nil then
+		-- Phase 8 전에는 게임패스 소유 확인이 없다 — 누구도 공허 배수를 받지 못한다.
+		local cv = positions[VOID]
+		local onVoid = Vector3.new(cv.X, cv.Y + 3, cv.Z)
+		local v = resolve(onVoid, BigNum.new(1, 300))
+		check("공허 위 + 환생 아주 많음 → 배수 1, 기구 번호는 공허", v.multiplier == 1 and v.index == VOID and v.unlocked == false)
 	end
 end
 
