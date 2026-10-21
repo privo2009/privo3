@@ -884,3 +884,21 @@ local DRONE_RATE_REPORT_ENABLED = false
 if DRONE_RATE_REPORT_ENABLED then
 	require(script.Parent.Tools.DroneRateReport).run()
 end
+
+
+-- ── 개발용 플래그: SUCCESS_RATE_REPORT_ENABLED ────────────────────────────────
+-- 확률적 플레이어 성공률 시뮬레이터(4-2-f). 층별 "첫 도달 성공률"과 HP 구간 합산을 찍는다.
+-- 플레이어 모델(클릭 속도·반경 밖 시간·런 중 클릭·진행 문턱)은 사람 결정이다 — 파일 상단 MODEL.
+--
+-- ⚠️ STANDARD_PATH_REPORT_ENABLED와 같은 성격이다 — Config만 읽고 순수 계산 후 print한다.
+--    프로필을 읽지도 쓰지도 않으므로 켠 채로 커밋해도 계정을 오염시키지 않는다.
+--    기본값 false인 이유는 소음과 계산 시간이다. task.spawn으로 돌려 서버 시작을 붙잡지 않는다.
+--
+-- 4-2-f 종료 후 이 블록 삭제 (docs/PENDING.md 잔재).
+local SUCCESS_RATE_REPORT_ENABLED = false
+
+if SUCCESS_RATE_REPORT_ENABLED then
+	task.spawn(function()
+		require(script.Parent.Tools.SuccessRateReport).run()
+	end)
+end
