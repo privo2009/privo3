@@ -37,11 +37,12 @@ type BigNumber = BigNum.BigNumber
 -- ⚠️ StandardPathReport의 시뮬레이터 파라미터(SIM.CLICK_RATES, 세그먼트 등)가 바뀌면
 --    이 두 값도 다시 재야 한다. 재측정 없이 이 상수만 남아있으면 조용히 낡은 값이 된다.
 --
--- 2026-10-21 재측정: HP 곡선 2.8 / 3.8 / 6.0 확정 뒤 StandardPathReport(BLOX_PER_REBIRTH
--- 스윕 1.00배 줄, 클릭률 8). 옛 곡선(3.0 / 4.0 / 7.0) 값은 48.7분 / 141.53B였다.
+-- 2026-10-22 재측정 (지시서 #4): 패드 생애별 리셋 · 패드 가격 1/3 · 운동기구 뒤 StandardPathReport
+-- (BLOX_PER_REBIRTH 스윕 1.00배 줄, 클릭률 8). 이전 값: 20.2분 / 39.66B (2026-10-21, 패드 유지 시절),
+-- 그 전 옛 곡선(3.0 / 4.0 / 7.0) 48.7분 / 141.53B.
 local REFERENCE = {
-	ELAPSED_MIN = 20.2, -- 25층 첫 도달까지 걸린 시간(분)
-	LIFETIME_BLOX = BigNum.new(3.966, 10), -- 그 시점 lifetimeBlox (39.66B)
+	ELAPSED_MIN = 50.0, -- 25층 첫 도달까지 걸린 시간(분)
+	LIFETIME_BLOX = BigNum.new(7.741, 10), -- 그 시점 lifetimeBlox (77.41B)
 }
 
 -- a / b를 배수(일반 number)로. 이 리포트가 다루는 값들은 10^13 안팎이라 BigNum.toRatio의
