@@ -92,10 +92,12 @@ print(
 -- 플래그를 켜면 실제 좌표를 Play 로그로 찍어, 다음 단계에서 만들 레이아웃
 -- 테스트의 기준선을 정할 수 있게 한다 (자세한 내용은 HudLayoutReport.lua 상단).
 --
--- 기본값은 켜짐이다 — 관측 단계이고, HUD 인스턴스를 읽기만 할 뿐 배치를
--- 바꾸지도 프로필도 건드리지 않으므로(HudLayoutReport 상단 참고) 켠 채로
--- 커밋해도 안전하다.
-local HUD_LAYOUT_REPORT_ENABLED = true
+-- 처음엔 켠 채로 커밋했다 — 관측 단계였고, HUD 인스턴스를 읽기만 할 뿐 배치를
+-- 바꾸지도 프로필도 건드리지 않는다(HudLayoutReport 상단 참고).
+-- 2026-10-22 꺼짐: U3-8 순서표가 9번(모바일)까지 끝났다(지시서 #4 결정 "U3-8이 끝나면 끈다").
+-- 켜 두면 모든 Play가 "리포트 플래그를 켠 Play"가 되어 로그 상한 판단이 흐려진다(CLAUDE.md 절대 규칙 8).
+-- 레이아웃 회귀는 HudLayoutTests가 본다. 좌표가 다시 필요하면 이 값만 true로 켠다.
+local HUD_LAYOUT_REPORT_ENABLED = false
 
 if HUD_LAYOUT_REPORT_ENABLED then
 	require(script.Parent.Parent.Tools.HudLayoutReport).run()
