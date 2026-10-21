@@ -96,8 +96,8 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 한 Play에 찍혔다. **2344 passed / 0 failed** — 서버 1490 + 클라 854.
 
 ```
-삭제   DroneServiceTests        32          드론 폐기 (946bff5, 태그 drone-archive-2026-10-21)
-갱신   ConfigTests              73  → 71    DroneConfig 검사 2개 삭제 (946bff5)
+삭제   DroneServiceTests        32          드론 폐기 (f2014e1, 태그 drone-archive-2026-10-21)
+갱신   ConfigTests              73  → 71    DroneConfig 검사 2개 삭제 (f2014e1)
        AssetRegistryTests      130  → 125   icon_drone 삭제 (8f6f59f)
 유지   나머지 44행
 ```
@@ -1201,7 +1201,7 @@ RATIO는 정상 진행 하한(보상 성장률 2.7) 위이고 25층 누적 12.5�
 ```
 이유   구현 부담이 크고, 이 장르에서 열심인 유저는 잠수를 태우므로 오프라인 수입의 중요도가 낮다
 보관   git 태그 drone-archive-2026-10-21 (지우기 직전 상태)
-삭제   946bff5 (코드) · 8f6f59f (UI — 메뉴 레일 드론 → 워프, icon_drone)
+삭제   f2014e1 (코드) · 8f6f59f (UI — 메뉴 레일 드론 → 워프, icon_drone)
 저장   프로필 drones 필드는 다음 스키마 변경 때 정리 (571a960)
 ```
 
