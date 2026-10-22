@@ -120,6 +120,10 @@ local MODEL = {
 	-- 처음부터 공허에서 GYM_TRAIN_SEC초 훈련한다(환생 기구보다 언제나 세다 — GymConfig.validate).
 	OWNS_VOID_ZONE = false,
 
+	-- 스폰 → 게이트를 걷는 동안 평소 속도로 클릭하는가. true가 결정 모델(파일 상단 "걷기"). false는 진단 비교 줄 —
+	-- 지시서 #8(로비 단축)에서 성공률이 움직인 원인이 걷는 동안의 클릭인지 가르려고 둔다.
+	CLICK_WHILE_WALKING = true,
+
 	-- 업그레이드 구매 규칙. "s5"가 결정 모델(2026-10-22 사람 결정 S5 — 파일 상단), "none"은 업그레이드 0 비교 줄.
 	UPGRADE_POLICY = "s5",
 }
@@ -284,7 +288,9 @@ end
 function SuccessRateReport.walkToGate(p: Player): number
 	local speed = LevelConfig.getMaxSpeed(p.strength, SuccessRateReport.effect(p.upgrades, "moveSpeed"))
 	local sec = ArenaConfig.getSpawnToEntrance() / speed
-	addClicks(p, math.floor(p.clickRate * sec))
+	if MODEL.CLICK_WHILE_WALKING then
+		addClicks(p, math.floor(p.clickRate * sec))
+	end
 	p.elapsedSec += sec
 	return sec
 end
@@ -936,6 +942,30 @@ function SuccessRateReport.run()
 			end
 		end
 		printBandTable()
+	end
+
+	-- 로비 걷기 비교 (지시서 #8 1단계). ⚠️ ArenaConfig · LevelConfig를 고치는 것이 아니라 메모리에서 잠깐 갈아끼운다.
+	-- 로비를 줄이자(스폰 → 게이트 20초 → 4초) 성공률이 올랐다 — 그 원인이 걷기인지 가르는 진단 줄이다.
+	print("[SUCCESSRATE] ===== 로비 걷기 비교 (결정 모델, 진단) =====")
+	do
+		local LevelConfigMod = LevelConfig :: any
+		local savedSpawn, savedBase = ArenaConfig.SPAWN_X, LevelConfigMod.BASE_WALK_SPEED
+		local ok, err = pcall(function()
+			ArenaConfig.SPAWN_X = ArenaConfig.getEntranceX() - 320
+			LevelConfigMod.BASE_WALK_SPEED = 16
+			runModel("옛 로비 걷기 (320 studs · 기본 속도 16)", false, true)
+		end)
+		ArenaConfig.SPAWN_X, LevelConfigMod.BASE_WALK_SPEED = savedSpawn, savedBase
+		if not ok then
+			error(err)
+		end
+		local savedClick = MODEL.CLICK_WHILE_WALKING
+		MODEL.CLICK_WHILE_WALKING = false
+		local ok2, err2 = pcall(runModel, "걷는 동안 클릭 없음 (새 로비, 진단)", false, true)
+		MODEL.CLICK_WHILE_WALKING = savedClick
+		if not ok2 then
+			error(err2)
+		end
 	end
 
 	print("[SUCCESSRATE] ===== 업그레이드 TEMP 후보 (결정 모델 S5) =====")

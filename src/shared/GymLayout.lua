@@ -2,18 +2,19 @@
 -- 운동기구 배치 좌표와 "이 위치가 어느 기구 위인가" 판정 (순수). PadLayout과 같은 성격이다 —
 -- 좌표만 만들고 Instance는 만들지 않는다. 파트 생성은 Server/Systems/GymService가 한다.
 --
--- ===== 어디에 서는가 =====================================================================
+-- ===== 어디에 서는가 (지시서 #8 M1 — 2026-10-23 사람 결정) ================================
 --
--- 스폰 구역 안, 패드 줄(Z = 0) 옆에 한 줄로 선다. 기구 i번은 좌표 i번이다 — 스폰에서 멀어질수록
--- 강한 기구라 패드와 같은 방향으로 읽힌다(PadLayout "왜 일렬인가"와 같은 이유).
+--   -Z 옆   패드 24개 (PadLayout)
+--   Z = 0   스폰 ──── 가운데 통로 ──── 입장 게이트     (통로에는 아무것도 없다)
+--   +Z 옆   운동기구 9개, 2줄 격자            ← 여기
 --
---   Z = 0        패드 1 … 24
---   Z = LANE_Z   기구 1 … N      (스폰 구역 반폭의 절반 — 패드 줄과 경계 벽 사이 가운데.
---                                 맨 끝이 로벅스 전용 공허 훈련 구역 — 가장 센 기구가 가장 멀다)
+-- 기구 i번은 좌표 i번이다. 열 c(= ceil(i / 2))가 게이트 쪽으로 갈수록 커지고, 한 열 안에서는 통로 쪽(안쪽 줄)이 앞 번호다 —
+-- 패드와 같은 방향으로 "게이트 쪽일수록 세다"가 읽힌다. 기구가 홀수(9)라 맨 끝 열에는 9번 하나만 선다 —
+-- 9번이 로벅스 전용 공허 훈련 구역(가장 비싸고 가장 센 것)이고 맨 끝이다.
 --
 -- 챌린지 구간(입장 게이트 너머)에는 기구가 없다. 그래서 런 중 클릭에는 기구 배수가 붙지 않는다.
 --
--- ⚠️ 배치 상수는 초안값이다. 지환 파트와 맵이 들어오면 SIZE · PITCH는 조정 대상이다
+-- ⚠️ 배치 상수는 초안값이다. 파트와 맵이 들어오면 SIZE · 간격은 조정 대상이다
 --    (PadLayout "배치 상수는 초안값이다"와 같다). 경계·축은 ArenaConfig가 원본이다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -25,15 +26,17 @@ local GymLayout = {}
 -- 기구 하나의 발판 크기 (studs). 캐릭터가 올라서서 클릭하는 자리라 패드(8)보다 넓게 잡았다.
 GymLayout.SIZE = Vector3.new(16, 1, 16)
 
--- 기구 중심 간 거리 (studs). SIZE.X의 2배 — 기구 사이로 걸어 다닐 틈을 둔다.
-GymLayout.PITCH = 32
+-- 열 간격(진행축) · 줄 간격(Z). SIZE + 8 — 기구 사이로 걸어 다닐 틈.
+GymLayout.PITCH = 24
+GymLayout.ROWS = 2
+GymLayout.ROW_PITCH = 24
 
--- 첫 기구 중심이 스폰 구역 시작(SPAWN_ZONE_X_MIN)에서 떨어진 거리. 경계 벽에 붙지 않게.
-GymLayout.START_GAP = 30
+-- 첫 열이 스폰 지점보다 앞(+X)에 선 거리. 5열이면 마지막 열이 -192 + 4 × 24 = -96 — 게이트(-74) 앞에서 끝난다.
+GymLayout.START_AHEAD_OF_SPAWN = 8
 
--- 기구 줄의 Z. 스폰 구역 반폭의 절반 — 패드 줄(Z = 0)과 경계 벽 사이 가운데다.
--- 음수 쪽인 이유는 없다(대칭). 한쪽으로 정해 둘 뿐이다.
-GymLayout.LANE_Z = -ArenaConfig.SPAWN_ZONE_Z_HALF / 2
+-- 안쪽 줄의 Z. 통로(Z = 0)에서 기구 가장자리까지 32 studs — 패드 안쪽 줄(PadLayout.LANE_Z = -36)과 대칭인 여유.
+-- 바깥쪽 줄은 +Z로 ROW_PITCH만큼 더 간다.
+GymLayout.LANE_Z = 40
 
 -- 발판 윗면이 지면 위에 오게 중심을 반 칸 띄운다 (PadLayout.GROUND_Y_OFFSET과 같은 이유).
 GymLayout.GROUND_Y_OFFSET = GymLayout.SIZE.Y / 2
@@ -42,13 +45,23 @@ GymLayout.GROUND_Y_OFFSET = GymLayout.SIZE.Y / 2
 -- 점프 중에도 놓치지 않게 넉넉히 잡는다.
 GymLayout.STAND_HEIGHT = 12
 
+-- 기구 i번의 열(1부터)과 줄(0 = 안쪽, 1 = 바깥쪽).
+function GymLayout.cellOf(index: number): (number, number)
+	return math.ceil(index / GymLayout.ROWS), (index - 1) % GymLayout.ROWS
+end
+
 -- 기구 count개의 중심 좌표. i번째가 기구 i번이다.
 function GymLayout.computeLayout(count: number): { Vector3 }
 	assert(type(count) == "number" and count >= 0 and count % 1 == 0, "GymLayout.computeLayout: count는 0 이상의 정수")
 	local positions: { Vector3 } = {}
-	local firstX = ArenaConfig.SPAWN_ZONE_X_MIN + GymLayout.START_GAP
+	local firstX = ArenaConfig.SPAWN_X + GymLayout.START_AHEAD_OF_SPAWN
 	for i = 1, count do
-		table.insert(positions, Vector3.new(firstX + (i - 1) * GymLayout.PITCH, GymLayout.GROUND_Y_OFFSET, GymLayout.LANE_Z))
+		local column, row = GymLayout.cellOf(i)
+		table.insert(positions, Vector3.new(
+			firstX + (column - 1) * GymLayout.PITCH,
+			GymLayout.GROUND_Y_OFFSET,
+			GymLayout.LANE_Z + row * GymLayout.ROW_PITCH
+		))
 	end
 	return positions
 end

@@ -134,13 +134,33 @@ do
 	end
 	check("기구와 패드가 겹치지 않음", apart)
 
+	-- 2줄 격자라 이웃 번호가 같은 X일 수 있다(지시서 #8 M1) — 모든 쌍을 X · Z 둘 다로 본다.
 	local separated = true
-	for i = 2, #positions do
-		if positions[i].X - positions[i - 1].X < GymLayout.SIZE.X then
-			separated = false
+	for i = 1, #positions do
+		for j = i + 1, #positions do
+			if math.abs(positions[i].X - positions[j].X) < GymLayout.SIZE.X and math.abs(positions[i].Z - positions[j].Z) < GymLayout.SIZE.Z then
+				separated = false
+			end
 		end
 	end
 	check("기구끼리 겹치지 않음", separated)
+
+	-- M1: 통로 밖 · 패드 반대쪽(+Z) · 공허(맨 끝 번호)가 게이트 쪽 맨 끝 열
+	local clearOfPath, oppositeSide = true, true
+	local maxX = -math.huge
+	for _, p in ipairs(positions) do
+		if math.abs(p.Z) - GymLayout.SIZE.Z / 2 < 24 then
+			clearOfPath = false
+		end
+		if p.Z <= 0 then
+			oppositeSide = false
+		end
+		maxX = math.max(maxX, p.X)
+	end
+	check("M1: 기구가 가운데 통로 밖", clearOfPath)
+	check("M1: 기구가 패드 반대쪽(+Z)", oppositeSide and pads[1].Z < 0)
+	check("M1: 맨 끝 번호(공허)가 게이트 쪽 맨 끝 열", positions[#positions].X == maxX)
+	check("M1: 기구 2줄", GymLayout.ROWS == 2 and #positions >= 2 and positions[1].X == positions[2].X and positions[1].Z ~= positions[2].Z)
 end
 
 do

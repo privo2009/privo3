@@ -8,6 +8,7 @@
 --
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local ArenaService = require(script.Parent.ArenaService)
@@ -433,6 +434,42 @@ do
 	end
 	check("회귀: 클릭 파워 패드가 하나 이상 검사됐다", padCount > 0, tostring(padCount))
 	check("회귀: 클릭 파워 패드 전부의 X 범위가 바닥 위", #missing == 0, #missing > 0 and table.concat(missing, " / ") or nil)
+end
+
+-- ===== 지시서 #8 M3 조건 + M2 목표 이동 시간 =================================================
+-- ArenaConfig는 다른 Config를 require하지 않으므로 모듈을 건너는 조건은 여기서 잰다.
+do
+	local BlockLayout = require(ReplicatedStorage.Shared.BlockLayout)
+	local BlockLayoutConfig = require(ReplicatedStorage.Shared.Config.BlockLayoutConfig)
+	local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
+	local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
+	local stageHalf = ArenaConfig.STAGE_WIDTH / 2
+	local clusterFace = BlockLayout.OUTER_RADIUS + BlockLayoutConfig.BLOCK_SPAN / 2
+
+	check("M3: 블록 클러스터 바깥면이 스테이지 안", clusterFace < stageHalf, string.format("면 %.1f / 반폭 %.1f", clusterFace, stageHalf))
+	check("M3: 판정 반경 > 스테이지 반폭", AttackConfig.getRadius() > stageHalf, string.format("반경 %.1f / 반폭 %.1f", AttackConfig.getRadius(), stageHalf))
+	check("M3: 입구(시작 면)에 서도 판정 반경 안", ArenaConfig.getStageCenterX(1) - ArenaConfig.getStageEntranceX(1) <= AttackConfig.getRadius())
+
+	local padHalf = ArenaConfig.CASHOUT_PAD_SIZE.X / 2
+	local wallHalf = ArenaConfig.ADVANCE_WALL_DEPTH / 2
+	local padNear = ArenaConfig.getCashoutOffset() - padHalf
+	local padFar = ArenaConfig.getCashoutOffset() + padHalf
+	local wallNear = ArenaConfig.getAdvanceOffset() - wallHalf
+	local bandEnd = stageHalf + ArenaConfig.GAP_WIDTH
+	check("M3: 수령 발판이 띠 안 (스테이지 끝 뒤)", padNear > stageHalf, string.format("발판 앞 %.1f / 끝 %.1f", padNear, stageHalf))
+	check("M3: 수령 발판과 진행 벽이 안 겹침", padFar < wallNear, string.format("발판 뒤 %.1f / 벽 앞 %.1f", padFar, wallNear))
+	check("M3: 진행 벽이 띠 끝 (다음 스테이지 시작 면)", ArenaConfig.getAdvanceOffset() == bandEnd)
+	check("M3: 발판 · 벽 깊이 ≥ 8", ArenaConfig.CASHOUT_PAD_SIZE.X >= 8 and ArenaConfig.ADVANCE_WALL_DEPTH >= 8)
+	local okValidate, err = pcall(ArenaConfig.validate, LAST_STAGE)
+	check("M3: 모든 파트 각 축 ≤ MAX_PART_SIZE (ArenaConfig.validate, 마지막 층까지)", okValidate, tostring(err))
+
+	-- M2: 기본 이동 속도 · 업그레이드 0 · 레벨 0 기준 목표 시간. ≈ 는 ±1초로 본다.
+	local base = LevelConfig.getMaxSpeed(BigNum.new(0, 0))
+	local lobbySec = ArenaConfig.getSpawnToEntrance() / base
+	local stageSec = ArenaConfig.getStagePitch() / base -- 클리어 지점(그 층 시작 면) → 그 층 진행 벽 = 한 주기
+	check("M2: 스폰 → 입장 게이트 ≈ 4초", math.abs(lobbySec - 4) <= 1, string.format("%.2f초 (%.0f studs ÷ %.0f)", lobbySec, ArenaConfig.getSpawnToEntrance(), base))
+	check("M2: 층 시작 면 → 진행 벽 ≈ 5초", math.abs(stageSec - 5) <= 1, string.format("%.2f초 (%.0f studs ÷ %.0f)", stageSec, ArenaConfig.getStagePitch(), base))
+	check("M3: 기본 속도가 MAX_WALK_SPEED 아래 (상한은 안 바꾼다)", base < LevelConfig.getMaxWalkSpeed(), string.format("%.0f / %.0f", base, LevelConfig.getMaxWalkSpeed()))
 end
 
 print(string.format("[ArenaServiceTests] %d passed, %d failed", passed, failed))

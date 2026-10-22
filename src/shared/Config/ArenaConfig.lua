@@ -4,9 +4,11 @@
 -- 공간 구조의 원본은 docs/UI_HANDOFF.md "3D 파트 배치 — 아레나 좌표"다.
 -- ⚠️ 근거를 여기로 복사하지 말 것. 이 파일은 "얼마인가"만 답한다.
 --
---   스폰 구역                          챌린지 구간 →
---   [ 패드 24개 · 펫뽑기 ]  →  [ St.1 블록 ] [ 띠 ] [ St.2 블록 ] [ 띠 ] ...
---   X -400 ~ -104              X -80 부터
+--   스폰 구역 (로비)                          챌린지 구간 →
+--   -Z 옆  패드 24개 2줄 (게이트 쪽일수록 셈)
+--   Z=0    스폰 ──── 가운데 통로 ──── 입장 게이트 →  [ St.1 블록 ] [ 띠 ] [ St.2 블록 ] [ 띠 ] ...
+--   +Z 옆  운동기구 9개 2줄 (공허가 맨 끝)
+--   (좌표 값은 아래 상수와 파생 함수가 원본 — 지시서 #8 M1 로비 배치)
 --
 -- 이 모듈은 순수하다. Player·프로필·Instance를 보지 않고 Service를 require하지 않는다.
 -- 좌표만 만들고 파트는 만들지 않는다 — BlockLayout/PadLayout과 같은 성격이다.
@@ -37,22 +39,45 @@ local ArenaConfig = {}
 ArenaConfig.AXIS = Vector3.new(1, 0, 0)
 
 -- ===== 1차 상수 (여기 적힌 둘만 원본이다) ==============================================
+--
+-- ===== 템포 (지시서 #8 M2 — 2026-10-23) =====================================================
+--
+-- 목표 이동 시간(기본 이동 속도 · 업그레이드 0 · 레벨 0): 스폰 → 입장 게이트 ≈ 4초, 층 클리어 지점 → 그 층 진행 벽 ≈ 5초.
+-- 수단은 둘 다다 — 거리를 줄이고(폭 160 → 148, 띠 40 → 24, 스폰 → 게이트 320 → 126) 기본 이동 속도를 올렸다
+-- (LevelConfig.BASE_WALK_SPEED 16 → 32). 거리만으로는 못 맞춘다: 층 주기(폭 + 띠)의 하한이
+--   폭 ≥ (블록 클러스터 바깥면 + 게이트·벽 깊이 절반) × 2 (= 145.6) — 블록이 스테이지 안에, 게이트 · 벽이 블록 앞에 선다
+--   띠 ≥ 발판 깊이 + 벽 깊이 + 틈                                — 발판과 벽이 띠 안에서 안 겹친다
+-- 로 약 165라서 속도 16이면 층 하나가 10초를 넘는다. 속도만으로도 못 맞춘다: 기본 속도를 40 넘게 올리면 최대 속도 상한
+-- (MAX_WALK_SPEED, 발판 깊이 유도)에 닿는 레벨이 너무 앞당겨진다. 그래서 둘을 반씩 썼다(Claude 판단, 세션 로그).
+-- 이 조건들은 ArenaServiceTests "M3 조건"이 다른 모듈(BlockLayout · AttackConfig · LevelConfig)과 함께 잰다 —
+-- 이 파일은 다른 Config를 require하지 않는다.
+--
+--   층 걷기    (폭 + 띠) ÷ 기본 속도 = 172 ÷ 32 ≈ 5.4초   (클리어한 뒤라 런 타이머는 멈춰 있다)
+--   로비 걷기  getSpawnToEntrance ÷ 기본 속도 = 126 ÷ 32 ≈ 3.9초   (런은 게이트에서 서므로 타이머 밖)
 
 -- 스테이지 한 칸의 폭. 블록 중심에서 양옆으로 절반씩이다.
--- ⚠️ 근접 판정 반경(AttackConfig.getRadius, 92.8)이 이 폭의 절반(80)보다 크다.
+-- ⚠️ 근접 판정 반경(AttackConfig.getRadius, 92.8)이 이 폭의 절반(74)보다 크다.
 -- 스테이지 안에 서 있는 한 공격이 끊기지 않는다는 뜻이고, 그게 의도다.
 -- 그쪽은 이 값을 참조하지 않는다 — 근거가 다르고 서로 끌려다니면 안 된다.
-ArenaConfig.STAGE_WIDTH = 160
+-- ⚠️ 절반(74)이 블록 클러스터 바깥면(68.8) + 게이트 · 벽 깊이 절반(4)보다 커야 한다 — 아래로 내리면 블록이 띠로
+--    삐져나오고 입장 게이트 · 진행 벽이 블록과 겹친다(EntranceGateServiceTests "게이트 먼 면"이 잰다).
+ArenaConfig.STAGE_WIDTH = 148
 
 -- 스테이지와 스테이지 사이 띠. 수령 발판과 진행 벽이 이 띠 안에 있다.
-ArenaConfig.GAP_WIDTH = 40
+-- 발판(깊이 12)은 띠 가운데, 벽(깊이 8)은 띠 끝 — 24면 둘 사이 틈이 2 studs다(validate가 잰다). 발판은 진행축에서
+-- 옆(CASHOUT_LATERAL_OFFSET)으로 비켜 있어 벽까지 걷는 길과 겹치지 않는다.
+ArenaConfig.GAP_WIDTH = 24
 
 -- 스폰 지점의 X. 패드도 아레나 경계도 복귀 경로도 이 값에서 시작한다.
 --
 -- ⚠️ 4-2-a 이전에는 PadLayout이 이 역할을 겸했다(블록 아레나 반지름에서 패드
 -- 시작점을 유도). 패드가 스폰 구역으로 오면서 스폰 지점이 패드만의 값이 아니게
 -- 됐고, 그래서 여기가 정본이 됐다.
-ArenaConfig.SPAWN_X = -400
+--
+-- 지시서 #8 M1: 스폰은 게이트 가까운 쪽이다. 스폰 → 게이트 = 입구(-74) − (-200) = 126 ≈ 기본 속도 32 × 4초.
+-- 패드 · 기구는 통로 옆(±Z)에 있고 스폰 뒤쪽(-X)으로도 조금 뻗는다 — 나중 구역 공간은 뒤 · 옆에 남기고
+-- 스폰 → 게이트 거리는 늘리지 않는다.
+ArenaConfig.SPAWN_X = -200
 
 -- 수령 발판이 진행축에서 옆으로 비키는 거리.
 --
@@ -90,12 +115,12 @@ ArenaConfig.CASHOUT_PAD_SIZE = Vector3.new(12, 1, 12)
 -- ⚠️ PadLayout이 예전에 쓰던 `ARENA_RADIUS`(68.8)와 아무 관계가 없다. 그쪽은
 -- 패드 시작점 계산값이었고 물리 경계가 아니었다(4-2-a에서 그 항 자체가 사라졌다).
 
--- 스폰 구역의 X 범위. 패드(-380~-104)를 품고 챌린지 입구(-80)를 20 지나서 끝난다 —
--- 이 20의 겹침이 스폰 구역과 챌린지 구간을 잇는 출입구다.
-ArenaConfig.SPAWN_ZONE_X_MIN = -420
-ArenaConfig.SPAWN_ZONE_X_MAX = -60
+-- 스폰 구역의 X 범위. 패드 · 기구(스폰 뒤 -224부터)를 품고 챌린지 입구(-74)를 20 지나서 끝난다 —
+-- 이 20의 겹침이 스폰 구역과 챌린지 구간을 잇는 출입구다. 뒤쪽 -260 ~ -224는 나중 구역(상점 · 펫 등) 자리로 남긴다.
+ArenaConfig.SPAWN_ZONE_X_MIN = -260
+ArenaConfig.SPAWN_ZONE_X_MAX = -54
 
--- Z 반폭. 스폰 구역이 더 넓다 — 패드 24장을 훑으며 좌우로 움직이는 구역이기 때문이다.
+-- Z 반폭. 스폰 구역이 더 넓다 — 통로 양옆에 패드 · 기구 줄이 서고, 그 바깥은 나중 구역 자리다.
 ArenaConfig.SPAWN_ZONE_Z_HALF = 120
 ArenaConfig.CHALLENGE_ZONE_Z_HALF = 100
 
@@ -278,8 +303,8 @@ function ArenaConfig.getEntranceGateCenter(): (number, number, number)
 	return ArenaConfig.getEntranceX(), ArenaConfig.BOUNDARY_HEIGHT / 2, 0
 end
 
--- 스폰 지점에서 챌린지 입구까지의 거리. 패드 24장이 이 사이에 들어간다.
--- "체감상 적절한가"는 Play에서 볼 값이고, 여기서는 얼마인지만 답한다.
+-- 스폰 지점에서 챌린지 입구까지의 거리. 가운데 통로의 길이다(패드 · 기구는 통로 옆).
+-- 목표 시간은 위 "템포"(4초). 여기서는 얼마인지만 답한다.
 function ArenaConfig.getSpawnToEntrance(): number
 	return ArenaConfig.getEntranceX() - ArenaConfig.SPAWN_X
 end
@@ -458,6 +483,19 @@ function ArenaConfig.validate(stageCount: number?): boolean
 		string.format("ArenaConfig: 수령 발판(%.1f)이 진행 벽(%.1f)보다 뒤에 있음", cashout, advance)
 	)
 
+	-- 지시서 #8 M3: 깊이까지 넣고 본다. 발판 앞면이 스테이지 밖(띠 안)이고, 발판 뒷면이 벽 앞면보다 앞이어야
+	-- 둘이 안 겹친다. 중심만 보면 띠를 좁혔을 때 파트끼리 맞닿아도 통과한다.
+	local padHalf = ArenaConfig.CASHOUT_PAD_SIZE.X / 2 -- 진행축이 X다(AXIS)
+	local wallHalf = ArenaConfig.ADVANCE_WALL_DEPTH / 2
+	assert(
+		cashout - padHalf > stageEdge,
+		string.format("ArenaConfig: 수령 발판 앞면(%.1f)이 스테이지 끝(%.1f) 안쪽 — 띠에 안 든다", cashout - padHalf, stageEdge)
+	)
+	assert(
+		cashout + padHalf < advance - wallHalf,
+		string.format("ArenaConfig: 수령 발판 뒷면(%.1f)이 진행 벽 앞면(%.1f)과 겹침", cashout + padHalf, advance - wallHalf)
+	)
+
 	-- 스테이지가 올라가도 발판이 다음 스테이지를 침범하지 않는지. 주기와 오프셋이
 	-- 따로 놀면 여기서 걸린다.
 	assert(
@@ -540,6 +578,12 @@ function ArenaConfig.validate(stageCount: number?): boolean
 	assert(
 		type(ArenaConfig.BOUNDARY_THICKNESS) == "number" and ArenaConfig.BOUNDARY_THICKNESS > 0,
 		string.format("ArenaConfig: BOUNDARY_THICKNESS(%s)는 0보다 커야 함", tostring(ArenaConfig.BOUNDARY_THICKNESS))
+	)
+
+	-- 지시서 #8 M3: 발판 · 벽 진행 방향 깊이 ≥ 8 (Touched 관통 하한 — docs/UI_ASSET_SPEC.md "5-1").
+	assert(
+		ArenaConfig.CASHOUT_PAD_SIZE.X >= 8 and ArenaConfig.ADVANCE_WALL_DEPTH >= 8,
+		string.format("ArenaConfig: 발판 깊이(%.1f) · 벽 깊이(%.1f) 중 8 미만이 있음", ArenaConfig.CASHOUT_PAD_SIZE.X, ArenaConfig.ADVANCE_WALL_DEPTH)
 	)
 
 	-- 진행 벽 크기 세 축이 양수인지.

@@ -21,6 +21,7 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local BlockLayout = require(ReplicatedStorage.Shared.BlockLayout)
+local BlockLayoutConfig = require(ReplicatedStorage.Shared.Config.BlockLayoutConfig)
 local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local AttackService = require(script.Parent.AttackService)
@@ -686,15 +687,18 @@ do
 end
 
 do
-	-- 다른 스테이지의 블록은 사거리 밖이어야 한다. 주기(200)가 반경(92.8)의 두 배를
-	-- 넘으므로 이웃 층조차 닿지 않는다 — 이것이 층이 분리돼 있다는 것의 실질이다.
+	-- 다른 스테이지의 블록은 사거리 밖이어야 한다. 이웃 층 클러스터의 가까운 바깥면(주기 − 클러스터 바깥면)이
+	-- 반경(92.8)보다 멀어서 이웃 층 블록 곁에 서 있어도 내 층 판정에 안 걸린다 — 이것이 층이 분리돼 있다는 것의 실질이다.
 	--
-	-- ⚠️ "200 > 92.8 × 2"를 전제로 깔지 않고 먼저 확인한다. 폭을 좁히면 이 검사가
-	-- 무의미해지는데, 그때 조용히 통과하면 안 된다.
+	-- ⚠️ 2026-10-23 지시서 #8(맵 템포)에서 전제를 고쳤다. 예전에는 "주기 > 반경 × 2"였는데(주기 200), 판정은 런의 층
+	-- 하나의 원점만 보므로(runPunch 4번) 두 층의 판정 원이 겹쳐도 어느 층을 때리는지는 갈리지 않는다. 지켜야 하는 것은
+	-- "이웃 층 블록 곁이 내 층 사거리 밖"이고, 그 조건이 이 식이다. 주기 172에서 172 − 68.8 = 103.2 > 92.8.
+	-- ⚠️ 전제를 깔지 않고 먼저 확인한다. 폭을 더 좁히면 아래 검사가 무의미해지는데, 그때 조용히 통과하면 안 된다.
+	local clusterFace = BlockLayout.OUTER_RADIUS + BlockLayoutConfig.BLOCK_SPAN / 2
 	check(
-		"주기가 반경의 두 배보다 크다 (이웃 층이 겹치지 않는다는 전제)",
-		ArenaConfig.getStagePitch() > RADIUS * 2,
-		string.format("주기=%.1f 반경×2=%.1f", ArenaConfig.getStagePitch(), RADIUS * 2)
+		"이웃 층 클러스터 바깥면이 사거리 밖 (주기 − 클러스터 바깥면 > 반경)",
+		ArenaConfig.getStagePitch() - clusterFace > RADIUS,
+		string.format("주기=%.1f 바깥면=%.1f 반경=%.1f", ArenaConfig.getStagePitch(), clusterFace, RADIUS)
 	)
 
 	for _, other in ipairs({ RUN_STAGE - 1, RUN_STAGE + 1, 1 }) do

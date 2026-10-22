@@ -343,14 +343,15 @@ end)
 check("ArenaConfig: 확정 구조의 좌표가 그대로 나온다", function()
 	-- 확정값을 여기 박는 것이 맞다. 이 절은 "구조가 바뀌지 않았는가"를 재는 자리이고,
 	-- 파생식으로 다시 쓰면 식이 틀려도 자기 자신과 일치해서 통과한다.
-	return ArenaConfig.getStagePitch() == 200
+	-- 2026-10-23 지시서 #8(맵 템포): 폭 148 · 띠 24 · 스폰 -200 (이전 160 · 40 · -400).
+	return ArenaConfig.getStagePitch() == 172
 		and ArenaConfig.getStageCenterX(1) == 0
-		and ArenaConfig.getStageCenterX(2) == 200
-		and ArenaConfig.getCashoutX(1) == 100
-		and ArenaConfig.getAdvanceX(1) == 120
-		and ArenaConfig.getEntranceX() == -80
-		and ArenaConfig.SPAWN_X == -400
-		and ArenaConfig.getSpawnToEntrance() == 320
+		and ArenaConfig.getStageCenterX(2) == 172
+		and ArenaConfig.getCashoutX(1) == 86
+		and ArenaConfig.getAdvanceX(1) == 98
+		and ArenaConfig.getEntranceX() == -74
+		and ArenaConfig.SPAWN_X == -200
+		and ArenaConfig.getSpawnToEntrance() == 126
 end)
 
 check("ArenaConfig: 스테이지 폭을 흔들면 주기·발판·벽이 전부 따라온다 (유도가 실제로 돈다)", function()
@@ -377,15 +378,15 @@ check("ArenaConfig: 스테이지 폭을 흔들면 주기·발판·벽이 전부 
 	end
 
 	local r = result :: any
-	-- 폭 160 → 320이면 주기 200 → 360, 발판 100 → 180, 벽 120 → 200, 입구 -80 → -160.
-	-- 2층 입구는 360 - 160 = 200 — 벽과 같은 자리다(벽을 통과하면 다음 층 시작 면).
-	return r.pitch == 360
-		and r.center2 == 360
-		and r.cashout == 180
-		and r.advance == 200
-		and r.entrance == -160
-		and r.entrance2 == 200
-		and ArenaConfig.getStagePitch() == 200 -- 복구 확인
+	-- 폭 148 → 296이면 주기 172 → 320, 발판 86 → 160, 벽 98 → 172, 입구 -74 → -148.
+	-- 2층 입구는 320 - 148 = 172 — 벽과 같은 자리다(벽을 통과하면 다음 층 시작 면).
+	return r.pitch == 320
+		and r.center2 == 320
+		and r.cashout == 160
+		and r.advance == 172
+		and r.entrance == -148
+		and r.entrance2 == 172
+		and ArenaConfig.getStagePitch() == 172 -- 복구 확인
 end)
 
 check("ArenaConfig: 스테이지 N의 입구 X가 중심을 따라 움직인다", function()
@@ -394,10 +395,10 @@ check("ArenaConfig: 스테이지 N의 입구 X가 중심을 따라 움직인다"
 	-- 재현된다. 어긋나면 스테이지 2에서만 out_of_range가 뜨고 원인이 안 보인다.
 	local stageEdge = ArenaConfig.STAGE_WIDTH / 2
 
-	-- 확정값. 주기 200, 폭 160이면 1층 -80, 2층 120, 3층 320이다.
-	local fixedOk = ArenaConfig.getStageEntranceX(1) == -80
-		and ArenaConfig.getStageEntranceX(2) == 120
-		and ArenaConfig.getStageEntranceX(3) == 320
+	-- 확정값. 주기 172, 폭 148이면 1층 -74, 2층 98, 3층 270이다.
+	local fixedOk = ArenaConfig.getStageEntranceX(1) == -74
+		and ArenaConfig.getStageEntranceX(2) == 98
+		and ArenaConfig.getStageEntranceX(3) == 270
 
 	-- 상대 위치가 층과 무관하게 같은가. 이것이 dist 재현의 근거다.
 	local relativeOk = true
@@ -418,7 +419,7 @@ check("ArenaConfig: 스테이지 N의 입구 X가 중심을 따라 움직인다"
 	return fixedOk and relativeOk and aliasOk and wallOk
 end)
 
-check("ArenaConfig: 패드 24장이 스폰과 챌린지 입구 사이에 들어간다", function()
+check("ArenaConfig: 패드 24장이 스폰 구역 안 · 챌린지 입구 앞에 들어간다", function()
 	-- 두 파일이 같은 축·같은 스폰 지점을 쓰는지 실제 좌표로 확인한다. 패드가 입구를
 	-- 넘어가면 챌린지 구간에 패드가 서고, 4-2-a에서 없애기로 한 구조가 되살아난다.
 	local count = ClickPadConfig.getSet(1).count
@@ -426,10 +427,12 @@ check("ArenaConfig: 패드 24장이 스폰과 챌린지 입구 사이에 들어�
 	local first = positions[1].X
 	local last = positions[count].X
 
-	return first > ArenaConfig.SPAWN_X
+	-- 지시서 #8 M1: 패드는 통로 옆 2줄이고 스폰 바로 뒤(-220)에서 시작해 게이트 앞(-88)에서 끝난다.
+	return first < ArenaConfig.SPAWN_X
+		and first > ArenaConfig.SPAWN_ZONE_X_MIN
 		and last < ArenaConfig.getEntranceX()
-		and first == -380
-		and last == -104
+		and first == -220
+		and last == -88
 end)
 
 check("LevelConfig: 수령 발판이 깊이 소스에 등록돼 있다", function()

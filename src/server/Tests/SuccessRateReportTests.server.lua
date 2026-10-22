@@ -395,6 +395,15 @@ do
 	local okErr = pcall(SuccessRateReport.withUpgradeOverride, { punchDamage = { costGrowth = 1 } }, function() end)
 	check("withUpgradeOverride: 규약 위반 후보는 에러 + 되돌림", not okErr and UpgradeConfig.Upgrades.punchDamage.costGrowth > 1)
 	check("업그레이드 스윕 단독 모드는 커밋 값 false", SuccessRateReport.SIM.UPGRADE_SWEEP_ONLY == false)
+
+	-- 걷는 동안 클릭 (지시서 #8 진단 스위치). 결정 모델은 true, false면 걷기는 시간만 더한다.
+	check("결정 모델: 걷는 동안 클릭한다", SuccessRateReport.MODEL.CLICK_WHILE_WALKING == true)
+	local walker = SuccessRateReport.newPlayer(Random.new(11))
+	local before = walker.strength
+	SuccessRateReport.MODEL.CLICK_WHILE_WALKING = false
+	local ok, sec = pcall(SuccessRateReport.walkToGate, walker)
+	SuccessRateReport.MODEL.CLICK_WHILE_WALKING = true
+	check("걷는 동안 클릭 없음: 힘 그대로 · 시간은 더한다", ok and BigNum.eq(walker.strength, before) and checkClose(walker.elapsedSec, sec :: number))
 end
 
 print(string.format("[SuccessRateReportTests] %d passed, %d failed", passed, failed))

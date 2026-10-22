@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local PadLayout = require(ReplicatedStorage.Shared.PadLayout)
 local BlockLayoutConfig = require(ReplicatedStorage.Shared.Config.BlockLayoutConfig)
+local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local ClickPadConfig = require(ReplicatedStorage.Shared.Config.ClickPadConfig)
 local PadService = require(script.Parent.PadService)
 
@@ -67,17 +68,42 @@ end
 
 do
 	-- 인덱스 순서 = 공간 순서. 이게 깨지면 "앞으로 갈수록 강해진다"가 성립하지 않는다.
+	-- 지시서 #8 M1: 2줄 배치라 한 열(패드 2장)은 같은 X다. 열이 바뀔 때마다 게이트 쪽(AXIS)으로 나아가고,
+	-- 열 안에서는 물러서지 않는다.
 	local positions = PadLayout.computeLayout(PAD_COUNT)
 	local monotonic = true
-	local prev = 0
-	for i = 1, PAD_COUNT do
-		local along = positions[i]:Dot(PadLayout.AXIS)
-		if i > 1 and along <= prev then
+	for i = 2, PAD_COUNT do
+		local along, prevAlong = positions[i]:Dot(PadLayout.AXIS), positions[i - 1]:Dot(PadLayout.AXIS)
+		local column, prevColumn = PadLayout.cellOf(i), PadLayout.cellOf(i - 1)
+		if column > prevColumn and along <= prevAlong then
+			monotonic = false
+		elseif column == prevColumn and math.abs(along - prevAlong) > 1e-6 then
 			monotonic = false
 		end
-		prev = along
 	end
-	check("computeLayout: 인덱스가 커질수록 AXIS 방향으로 멀어짐 (순서 = 강함)", monotonic)
+	check("computeLayout: 열이 커질수록 AXIS(게이트) 방향으로 나아감 (순서 = 강함)", monotonic)
+
+	-- 통로(Z = 0)에 패드가 없다 — 지나가다 낮은 패드를 밟아 파워가 내려가는 사고 방지(M1).
+	local clearOfPath = true
+	local beforeGate = true
+	local inZone = true
+	local half = PadLayout.PAD_SIZE / 2
+	for _, p in ipairs(positions) do
+		if math.abs(p.Z) - half.Z < 24 then
+			clearOfPath = false
+		end
+		if p.X + half.X >= ArenaConfig.getEntranceX() then
+			beforeGate = false
+		end
+		if p.X - half.X < ArenaConfig.SPAWN_ZONE_X_MIN or math.abs(p.Z) + half.Z > ArenaConfig.SPAWN_ZONE_Z_HALF then
+			inZone = false
+		end
+	end
+	check("M1: 패드가 가운데 통로 밖 (|Z| 가장자리 24 이상)", clearOfPath)
+	check("M1: 패드가 전부 입장 게이트 앞", beforeGate)
+	check("M1: 패드가 전부 스폰 구역 안", inZone)
+	check("M1: 패드가 한쪽 옆(-Z)", positions[1].Z < 0 and positions[PAD_COUNT].Z < 0)
+	check("M1: 패드 2줄", PadLayout.ROWS == 2 and math.abs(positions[1].Z - positions[2].Z) >= PadLayout.PAD_SIZE.Z)
 end
 
 do
@@ -86,7 +112,7 @@ do
 end
 
 do
-	-- 패드 1이 블록 아레나 밖에서 시작하는가. START_GAP을 줄이면 여기서 걸린다.
+	-- 패드 1이 블록 아레나 밖에서 시작하는가. 스폰 구역을 챌린지 쪽으로 밀면 여기서 걸린다.
 	local arenaRadius = BlockLayoutConfig.BLOCK_SPAN * BlockLayoutConfig.OUTER_RING_MULT
 		+ BlockLayoutConfig.BLOCK_SPAN / 2
 	local first = PadLayout.computeLayout(1)[1]
