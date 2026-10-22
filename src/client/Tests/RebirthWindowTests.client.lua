@@ -77,6 +77,10 @@ check("목록: 초기화 목록에 패드가 있다", (function()
 end)())
 
 -- 4. 창 --------------------------------------------------------------------------------------
+check("목록: 남는 것에 상점 업그레이드가 있다(환생은 업그레이드를 건드리지 않는다 — 지시서 #7)", string.find(RebirthWindowLogic.KEEPS, "업그레이드", 1, true) ~= nil)
+check("값: 버려지는 양 = RebirthConfig.getLeftover(시뮬레이터 S5 예산과 같은 원본)", BigNum.eq(RebirthWindowLogic.compute(BigNum.fromNumber(2345), BigNum.new(0, 0)).wasted,
+	RebirthConfig.getLeftover(BigNum.fromNumber(2345))))
+
 local function makeWindow(bloxValue: number)
 	local store = Store.new()
 	store.setSource(function(setter)
@@ -84,7 +88,7 @@ local function makeWindow(bloxValue: number)
 		setter("rebirths", BigNum.fromNumber(2))
 	end)
 	local clock = 0
-	local w = { sends = 0, closes = 0 }
+	local w = { sends = 0, closes = 0, shops = 0 }
 	local handle = RebirthWindow.create({
 		store = store,
 		sendRequest = function()
@@ -92,6 +96,9 @@ local function makeWindow(bloxValue: number)
 		end,
 		onClose = function()
 			w.closes += 1
+		end,
+		openShop = function()
+			w.shops += 1
 		end,
 		now = function()
 			return clock
@@ -158,6 +165,19 @@ do
 
 	handle._debug.close()
 	check("창: X는 onClose를 부른다", w.closes == 1)
+
+	-- 상점 안내 + 상점 버튼 (지시서 #7)
+	check("상점: 안내 문구", handle._debug.labels.shopHint.Text == RebirthWindowLogic.SHOP_HINT)
+	check("상점: 버튼은 회색(중립)이고 켜져 있다", handle._debug.shopButton.root.Name == "ShopButton" and not handle._debug.shopButton.isDisabled())
+	local hintBottom = handle._debug.labels.shopHint.Position.Y.Scale + handle._debug.labels.shopHint.Size.Y.Scale
+	check("상점: 안내 줄이 버려지는 양 아래 · 초기화 목록 위", handle._debug.labels.shopHint.Position.Y.Scale >= handle._debug.labels.wastedValue.Position.Y.Scale + handle._debug.labels.wastedValue.Size.Y.Scale - 1e-6
+		and hintBottom <= handle._debug.labels.resetsHeader.Position.Y.Scale + 1e-6)
+	check("상점: 남는 것 줄이 상태 줄과 겹치지 않는다", handle._debug.labels.keeps.Position.Y.Scale + handle._debug.labels.keeps.Size.Y.Scale <= handle._debug.labels.status.Position.Y.Scale + 1e-6)
+	check("상점: 상태 줄이 버튼과 겹치지 않는다", handle._debug.labels.status.Position.Y.Scale + handle._debug.labels.status.Size.Y.Scale <= handle._debug.button.root.Position.Y.Scale + 1e-6)
+	handle._debug.press() -- 확인 중으로 만든 뒤
+	handle._debug.openShop()
+	check("상점: 버튼을 누르면 상점을 연다(1회) · 환생 요청은 안 나간다", w.shops == 1 and w.sends == 1)
+	check("상점: 확인 중이던 환생은 취소된다", handle._debug.labels.button.Text == RebirthWindow.BUTTON_TEXT)
 	handle.root:Destroy()
 end
 

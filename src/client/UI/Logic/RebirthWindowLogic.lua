@@ -30,11 +30,9 @@ export type View = {
 
 function RebirthWindowLogic.compute(blox: BigNumber, rebirths: BigNumber): View
 	local gained = RebirthConfig.getGainedRebirths(blox)
-	local spentOnGain = BigNum.mul(gained, BigNum.fromNumber(RebirthConfig.BLOX_PER_REBIRTH))
-	local wasted = BigNum.sub(blox, spentOnGain)
-	if wasted.m < 0 then
-		wasted = BigNum.new(0, 0) -- 정밀도 바깥(블럭스가 아주 클 때)의 잡음. 나머지는 이미 표현되지 않는다
-	end
+	-- 버려지는 양은 RebirthConfig.getLeftover가 원본이다(시뮬레이터의 S5 업그레이드 예산과 같은 함수 — 지시서 #7).
+	-- 블럭스가 아주 크면 나머지가 표현되지 않아 0이다(음수 잡음도 0으로 접는다).
+	local wasted = RebirthConfig.getLeftover(blox)
 	local can = RebirthConfig.canRebirth(blox)
 	return {
 		blox = blox,
@@ -73,7 +71,13 @@ RebirthWindowLogic.RESETS = {
 	"최대 이동속도 → 힘에 맞춰 다시", -- 10
 	"진행 중인 런 → 끝나고 스폰으로", -- 3
 }
-RebirthWindowLogic.KEEPS = "남는 것: 환생 배수(오름) · 운동기구 · 평생 누적 블럭스"
+-- 상점 업그레이드: runRebirth의 deps에는 업그레이드를 바꾸는 통로가 없다 — 남는다(UpgradeServiceTests 5번이 확인한다, 지시서 #7).
+RebirthWindowLogic.KEEPS = "남는 것: 환생 배수(오름) · 운동기구 · 평생 누적 블럭스 · 상점 업그레이드"
+
+-- 버려지는 양 옆 안내 + 상점 창으로 가는 버튼(지시서 #7 6단계). 버려질 나머지를 업그레이드에 먼저 쓰라는 안내다
+-- (시뮬레이터 표준 플레이어의 구매 규칙 S5와 같은 행동).
+RebirthWindowLogic.SHOP_HINT = "환생 전에 상점에서 먼저 쓸 수 있어요"
+RebirthWindowLogic.SHOP_BUTTON_TEXT = "상점으로"
 
 -- ===== 확인 단계 ==============================================================================
 --

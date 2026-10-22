@@ -2,7 +2,9 @@
 -- 환생 창 (작은 창 60% × 70%, Window 층 — 단일 오픈 · 배경 흐리게는 ScreenController가 한다).
 -- docs/UI.md "1. 화면 목록 > 환생 창 — 반드시 보여야 하는 것". Phase 6 지시서 #5.
 --
--- 본문: 보유 블럭스 / 얻는 배수(지금 → 환생 후) / 버려지는 양(빨강 강조) / 초기화되는 것 목록 / 남는 것.
+-- 본문: 보유 블럭스 / 얻는 배수(지금 → 환생 후) / 버려지는 양(빨강 강조) + 상점 안내 · 상점 버튼 / 초기화되는 것 목록 / 남는 것.
+-- 상점 버튼은 회색(중립 — 블럭스를 쓰지 않는 이동 버튼이다). 누르면 상점 창이 열리고 이 창은 닫힌다(Window 층 단일 오픈 —
+-- ScreenController.open이 열린 창을 닫는다).
 -- 값 · 문구 · 확인 단계는 UI/Logic/RebirthWindowLogic(순수)에서 나온다. 이 파일은 그리기와 배선뿐이다.
 --
 -- 환생 버튼은 블럭스(하늘) 역할 — 블럭스를 쓰는 행동이라서. 1000 미만이면 회색 잠김 + 이유 문구.
@@ -39,14 +41,17 @@ local ROWS = {
 	blox = 0.0,
 	gain = 0.10,
 	wasted = 0.20,
-	resetsHeader = 0.31,
-	resetsTop = 0.37,
-	resetLine = 0.05,
-	keeps = 0.68,
-	status = 0.75,
-	button = 0.84,
+	shop = 0.30, -- 상점 안내 + 상점 버튼 (지시서 #7)
+	resetsHeader = 0.39,
+	resetsTop = 0.445,
+	resetLine = 0.045,
+	keeps = 0.725,
+	status = 0.785,
+	button = 0.86,
 }
-local BUTTON_H = 0.15
+local SHOP_H = 0.075
+local SHOP_BUTTON_W = 0.3
+local BUTTON_H = 0.14
 local BUTTON_W = 0.46
 
 local makeText = WindowParts.makeText
@@ -56,6 +61,7 @@ export type Deps = {
 	store: any?, -- Store 인스턴스. 생략하면 싱글톤(BloxDisplay.create와 같은 이유)
 	sendRequest: () -> (), -- 서버에 환생 요청을 보낸다
 	onClose: () -> (),
+	openShop: (() -> ())?, -- 상점 창을 연다(지시서 #7). 실물은 ScreenController.open("Shop")
 	now: (() -> number)?, -- 테스트용 시계
 }
 
@@ -67,9 +73,11 @@ export type Handle = {
 		press: () -> (),
 		cancel: () -> (),
 		close: () -> (),
+		openShop: () -> (),
 		labels: { [string]: TextLabel },
 		button: Button.ButtonHandle,
 		cancelButton: Button.ButtonHandle,
+		shopButton: Button.ButtonHandle,
 	},
 }
 
@@ -96,6 +104,18 @@ function RebirthWindow.create(deps: Deps): Handle
 	labels.wastedValue.BackgroundColor3 = UiTheme.Colors.danger.base
 	labels.wastedValue.BackgroundTransparency = 0
 
+	-- 상점 안내 + 상점으로 가는 버튼 (지시서 #7). 버려지는 양 바로 아래.
+	labels.shopHint = makeText("ShopHint", body, "small", 0, ROWS.shop, 1 - SHOP_BUTTON_W - 0.02, SHOP_H)
+	labels.shopHint.Text = RebirthWindowLogic.SHOP_HINT
+	local shopButton = Button.create({ size = "Small", color = "gray", widthScale = SHOP_BUTTON_W, heightScale = SHOP_H })
+	shopButton.root.Name = "ShopButton"
+	shopButton.root.AnchorPoint = Vector2.new(1, 0)
+	shopButton.root.Position = UDim2.fromScale(1, ROWS.shop)
+	shopButton.root.ZIndex = 5
+	shopButton.root.Parent = body
+	local shopLabel, shopHit = decorateButton(shopButton, RebirthWindowLogic.SHOP_BUTTON_TEXT)
+	labels.shopButton = shopLabel
+
 	labels.resetsHeader = makeText("ResetsHeader", body, "small", 0, ROWS.resetsHeader, 1, ROW_H * 0.7)
 	labels.resetsHeader.Text = "환생하면 초기화되는 것"
 	for i, text in ipairs(RebirthWindowLogic.RESETS) do
@@ -106,7 +126,7 @@ function RebirthWindow.create(deps: Deps): Handle
 	labels.keeps = makeText("Keeps", body, "small", 0, ROWS.keeps, 1, ROWS.resetLine)
 	labels.keeps.Text = RebirthWindowLogic.KEEPS
 
-	labels.status = makeText("Status", body, "small", 0, ROWS.status, 1, ROW_H * 0.8, Enum.TextXAlignment.Center)
+	labels.status = makeText("Status", body, "small", 0, ROWS.status, 1, 0.07, Enum.TextXAlignment.Center)
 
 	local button = Button.create({ size = "Big", color = "blue", widthScale = BUTTON_W, heightScale = BUTTON_H })
 	button.root.Name = "RebirthButton"
@@ -127,7 +147,7 @@ function RebirthWindow.create(deps: Deps): Handle
 
 	local closeHit = WindowParts.hitArea(panel.closeButton.root)
 
-	WindowParts.raiseButtons({ button.root, cancelButton.root, panel.closeButton.root })
+	WindowParts.raiseButtons({ button.root, cancelButton.root, shopButton.root, panel.closeButton.root })
 
 	local confirm = RebirthWindowLogic.newConfirm()
 	local view: RebirthWindowLogic.View = RebirthWindowLogic.compute(source.get("blox"), source.get("rebirths"))
@@ -193,6 +213,16 @@ function RebirthWindow.create(deps: Deps): Handle
 		deps.onClose()
 	end
 
+	-- 상점으로: 확인 중이던 환생은 취소한다(창이 닫히므로 — 돌아오면 처음부터 다시 확인).
+	local function openShop()
+		confirm.cancel()
+		resultText = nil
+		render()
+		if deps.openShop ~= nil then
+			deps.openShop()
+		end
+	end
+
 	local function onResult(payload: any)
 		if type(payload) ~= "table" then
 			return
@@ -209,6 +239,7 @@ function RebirthWindow.create(deps: Deps): Handle
 	buttonHit.Activated:Connect(press)
 	cancelHit.Activated:Connect(cancel)
 	closeHit.Activated:Connect(close)
+	shopHit.Activated:Connect(openShop)
 	source.subscribe("blox", refresh)
 	source.subscribe("rebirths", refresh)
 
@@ -222,9 +253,11 @@ function RebirthWindow.create(deps: Deps): Handle
 			press = press,
 			cancel = cancel,
 			close = close,
+			openShop = openShop,
 			labels = labels,
 			button = button,
 			cancelButton = cancelButton,
+			shopButton = shopButton,
 		},
 	}
 end

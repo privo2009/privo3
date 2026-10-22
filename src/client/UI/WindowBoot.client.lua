@@ -20,6 +20,10 @@ local rebirthWindow = RebirthWindow.create({
 	onClose = function()
 		ScreenController.close("Rebirth")
 	end,
+	-- 상점으로(지시서 #7). Window 층은 하나만 열린다 — open이 환생 창을 닫는다.
+	openShop = function()
+		ScreenController.open("Shop")
+	end,
 })
 
 ScreenController.register("Rebirth", "Window", function()
