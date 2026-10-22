@@ -28,14 +28,14 @@
 | `Data/MigrationsTests.server.lua` | 25 | schemaVersion 마이그레이션·멱등성·v4 lifeBlox |
 | `Systems/CurrencyServiceTests.server.lua` | 59 | 재화 단일 게이트·롤백·rebirths·lifeBlox(이번 생애 누적) |
 | `Systems/BlockServiceTests.server.lua` | 51 | 배치·데미지 오버플로우·클리어 |
-| `Systems/ChallengeServiceTests.server.lua` | 74 | 타이머·보상 갱신·진입점 거부·source 식별 |
+| `Systems/ChallengeServiceTests.server.lua` | 82 | 타이머·보상 갱신·진입점 거부·source 식별·블럭스 획득 배수 한 함수(payableReward)·view nextReward |
 | `Systems/ClickServiceTests.server.lua` | 47 | 입력 위생·초당 상한 윈도우·통지 억제·자동 경로 |
 | `Systems/PadServiceTests.server.lua` | 31 | 패드 배치·해금 경계·디바운스·세팅/클램프 |
 | `Systems/SpeedServiceTests.server.lua` | 21 | 요청값 클램프·입력 위생·환생 하향·최대치 상승 불변 |
 | `Systems/SpeedRequestServiceTests.server.lua` | 32 | 요청 빈도 상한·폐기·로그 억제·응답 payload |
 | `Systems/RebirthServiceTests.server.lua` | 71 | 거부 시 부작용 0·순서·누적·부분 실패·패드 되돌리기(11단계) ※ |
 | `Systems/WarpServiceTests.server.lua` | 84 | 거부 시 차감 0·차감이 런 시작보다 먼저·부분 실패 3종·W1 런 중 거부·W2 차감→이동→시작 순서·캐릭터 없음 거부·이동 실패에도 런 시작 ※ |
-| `Systems/AttackServiceTests.server.lua` | 73 | 반경 밖 미호출·이중 계산 방지·경계(float32 이웃)·방향 독립 |
+| `Systems/AttackServiceTests.server.lua` | 89 | 반경 밖 미호출·이중 계산 방지·경계(float32 이웃)·방향 독립·데미지 업그레이드 한 번만 곱함·플레이어별 펀치 주기(틱 · 몰아치기 없음) |
 | `Tests/UiThemeTests.server.lua` | 33 | 색 역할 8종 존재·밝은/기본/어두운 3단계·Color3 타입 |
 | `Tests/AssetRegistryTests.server.lua` | 125 | 24종 등록·source/scaleType/placeholderRole 검증·resolve() 도착·미도착 판정 ※ |
 | `Tests/AssetImageTests.server.lua` | 16 | 미도착→Frame·도착→ImageLabel·SliceCenter·UIStroke 3px |
@@ -50,13 +50,13 @@
 | `Tests/ChallengeInfoTests.client.lua` | 17 | 상단 정보 15% 안·타이머 특대 단계·active=false 레이아웃 유지 |
 | `Tests/MenuRailTests.client.lua` | 59 | 6개 생성·좌측 레일 폭·세로 합계·BloxDisplay 비침범·AspectRatio·라벨 2~4자·격자 열 수 구성값 ※ |
 | `Tests/HudVisibilityTests.client.lua` | 31 | PlayerGui 부착·Visible·Enabled·AbsoluteSize·10프레임 지속 관찰 ※ |
-| `Tests/HudLayoutTests.client.lua` | 410 | 뷰포트 게이트 뒤 실물 HudGui — 크기 0·인셋/뷰포트 경계 침범·형제 겹침·MenuRail 격자 배치(AbsolutePosition)·칸 안 자식·컴포넌트 간 겹침·글자 하한·터치 조작부 겹침 ※ |
+| `Tests/HudLayoutTests.client.lua` | 413 | 뷰포트 게이트 뒤 실물 HudGui — 크기 0·인셋/뷰포트 경계 침범·형제 겹침·MenuRail 격자 배치(AbsolutePosition)·칸 안 자식·컴포넌트 간 겹침·글자 하한·터치 조작부 겹침·구좌 가격이 칸 안 · 표기 통일 ※ |
 | `Tests/PowerBlockTests.client.lua` | 49 | 세 행 Y 범위·하단 띠·8자/4자 규격·진행률 경계·Store 구독 반영·다른 인스턴스 미유출 |
-| `Tests/ShopSlotsTests.client.lua` | 34 | 상점 4구좌 배치·ShopConfig 원본 참조 |
+| `Tests/ShopSlotsTests.client.lua` | 36 | 상점 4구좌 배치·ShopConfig 원본 참조·가격 표기 2꼴 |
 | `Tests/AutoToolsTests.client.lua` | 28 | 자동 도구 아이콘 배치 |
 | `Systems/ArenaServiceTests.server.lua` | 119 | 스폰 좌표·경계 높이·스테이지 수에 따른 경계 확장·출입구 개방·어깨 벽·바닥 파생과 파트 상한 분할(층 수 흔들기)·전 층 바닥 위 |
 | `Systems/CashoutPadServiceTests.server.lua` | 47 | 발판 좌표·측면 오프셋·디바운스·런당 1회·플레이어별 격리·source 경로·층 불일치 무시·UiTheme 색 |
-| `Tests/SuccessRateReportTests.server.lua` | 60 | 확률 시뮬레이터 식 — 펀치 간격·속도 미곱·반경 밖 지연·런 중 클릭·걷기 시간·진행 규칙 2종·모델 범위·seed 결정성·워프 비교(판단·워프 런)·문턱 구간 비교(구간 수·순서·합산·seed 재현)·운동기구 훈련·공허 구매자 |
+| `Tests/SuccessRateReportTests.server.lua` | 76 | 확률 시뮬레이터 식 — 펀치 간격·속도 미곱·반경 밖 지연·런 중 클릭·걷기 시간·진행 규칙 2종·모델 범위·seed 결정성·워프 비교(판단·워프 런)·문턱 구간 비교(구간 수·순서·합산·seed 재현)·운동기구 훈련·공허 구매자·업그레이드 S5(가장 싼 것부터 · 예산 = getLeftover · 최대 레벨 건너뜀)·TEMP 후보 교체 되돌림 |
 | `Systems/GymServiceTests.server.lua` | 41 | 운동기구 조건·배수·가격 순증가·해금 경계·공허 훈련 구역(로벅스 전용·맨 끝·가장 비쌈·가장 셈·ShopConfig 가격)·스폰 구역 안·게이트 앞·패드와 안 겹침·발판 판정·배수 결정 |
 | `Tests/CashoutPadViewTests.server.lua` | 23 | 런 상태 → 발판 켜짐(클리어 + 같은 층)·꺼짐(미클리어·다른 층·런 없음)·켜진 발판 1개·역할 키 |
 | `Tests/AdvanceWallViewTests.server.lua` | 97 | 런 상태 → 벽 모습(숨김·닫힘·열림)·크기 파생·층별 위치·잘못된 stage·LevelConfig 깊이 소스 등록 |
@@ -64,15 +64,19 @@
 | `Tests/AdvanceWallRendererTests.client.lua` | 62 | 상태별 충돌·투명·색(닫힘·열림·최종층·숨김)·create 계약(Anchored·CanTouch=false) |
 | `Tests/EntranceGateServiceTests.server.lua` | 25 | 런 없음→1층 startRun·런 있음 무동작·서 있기 반복·디바운스 공유·플레이어 격리·스펙 파생(지면·블록 바깥면 앞) |
 | `Tests/RunDeathServiceTests.server.lua` | 9 | 런 있음 abandon 1회·런 없음 0회·같은 죽음 두 번 차단·리스폰 뒤 새 죽음 |
-| `Systems/PlayerStateServiceTests.server.lua` | 33 | 상태 스냅샷 형태 · 직렬화 왕복 · 같음 비교 · 로드 시 1회 · 빈도 상한 · sync 모음(로드 전 요청 포함) · 리스폰 · 퇴장 |
-| `Tests/PlayerStateClientTests.client.lua` | 15 | payload 형태 판정 · Store 반영 · 틀린 payload 통째로 버림 |
-| `Tests/CoreScreensTests.client.lua` | 54 | 런 안내 · 로딩 판정, 3D 안내 내용(서버 · Config 원본), 화면 규칙(Offset 0 · 금지 구역 밖 · 층 순서 · 역할 색), 패드 표시 역할 3종 · 역할별 높이 |
+| `Systems/PlayerStateServiceTests.server.lua` | 39 | 상태 스냅샷 형태 · 직렬화 왕복 · 같음 비교 · 로드 시 1회 · 빈도 상한 · sync 모음(로드 전 요청 포함) · 리스폰 · 퇴장 · 업그레이드 레벨 8키 |
+| `Tests/PlayerStateClientTests.client.lua` | 20 | payload 형태 판정 · Store 반영 · 틀린 payload 통째로 버림 · 업그레이드 표(키 · 음수 · 복사) |
+| `Tests/CoreScreensTests.client.lua` | 56 | 런 안내 · 로딩 판정, 3D 안내 내용(서버 · Config 원본), 화면 규칙(Offset 0 · 금지 구역 밖 · 층 순서 · 역할 색), 패드 표시 역할 3종 · 역할별 높이 · 다음 해금 크기 · 벽 표시 서버 nextReward |
 | `Systems/RebirthRequestServiceTests.server.lua` | 10 | 환생 요청 거부 경로(블럭스 부족 · 빈도 상한 · 부분 실패) · 성공 결과 형태 |
-| `Tests/RebirthWindowTests.client.lua` | 38 | 표시 값(서버와 같은 함수) · 사유 문구 · 확인 단계 없이는 요청 안 나감 · 잠김 · 창 규격 · 버튼 그림 ZIndex |
+| `Tests/RebirthWindowTests.client.lua` | 47 | 표시 값(서버와 같은 함수) · 사유 문구 · 확인 단계 없이는 요청 안 나감 · 잠김 · 창 규격 · 버튼 그림 ZIndex · 남는 것에 업그레이드 · 상점 안내 · 상점으로 |
 | `Tests/TouchSafeLayoutTests.client.lua` | 13 | 폰 실측 사각형으로 겹침 판정(구좌 · 자동 도구 겹침, 힘 블록 안 겹침) · 점프 버튼 위로 올림 양(간격 포함) · 올릴 필요 없으면 0 · Scale 환산 |
 | `Systems/WarpRequestServiceTests.server.lua` | 12 | 워프 요청 payload 위생(invalid_stage) · 서버 거부 사유 그대로(W1 · 블럭스 부족) · 성공 결과 형태 · 빈도 상한 · 결과 매번 송신 |
-| `Tests/WarpWindowTests.client.lua` | 34 | 표시 값(WarpConfig.cost 원본) · 잠김(블럭스 부족 · W1 런 중) · 사유 문구 · 확인 단계 · 쪽 넘김 · 창 규격 |
-| **합계** | **2565** | |
+| `Tests/WarpWindowTests.client.lua` | 36 | 표시 값(WarpConfig.cost 원본) · 잠김(블럭스 부족 · W1 런 중) · 사유 문구 · 확인 단계 · 쪽 넘김 · 창 규격 · 행 색 3단계 |
+| `Tests/UpgradeConfigTests.server.lua` | 48 | 노출 4종 · 비노출 4종 · 스키마 8키 · 효과 선형(S1) · 펀치 속도 증가량 유도 · 최대 레벨 = 상한(S2) · 이동속도 80 상한(S3) · 비용 단조 증가 · canBuy 사유 3종 · validate 거부 |
+| `Systems/UpgradeServiceTests.server.lua` | 33 | 구매 거부 경로(잘못된 항목 · 최대 레벨 · 블럭스 부족 · 프로필 없음) 부작용 0 · 차감 → 레벨 → 통지 순서 · 부분 실패 · 저장값 읽기 · 환생 경로가 업그레이드를 안 건드림 |
+| `Systems/UpgradeRequestServiceTests.server.lua` | 13 | 구매 요청 payload 위생 · 서버 거부 사유 그대로 · 성공 결과 형태 · 빈도 상한(중복 요청) · 퇴장 정리 |
+| `Tests/UpgradeShopTests.client.lua` | 37 | 상점 표시 값(UpgradeConfig 원본) · 잠김(MAX · 블럭스 부족) · 사유 문구 · 요청 한 번만(결과 대기 · 시간 뒤 풀림 · 잠긴 줄) · 로벅스 자리 숨김 · 창 규격 |
+| **합계** | **2765** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -100,7 +104,28 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-10-22 Studio Play 런타임 실측 (전량, 지시서 #6 — 폰 결함 · 패드 표시 · 월드·워프 창 · 리포트 끈 Play).** 54개 행 전부가
+최근 갱신: **2026-10-22 Studio Play 런타임 실측 (전량, 지시서 #7 — 상점 1차 · UI 결함 · 리포트 끈 Play).** 58개 행 전부가
+한 Play에 찍혔다. **2765 passed / 0 failed** — 서버 1696(37행) + 클라 1069(21행).
+
+```
+신설   UpgradeConfigTests           48          (a030722)
+       UpgradeServiceTests          33          (c947e8b)
+       UpgradeRequestServiceTests   13          (c947e8b)
+       UpgradeShopTests             37          (57f6bf7)
+갱신   AttackServiceTests           73 →  89    데미지 업그레이드 · 플레이어별 펀치 주기 (c947e8b)
+       ChallengeServiceTests        74 →  82    payableReward · nextReward (c947e8b)
+       PlayerStateServiceTests      33 →  39    업그레이드 레벨 (c947e8b)
+       PlayerStateClientTests       15 →  20    업그레이드 표 (c947e8b)
+       SuccessRateReportTests       60 →  76    S5 · TEMP 후보 (92e8f67)
+       RebirthWindowTests           38 →  47    상점 안내 (9fe3a7e)
+       HudLayoutTests              410 → 413    구좌 가격 칸 안 (1b728d5)
+       CoreScreensTests             54 →  56    다음 해금 크기 · nextReward (1b728d5 · c947e8b)
+       ShopSlotsTests               34 →  36    가격 표기 (1b728d5)
+       WarpWindowTests              34 →  36    행 색 (1b728d5)
+유지   나머지 44행
+```
+
+그 전 갱신: **2026-10-22 Studio Play 런타임 실측 (전량, 지시서 #6 — 폰 결함 · 패드 표시 · 월드·워프 창 · 리포트 끈 Play).** 54개 행 전부가
 한 Play에 찍혔다. **2565 passed / 0 failed** — 서버 1556(34행) + 클라 1009(20행).
 
 ```
@@ -1297,11 +1322,15 @@ U4        완료 — 로딩 · 클리어 안내 · 실패 · 3D 안내 4종(3229
           (개발 계정 블럭스 부족 + 사람 승인 필요)
 워프 창   완료 — 메뉴 "워프" → 작은 창, 층 목록 · 두 번 누름 확인 · 서버 재판정 · W1/W2(f4fe428).
           Play에서 1층 워프 1회 실행(32 → 22 블럭스, 1층 입구로 이동, 런 시작)
-U5 · U6   미착수. U5 상점은 수치 결정이 먼저다(`docs/PENDING.md` "상점 착수 전 결정")
+U5        업그레이드 1차 4종 완료(지시서 #7) — UpgradeConfig 정리(a030722) · UpgradeService + 효과 4종(c947e8b) ·
+          시뮬레이터 S5 + TEMP 조정(92e8f67) · 상점 창(57f6bf7) · 환생 창 상점 안내(9fe3a7e).
+          Play에서 이동 속도 1회 구매(165.49 → 65.49 블럭스, Lv 1, 최대 속도 20 → 21). 로벅스 구매 · 힘 배수 계단은 Phase 8
+          남은 UI 결함 3건(구좌 가격 · 다음 해금 패드 · 워프 창 행 색, 1b728d5)
+U6        미착수 (뽑기 — Phase 7과 같이)
 ```
 
-**다음: 사람이 직접 한 판(실플레이로 볼 것 — `docs/PENDING.md`) → 상점 수치 결정(사람) → U5 상점.**
-(지시서 #5의 "월드 · 워프 창(U7)"은 지시서 #6으로 끝났다.)
+**다음: G2 확인(희준 에셋 도착 시 — 패널 2층) → Phase 7 뽑기.**
+(지시서 #6의 "사람이 직접 한 판"은 아직이다 — `docs/PENDING.md` "실플레이로 볼 것".)
 
 ⚠️ 이 단계가 전체에서 가장 오래 걸린다
 
