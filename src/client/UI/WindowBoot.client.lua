@@ -67,4 +67,28 @@ end)
 channels.runStateChanged.OnClientEvent:Connect(function(payload: Remotes.RunStateChangedPayload)
 	warpWindow.setRunActive(payload.active)
 end)
+
+-- ===== 상점 창 — 업그레이드 (지시서 #7) ==========================================================
+-- 요청은 UpgradeRequest{name}(레벨 · 비용을 싣지 않는다), 결과는 UpgradeResult. 바뀐 레벨 · 블럭스는 PlayerState → Store.
+
+local UpgradeShopWindow = require(script.Parent.Screens.Window.UpgradeShopWindow)
+
+local shopWindow = UpgradeShopWindow.create({
+	sendRequest = function(name: string)
+		local payload: Remotes.UpgradeRequestPayload = { name = name }
+		channels.upgradeRequest:FireServer(payload)
+	end,
+	onClose = function()
+		ScreenController.close("Shop")
+	end,
+})
+
+ScreenController.register("Shop", "Window", function()
+	return shopWindow.root
+end)
+
+channels.upgradeResult.OnClientEvent:Connect(function(payload: Remotes.UpgradeResultPayload)
+	shopWindow.onResult(payload)
+end)
+
 StateSync.request()
