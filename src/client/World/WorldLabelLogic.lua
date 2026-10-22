@@ -9,6 +9,7 @@
 --   진행 벽 위      advance(보라, 진행·도박). 최종층은 neutral(회색)
 --   클릭 파워 패드   해금 power(주황) / 미해금 neutral(회색)
 --   입장 게이트     neutral(회색) — 행동 선택이 아니라 위치 안내라서(Claude 판단, 세션 로그)
+--   운동기구 위     열림 power(주황) / 잠김 neutral(회색) / 공허 premium(남색) — 지시서 #8 M4와 같은 배정
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -17,6 +18,15 @@ local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local ClickPadConfig = require(ReplicatedStorage.Shared.Config.ClickPadConfig)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
+local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
+
+-- 작은 배수(1.2 · 2 · 100)는 Formatter의 소수 2자리 대신 짧게 적는다.
+local function formatSmall(value: number): string
+	if value % 1 == 0 then
+		return tostring(math.floor(value))
+	end
+	return (string.gsub(string.format("%.2f", value), "0+$", ""))
+end
 
 type BigNumber = BigNum.BigNumber
 
@@ -127,6 +137,57 @@ WorldLabelLogic.PAD_SIZE = {
 	best = Vector2.new(8, 3),
 	["next"] = Vector2.new(16, 6),
 }
+
+-- ===== 운동기구 위 (지시서 #8 2d) =============================================================
+--
+-- 9개 전부 띄우면 패드처럼 겹친다. 유저가 기구에서 내리는 판단만 남긴다(Claude 판단, 세션 로그 — 패드 표시와 같은 규칙):
+--   지금 올라서 있는 기구   "사용 중" — 배수가 지금 붙고 있다(잠긴 기구면 "잠김")
+--   열린 것 중 가장 센 기구  올라갈 곳
+--   다음 해금 대상          환생 몇 번이면 열리나
+--   공허 훈련 구역          항상 — 로벅스 전용(준비 중), 가장 센 기구가 무엇인지 보인다
+-- 값은 GymConfig 원본(배수 · 필요 환생 수). 올라서 있는지는 GymLayout.resolve — 서버 GymService와 같은 함수.
+export type GymRole = "current" | "best" | "next" | "void"
+
+function WorldLabelLogic.gymRole(index: number, standingIndex: number?, unlockedCount: number): GymRole?
+	if GymConfig.isRobuxOnly(index) then
+		return "void"
+	elseif index == standingIndex then
+		return "current"
+	elseif index == unlockedCount then
+		return "best"
+	elseif index == unlockedCount + 1 then
+		return "next"
+	end
+	return nil
+end
+
+WorldLabelLogic.GYM_SIZE = Vector2.new(9, 3.2)
+WorldLabelLogic.GYM_VOID_SIZE = Vector2.new(12, 3.6)
+-- 지면 위 studs. 서 있는 캐릭터 머리(약 5)와 클릭 팝업(머리 위 → 약 8.5)보다 위. 기구는 2줄 격자라 통로에서 보면 Z로 벌어져
+-- 있어 패드처럼 높이를 계단으로 두지 않는다.
+WorldLabelLogic.GYM_HEIGHT = 10
+
+-- 기구 위 표시. standing = 지금 이 기구 위에 서 있는가.
+function WorldLabelLogic.gym(index: number, rebirths: BigNumber, standing: boolean): Label
+	local multiplierText = "기구 ×" .. formatSmall(GymConfig.getMultiplier(index))
+	if GymConfig.isRobuxOnly(index) then
+		return {
+			visible = true,
+			title = "공허 ×" .. formatSmall(GymConfig.getMultiplier(index)),
+			detail = "로벅스 전용(준비 중)",
+			role = "premium",
+		}
+	end
+	if GymConfig.isUnlockedByRebirths(index, rebirths) then
+		return { visible = true, title = multiplierText, detail = if standing then "사용 중" else "", role = "power" }
+	end
+	return {
+		visible = true,
+		title = multiplierText,
+		detail = (if standing then "잠김 · " else "") .. "필요 환생 " .. Formatter.format(GymConfig.getUnlockRebirths(index)),
+		role = "neutral",
+	}
+end
 
 -- 입장 게이트. 위치 안내만. 런 중에는 숨긴다(이미 지나왔다).
 function WorldLabelLogic.gate(runActive: boolean): Label

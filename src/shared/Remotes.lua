@@ -244,10 +244,13 @@ export type RebirthRequestPayload = {}
 --   ok      true면 환생됨
 --   reason  거부 사유 코드(RebirthService.REASON_* 또는 "rate_limited"). 성공이면 ""
 --   gained  얻은 배수. 거부면 0 (선택 필드 금지 — nil인 키는 직렬화에서 사라진다)
+--   total   환생 뒤 rebirths 누적값. 거부면 0. 환생 안내(지시서 #8)가 "×이전 → ×이후"를 PlayerState 도착 순서와 무관하게
+--           그린다 — 이전 = total − gained
 export type RebirthResultPayload = {
 	ok: boolean,
 	reason: string,
 	gained: BigNum.BigNumber,
+	total: BigNum.BigNumber,
 }
 
 -- WarpRequest: 이 층으로 워프해 달라 (클라 → 서버). stage만 싣는다 — 비용을 싣지 않는다(규약 2).

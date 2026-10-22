@@ -4,6 +4,7 @@
 --
 --   로딩       시작하자마자 연다. 첫 PlayerState가 오면 닫는다. TIMEOUT_SEC를 넘기면 닫고 오류를 연다
 --   런 안내    RunStateChanged를 RunNoticeLogic에 넣어 나온 대로 띄운다(비차단)
+--   환생 안내  RebirthResult가 성공이면 "×이전 → ×이후"를 잠깐 띄운다(알림층, 지시서 #8)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
@@ -12,12 +13,16 @@ local LoadingScreen = require(script.Parent.Screens.Overlay.LoadingScreen)
 local ErrorNotice = require(script.Parent.Screens.Overlay.ErrorNotice)
 local RunNotice = require(script.Parent.Screens.Overlay.RunNotice)
 local RunNoticeLogic = require(script.Parent.Logic.RunNoticeLogic)
+local RebirthNotice = require(script.Parent.Screens.Overlay.RebirthNotice)
+local FeedbackLogic = require(script.Parent.Logic.FeedbackLogic)
+local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local PlayerStateClient = require(script.Parent.Parent.Net.PlayerStateClient)
 local StateSync = require(script.Parent.Parent.Net.StateSync)
 
 local loading = LoadingScreen.create()
 local errorNotice = ErrorNotice.create()
 local runNotice = RunNotice.create()
+local rebirthNotice = RebirthNotice.create()
 
 ScreenController.register("Loading", "Overlay", function()
 	return loading.root
@@ -27,6 +32,9 @@ ScreenController.register("ErrorNotice", "Overlay", function()
 end)
 ScreenController.register("RunNotice", "Overlay", function()
 	return runNotice.root
+end)
+ScreenController.register("RebirthNotice", "Overlay", function()
+	return rebirthNotice.root
 end)
 
 -- ===== 로딩 ==================================================================================
@@ -72,5 +80,15 @@ channels.runStateChanged.OnClientEvent:Connect(function(payload: Remotes.RunStat
 	if kind ~= nil then
 		runNotice.show(kind)
 	end
+end)
+
+-- ===== 환생 안내 (지시서 #8) ====================================================================
+
+ScreenController.open("RebirthNotice") -- 열어 두고, 보일지는 RebirthNotice.show가 root.Visible로 정한다
+channels.rebirthResult.OnClientEvent:Connect(function(payload: Remotes.RebirthResultPayload)
+	if type(payload) ~= "table" or not payload.ok or type(payload.total) ~= "table" or type(payload.gained) ~= "table" then
+		return
+	end
+	rebirthNotice.show(FeedbackLogic.rebirthNotice(BigNum.new(payload.total.m, payload.total.e), BigNum.new(payload.gained.m, payload.gained.e)))
 end)
 StateSync.request()

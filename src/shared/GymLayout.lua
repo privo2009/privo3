@@ -20,6 +20,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
+local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
+local BigNum = require(ReplicatedStorage.Shared.BigNum)
+
+type BigNumber = BigNum.BigNumber
 
 local GymLayout = {}
 
@@ -84,6 +88,30 @@ function GymLayout.findAt(position: Vector3, count: number): number?
 		end
 	end
 	return nil
+end
+
+export type Resolution = {
+	multiplier: number, -- 클릭에 곱할 배수. 기구 위가 아니거나 잠겼으면 1
+	index: number?, -- 올라선 기구 번호 (기구 위가 아니면 nil)
+	unlocked: boolean,
+}
+
+-- 위치와 환생 수로 배수를 정한다. position이 nil이면(캐릭터 없음) 기구 위가 아니다.
+-- 서버(GymService — 실제 클릭 배수)와 클라(클릭 팝업 · 기구 3D 표시 — 보이기만)가 같은 이 함수를 부른다(지시서 #8).
+-- 로벅스 전용 기구는 소유 확인(Phase 8) 전이라 잠김으로 본다.
+function GymLayout.resolve(position: Vector3?, rebirths: BigNumber?): Resolution
+	if position == nil then
+		return { multiplier = 1, index = nil, unlocked = false }
+	end
+	local index = GymLayout.findAt(position, GymConfig.getCount())
+	if index == nil then
+		return { multiplier = 1, index = nil, unlocked = false }
+	end
+	local r = rebirths or BigNum.new(0, 0)
+	if not GymConfig.isUnlockedByRebirths(index, r) then
+		return { multiplier = 1, index = index, unlocked = false }
+	end
+	return { multiplier = GymConfig.getMultiplier(index), index = index, unlocked = true }
 end
 
 return GymLayout

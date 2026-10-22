@@ -38,15 +38,16 @@ local function createHandler(deps: Deps)
 		local last = lastAt[player]
 		local result: Remotes.RebirthResultPayload
 		if last ~= nil and now - last < MIN_INTERVAL_SEC then
-			result = { ok = false, reason = RebirthRequestService.REASON_RATE_LIMITED, gained = BigNum.new(0, 0) }
+			result = { ok = false, reason = RebirthRequestService.REASON_RATE_LIMITED, gained = BigNum.new(0, 0), total = BigNum.new(0, 0) }
 		else
 			lastAt[player] = now
 			local ok, value = deps.rebirth(player)
 			if ok then
 				local gained = if type(value) == "table" and type(value.gained) == "table" then value.gained else BigNum.new(0, 0)
-				result = { ok = true, reason = "", gained = BigNum.new(gained.m, gained.e) }
+				local total = if type(value) == "table" and type(value.total) == "table" then value.total else BigNum.new(0, 0)
+				result = { ok = true, reason = "", gained = BigNum.new(gained.m, gained.e), total = BigNum.new(total.m, total.e) }
 			else
-				result = { ok = false, reason = if type(value) == "string" then value else "unknown", gained = BigNum.new(0, 0) }
+				result = { ok = false, reason = if type(value) == "string" then value else "unknown", gained = BigNum.new(0, 0), total = BigNum.new(0, 0) }
 			end
 		end
 		deps.send(player, result)

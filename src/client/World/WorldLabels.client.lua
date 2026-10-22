@@ -5,6 +5,7 @@
 --   진행 벽 위             클리어 후 다음 층 보상 (advance 보라). 최종층: "다음 월드 준비 중" (neutral)
 --   클릭 파워 패드 위       클릭 파워 + 해금 조건 (해금 power 주황 / 미해금 neutral 회색)
 --   입장 게이트            위치 안내 (neutral). 런 중에는 숨김
+--   운동기구 위            배수 · 필요 환생 수 · 사용 중 (열림 power / 잠김 neutral / 공허 premium) — 지시서 #8
 --
 -- 내용은 WorldLabelLogic(순수)이 정한다. 이 파일은 빌보드를 만들고(한 번만) 내용을 바꿀 뿐이다 —
 -- 이벤트마다 Instance.new 하지 않는다(CLAUDE.md 금지 사항).
@@ -36,12 +37,14 @@ local SIZE = {
 	cashout = Vector2.new(14, 5),
 	wall = Vector2.new(20, 6.5),
 	gate = Vector2.new(16, 5),
+	gym = WorldLabelLogic.GYM_SIZE,
 }
 local HEIGHT_ABOVE_GROUND = {
 	pad = 4,
 	cashout = 7,
 	wall = 14,
 	gate = 13,
+	gym = WorldLabelLogic.GYM_HEIGHT,
 }
 local MAX_DISTANCE = 160 -- studs. 더 멀면 안 그린다(패드 24장이 한꺼번에 떠서 화면을 덮지 않게)
 
@@ -258,6 +261,81 @@ task.spawn(function()
 	folder.ChildAdded:Connect(attachPad)
 	for _, pad in ipairs(folder:GetChildren()) do
 		attachPad(pad)
+	end
+end)
+
+-- ===== 운동기구 (지시서 #8) =====================================================================
+
+local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
+local GymLayout = require(ReplicatedStorage.Shared.GymLayout)
+
+local gymBoards: { [number]: Billboard } = {}
+local standingGym: number? = nil
+
+local function refreshGym(index: number)
+	local board = gymBoards[index]
+	if board == nil then
+		return
+	end
+	local rebirths = Store.get("rebirths")
+	local role = WorldLabelLogic.gymRole(index, standingGym, GymConfig.getUnlockedCount(rebirths))
+	if role == nil then
+		apply(board, WorldLabelLogic.HIDDEN)
+		return
+	end
+	local size = if role == "void" then WorldLabelLogic.GYM_VOID_SIZE else WorldLabelLogic.GYM_SIZE
+	board.gui.Size = UDim2.fromScale(size.X, size.Y)
+	local adornee = board.gui.Adornee
+	if adornee ~= nil and adornee:IsA("BasePart") then
+		board.gui.StudsOffsetWorldSpace = Vector3.new(0, -adornee.Size.Y / 2 + WorldLabelLogic.GYM_HEIGHT + size.Y / 2, 0)
+	end
+	apply(board, WorldLabelLogic.gym(index, rebirths, index == standingGym))
+end
+
+local function refreshAllGyms()
+	for index in pairs(gymBoards) do
+		refreshGym(index)
+	end
+end
+
+local function attachGym(part: Instance)
+	if not part:IsA("BasePart") then
+		return
+	end
+	local index = part:GetAttribute("GymIndex")
+	if type(index) ~= "number" or gymBoards[index] ~= nil then
+		return
+	end
+	local board = makeBillboard(string.format("GymLabel_%02d", index), "gym")
+	place(board, part)
+	gymBoards[index] = board
+	refreshGym(index)
+end
+
+Store.subscribe("rebirths", refreshAllGyms)
+
+task.spawn(function()
+	local folder = Workspace:WaitForChild("Gyms")
+	folder.ChildAdded:Connect(attachGym)
+	for _, part in ipairs(folder:GetChildren()) do
+		attachGym(part)
+	end
+end)
+
+-- "사용 중"은 지금 어느 기구 위에 서 있는가다. 표시용 확인이라 짧은 주기로 본다(판정은 서버 GymService — 클릭할 때).
+-- 바뀔 때만 다시 그린다. 위치 판정은 GymLayout.resolve — 서버와 같은 함수.
+local GYM_CHECK_SEC = 0.25
+task.spawn(function()
+	while true do
+		task.wait(GYM_CHECK_SEC)
+		local character = Players.LocalPlayer.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		local position = if root ~= nil and root:IsA("BasePart") then root.Position else nil
+		local now = GymLayout.resolve(position, Store.get("rebirths")).index
+		if now ~= standingGym then
+			standingGym = now
+			refreshAllGyms()
+		end
 	end
 end)
 

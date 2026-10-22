@@ -38,27 +38,9 @@ local CONTAINER_NAME = "Gyms"
 
 -- ===== 순수 로직 ==========================================================================
 
-export type Resolution = {
-	multiplier: number, -- 클릭에 곱할 배수. 기구 위가 아니거나 잠겼으면 1
-	index: number?, -- 올라선 기구 번호 (기구 위가 아니면 nil)
-	unlocked: boolean,
-}
-
--- 위치와 환생 수로 배수를 정한다. position이 nil이면(캐릭터 없음) 기구 위가 아니다.
-local function resolve(position: Vector3?, rebirths: BigNumber?): Resolution
-	if position == nil then
-		return { multiplier = 1, index = nil, unlocked = false }
-	end
-	local index = GymLayout.findAt(position, GymConfig.getCount())
-	if index == nil then
-		return { multiplier = 1, index = nil, unlocked = false }
-	end
-	local r = rebirths or BigNum.new(0, 0)
-	if not GymConfig.isUnlockedByRebirths(index, r) then
-		return { multiplier = 1, index = index, unlocked = false }
-	end
-	return { multiplier = GymConfig.getMultiplier(index), index = index, unlocked = true }
-end
+-- 판정(위치 · 환생 수 → 배수)은 Shared/GymLayout.resolve가 원본이다 — 클라 표시(클릭 팝업 · 기구 3D 표시)가 같은 함수를 쓴다(지시서 #8).
+export type Resolution = GymLayout.Resolution
+local resolve = GymLayout.resolve
 
 -- 테스트 전용 통로. 공개 API 계약이 아니므로 이 밖에서는 쓰지 말 것.
 GymService._pure = {

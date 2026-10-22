@@ -37,6 +37,7 @@ local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local ValuePanel = require(script.Parent.Parent.Parent.Components.ValuePanel)
 local Store = require(script.Parent.Parent.Parent.Store)
+local FeedbackLogic = require(script.Parent.Parent.Parent.Logic.FeedbackLogic)
 
 type BigNumber = BigNum.BigNumber
 
@@ -76,6 +77,16 @@ local LEVEL_Y1 = (POWER_ROW_HEIGHT + ROW_GAP + LEVEL_ROW_HEIGHT) / BLOCK_HEIGHT
 local SPEED_Y0 = (POWER_ROW_HEIGHT + ROW_GAP + LEVEL_ROW_HEIGHT + ROW_GAP) / BLOCK_HEIGHT
 local SPEED_Y1 = 1
 
+-- ===== 환생 배수 칸 (지시서 #8 2b) ==============================================
+--
+-- 힘 수치 오른쪽, 같은 행. 힘 수치(8자 칸, 가운데)는 root 폭의 가운데 약 40%만 쓰고 양옆이 비어 있다 —
+-- 오른쪽 26%에 "환생 배수 ×" 캡션(소) + 배수 숫자 칸(8자 규격)을 둔다. Claude가 정한 배치값(세션 로그).
+-- 값은 StrengthMultiplier.compute(FeedbackLogic.multiplierOf) — 서버 ClickService가 클릭 힘에 곱하는 그 함수.
+local MULT_X = 0.74
+local MULT_W = 0.26
+local MULT_CAPTION_H = 0.4 -- 행 기준
+PowerBlock.MultiplierX = MULT_X
+
 -- ===== 레벨 진행 바 내부 =====================================================
 
 local LEVEL_LABEL_LEVEL: TextScale.Level = "small" -- 소(2.5%), docs "레벨 진행 바 > 라벨"
@@ -98,6 +109,8 @@ export type PowerBlockHandle = {
 	_debug: {
 		applyPower: (BigNumber) -> (),
 		applySpeed: (number, number) -> (),
+		applyMultiplier: (BigNumber) -> (),
+		multiplierLabel: TextLabel,
 	},
 }
 
@@ -134,6 +147,39 @@ function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
 	-- (BloxDisplay/Value 등에 이미 반복된 관례, U3-2 관측).
 	powerValue.label.Size = UDim2.fromScale(1, POWER_Y1 - POWER_Y0)
 	powerValue.label.Parent = root
+
+	local multFrame = Instance.new("Frame")
+	multFrame.Name = "Multiplier"
+	multFrame.Position = UDim2.fromScale(MULT_X, POWER_Y0)
+	multFrame.Size = UDim2.fromScale(MULT_W, POWER_Y1 - POWER_Y0)
+	multFrame.BackgroundTransparency = 1
+	multFrame.BorderSizePixel = 0
+	multFrame.Parent = root
+
+	local multCaption = Instance.new("TextLabel")
+	multCaption.Name = "Caption"
+	multCaption.Size = UDim2.fromScale(1, MULT_CAPTION_H)
+	multCaption.BackgroundTransparency = 1
+	multCaption.BorderSizePixel = 0
+	multCaption.Text = "환생 배수 ×"
+	multCaption.TextScaled = true
+	multCaption.TextColor3 = Color3.new(1, 1, 1)
+	multCaption.Font = Enum.Font.SourceSansBold
+	multCaption.Parent = multFrame
+	local multCaptionSize = Instance.new("UITextSizeConstraint")
+	multCaptionSize.MaxTextSize = TextScale.Levels.small.maxTextSize
+	multCaptionSize.Parent = multCaption
+	local multCaptionStroke = Instance.new("UIStroke")
+	multCaptionStroke.Color = Color3.new(0, 0, 0)
+	multCaptionStroke.Parent = multCaption
+
+	local multValue = ValuePanel.create("medium", ValuePanel.MAX_CHARS_DEFAULT)
+	multValue.label.Name = "MultiplierValue"
+	multValue.label.AnchorPoint = Vector2.new(0.5, 0)
+	multValue.label.Position = UDim2.fromScale(0.5, MULT_CAPTION_H)
+	multValue.label.Size = UDim2.fromScale(1, 1 - MULT_CAPTION_H)
+	multValue.label.TextColor3 = UiTheme.Colors.power.light
+	multValue.label.Parent = multFrame
 
 	-- 행 2: 레벨 진행 바 ----------------------------------------------------------------
 
@@ -280,12 +326,17 @@ function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
 		barFill.Size = UDim2.fromScale(progress, 1)
 	end
 
+	local function applyMultiplier(rebirths: BigNumber)
+		multValue.setValue(FeedbackLogic.multiplierOf(rebirths))
+	end
+
 	local function applySpeed(speed: number, maxSpeed: number)
 		speedValue.setNumber(speed)
 		maxLabel.Text = string.format("/ 최대 %d", maxSpeed)
 	end
 
 	applyPower(source.get("strength"))
+	applyMultiplier(source.get("rebirths"))
 	applySpeed(source.get("walkSpeed"), source.get("maxWalkSpeed"))
 
 	-- walkSpeed/maxWalkSpeed는 서로 다른 Store 키라 독립적으로 갱신될 수 있다 —
@@ -293,6 +344,9 @@ function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
 	-- 한쪽을 다시 읽어 함께 적용한다(둘 다 구독하되 반쪽 값으로 렌더하지 않는다).
 	source.subscribe("strength", function(value: BigNumber)
 		applyPower(value)
+	end)
+	source.subscribe("rebirths", function(value: BigNumber)
+		applyMultiplier(value)
 	end)
 	source.subscribe("walkSpeed", function(value: number)
 		applySpeed(value, source.get("maxWalkSpeed"))
@@ -306,6 +360,8 @@ function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
 		_debug = {
 			applyPower = applyPower,
 			applySpeed = applySpeed,
+			applyMultiplier = applyMultiplier,
+			multiplierLabel = multValue.label,
 		},
 	}
 end

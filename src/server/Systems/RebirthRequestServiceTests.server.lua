@@ -47,6 +47,7 @@ do
 	check("거부: 블럭스 부족은 서버 판정 사유 그대로", r.ok == false and r.reason == RebirthService.REASON_NOT_ENOUGH_BLOX)
 	check("거부: 결과를 클라에 보낸다", #w.sent == 1 and w.sent[1] == r)
 	check("거부: gained는 0으로 채운다(선택 필드 없음)", BigNum.eq(r.gained, BigNum.new(0, 0)))
+	check("거부: total도 0으로 채운다", BigNum.eq(r.total, BigNum.new(0, 0)))
 end
 
 do
@@ -55,6 +56,7 @@ do
 	end)
 	local r1 = handler.onRequest(fakePlayer, 100)
 	check("성공: ok와 얻은 배수", r1.ok == true and r1.reason == "" and BigNum.eq(r1.gained, BigNum.new(3, 0)))
+	check("성공: 환생 뒤 누적(total)도 싣는다(지시서 #8 환생 안내)", BigNum.eq(r1.total, BigNum.new(31, 0)))
 	local r2 = handler.onRequest(fakePlayer, 100 + pure.MIN_INTERVAL_SEC / 2)
 	check("빈도: 간격 안의 두 번째 요청은 rate_limited", r2.ok == false and r2.reason == RebirthRequestService.REASON_RATE_LIMITED)
 	check("빈도: 상한에 걸린 요청은 환생을 부르지 않는다", w.calls == 1, tostring(w.calls))
