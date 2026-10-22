@@ -7,6 +7,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
+local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local Layout = require(script.Parent.Parent.UI.Layout)
 local ChallengeInfo = require(script.Parent.Parent.UI.Screens.Hud.ChallengeInfo)
 
@@ -63,11 +64,12 @@ do
 
 	-- Timer.Size.Y.Scale은 root 기준이다 (ChallengeInfo.lua 안의 환산 주석 참고) —
 	-- 화면 기준으로 되돌려서 huge(7%)와 비교해야 한다.
+	-- 비교는 상대오차(TestHelpers.checkClose) — Size.Scale은 float32라 절대오차 1e-9는 우연히만 통과한다
+	-- (PanelTests를 깨뜨린 것과 같은 함정, docs/PENDING.md).
 	local timerScreenHeight = timerLabel.Size.Y.Scale * handle.root.Size.Y.Scale
 	check(
 		"Timer 높이가 화면 기준으로 huge(7%)와 같다",
-		math.abs(timerScreenHeight - TextScale.Levels.huge.heightFraction) < 1e-9,
-		tostring(timerScreenHeight)
+		TestHelpers.checkClose(timerScreenHeight, TextScale.Levels.huge.heightFraction)
 	)
 end
 
