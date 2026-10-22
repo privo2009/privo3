@@ -6,7 +6,7 @@
 -- ⚠️ 근거를 여기로 복사하지 말 것. 수치가 두 곳에 있으면 반드시 어긋난다.
 --
 --   레벨      = 힘의 지수 (N=1)
---   최대속도  = min(BASE_WALK_SPEED + 레벨, MAX_WALK_SPEED)
+--   최대속도  = min(BASE_WALK_SPEED + 레벨 + 이동속도 업그레이드, MAX_WALK_SPEED)
 --
 -- ===== 상한은 상수가 아니라 유도값이다 ================================================
 --
@@ -163,8 +163,16 @@ end
 -- 커스텀 스피드는 서버가 min(요청값, 이 값)으로 잘라서 쓴다 (DESIGN.md "커스텀 스피드").
 -- 그리고 min()은 다시 호출될 때만 클램프다 — 환생으로 천장이 내려가면 반드시 속도
 -- 재적용 경로를 다시 태워야 한다. 접속 시·환생 시 두 지점이 그 자리다.
-function LevelConfig.getMaxSpeed(power: BigNumber): number
-	return math.min(LevelConfig.BASE_WALK_SPEED + LevelConfig.getLevel(power), LevelConfig.getMaxWalkSpeed())
+--
+-- upgradeBonus: 이동속도 업그레이드 효과(UpgradeConfig.getEffect("moveSpeed", 레벨)). "16 + 레벨"에 더한 뒤
+-- MAX_WALK_SPEED로 자른다 — 업그레이드가 있어도 상한은 어떤 경우에도 넘지 않는다(지시서 #7 S3).
+-- ⚠️ 이 파일은 UpgradeConfig를 require하지 않는다(그쪽이 이 파일을 읽는다 — 순환 방지). 호출자가 효과를 넘긴다.
+function LevelConfig.getMaxSpeed(power: BigNumber, upgradeBonus: number?): number
+	local bonus = upgradeBonus or 0
+	if type(bonus) ~= "number" or bonus ~= bonus or bonus < 0 then
+		bonus = 0
+	end
+	return math.min(LevelConfig.BASE_WALK_SPEED + LevelConfig.getLevel(power) + bonus, LevelConfig.getMaxWalkSpeed())
 end
 
 function LevelConfig.validate(): boolean
