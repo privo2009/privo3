@@ -115,6 +115,16 @@ WorldLabelLogic.PAD_HEIGHT = {
 	["next"] = 13,
 }
 
+-- 역할별 빌보드 크기(studs). "다음 해금"은 패드 줄에서 스폰과 가장 먼 쪽이고 두 줄이라 같은 크기로는
+-- 55 studs 밖에서 글자가 작았다(2026-10-22 S3_pad_labels_spawn2) → 2배(지시서 #7, Claude 판단).
+-- 1.6배는 폰(Galaxy A06 시뮬레이션) 66 studs에서 둘째 줄("필요 …")이 여전히 작았다(S7_1_phone_pad_labels).
+-- 맨 위 칸이라 키워도 아래 둘을 가리지 않는다. 가로 16은 패드 간격(12)보다 넓지만 높이가 달라 겹치지 않는다.
+WorldLabelLogic.PAD_SIZE = {
+	current = Vector2.new(8, 3),
+	best = Vector2.new(8, 3),
+	["next"] = Vector2.new(16, 6),
+}
+
 -- 입장 게이트. 위치 안내만. 런 중에는 숨긴다(이미 지나왔다).
 function WorldLabelLogic.gate(runActive: boolean): Label
 	if runActive then

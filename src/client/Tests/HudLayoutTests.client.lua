@@ -545,6 +545,37 @@ local function checkTextMinimum(hud: Instance)
 	check(string.format("보이는 글자의 실제 높이가 %dpx 이상이다", TextScale.MIN_TEXT_PX), #tooSmall == 0, table.concat(tooSmall, ", "))
 end
 
+-- 검사 11 — 구좌 가격이 칸 안에 들어온다 (지시서 #7 1단계). 글자 하한 때문에 좁은 폰 타일에서 "199 R$"가
+-- 칸 밖으로 넘쳤다. 렌더된 글자 사각형(TextBounds)이 타일 안에 있는지 본다 — 하한(검사 9)과 같이 성립해야 한다.
+local function checkShopPriceFits()
+	local entry = ScreenController._debug.entries["ShopSlots"]
+	local root = if entry ~= nil then entry.instance else nil
+	if root == nil then
+		check("구좌 가격 검사: ShopSlots 없음", false)
+		return
+	end
+	local over = {}
+	local count = 0
+	local withUnit = 0
+	for _, tile in ipairs(root:GetChildren()) do
+		local price = tile:FindFirstChild("Price")
+		if tile:IsA("Frame") and price ~= nil and price:IsA("TextLabel") then
+			count += 1
+			if string.find(price.Text, "R$", 1, true) ~= nil then
+				withUnit += 1
+			end
+			local bounds = price.TextBounds
+			local size = tile.AbsoluteSize
+			if bounds.X > size.X + 0.5 or bounds.Y > size.Y + 0.5 then
+				table.insert(over, string.format("%s '%s' %.0fx%.0f > %.0fx%.0f", tile.Name, price.Text, bounds.X, bounds.Y, size.X, size.Y))
+			end
+		end
+	end
+	check("구좌 가격 라벨 4개를 찾았다", count == 4, tostring(count))
+	check("구좌 가격 글자가 타일 안에 들어온다", #over == 0, table.concat(over, ", "))
+	check("구좌 가격 표기가 넷 다 같은 꼴이다(R$ 전부 있음 또는 전부 없음)", withUnit == 0 or withUnit == count, string.format("%d/%d", withUnit, count))
+end
+
 -- 검사 10 — 터치 조작 자리 (Phase 6 지시서 #6). TouchGui가 있을 때만 의미가 있다(PC Play에는 없다 →
 -- 건너뛰었다는 사실 하나만 기록). 점프 버튼과 조이스틱 휴지 자리를 실측 사각형으로, HUD 컴포넌트 전부와
 -- 화면 좌표로 비교한다.
@@ -672,6 +703,9 @@ task.defer(function()
 
 	-- 검사 10 — 터치 조작 자리 (지시서 #6) ---------------------------------------------------
 	checkTouchControls(hud)
+
+	-- 검사 11 — 구좌 가격이 칸 안에 (지시서 #7) ------------------------------------------------
+	checkShopPriceFits()
 
 	finish()
 end)

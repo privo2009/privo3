@@ -26,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local ShopSlotConfig = require(ReplicatedStorage.Shared.Config.ShopSlotConfig)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
+local TextService = game:GetService("TextService")
 local Layout = require(script.Parent.Parent.Parent.Layout)
 
 local ShopSlots = {}
@@ -59,7 +60,59 @@ local PRICE_LABEL_HEIGHT_TILE_REL = TextScale.Levels[PRICE_LEVEL].heightFraction
 -- STROKE_THICKNESS(3)과 같은 값 — 그 헬퍼는 local이라 가져다 쓸 수 없어 재현한다.
 local STROKE_THICKNESS = 3
 
-local function createSlot(slot: ShopSlotConfig.Slot, x: number, y: number, cellWidth: number, cellHeight: number): Frame
+local PRICE_FONT = Enum.Font.SourceSansBold
+
+-- 가격 표기. 칸에 "199 R$"가 다 들어가면 그대로, 안 들어가면 숫자만(지시서 #7 1단계).
+-- 폰에서는 타일이 22px 안팎이라 글자 하한(TextScale.MIN_TEXT_PX)으로 "199 R$"를 찍으면 칸보다 넓다.
+-- 하한은 지키고 표기를 줄인다 — 타일 자체가 로벅스(초록) 역할색이라 "R$"가 빠져도 무엇의 값인지 남는다
+-- (Claude 판단, 세션 로그).
+function ShopSlots.priceText(priceRobux: number, short: boolean): string
+	if short then
+		return tostring(priceRobux)
+	end
+	return string.format("%d R$", priceRobux)
+end
+
+-- 칸 안 좌우 여유(px). 글자 테두리(UIStroke 1px) 양쪽 몫.
+local PRICE_SIDE_PADDING_PX = 2
+
+-- 타일 실제 크기를 보고 가격 줄 높이와 표기를 맞춘다. 줄 높이는 기본 2.5%(타일 기준 환산값)를 쓰되,
+-- 그 높이가 글자 하한보다 작으면 하한만큼 키운다(Scale로 다시 쓴다 — Offset 금지).
+-- 표기는 네 구좌가 같이 정한다 — 하나라도 긴 꼴이 안 들어가면 전부 짧은 꼴. "3 R$" 옆에 "79"가 서면
+-- 서로 다른 단위처럼 읽힌다(2026-10-22 폰 실측에서 섞여 나왔다).
+type PriceEntry = { tile: Frame, label: TextLabel, priceRobux: number }
+
+local function fitPrices(entries: { PriceEntry })
+	local first = entries[1]
+	if first == nil then
+		return
+	end
+	local tileSize = first.tile.AbsoluteSize -- 네 타일은 같은 크기다(같은 8% 정사각)
+	if tileSize.X <= 0 or tileSize.Y <= 0 then
+		return
+	end
+	local heightRel = math.min(1, math.max(PRICE_LABEL_HEIGHT_TILE_REL, TextScale.MIN_TEXT_PX / tileSize.Y))
+
+	-- TextScaled는 폭에 맞춰 줄이다가 하한에서 멈춘다. 그러니 하한 크기로 폭이 들어가면 넘치지 않는다.
+	local short = false
+	for _, entry in ipairs(entries) do
+		local fullWidth = TextService:GetTextSize(
+			ShopSlots.priceText(entry.priceRobux, false),
+			TextScale.MIN_TEXT_PX,
+			PRICE_FONT,
+			Vector2.new(math.huge, math.huge)
+		).X
+		if fullWidth > tileSize.X - PRICE_SIDE_PADDING_PX * 2 then
+			short = true
+		end
+	end
+	for _, entry in ipairs(entries) do
+		entry.label.Size = UDim2.fromScale(1, heightRel)
+		entry.label.Text = ShopSlots.priceText(entry.priceRobux, short)
+	end
+end
+
+local function createSlot(slot: ShopSlotConfig.Slot, x: number, y: number, cellWidth: number, cellHeight: number): (Frame, TextLabel)
 	local tile = Instance.new("Frame")
 	tile.Name = slot.key
 	tile.AnchorPoint = Vector2.new(0, 0)
@@ -86,10 +139,10 @@ local function createSlot(slot: ShopSlotConfig.Slot, x: number, y: number, cellW
 	priceLabel.BackgroundTransparency = 1
 	priceLabel.BorderSizePixel = 0
 	-- 실제 가격은 Phase 8에서 MarketplaceService가 준다. 지금은 Config 값을 그대로 보여준다.
-	priceLabel.Text = string.format("%d R$", slot.priceRobux)
+	priceLabel.Text = ShopSlots.priceText(slot.priceRobux, false)
 	priceLabel.TextScaled = true
 	priceLabel.TextColor3 = Color3.new(1, 1, 1)
-	priceLabel.Font = Enum.Font.SourceSansBold
+	priceLabel.Font = PRICE_FONT
 	priceLabel.ZIndex = 2
 	priceLabel.Parent = tile
 
@@ -101,7 +154,7 @@ local function createSlot(slot: ShopSlotConfig.Slot, x: number, y: number, cellW
 	priceStroke.Color = Color3.new(0, 0, 0)
 	priceStroke.Parent = priceLabel
 
-	return tile
+	return tile, priceLabel
 end
 
 export type ShopSlotsHandle = {
@@ -128,6 +181,7 @@ function ShopSlots.create(): ShopSlotsHandle
 	local cellHeightScale = TILE_HEIGHT / TOTAL_HEIGHT
 
 	local slots = ShopSlotConfig.TEMP_SLOTS
+	local priceEntries: { PriceEntry } = {}
 	for index, slot in ipairs(slots) do
 		local row = math.ceil(index / COLUMNS)
 		local col = ((index - 1) % COLUMNS) + 1
@@ -135,9 +189,18 @@ function ShopSlots.create(): ShopSlotsHandle
 		local x = (col - 1) * (cellWidthScale + gapXScale)
 		local y = (row - 1) * (cellHeightScale + gapYScale)
 
-		local tile = createSlot(slot, x, y, cellWidthScale, cellHeightScale)
+		local tile, priceLabel = createSlot(slot, x, y, cellWidthScale, cellHeightScale)
 		tile.Parent = root
+		table.insert(priceEntries, { tile = tile, label = priceLabel, priceRobux = slot.priceRobux })
 	end
+
+	-- 타일 크기를 본다(root가 아니라) — 정사각 제약이 걸린 타일 쪽이 실제 칸 크기다.
+	if priceEntries[1] ~= nil then
+		priceEntries[1].tile:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+			fitPrices(priceEntries)
+		end)
+	end
+	fitPrices(priceEntries)
 
 	return {
 		root = root,

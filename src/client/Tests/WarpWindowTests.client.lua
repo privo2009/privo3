@@ -85,6 +85,9 @@ do
 	check("창: 처음 선택은 3층", handle._debug.state().selected == 3)
 	check("창: 3층 행에 비용", string.find(handle._debug.rowLabels[3].Text, Formatter.format(WarpConfig.cost(3)), 1, true) ~= nil, handle._debug.rowLabels[3].Text)
 	check("창: 선택 행은 보라", handle._debug.rowLabels[3].BackgroundColor3 == UiTheme.Colors.advance.base)
+	check("창: 갈 수 있는 행은 중립 밝음 — 패널 바탕(중립 기본)과 구분된다", handle._debug.rowLabels[1].BackgroundColor3 == UiTheme.Colors.neutral.light
+		and handle._debug.rowLabels[1].BackgroundColor3 ~= UiTheme.Colors.neutral.base)
+	check("창: 못 가는 행은 중립 어두움", handle._debug.rowLabels[4].BackgroundColor3 == UiTheme.Colors.neutral.dark)
 	check("창: 워프 버튼 켜짐", not handle._debug.button.isDisabled())
 
 	handle._debug.press()

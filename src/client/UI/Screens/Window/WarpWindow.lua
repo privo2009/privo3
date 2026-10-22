@@ -84,7 +84,7 @@ function WarpWindow.create(deps: Deps): Handle
 	labels.world = WindowParts.makeText("World", body, "medium", 0, WORLD_Y, 1, WORLD_H, Enum.TextXAlignment.Center)
 	labels.world.Text = WarpWindow.WORLD_TEXT
 
-	-- 층 행: 배경으로 선택 · 가능 여부를 보인다(선택 = 진행 보라, 갈 수 있음 = 중립 밝음, 못 감 = 중립 어두움).
+	-- 층 행: 배경으로 선택 · 가능 여부를 보인다(선택 = 진행 보라, 갈 수 있음 = 중립 밝음(light), 못 감 = 중립 어두움(dark)).
 	local rowLabels: { TextLabel } = {}
 	local rowHits: { TextButton } = {}
 	for i = 1, WarpWindowLogic.PAGE_SIZE do
@@ -156,7 +156,9 @@ function WarpWindow.create(deps: Deps): Handle
 				if r.stage == selected then
 					label.BackgroundColor3 = UiTheme.Colors.advance.base
 				elseif r.canWarp then
-					label.BackgroundColor3 = UiTheme.Colors.neutral.base
+					-- neutral.base는 패널 바탕(자리표시 역할색)과 같아 행 경계가 안 보였다(지시서 #6 S4_warp_window_confirm)
+					-- → 밝은 단계(지시서 #7). 못 감(어두운 단계)과도 계속 구분된다.
+					label.BackgroundColor3 = UiTheme.Colors.neutral.light
 				else
 					label.BackgroundColor3 = UiTheme.Colors.neutral.dark
 				end

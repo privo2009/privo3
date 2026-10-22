@@ -98,8 +98,11 @@ do
 	check("패드 표시: 역할 — 지금 · 최고 · 다음", WorldLabelLogic.padRole(2, 2, 5) == "current"
 		and WorldLabelLogic.padRole(5, 2, 5) == "best" and WorldLabelLogic.padRole(6, 2, 5) == "next")
 	local H = WorldLabelLogic.PAD_HEIGHT
-	check("패드 표시: 역할마다 높이가 달라 위아래로 벌어진다(표시 높이 3보다 크게)",
-		H.best - H.current > 3 and H["next"] - H.best > 3)
+	local S = WorldLabelLogic.PAD_SIZE
+	check("패드 표시: 역할마다 높이가 달라 위아래로 벌어진다(아래 표시의 높이보다 크게)",
+		H.best - H.current > S.current.Y and H["next"] - H.best > S.best.Y)
+	check("패드 표시: 다음 해금 표시가 다른 둘보다 크다(멀리서 읽히게 — 지시서 #7)",
+		S["next"].X > S.best.X and S["next"].Y > S.best.Y and S["next"].Y > S.current.Y)
 
 	check("게이트: 런 없으면 보임", WorldLabelLogic.gate(false).visible)
 	check("게이트: 런 중에는 숨김", not WorldLabelLogic.gate(true).visible)

@@ -30,7 +30,7 @@ local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
 -- 빌보드 크기(studs)와 지면에서의 높이(studs).
 -- 2026-10-22 Play: 발판·벽 표시가 60 studs 밖에서 작아 1.4배쯤 키웠다. 패드는 한 줄로 붙어 있어
--- 키우면 서로 가린다 — 그대로 둔다.
+-- 키우면 서로 가린다 — 기본은 그대로 두고, 역할별 크기는 WorldLabelLogic.PAD_SIZE("다음 해금"만 크게).
 local SIZE = {
 	pad = Vector2.new(8, 3),
 	cashout = Vector2.new(14, 5),
@@ -220,9 +220,11 @@ local function refreshPad(index: number)
 		apply(board, WorldLabelLogic.HIDDEN)
 		return
 	end
+	local size = WorldLabelLogic.PAD_SIZE[role]
+	board.gui.Size = UDim2.fromScale(size.X, size.Y)
 	local adornee = board.gui.Adornee
 	if adornee ~= nil and adornee:IsA("BasePart") then
-		local groundOffset = -adornee.Size.Y / 2 + WorldLabelLogic.PAD_HEIGHT[role] + SIZE.pad.Y / 2
+		local groundOffset = -adornee.Size.Y / 2 + WorldLabelLogic.PAD_HEIGHT[role] + size.Y / 2
 		board.gui.StudsOffsetWorldSpace = Vector3.new(0, groundOffset, 0)
 	end
 	apply(board, WorldLabelLogic.pad(index, lifeBlox))

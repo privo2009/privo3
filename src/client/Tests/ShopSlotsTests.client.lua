@@ -140,6 +140,13 @@ do
 	check("root Position.Y.Offset == 0", handle.root.Position.Y.Offset == 0)
 end
 
+-- 7. 가격 표기 — 넓으면 "199 R$", 좁으면 숫자만 (지시서 #7) --------------------------------
+
+do
+	check("가격 표기: 긴 꼴", ShopSlots.priceText(199, false) == "199 R$", ShopSlots.priceText(199, false))
+	check("가격 표기: 짧은 꼴은 숫자만", ShopSlots.priceText(199, true) == "199", ShopSlots.priceText(199, true))
+end
+
 print(string.format("[ShopSlotsTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[ShopSlotsTests] %d test(s) failed", failed))
