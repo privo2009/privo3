@@ -192,6 +192,31 @@ do
 	handle.root:Destroy()
 end
 
+-- 5. 화면 정리 (지시서 #8) -------------------------------------------------------------------------
+do
+	local lines = RebirthWindowLogic.resetLines()
+	check("목록: 초기화 목록을 두 개씩 묶어 줄 수가 절반(올림)", #lines == math.ceil(#RebirthWindowLogic.RESETS / 2), tostring(#lines))
+	check("목록: 묶은 줄에 항목이 다 들어 있다", (function()
+		local all = table.concat(lines, " ")
+		for _, item in ipairs(RebirthWindowLogic.RESETS) do
+			if string.find(all, item, 1, true) == nil then
+				return false
+			end
+		end
+		return true
+	end)())
+
+	local withWaste = makeWindow(COST * 3 + 10)
+	check("버려지는 양 > 0 이면 빨간 강조", withWaste._debug.labels.wastedValue.BackgroundTransparency == 0)
+	local line = withWaste._debug.labels.reset1
+	check("목록 줄 높이가 예전(본문의 4.5%)보다 크다", line ~= nil and line.Size.Y.Scale > 0.045, line and tostring(line.Size.Y.Scale) or "nil")
+	withWaste.root:Destroy()
+	local noWaste = makeWindow(COST * 3)
+	check("버려지는 양 0 이면 빨간 강조를 끈다", noWaste._debug.labels.wastedValue.BackgroundTransparency == 1
+		and noWaste._debug.labels.wastedValue.Text == Formatter.format(BigNum.new(0, 0)))
+	noWaste.root:Destroy()
+end
+
 print(string.format("[RebirthWindowTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[RebirthWindowTests] %d test(s) failed", failed))

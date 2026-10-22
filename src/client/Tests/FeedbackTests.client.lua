@@ -120,6 +120,19 @@ do
 	check("기구 판정: 통로는 기구 위 아님", GymLayout.resolve(Vector3.new(c.X, 3, 0), rebirths).index == nil)
 end
 
+-- 5. 패드 · 운동기구 본체 색 (지시서 #8 M4) ---------------------------------------------------------
+do
+	local ClickPadConfig = require(ReplicatedStorage.Shared.Config.ClickPadConfig)
+	local zero = BigNum.new(0, 0)
+	check("패드 색: 패드 1은 처음부터 해금 → 주황", WorldLabelLogic.padBodyRole(1, zero) == "power")
+	check("패드 색: 미해금 → 회색", WorldLabelLogic.padBodyRole(2, zero) == "neutral")
+	check("패드 색: 해금 조건을 채우면 → 주황", WorldLabelLogic.padBodyRole(2, ClickPadConfig.getPadUnlock(1, 2)) == "power")
+	local count = GymConfig.getCount()
+	check("기구 색: 환생 0이면 기구 1 회색", WorldLabelLogic.gymBodyRole(1, zero) == "neutral")
+	check("기구 색: 조건을 채우면 주황", WorldLabelLogic.gymBodyRole(1, GymConfig.getUnlockRebirths(1)) == "power")
+	check("기구 색: 공허는 환생과 무관하게 프리미엄", WorldLabelLogic.gymBodyRole(count, zero) == "premium" and WorldLabelLogic.gymBodyRole(count, BigNum.new(1, 30)) == "premium")
+end
+
 print(string.format("[FeedbackTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[FeedbackTests] %d test(s) failed", failed))

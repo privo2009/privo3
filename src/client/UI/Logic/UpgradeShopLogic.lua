@@ -57,7 +57,8 @@ function UpgradeShopLogic.levelOf(levels: any, name: string): number
 	return math.floor(v)
 end
 
-function UpgradeShopLogic.row(name: string, level: number, blox: BigNumber): Row
+-- strength: 서버 PlayerState 힘(이동 속도 "최대 속도 도달" 판정 — 서버 UpgradeService가 같은 canBuy로 거부한다).
+function UpgradeShopLogic.row(name: string, level: number, blox: BigNumber, strength: BigNumber?): Row
 	local def = UpgradeConfig.Upgrades[name]
 	local maxLevel = def.maxLevel
 	local title = UpgradeShopLogic.NAMES[name] or name
@@ -79,7 +80,10 @@ function UpgradeShopLogic.row(name: string, level: number, blox: BigNumber): Row
 		}
 	end
 
-	local ok, reason, cost = UpgradeConfig.canBuy(name, level, blox)
+	local ok, reason, cost = UpgradeConfig.canBuy(name, level, blox, { strength = strength })
+	if reason == UpgradeConfig.REASON_MAX_SPEED_REACHED then
+		cost = UpgradeConfig.getCostAtLevel(name, level)
+	end
 	local nextText = UpgradeShopLogic.formatEffect(name, UpgradeConfig.getEffect(name, level + 1))
 	local costText = (if cost ~= nil then Formatter.format(cost) else "-") .. " 블럭스"
 	return {
@@ -96,10 +100,10 @@ function UpgradeShopLogic.row(name: string, level: number, blox: BigNumber): Row
 end
 
 -- 상점 4줄. 순서는 UpgradeConfig.SHOP_ORDER(노출 4종).
-function UpgradeShopLogic.rows(levels: any, blox: BigNumber): { Row }
+function UpgradeShopLogic.rows(levels: any, blox: BigNumber, strength: BigNumber?): { Row }
 	local out = {}
 	for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
-		table.insert(out, UpgradeShopLogic.row(name, UpgradeShopLogic.levelOf(levels, name), blox))
+		table.insert(out, UpgradeShopLogic.row(name, UpgradeShopLogic.levelOf(levels, name), blox, strength))
 	end
 	return out
 end
@@ -108,6 +112,8 @@ end
 function UpgradeShopLogic.reasonText(code: string): string
 	if code == UpgradeConfig.REASON_MAX_LEVEL then
 		return "최대 레벨"
+	elseif code == UpgradeConfig.REASON_MAX_SPEED_REACHED then
+		return "최대 속도 도달"
 	elseif code == UpgradeConfig.REASON_INSUFFICIENT_BLOX then
 		return "블럭스가 모자라요"
 	elseif code == UpgradeConfig.REASON_INVALID_UPGRADE then

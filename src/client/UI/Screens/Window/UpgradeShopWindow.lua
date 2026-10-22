@@ -140,7 +140,7 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 	local view: { UpgradeShopLogic.Row } = {}
 
 	local function render()
-		view = UpgradeShopLogic.rows(source.get("upgrades"), source.get("blox"))
+		view = UpgradeShopLogic.rows(source.get("upgrades"), source.get("blox"), source.get("strength"))
 		local t = now()
 		for _, r in ipairs(view) do
 			local parts = rows[r.name]
@@ -207,6 +207,7 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 	closeHit.Activated:Connect(close)
 	source.subscribe("blox", render)
 	source.subscribe("upgrades", render)
+	source.subscribe("strength", render) -- 이동 속도 "최대 속도 도달"이 힘에 따라 바뀐다(지시서 #8)
 
 	render()
 

@@ -60,10 +60,19 @@ do
 	check("잠김: 딱 맞으면 산다(서버 canBuy와 같은 경계)", exact.canBuy)
 end
 
+-- 2b. 이동 속도 최대 속도 도달 (지시서 #8) -------------------------------------------------------------
+do
+	local capped = UpgradeShopLogic.row("moveSpeed", 0, BigNum.new(1, 30), BigNum.new(1, 200))
+	check("잠김: 최대 속도 도달 → 못 산다 · 문구", not capped.canBuy and capped.reason == UpgradeConfig.REASON_MAX_SPEED_REACHED
+		and string.find(capped.footText, "최대 속도 도달", 1, true) ~= nil, capped.footText)
+	local free = UpgradeShopLogic.row("moveSpeed", 0, BigNum.new(1, 30), BigNum.new(1, 0))
+	check("잠김: 힘이 작으면 이동 속도 산다", free.canBuy)
+end
+
 -- 3. 사유 문구 -------------------------------------------------------------------------------------
 do
 	local generic = UpgradeShopLogic.reasonText("???")
-	for _, code in ipairs({ UpgradeConfig.REASON_MAX_LEVEL, UpgradeConfig.REASON_INSUFFICIENT_BLOX, UpgradeConfig.REASON_INVALID_UPGRADE, "rate_limited", "no_profile", "partial_failure" }) do
+	for _, code in ipairs({ UpgradeConfig.REASON_MAX_LEVEL, UpgradeConfig.REASON_MAX_SPEED_REACHED, UpgradeConfig.REASON_INSUFFICIENT_BLOX, UpgradeConfig.REASON_INVALID_UPGRADE, "rate_limited", "no_profile", "partial_failure" }) do
 		check("문구: " .. code, UpgradeShopLogic.reasonText(code) ~= generic)
 	end
 end

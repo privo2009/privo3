@@ -410,7 +410,7 @@ local function checkPowerBlockBudget()
 		string.format("actual=%d expected=%.1f", absSize.X, expectedWidth)
 	)
 	check(
-		string.format("PowerBlock AbsoluteSize.Y가 예산(화면 16.5%%)과 일치한다(오차<=%dpx)", POWER_BLOCK_PIXEL_TOLERANCE),
+		string.format("PowerBlock AbsoluteSize.Y가 예산(PowerBlock.BlockHeight)과 일치한다(오차<=%dpx)", POWER_BLOCK_PIXEL_TOLERANCE),
 		math.abs(absSize.Y - expectedHeight) <= POWER_BLOCK_PIXEL_TOLERANCE,
 		string.format("actual=%d expected=%.1f", absSize.Y, expectedHeight)
 	)

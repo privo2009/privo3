@@ -143,6 +143,26 @@ do
 	check("canBuy: 딱 맞으면 가능 + 비용은 getCostAtLevel", ok6 and r6 == nil and c6 ~= nil and BigNum.eq(c6 :: any, cost))
 end
 
+-- 6b. 이동 속도 최대 속도 도달 (지시서 #8) -----------------------------------------------------------
+do
+	local rich = BigNum.new(1, 100)
+	local strong = BigNum.new(1, 200) -- 레벨 200 — 업그레이드 0이어도 최대 속도가 상한
+	local weak = BigNum.new(1, 0)
+	check("이동 속도: 힘이 아주 크면 이미 상한 — capped", UpgradeConfig.isMoveSpeedCapped(0, strong))
+	check("이동 속도: 힘이 작으면 상한 아님", not UpgradeConfig.isMoveSpeedCapped(0, weak))
+	local ok1, r1 = UpgradeConfig.canBuy("moveSpeed", 0, rich, { strength = strong })
+	check("canBuy: 최대 속도 도달 → max_speed_reached (블럭스가 많아도)", not ok1 and r1 == UpgradeConfig.REASON_MAX_SPEED_REACHED)
+	local ok2 = UpgradeConfig.canBuy("moveSpeed", 0, rich, { strength = weak })
+	check("canBuy: 상한 아래면 산다", ok2)
+	local ok3 = UpgradeConfig.canBuy("moveSpeed", 0, rich)
+	check("canBuy: 힘을 안 주면 그 판정을 건너뛴다(시뮬레이터 · 옛 호출부)", ok3)
+	local ok4 = UpgradeConfig.canBuy("punchDamage", 0, rich, { strength = strong })
+	check("canBuy: 다른 항목은 힘과 무관", ok4)
+	local top = UpgradeConfig.Upgrades.moveSpeed.maxLevel :: number
+	local _, r5 = UpgradeConfig.canBuy("moveSpeed", top, rich, { strength = strong })
+	check("canBuy: 최대 레벨이 최대 속도 도달보다 먼저", r5 == UpgradeConfig.REASON_MAX_LEVEL)
+end
+
 -- 7. validate가 규약 위반을 잡는다 ---------------------------------------------------------------
 local function rejects(label: string, mutate: () -> (), restore: () -> ())
 	mutate()

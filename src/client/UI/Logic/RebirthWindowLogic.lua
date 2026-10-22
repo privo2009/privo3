@@ -74,6 +74,25 @@ RebirthWindowLogic.RESETS = {
 -- 상점 업그레이드: runRebirth의 deps에는 업그레이드를 바꾸는 통로가 없다 — 남는다(UpgradeServiceTests 5번이 확인한다, 지시서 #7).
 RebirthWindowLogic.KEEPS = "남는 것: 환생 배수(오름) · 운동기구 · 평생 누적 블럭스 · 상점 업그레이드"
 
+-- 창에 그리는 줄. 초기화 목록을 두 개씩 한 줄로 묶는다(지시서 #8 — 한 줄에 하나씩 6줄이면 줄 높이가 낮아 글자가 거의 안 읽혔다).
+RebirthWindowLogic.RESET_PER_LINE = 2
+function RebirthWindowLogic.resetLines(): { string }
+	local lines = {}
+	for i = 1, #RebirthWindowLogic.RESETS, RebirthWindowLogic.RESET_PER_LINE do
+		local items = {}
+		for j = i, math.min(i + RebirthWindowLogic.RESET_PER_LINE - 1, #RebirthWindowLogic.RESETS) do
+			table.insert(items, RebirthWindowLogic.RESETS[j])
+		end
+		table.insert(lines, "· " .. table.concat(items, "   · "))
+	end
+	return lines
+end
+
+-- 버려지는 양 강조(빨강)를 켤까. 0이면 끈다 — 버릴 것이 없는데 경고색이 뜨면 잘못 읽힌다(지시서 #8).
+function RebirthWindowLogic.shouldWarnWasted(wasted: BigNumber): boolean
+	return wasted.m > 0
+end
+
 -- 버려지는 양 옆 안내 + 상점 창으로 가는 버튼(지시서 #7 6단계). 버려질 나머지를 업그레이드에 먼저 쓰라는 안내다
 -- (시뮬레이터 표준 플레이어의 구매 규칙 S5와 같은 행동).
 RebirthWindowLogic.SHOP_HINT = "환생 전에 상점에서 먼저 쓸 수 있어요"

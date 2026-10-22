@@ -47,9 +47,11 @@ local PowerBlock = {}
 
 local POWER_ROW_HEIGHT = TextScale.Levels.huge.heightFraction -- 7.0% — 특대, 힘 수치와 같은 단계
 local ROW_GAP = 0.015 -- 화면 기준 1.5%. 행 사이 간격 (이 세션 확정값)
-local LEVEL_ROW_HEIGHT = 0.03 -- 화면 기준 3.0% — 레벨 진행 바
+-- 화면 기준 3.5% — 레벨 진행 바. 2026-10-23 지시서 #8: 3.0 → 3.5. 양끝 숫자를 소(2.5%) → 중(3.5%)으로 키우려고 행도 같이 키웠다
+-- (첫 직접 플레이: Studio 창 크기에서 양끝 숫자가 12px로 안 읽혔다. 11px 하한은 이미 모든 기기에 걸려 있다 — HudBoot)
+local LEVEL_ROW_HEIGHT = TextScale.Levels.medium.heightFraction
 local SPEED_ROW_HEIGHT = TextScale.Levels.medium.heightFraction -- 3.5% — medium과 정확히 일치
--- 파생값(16.5%). 표에 그대로 박지 않는다 — 위 네 상수를 고치면 이것도 같이 움직인다.
+-- 파생값(17%). 표에 그대로 박지 않는다 — 위 네 상수를 고치면 이것도 같이 움직인다.
 local BLOCK_HEIGHT = POWER_ROW_HEIGHT + ROW_GAP + LEVEL_ROW_HEIGHT + ROW_GAP + SPEED_ROW_HEIGHT
 
 local BLOCK_WIDTH = 0.40 -- 화면 기준 40%, 중앙 (좌우 레일 20%씩을 피한 중앙 60% 안)
@@ -89,7 +91,7 @@ PowerBlock.MultiplierX = MULT_X
 
 -- ===== 레벨 진행 바 내부 =====================================================
 
-local LEVEL_LABEL_LEVEL: TextScale.Level = "small" -- 소(2.5%), docs "레벨 진행 바 > 라벨"
+local LEVEL_LABEL_LEVEL: TextScale.Level = "medium" -- 중(3.5%) — 지시서 #8에서 소 → 중 (위 LEVEL_ROW_HEIGHT 주석)
 -- 화면 기준(소, 2.5%)을 LevelRow 기준(3.0%)으로 환산 — ChallengeInfo.lua의 같은 환산과
 -- 동일 패턴(자식 Size.Y.Scale은 root 기준이라, 화면 기준 값을 root 기준으로 나눠야 한다).
 local LEVEL_LABEL_HEIGHT_ROW_REL = TextScale.Levels[LEVEL_LABEL_LEVEL].heightFraction / LEVEL_ROW_HEIGHT
@@ -101,6 +103,10 @@ local LEVEL_BAR_HEIGHT_REL = 0.6 -- LevelRow 기준. 시각 튜닝값 — 바 �
 local SPEED_LEVEL: TextScale.Level = "medium" -- 3.5% — SPEED_ROW_HEIGHT와 정확히 일치(환산 불필요)
 local SPEED_VALUE_WIDTH = 0.30 -- SpeedRow 기준. 시각 튜닝값 — 현재값 칸 폭
 local SPEED_ICON_RESERVED_WIDTH = 0.10 -- SpeedRow 기준. 시각 튜닝값 — 연필 아이콘이 쓸 오른쪽 여유
+-- 현재값과 "/ 최대 N"이 만나는 자리(SpeedRow 기준). 지시서 #8: 예전에는 현재값이 왼쪽 끝, "/ 최대"가 넓은 칸 가운데라
+-- "22 …… / 최대 22"로 멀리 떨어져 읽혔다. 이제 현재값은 이 자리에 오른쪽을 맞추고 "/ 최대"는 이 자리에서 왼쪽부터 시작한다.
+local SPEED_JOIN_X = 0.45
+local SPEED_JOIN_GAP = 0.01
 
 export type PowerBlockHandle = {
 	root: Frame,
@@ -272,16 +278,18 @@ function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
 	-- 맞춰 좁히지 않는다 — 상한이 발판 깊이에서 유도되고 깊이가 커지면 같이 오른다.
 	local speedValue = ValuePanel.create(SPEED_LEVEL, ValuePanel.MAX_CHARS_SPEED)
 	speedValue.label.Name = "SpeedValue"
-	speedValue.label.AnchorPoint = Vector2.new(0, 0)
-	speedValue.label.Position = UDim2.fromScale(0, 0)
+	speedValue.label.AnchorPoint = Vector2.new(1, 0)
+	speedValue.label.Position = UDim2.fromScale(SPEED_JOIN_X, 0)
 	speedValue.label.Size = UDim2.fromScale(SPEED_VALUE_WIDTH, 1)
+	speedValue.label.TextXAlignment = Enum.TextXAlignment.Right
 	speedValue.label.Parent = speedRow
 
 	local maxLabel = Instance.new("TextLabel")
 	maxLabel.Name = "MaxLabel"
 	maxLabel.AnchorPoint = Vector2.new(0, 0)
-	maxLabel.Position = UDim2.fromScale(SPEED_VALUE_WIDTH, 0)
-	maxLabel.Size = UDim2.fromScale(1 - SPEED_VALUE_WIDTH - SPEED_ICON_RESERVED_WIDTH, 1)
+	maxLabel.Position = UDim2.fromScale(SPEED_JOIN_X + SPEED_JOIN_GAP, 0)
+	maxLabel.Size = UDim2.fromScale(1 - SPEED_JOIN_X - SPEED_JOIN_GAP - SPEED_ICON_RESERVED_WIDTH, 1)
+	maxLabel.TextXAlignment = Enum.TextXAlignment.Left
 	maxLabel.BackgroundTransparency = 1
 	maxLabel.BorderSizePixel = 0
 	maxLabel.Text = "/ 최대 0"

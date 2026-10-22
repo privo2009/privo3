@@ -148,6 +148,23 @@ do
 	check("성공 → 최대 레벨 도달 뒤 다음 구매는 max_level", okT and nearTop.levels.moveSpeed == top and not okT2 and rT2 == UpgradeConfig.REASON_MAX_LEVEL)
 end
 
+-- 2b. 이동 속도 최대 속도 도달 — 서버도 같은 조건으로 거부 (지시서 #8) --------------------------------------
+do
+	local w = newWorld(RICH)
+	local deps = depsFor(w) :: any
+	deps.getStrength = function()
+		return BigNum.new(1, 200)
+	end
+	local ok, reason = pure.runBuy(deps, fakePlayer, "moveSpeed")
+	check("거부: 최대 속도 도달 → max_speed_reached · 차감 없음", not ok and reason == UpgradeConfig.REASON_MAX_SPEED_REACHED and sideEffects(w) == 0)
+	local v = newWorld(RICH)
+	local deps2 = depsFor(v) :: any
+	deps2.getStrength = function()
+		return BigNum.new(1, 0)
+	end
+	check("상한 아래면 산다", (pure.runBuy(deps2, fakePlayer, "moveSpeed")) == true)
+end
+
 -- 3. 부분 실패 ---------------------------------------------------------------------------------------
 do
 	local w = newWorld(RICH)

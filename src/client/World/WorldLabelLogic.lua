@@ -189,6 +189,23 @@ function WorldLabelLogic.gym(index: number, rebirths: BigNumber, standing: boole
 	}
 end
 
+-- ===== 패드 · 운동기구 본체 색 (지시서 #8 M4) ====================================================
+--
+-- 해금은 플레이어마다 다르므로(패드 = 이번 생애 누적 블럭스, 기구 = 환생 수) 클라가 자기 화면만 칠한다
+-- (World/LobbyRenderer — CashoutPadRenderer와 같은 방식. 서버 파트 색은 복제되지 않는다).
+--   패드   해금 power(주황) / 미해금 neutral(회색)
+--   기구   해금 power(주황) / 미해금 neutral(회색) / 공허(로벅스 전용) premium(남색) + 금테(cashout 노랑 — LobbyRenderer)
+function WorldLabelLogic.padBodyRole(index: number, lifeBlox: BigNumber): UiTheme.ColorRole
+	return if ClickPadConfig.isUnlocked(WORLD_ID, index, lifeBlox) then "power" else "neutral"
+end
+
+function WorldLabelLogic.gymBodyRole(index: number, rebirths: BigNumber): UiTheme.ColorRole
+	if GymConfig.isRobuxOnly(index) then
+		return "premium"
+	end
+	return if GymConfig.isUnlockedByRebirths(index, rebirths) then "power" else "neutral"
+end
+
 -- 입장 게이트. 위치 안내만. 런 중에는 숨긴다(이미 지나왔다).
 function WorldLabelLogic.gate(runActive: boolean): Label
 	if runActive then

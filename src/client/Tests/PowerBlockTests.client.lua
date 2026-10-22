@@ -57,15 +57,16 @@ do
 		local _, levelY0, _, levelY1 = Layout.getBounds(levelRow)
 		local _, speedY0, _, speedY1 = Layout.getBounds(speedRow)
 
-		local expectedPowerY0, expectedPowerY1 = 0, 7 / 16.5
-		local expectedLevelY0, expectedLevelY1 = 8.5 / 16.5, 11.5 / 16.5
-		local expectedSpeedY0, expectedSpeedY1 = 13 / 16.5, 1
+		-- 2026-10-23 지시서 #8: 레벨 바 행 3.0 → 3.5%라 블록 16.5 → 17%.
+		local expectedPowerY0, expectedPowerY1 = 0, 7 / 17
+		local expectedLevelY0, expectedLevelY1 = 8.5 / 17, 12 / 17
+		local expectedSpeedY0, expectedSpeedY1 = 13.5 / 17, 1
 
 		check("힘 수치 행 Y0 == 0", checkClose(powerY0, expectedPowerY0))
-		check("힘 수치 행 Y1 == 7/16.5(0.424242)", checkClose(powerY1, expectedPowerY1))
-		check("레벨 바 행 Y0 == 8.5/16.5(0.515152)", checkClose(levelY0, expectedLevelY0))
-		check("레벨 바 행 Y1 == 11.5/16.5(0.696970)", checkClose(levelY1, expectedLevelY1))
-		check("이동 속도 행 Y0 == 13/16.5(0.787879)", checkClose(speedY0, expectedSpeedY0))
+		check("힘 수치 행 Y1 == 7/17", checkClose(powerY1, expectedPowerY1))
+		check("레벨 바 행 Y0 == 8.5/17", checkClose(levelY0, expectedLevelY0))
+		check("레벨 바 행 Y1 == 12/17", checkClose(levelY1, expectedLevelY1))
+		check("이동 속도 행 Y0 == 13.5/17", checkClose(speedY0, expectedSpeedY0))
 		check("이동 속도 행 Y1 == 1", checkClose(speedY1, expectedSpeedY1))
 	end
 end

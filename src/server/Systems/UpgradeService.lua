@@ -13,7 +13,7 @@
 --
 --   1. 노출 항목인가                 아니면 invalid_upgrade
 --   2. 프로필 · 레벨 · 잔액 읽기       없으면 no_profile
---   3. UpgradeConfig.canBuy          max_level · insufficient_blox (클라 판정을 믿지 않고 매번 다시 잰다)
+--   3. UpgradeConfig.canBuy          max_level · max_speed_reached(이동 속도) · insufficient_blox (클라 판정을 믿지 않고 매번 다시 잰다)
 --   ----- 여기까지 부작용 0 -----
 --   4. CurrencyService.subtract      단일 게이트(절대 규칙 2). 거부되면 insufficient_blox — 아직 부작용 0
 --   5. 레벨 + 1                       실패하면 partial_failure (블럭스는 빠졌는데 레벨이 안 올랐다 — ERROR 로그가 유일한 복구 근거)
@@ -57,6 +57,8 @@ export type BuyResult = { name: string, level: number, cost: BigNumber }
 export type Deps = {
 	getLevel: (Player, string) -> number?, -- 프로필이 없으면 nil
 	getBlox: (Player) -> BigNumber?,
+	-- 힘(이동 속도 상한 판정용 — 지시서 #8). 없으면(테스트 deps 등) 그 판정을 건너뛴다
+	getStrength: ((Player) -> BigNumber?)?,
 	subtractBlox: (Player, BigNumber, string) -> boolean,
 	setLevel: (Player, string, number) -> boolean,
 	notify: (Player, string, number) -> (),
@@ -76,7 +78,8 @@ local function runBuy(deps: Deps, player: Player, name: any): (boolean, any)
 	end
 
 	-- 3. 서버 재판정. 클라가 "살 수 있다"고 보고 보냈어도 여기서 다시 잰다.
-	local ok, reason, cost = UpgradeConfig.canBuy(name, level, blox)
+	local strength = if deps.getStrength ~= nil then deps.getStrength(player) else nil
+	local ok, reason, cost = UpgradeConfig.canBuy(name, level, blox, { strength = strength })
 	if not ok or cost == nil then
 		return false, reason
 	end
@@ -153,6 +156,9 @@ local REAL: Deps = {
 	end,
 	getBlox = function(player: Player)
 		return CurrencyService.get(player, "blox")
+	end,
+	getStrength = function(player: Player)
+		return CurrencyService.get(player, "strength")
 	end,
 	subtractBlox = function(player: Player, amount: BigNumber, reason: string)
 		return (CurrencyService.subtract(player, "blox", amount, reason))

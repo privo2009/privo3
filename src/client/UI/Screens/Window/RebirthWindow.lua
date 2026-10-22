@@ -37,18 +37,23 @@ RebirthWindow.SUCCESS_TEXT = "환생했어요! 배수 +%s"
 
 -- 본문 안 세로 배치(본문 높이 대비). Claude가 정한 배치값(세션 로그).
 local ROW_H = 0.09
+-- 목록 줄(머리 · 초기화 3줄 · 남는 것) 한 칸. 지시서 #8: 6줄 × 0.045 → 3줄(두 개씩) × 이 값. 폰(Galaxy A06)에서 본문 높이가
+-- 152px이라 이 값이 11px — 글자 하한(11px)이 줄 간격을 넘지 않는 가장 작은 값이다(넘으면 윗줄 글자가 아랫줄에 겹친다 — 2026-10-23 실측).
+local LIST_STEP = 0.0725
+local RESETS_HEADER_Y = 0.385
 local ROWS = {
 	blox = 0.0,
 	gain = 0.10,
 	wasted = 0.20,
 	shop = 0.30, -- 상점 안내 + 상점 버튼 (지시서 #7)
-	resetsHeader = 0.39,
-	resetsTop = 0.445,
-	resetLine = 0.045,
-	keeps = 0.725,
+	resetsHeader = RESETS_HEADER_Y,
+	resetsTop = RESETS_HEADER_Y + LIST_STEP,
+	resetLine = LIST_STEP,
+	keeps = RESETS_HEADER_Y + LIST_STEP * 4,
 	status = 0.785,
 	button = 0.86,
 }
+local KEEPS_H = LIST_STEP
 local SHOP_H = 0.075
 local SHOP_BUTTON_W = 0.3
 local BUTTON_H = 0.14
@@ -116,14 +121,14 @@ function RebirthWindow.create(deps: Deps): Handle
 	local shopLabel, shopHit = decorateButton(shopButton, RebirthWindowLogic.SHOP_BUTTON_TEXT)
 	labels.shopButton = shopLabel
 
-	labels.resetsHeader = makeText("ResetsHeader", body, "small", 0, ROWS.resetsHeader, 1, ROW_H * 0.7)
+	labels.resetsHeader = makeText("ResetsHeader", body, "small", 0, ROWS.resetsHeader, 1, LIST_STEP)
 	labels.resetsHeader.Text = "환생하면 초기화되는 것"
-	for i, text in ipairs(RebirthWindowLogic.RESETS) do
-		local line = makeText("Reset" .. i, body, "small", 0.03, ROWS.resetsTop + (i - 1) * ROWS.resetLine, 0.97, ROWS.resetLine * 0.95)
-		line.Text = "· " .. text
+	for i, text in ipairs(RebirthWindowLogic.resetLines()) do
+		local line = makeText("Reset" .. i, body, "small", 0.03, ROWS.resetsTop + (i - 1) * ROWS.resetLine, 0.97, ROWS.resetLine)
+		line.Text = text
 		labels["reset" .. i] = line
 	end
-	labels.keeps = makeText("Keeps", body, "small", 0, ROWS.keeps, 1, ROWS.resetLine)
+	labels.keeps = makeText("Keeps", body, "small", 0, ROWS.keeps, 1, KEEPS_H)
 	labels.keeps.Text = RebirthWindowLogic.KEEPS
 
 	labels.status = makeText("Status", body, "small", 0, ROWS.status, 1, 0.07, Enum.TextXAlignment.Center)
@@ -158,6 +163,7 @@ function RebirthWindow.create(deps: Deps): Handle
 		labels.gainValue.Text = string.format("+%s  (×%s → ×%s)", Formatter.format(view.gained),
 			Formatter.format(view.multiplierNow), Formatter.format(view.multiplierAfter))
 		labels.wastedValue.Text = Formatter.format(view.wasted)
+		labels.wastedValue.BackgroundTransparency = if RebirthWindowLogic.shouldWarnWasted(view.wasted) then 0 else 1
 
 		local armed = confirm.isArmed(now())
 		button.setDisabled(not view.canRebirth)

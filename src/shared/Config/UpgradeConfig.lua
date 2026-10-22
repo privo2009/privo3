@@ -73,6 +73,8 @@ UpgradeConfig.SHOP_ORDER = { "punchDamage", "punchSpeed", "moveSpeed", "bloxGain
 UpgradeConfig.REASON_INVALID_UPGRADE = "invalid_upgrade" -- 없는 항목 · 비노출 항목
 UpgradeConfig.REASON_MAX_LEVEL = "max_level"
 UpgradeConfig.REASON_INSUFFICIENT_BLOX = "insufficient_blox"
+-- 이동 속도: 최대 속도가 이미 MAX_WALK_SPEED라 한 레벨 더 사도 아무것도 안 오른다(지시서 #8 3단계)
+UpgradeConfig.REASON_MAX_SPEED_REACHED = "max_speed_reached"
 
 local function getDef(name: string): UpgradeDef
 	local def = Upgrades[name]
@@ -137,15 +139,29 @@ function UpgradeConfig.getCostAtLevel(name: string, level: number): BigNumber
 	return BigNum.mul(def.baseCost, BigNum.pow(BigNum.fromNumber(def.costGrowth), level))
 end
 
+-- 이동 속도 업그레이드가 지금 아무것도 더하지 못하는가 — 지금 레벨에서 이미 최대 속도가 MAX_WALK_SPEED다(LevelConfig가 자른다).
+-- 힘(레벨)이 높으면 업그레이드 0이어도 상한에 닿는다. 환생으로 힘이 처음으로 돌아가면 다시 풀린다.
+function UpgradeConfig.isMoveSpeedCapped(level: number, strength: BigNumber): boolean
+	return LevelConfig.getMaxSpeed(strength, UpgradeConfig.getEffect("moveSpeed", level)) >= LevelConfig.getMaxWalkSpeed()
+end
+
+export type BuyContext = {
+	strength: BigNumber?, -- 이동 속도 상한 판정용. 없으면 그 판정을 건너뛴다
+}
+
 -- 지금 레벨에서 다음 레벨을 살 수 있는가. 서버(UpgradeService)가 매 요청마다 다시 부르고,
 -- 상점 창은 잠김 표시에 같은 함수를 쓴다. 돌려주는 값: (가능, 거부 사유 코드?, 비용?)
--- 사유 판정 순서: 잘못된 항목 → 최대 레벨 → 블럭스 부족.
-function UpgradeConfig.canBuy(name: any, level: number, blox: BigNumber): (boolean, string?, BigNumber?)
+-- 사유 판정 순서: 잘못된 항목 → 최대 레벨 → 최대 속도 도달(이동 속도, context.strength가 있을 때) → 블럭스 부족.
+function UpgradeConfig.canBuy(name: any, level: number, blox: BigNumber, context: BuyContext?): (boolean, string?, BigNumber?)
 	if not UpgradeConfig.isExposed(name) then
 		return false, UpgradeConfig.REASON_INVALID_UPGRADE, nil
 	end
 	if UpgradeConfig.isMaxLevel(name, level) then
 		return false, UpgradeConfig.REASON_MAX_LEVEL, nil
+	end
+	local strength = if context ~= nil then context.strength else nil
+	if name == "moveSpeed" and strength ~= nil and UpgradeConfig.isMoveSpeedCapped(level, strength) then
+		return false, UpgradeConfig.REASON_MAX_SPEED_REACHED, nil
 	end
 	local cost = UpgradeConfig.getCostAtLevel(name, level)
 	if BigNum.lt(blox, cost) then
