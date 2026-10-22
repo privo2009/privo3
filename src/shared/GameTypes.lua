@@ -36,7 +36,10 @@ export type BlockChange = {
 -- 클라에 줄 필요가 없는 필드는 여기 없다.
 export type RunStateView = {
 	stage: number,
-	reward: BigNumber,
+	reward: BigNumber, -- 지금 수령하면 받는 양(블럭스 획득량 업그레이드 반영 — ChallengeService.payableReward)
+	-- 다음 층을 깨면 받는 양(같은 식). 다음 층이 없으면 0. 서버는 항상 채운다 — 선택 표시는 테스트 · 자리 채움용
+	-- 상태를 만들 때만 생략할 수 있게 둔 것이다(없으면 클라가 StageConfig 층 보상, 즉 배수 1로 본다)
+	nextReward: BigNumber?,
 	timeLeft: number,
 	cleared: boolean,
 	-- 진행 벽을 열어도 되는가. false면 벽을 비활성화하고 수령 발판만 남긴다
@@ -59,6 +62,8 @@ export type PlayerStateView = {
 	maxWalkSpeed: number, -- SpeedService.getMaxSpeed
 	maxStage: number,
 	padIndex: number, -- 지금 세팅된 클릭 파워 패드
+	-- 업그레이드 레벨. 키 = UpgradeConfig.Upgrades의 이름 8개 전부(비노출 포함), 값 = 0 이상 정수 (지시서 #7)
+	upgrades: { [string]: number },
 }
 
 return GameTypes

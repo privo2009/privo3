@@ -28,6 +28,8 @@ local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 local Schema = require(script.Parent.Parent.Data.Schema)
 local CurrencyService = require(script.Parent.CurrencyService)
+-- 블럭스 획득량 업그레이드 효과 (지시서 #7). 식은 UpgradeConfig, 레벨은 UpgradeService가 안다.
+local UpgradeService = require(script.Parent.UpgradeService)
 local BlockService = require(script.Parent.BlockService)
 -- 스폰 복귀. 좌표도 파트도 ArenaService가 소유한다 — 여기서 SPAWN_X를 다시 읽지 않는다.
 local ArenaService = require(script.Parent.ArenaService)
@@ -106,6 +108,20 @@ local function canCashout(run: RunState): boolean
 	return run.cleared
 end
 
+-- ===== 블럭스 획득량 업그레이드 (지시서 #7 S4) =============================================
+--
+-- **블럭스 계통에서 업그레이드를 곱하는 지점은 이 함수 하나다.** 수령 지급(cashout)과 클라 노출(buildView의
+-- reward · nextReward)이 둘 다 이 함수를 부른다 — 보이는 값과 받는 값이 같은 식에서 나온다.
+-- run.currentReward에는 곱하지 않은 층 보상(StageConfig.getBloxReward)이 그대로 있다. 배수는 지급 · 표시 순간에 곱한다 —
+-- 런 도중 업그레이드를 사면 그 런의 수령액부터 오른다.
+-- 배수 = UpgradeConfig.getEffect("bloxGain", 레벨) = 1 + 증가량 × 레벨 (S1). 0레벨이면 1이라 예전과 같다.
+local function payableReward(baseReward: BigNumber, bloxMultiplier: number): BigNumber
+	if bloxMultiplier == 1 then
+		return BigNum.new(baseReward.m, baseReward.e)
+	end
+	return BigNum.mul(baseReward, BigNum.fromNumber(bloxMultiplier))
+end
+
 -- 호출 경로 식별용. advance/cashout은 지금은 발판·벽만 호출하지만, 자동 수령 게임패스(Phase 8)와
 -- 자동 진행 모드가 나중에 같은 함수를 직접 호출한다. 그때 "이 거부가 어디서 났나"를 로그만 보고
 -- 알 수 있어야 호출부를 역추적하지 않는다. 선택 인자이므로 안 넘기면 "unknown"이다.
@@ -128,6 +144,7 @@ ChallengeService._pure = {
 	canAdvanceFrom = canAdvanceFrom,
 	canCashout = canCashout,
 	normalizeSource = normalizeSource,
+	payableReward = payableReward,
 }
 
 -- ===== 공개 API (Player 상태 보관) ======================================================
@@ -173,7 +190,8 @@ end
 
 -- 런 상태의 클라 노출본. getRunState()와 이 함수가 같은 것을 만든다 — 통지 payload와
 -- 조회 결과가 어긋나지 않도록 계산을 한곳에 뒀다.
-local function buildView(run: RunState): RunStateView
+-- bloxMultiplier: 그 플레이어의 블럭스 획득량 배수(bloxMultiplierOf). reward · nextReward는 payableReward를 거친다.
+local function buildView(run: RunState, bloxMultiplier: number): RunStateView
 	local timeLeft: number
 	if run.cleared then
 		timeLeft = run.frozenTimeLeft or 0
@@ -181,13 +199,19 @@ local function buildView(run: RunState): RunStateView
 		timeLeft = computeTimeLeft(run.startedAt, os.clock(), StageConfig.CHALLENGE_TIMER_SEC)
 	end
 
+	local nextExists = StageConfig.hasStage(run.stage + 1)
 	return {
 		stage = run.stage,
-		reward = run.currentReward,
+		reward = payableReward(run.currentReward, bloxMultiplier),
+		nextReward = if nextExists then payableReward(StageConfig.getBloxReward(run.stage + 1), bloxMultiplier) else BigNum.new(0, 0),
 		timeLeft = timeLeft,
 		cleared = run.cleared,
-		canAdvance = canAdvanceFrom(run, StageConfig.hasStage(run.stage + 1)),
+		canAdvance = canAdvanceFrom(run, nextExists),
 	}
+end
+
+local function bloxMultiplierOf(player: Player): number
+	return UpgradeService.getEffect(player, "bloxGain")
 end
 
 -- active=false는 "이 런은 끝났고 state는 끝나는 순간의 스냅샷"이라는 뜻이다.
@@ -203,7 +227,7 @@ local function notifyRunState(player: Player, run: RunState, active: boolean, re
 	local payload: Remotes.RunStateChangedPayload = {
 		active = active,
 		reason = reason,
-		state = buildView(run),
+		state = buildView(run, bloxMultiplierOf(player)),
 		seeds = seeds or {},
 	}
 	channels.runStateChanged:FireClient(player, payload)
@@ -413,7 +437,8 @@ function ChallengeService.cashout(player: Player, source: string?): (boolean, Bi
 		return false, nil
 	end
 
-	local reward = run.currentReward
+	-- 블럭스 획득량 배수는 여기서 한 번(payableReward). 화면에 보인 수령액(buildView)과 같은 식이다.
+	local reward = payableReward(run.currentReward, bloxMultiplierOf(player))
 	-- reason에 경로를 박아두면 재화 로그(CurrencyService)만 봐도 발판 수령인지 자동 수령인지
 	-- 갈라진다. 재화 누수 추적은 CurrencyService 로그 한 곳에서 하기로 했으므로(CLAUDE.md 2번),
 	-- 그쪽에 경로가 남아야 한다.
@@ -502,7 +527,7 @@ function ChallengeService.getRunState(player: Player): RunStateView?
 		return nil
 	end
 
-	return buildView(run)
+	return buildView(run, bloxMultiplierOf(player))
 end
 
 -- 런이 없을 때 sync로 보내는 자리 채움 view. active=false와 함께 가므로 수신부는 내용을 읽지
@@ -511,6 +536,7 @@ local function idleView(): RunStateView
 	return {
 		stage = 1,
 		reward = BigNum.new(0, 0),
+		nextReward = BigNum.new(0, 0),
 		timeLeft = StageConfig.CHALLENGE_TIMER_SEC,
 		cleared = false,
 		canAdvance = false,

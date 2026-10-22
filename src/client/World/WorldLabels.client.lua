@@ -198,6 +198,7 @@ channels.runStateChanged.OnClientEvent:Connect(function(payload: Remotes.RunStat
 		cleared = state.cleared,
 		canAdvance = state.canAdvance,
 		reward = state.reward,
+		nextReward = state.nextReward,
 	}
 	refreshRun()
 end)

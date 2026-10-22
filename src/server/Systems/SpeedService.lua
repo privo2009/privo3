@@ -1,7 +1,7 @@
 --!strict
 -- 캐릭터 이동속도의 서버 권위 (CLAUDE.md 절대 규칙 3).
 --
---   최대속도 = LevelConfig.getMaxSpeed(힘)
+--   최대속도 = LevelConfig.getMaxSpeed(힘, 이동속도 업그레이드 효과)   — 더한 뒤 MAX_WALK_SPEED로 자른다 (지시서 #7 S3)
 --   실제속도 = min(요청값, 최대속도)
 --
 -- 계산식과 상한의 근거는 Shared/Config/LevelConfig가 원본이다. 여기에 다시 쓰지 말 것 —
@@ -57,6 +57,7 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
 local CurrencyService = require(script.Parent.CurrencyService)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
+local UpgradeService = require(script.Parent.UpgradeService) -- 이동속도 업그레이드 효과 (지시서 #7)
 
 type BigNumber = BigNum.BigNumber
 
@@ -202,9 +203,10 @@ local function readStrength(player: Player): BigNumber
 	return strength
 end
 
--- 이 플레이어의 현재 최대 이동속도.
+-- 이 플레이어의 현재 최대 이동속도. 이동속도 업그레이드 효과(UpgradeService.getEffect → UpgradeConfig)를 넘긴다 —
+-- 더하기와 80 상한 자르기는 LevelConfig.getMaxSpeed 한 곳에서 한다(여기서 더하거나 자르지 않는다).
 function SpeedService.getMaxSpeed(player: Player): number
-	return LevelConfig.getMaxSpeed(readStrength(player))
+	return LevelConfig.getMaxSpeed(readStrength(player), UpgradeService.getEffect(player, "moveSpeed"))
 end
 
 local function getHumanoid(player: Player): Humanoid?
@@ -396,6 +398,14 @@ function SpeedService.init()
 	-- 로드가 이미 끝났으니 그쪽은 올바른 힘으로 계산된다. 두 경로가 서로의 빈틈이다.
 	ProfileManager.onLoaded(function(player: Player)
 		SpeedService.reapply(player)
+	end)
+
+	-- 이동속도 업그레이드를 사면 최대치가 오른다. 바로 다시 얹는다 — 주기 검사(CHECK_INTERVAL_SEC)를 기다리면
+	-- 산 직후 몇 초 동안 옛 최대치로 다닌다. 최대치가 오르기만 하므로 관통 위험은 없다(80 상한은 LevelConfig가 자른다).
+	UpgradeService.onLevelChanged(function(player: Player, name: string)
+		if name == "moveSpeed" then
+			SpeedService.reapply(player)
+		end
 	end)
 
 	-- 나간 플레이어의 세션 값을 지운다. 안 지우면 Player 인스턴스가 이 테이블에 영구히

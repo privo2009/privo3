@@ -39,6 +39,8 @@ export type RunInput = {
 	cleared: boolean,
 	canAdvance: boolean,
 	reward: BigNumber, -- 서버가 보낸 지금 수령액
+	-- 서버가 보낸 다음 층 수령액(블럭스 획득량 업그레이드 반영). 없으면 StageConfig 층 보상(배수 1) — 지시서 #7
+	nextReward: BigNumber?,
 }
 
 -- 현재 층 수령 발판 위. 켜진 발판(내 런 클리어 + 그 층)에만 뜬다 — CashoutPadView와 같은 조건.
@@ -54,7 +56,8 @@ function WorldLabelLogic.cashout(run: RunInput?, padStage: number): Label
 	}
 end
 
--- 진행 벽 위. 클리어 뒤에만 뜬다. 다음 층이 있으면 그 층 보상(StageConfig 원본), 최종층이면 안내 문구.
+-- 진행 벽 위. 클리어 뒤에만 뜬다. 다음 층이 있으면 그 층 보상(서버 nextReward — 업그레이드 배수는 서버가 곱한다.
+-- 클라에서 곱하지 않는다), 최종층이면 안내 문구.
 function WorldLabelLogic.wall(run: RunInput?): Label
 	if run == nil or not run.active or not run.cleared then
 		return HIDDEN
@@ -65,7 +68,7 @@ function WorldLabelLogic.wall(run: RunInput?): Label
 	return {
 		visible = true,
 		title = "진행",
-		detail = "다음 층 +" .. Formatter.format(StageConfig.getBloxReward(run.stage + 1)),
+		detail = "다음 층 +" .. Formatter.format(run.nextReward or StageConfig.getBloxReward(run.stage + 1)),
 		role = "advance",
 	}
 end

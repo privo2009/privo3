@@ -16,6 +16,8 @@
 --   RebirthResult   서버→클라. 그 요청의 결과(성공 / 거부 사유 코드)
 --   WarpRequest     클라→서버. 월드·워프 창의 워프 요청(목표 층) (Phase 6 지시서 #6)
 --   WarpResult      서버→클라. 그 요청의 결과
+--   UpgradeRequest  클라→서버. 상점 창의 업그레이드 구매 요청(항목 이름) (Phase 6 지시서 #7)
+--   UpgradeResult   서버→클라. 그 요청의 결과
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --
@@ -78,6 +80,8 @@ Remotes.REBIRTH_REQUEST = "RebirthRequest"
 Remotes.REBIRTH_RESULT = "RebirthResult"
 Remotes.WARP_REQUEST = "WarpRequest"
 Remotes.WARP_RESULT = "WarpResult"
+Remotes.UPGRADE_REQUEST = "UpgradeRequest"
+Remotes.UPGRADE_RESULT = "UpgradeResult"
 
 -- ===== payload 타입 ====================================================================
 --
@@ -263,6 +267,23 @@ export type WarpResultPayload = {
 	cost: BigNum.BigNumber,
 }
 
+-- UpgradeRequest: 이 업그레이드를 한 레벨 사 달라 (클라 → 서버). 항목 이름만 싣는다 — 레벨 · 비용을 싣지 않는다(규약 2).
+-- 서버가 이름(노출 항목인가) · 최대 레벨 · 잔액을 다시 재고(UpgradeService · UpgradeConfig.canBuy), 빈도도 자른다(규약 3).
+export type UpgradeRequestPayload = {
+	name: string,
+}
+
+-- UpgradeResult: 구매 요청의 결과 (서버 → 클라). 바뀐 블럭스 · 레벨은 PlayerState가 따로 보낸다.
+--   reason  거부 사유 코드(UpgradeConfig.REASON_* · UpgradeService.REASON_* · "rate_limited"). 성공이면 ""
+--   level   성공이면 산 뒤의 레벨, 거부면 0 / cost 차감된 비용, 거부면 0 (선택 필드 금지)
+export type UpgradeResultPayload = {
+	ok: boolean,
+	reason: string,
+	name: string,
+	level: number,
+	cost: BigNum.BigNumber,
+}
+
 export type Channels = {
 	blockDamaged: RemoteEvent,
 	runStateChanged: RemoteEvent,
@@ -276,6 +297,8 @@ export type Channels = {
 	rebirthResult: RemoteEvent,
 	warpRequest: RemoteEvent,
 	warpResult: RemoteEvent,
+	upgradeRequest: RemoteEvent,
+	upgradeResult: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -336,6 +359,8 @@ function Remotes.getServer(): Channels
 		rebirthResult = ensureEvent(folder, Remotes.REBIRTH_RESULT),
 		warpRequest = ensureEvent(folder, Remotes.WARP_REQUEST),
 		warpResult = ensureEvent(folder, Remotes.WARP_RESULT),
+		upgradeRequest = ensureEvent(folder, Remotes.UPGRADE_REQUEST),
+		upgradeResult = ensureEvent(folder, Remotes.UPGRADE_RESULT),
 	}
 	cached = channels
 	return channels
@@ -382,6 +407,8 @@ function Remotes.getClient(): Channels
 		rebirthResult = waitFor(folder, Remotes.REBIRTH_RESULT) :: RemoteEvent,
 		warpRequest = waitFor(folder, Remotes.WARP_REQUEST) :: RemoteEvent,
 		warpResult = waitFor(folder, Remotes.WARP_RESULT) :: RemoteEvent,
+		upgradeRequest = waitFor(folder, Remotes.UPGRADE_REQUEST) :: RemoteEvent,
+		upgradeResult = waitFor(folder, Remotes.UPGRADE_RESULT) :: RemoteEvent,
 	}
 	cached = channels
 	return channels

@@ -129,6 +129,11 @@ WarpService.init()
 local WarpRequestService = require(script.Parent.Systems.WarpRequestService)
 WarpRequestService.init()
 
+-- 상점 업그레이드 구매 채널 (Phase 6 지시서 #7). UpgradeService는 init이 없다(요청 때 프로필을 읽는다).
+-- ⚠️ 순서: SpeedService.init() 뒤 — 이동속도 업그레이드 반응(onLevelChanged)을 SpeedService.init이 등록한다.
+local UpgradeRequestService = require(script.Parent.Systems.UpgradeRequestService)
+UpgradeRequestService.init()
+
 -- 플레이어 상태 채널을 연다 (Phase 6 지시서 #5 — HUD가 서버 값을 보인다).
 -- ⚠️ 순서: ProfileManager · PadService · SpeedService · ChallengeService가 준비된 뒤여야 한다.
 -- 스냅샷은 그 넷에서 읽고, 접속 직후 런 상태 sync는 ChallengeService.syncRunState가 보낸다.

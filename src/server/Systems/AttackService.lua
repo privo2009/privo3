@@ -62,6 +62,8 @@ local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 local BlockLayout = require(ReplicatedStorage.Shared.BlockLayout)
 local CurrencyService = require(script.Parent.CurrencyService)
 local ChallengeService = require(script.Parent.ChallengeService)
+-- 펀치 데미지 · 펀치 속도 업그레이드 효과(지시서 #7). 효과 식은 UpgradeConfig, 레벨은 UpgradeService가 안다.
+local UpgradeService = require(script.Parent.UpgradeService)
 
 type BigNumber = BigNum.BigNumber
 
@@ -108,7 +110,10 @@ end
 
 -- ===== 순수 로직 (Player/Instance 의존 없음) ===========================================
 
--- 펀치 1회의 데미지 = **그 시점의 힘.**
+-- 펀치 1회의 데미지 = **그 시점의 힘 × 펀치 데미지 업그레이드 배수.**
+--
+-- ⚠️ **힘 계통에서 업그레이드를 곱하는 지점은 여기 하나다**(지시서 #7 S4). 배수는 UpgradeConfig.getEffect("punchDamage", 레벨)
+-- = 1 + 증가량 × 레벨(S1 — 더하기)이고, 0레벨이면 1이라 예전과 같다. 다른 곳(힘 획득 · 블록 쪽)에서 또 곱하지 말 것.
 --
 -- ⚠️ 펀치 속도를 곱하지 않는다. 속도는 **주기를 정할 뿐**이다.
 -- 초당 총 데미지가 `힘 × 펀치속도`가 되는 것은 이 함수가 그 횟수만큼 불리는 결과이지,
@@ -119,18 +124,45 @@ end
 -- ⚠️ 새 테이블을 돌려준다. 프로필이 들고 있는 BigNum 테이블을 그대로 넘기면
 -- 하류(BlockService)가 그것을 고칠 때 플레이어의 힘이 조용히 바뀐다.
 -- (RebirthConfig의 zero() 주석이 경고하는 것과 같은 사고다)
-local function computePunchDamage(strength: BigNumber): BigNumber
-	return BigNum.new(strength.m, strength.e)
+local function computePunchDamage(strength: BigNumber, damageMultiplier: number): BigNumber
+	if damageMultiplier == 1 then
+		return BigNum.new(strength.m, strength.e)
+	end
+	return BigNum.mul(strength, BigNum.fromNumber(damageMultiplier))
 end
 
--- 펀치 주기(초). 1 / 초당 횟수.
--- ⚠️ 수치를 여기 적지 말 것. AttackConfig가 소유한다 (CLAUDE.md "작업 방식").
+-- 펀치 주기(초). 1 / 초당 횟수. rate를 안 주면 기본 속도(AttackConfig.PUNCH_SPEED_BASE).
+-- ⚠️ 수치를 여기 적지 말 것. 기본 · 상한은 AttackConfig, 업그레이드 효과는 UpgradeConfig가 소유한다.
+local function punchInterval(rate: number?): number
+	return 1 / (rate or AttackConfig.PUNCH_SPEED_BASE)
+end
+
+-- ===== 플레이어별 펀치 주기 (지시서 #7) ====================================================
 --
--- ⚠️ 지금은 전원이 BASE다. punchSpeed 업그레이드(UpgradeConfig)가 붙으면 플레이어별로
--- 갈리는데, 그때 이 함수를 플레이어별로 부르는 것만으로는 부족하다 — 단일 루프의
--- 주기 자체를 바꿔야 하므로 루프 구조를 함께 봐야 한다. 그 전까지는 상수다.
-local function punchInterval(): number
-	return 1 / AttackConfig.PUNCH_SPEED_BASE
+-- punchSpeed 업그레이드로 플레이어마다 초당 횟수가 다르다. 그래도 **서버 단일 루프**다(아래 init 주석) —
+-- 루프는 짧은 틱(TICK_SEC)으로 돌고, 플레이어마다 "다음 펀치 시각"을 들고 있다가 그 시각이 지난 플레이어만 친다.
+-- 거리 판정은 여전히 펀치가 나가는 그 자리(runPunch)에서 한 번만 한다 — 별도 폴링 루프가 아니다.
+--
+-- 틱은 가장 빠른 주기(1 / PUNCH_SPEED_MAX)보다 충분히 짧아야 한다 — 틱이 주기보다 길면 한 틱에 한 번밖에 못 쳐서
+-- 실제 속도가 틱에 묶인다. 상한의 1/4로 잡는다(5회/초면 0.05초).
+local TICK_DIVISOR = 4
+local function tickSec(): number
+	return 1 / (AttackConfig.PUNCH_SPEED_MAX * TICK_DIVISOR)
+end
+
+-- 다음 펀치 시각. 예정 시각에 주기를 더한다(평균 속도가 틱 간격과 무관하게 정확하다).
+-- 그런데 그 시각도 이미 지났으면(서버가 멈췄다 풀림 · 캐릭터가 없던 동안 등) 지금부터 센다 — 밀린 펀치를 몰아치지 않는다.
+local function scheduleNext(due: number, now: number, interval: number): number
+	local nextAt = due + interval
+	if nextAt <= now then
+		return now + interval
+	end
+	return nextAt
+end
+
+-- 플레이어의 지금 초당 펀치 횟수. UpgradeConfig.getEffect("punchSpeed", 레벨) — 0레벨이면 PUNCH_SPEED_BASE, 최대 레벨이면 상한.
+local function punchRateFor(player: Player): number
+	return UpgradeService.getEffect(player, "punchSpeed")
 end
 
 -- 펀치 한 번의 결과. Bootstrap VERIFY가 이 값을 찍는다.
@@ -151,6 +183,8 @@ export type Deps = {
 	getStrength: (Player) -> BigNumber?,
 	getPosition: (Player) -> Vector3?,
 	applyDamage: (Player, Vector3, BigNumber) -> any,
+	-- 펀치 데미지 업그레이드 배수(1 이상). 0레벨이면 1
+	getDamageMultiplier: (Player) -> number,
 }
 
 -- 펀치 한 번. 순서는 아래 주석의 번호가 곧 계약이다.
@@ -196,7 +230,7 @@ local function runPunch(deps: Deps, player: Player): PunchOutcome
 		return { result = RESULT_NO_STRENGTH, distance = distance }
 	end
 
-	local damage = computePunchDamage(strength)
+	local damage = computePunchDamage(strength, deps.getDamageMultiplier(player))
 
 	-- 6. 데미지 전달. 오버플로우·클리어 판정·BlockDamaged 발신은 전부 하류가 한다.
 	-- originPosition은 캐릭터 위치다 — BlockService가 "가까운 블록부터" 정렬에 쓴다.
@@ -214,6 +248,8 @@ AttackService._pure = {
 	runPunch = runPunch,
 	computePunchDamage = computePunchDamage,
 	punchInterval = punchInterval,
+	scheduleNext = scheduleNext,
+	tickSec = tickSec,
 	-- ⚠️ 상수 CLUSTER_ORIGIN을 노출하던 자리다. 층마다 달라지므로 상수로 줄 수 없다.
 	-- 테스트는 이 함수를 부르거나 BlockLayout.getStageOrigin을 직접 쓴다 — 어느 쪽이든
 	-- 렌더와 같은 유도를 타는 것이 요점이다.
@@ -249,6 +285,9 @@ local REAL: Deps = {
 	applyDamage = function(player: Player, position: Vector3, damage: BigNumber)
 		return ChallengeService.applyDamage(player, position, damage)
 	end,
+	getDamageMultiplier = function(player: Player)
+		return UpgradeService.getEffect(player, "punchDamage")
+	end,
 }
 
 -- ===== 관측 =========================================================================
@@ -259,6 +298,9 @@ local REAL: Deps = {
 --
 -- ⚠️ 세션 메모리다. 프로필에 저장하지 않는다.
 local lastOutcome: { [Player]: PunchOutcome } = {}
+
+-- 플레이어별 다음 펀치 시각(os.clock). 위 "플레이어별 펀치 주기". 세션 메모리다.
+local nextPunchAt: { [Player]: number } = {}
 
 -- 마지막 펀치 결과. 아직 한 번도 안 돌았으면 nil.
 function AttackService.getLastOutcome(player: Player): PunchOutcome?
@@ -289,24 +331,36 @@ function AttackService.init()
 	-- ⚠️ 플레이어별 task.spawn이 아니라 **서버 단일 루프**다.
 	-- 플레이어마다 루프를 걸면 나갈 때 각각 멈춰야 하고, 한 번 놓치면 코루틴이 남는다.
 	-- SpeedService의 주기 검사가 같은 이유로 단일 루프다 — 그 관례를 따른다.
+	-- 플레이어마다 주기가 다르므로(펀치 속도 업그레이드) 루프는 짧은 틱으로 돌고 "다음 펀치 시각"이 지난 플레이어만 친다
+	-- (위 "플레이어별 펀치 주기"). 처음 본 플레이어는 한 주기 뒤에 첫 펀치 — 예전 루프(대기 후 펀치)와 같다.
+	-- 주기는 펀치할 때마다 다시 읽는다 — 업그레이드를 사면 다음 펀치부터 새 주기다.
 	task.spawn(function()
 		while true do
-			task.wait(punchInterval())
+			task.wait(tickSec())
+			local now = os.clock()
 			for _, player in ipairs(Players:GetPlayers()) do
-				AttackService.punch(player)
+				local due = nextPunchAt[player]
+				if due == nil then
+					nextPunchAt[player] = now + punchInterval(punchRateFor(player))
+				elseif now >= due then
+					AttackService.punch(player)
+					nextPunchAt[player] = scheduleNext(due, now, punchInterval(punchRateFor(player)))
+				end
 			end
 		end
 	end)
 
-	-- 누수 방지. 관측 테이블은 세션 메모리이므로 퇴장 시 지운다.
+	-- 누수 방지. 관측 테이블 · 펀치 시각은 세션 메모리이므로 퇴장 시 지운다.
 	Players.PlayerRemoving:Connect(function(player: Player)
 		lastOutcome[player] = nil
+		nextPunchAt[player] = nil
 	end)
 
 	print(string.format(
-		"[AttackService] 근접 자동 공격 시작 (%.1f회/초, 주기 %.2f초, 판정 반경 %.1f studs)",
+		"[AttackService] 근접 자동 공격 시작 (기본 %.1f회/초 · 상한 %.1f회/초, 틱 %.3f초, 판정 반경 %.1f studs)",
 		AttackConfig.PUNCH_SPEED_BASE,
-		punchInterval(),
+		AttackConfig.PUNCH_SPEED_MAX,
+		tickSec(),
 		AttackConfig.getRadius()
 	))
 end

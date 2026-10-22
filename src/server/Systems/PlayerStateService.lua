@@ -32,6 +32,8 @@ local Schema = require(script.Parent.Parent.Data.Schema)
 local PadService = require(script.Parent.PadService)
 local SpeedService = require(script.Parent.SpeedService)
 local ChallengeService = require(script.Parent.ChallengeService)
+-- 업그레이드 레벨(지시서 #7). 저장값 읽기 규칙은 UpgradeService.readLevels가 원본이다.
+local UpgradeService = require(script.Parent.UpgradeService)
 
 type BigNumber = BigNum.BigNumber
 type PlayerStateView = Remotes.PlayerStateView
@@ -78,7 +80,26 @@ local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number
 		maxWalkSpeed = finiteOr(maxWalkSpeed, 0),
 		maxStage = finiteOr(progress.maxStage, 1),
 		padIndex = finiteOr(padIndex, 1),
+		upgrades = UpgradeService.readLevels(data),
 	}
+end
+
+-- 업그레이드 레벨 표가 같은가. 키 집합은 양쪽 다 UpgradeConfig 8키다(readLevels). JSON 왕복 뒤에도 키는 문자열 그대로다.
+local function upgradesEqual(a: any, b: any): boolean
+	if type(a) ~= "table" or type(b) ~= "table" then
+		return a == b
+	end
+	for key, value in pairs(a) do
+		if b[key] ~= value then
+			return false
+		end
+	end
+	for key in pairs(b) do
+		if a[key] == nil then
+			return false
+		end
+	end
+	return true
 end
 
 local function snapshotsEqual(a: PlayerStateView?, b: PlayerStateView?): boolean
@@ -95,7 +116,7 @@ local function snapshotsEqual(a: PlayerStateView?, b: PlayerStateView?): boolean
 			return false
 		end
 	end
-	return true
+	return upgradesEqual((a :: any).upgrades, (b :: any).upgrades)
 end
 
 export type Deps = {

@@ -22,6 +22,7 @@ local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local BlockLayout = require(ReplicatedStorage.Shared.BlockLayout)
 local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
+local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local AttackService = require(script.Parent.AttackService)
 
 local pure = AttackService._pure
@@ -158,6 +159,8 @@ type World = {
 	position: Vector3?,
 	damageCalls: { { position: Vector3, damage: BigNum.BigNumber } },
 	returnNil: boolean,
+	damageMultiplier: number, -- 펀치 데미지 업그레이드 배수 (지시서 #7). 기본 1
+	multiplierCalls: number,
 }
 
 local function newWorld(): World
@@ -167,6 +170,8 @@ local function newWorld(): World
 		position = positionAt(0),
 		damageCalls = {},
 		returnNil = false,
+		damageMultiplier = 1,
+		multiplierCalls = 0,
 	}
 end
 
@@ -187,6 +192,10 @@ local function depsFor(w: World)
 				return nil
 			end
 			return {}
+		end,
+		getDamageMultiplier = function(_p: Player)
+			w.multiplierCalls += 1
+			return w.damageMultiplier
 		end,
 	}
 end
@@ -350,9 +359,76 @@ do
 		string.format("dealt=%s speed=%s", BigNum.tostring(dealt), tostring(AttackConfig.PUNCH_SPEED_BASE))
 	)
 
-	-- computePunchDamage 자체도 직접 확인한다. 인자가 힘 하나뿐이라는 것이
-	-- 속도가 들어올 자리가 없다는 구조적 증거다.
-	check("computePunchDamage의 인자는 1개다 (속도가 들어올 자리가 없다)", debug.info(pure.computePunchDamage, "a") == 1)
+	-- computePunchDamage 자체도 직접 확인한다. 인자가 힘 · 데미지 배수 둘뿐이라는 것이
+	-- 속도가 들어올 자리가 없다는 구조적 증거다(지시서 #7에서 데미지 배수가 들어와 1 → 2).
+	check("computePunchDamage의 인자는 2개다 — 힘 · 데미지 배수 (속도가 들어올 자리가 없다)", debug.info(pure.computePunchDamage, "a") == 2)
+end
+
+-- ===== 펀치 데미지 업그레이드 (지시서 #7 S4) ==============================================
+
+do
+	-- 배수는 한 번만 곱해진다. 두 번 곱하면(이중 적용) 1.5² = 2.25배가 된다.
+	local w = newWorld()
+	w.strength = STRENGTH
+	w.damageMultiplier = 1.5
+	pure.runPunch(depsFor(w) :: any, fakePlayer)
+	local dealt = w.damageCalls[1].damage
+	check("데미지 업그레이드: 데미지 = 힘 × 배수", BigNum.eq(dealt, BigNum.mul(STRENGTH, BigNum.fromNumber(1.5))), BigNum.tostring(dealt))
+	check("데미지 업그레이드: 배수가 두 번 곱해지지 않았다(≠ 힘 × 배수²)", not BigNum.eq(dealt, BigNum.mul(STRENGTH, BigNum.fromNumber(2.25))))
+	check("데미지 업그레이드: 펀치 1회에 배수를 한 번만 읽는다", w.multiplierCalls == 1, tostring(w.multiplierCalls))
+	check("데미지 업그레이드: 펀치 속도는 여전히 안 곱해진다", not BigNum.eq(dealt, BigNum.mul(BigNum.mul(STRENGTH, BigNum.fromNumber(1.5)), BigNum.fromNumber(AttackConfig.PUNCH_SPEED_BASE))))
+
+	-- 배수 1(0레벨)이면 예전과 똑같다
+	check("데미지 업그레이드 0레벨: 배수 1 = 힘 그대로", BigNum.eq(pure.computePunchDamage(STRENGTH, UpgradeConfig.getEffect("punchDamage", 0)), STRENGTH))
+	-- 레벨 3이면 1 + 3 × 증가량 (식은 UpgradeConfig 원본)
+	local l3 = UpgradeConfig.getEffect("punchDamage", 3)
+	check("데미지 업그레이드 레벨 3: 힘 × (1 + 3a)", BigNum.eq(pure.computePunchDamage(STRENGTH, l3), BigNum.mul(STRENGTH, BigNum.fromNumber(l3))))
+
+	-- 반경 밖이면 배수를 읽지도 않는다(호출 자체를 건너뛴다 — 위 반경 케이스와 같은 계약)
+	local far = newWorld()
+	far.position = positionAt(RADIUS * 2)
+	pure.runPunch(depsFor(far) :: any, fakePlayer)
+	check("반경 밖: 배수를 읽지 않는다", far.multiplierCalls == 0 and #far.damageCalls == 0)
+
+	-- 결과 테이블이 힘 테이블과 다른 객체다(배수 1에서도)
+	local same = pure.computePunchDamage(STRENGTH, 1)
+	check("배수 1이어도 새 테이블을 돌려준다", same ~= STRENGTH)
+end
+
+-- ===== 펀치 속도 업그레이드 — 플레이어별 주기 (지시서 #7 S2) ================================
+
+do
+	check("틱은 가장 빠른 주기(1 / PUNCH_SPEED_MAX)보다 짧다", pure.tickSec() < 1 / AttackConfig.PUNCH_SPEED_MAX)
+
+	-- 단일 루프를 틱 단위로 흉내 내 주어진 초 동안 몇 번 치는지 센다(실물 init 루프와 같은 규칙).
+	local function countPunches(rate: number, seconds: number): number
+		local tick = pure.tickSec()
+		local interval = pure.punchInterval(rate)
+		local now = 0
+		local due = now + interval
+		local count = 0
+		while now < seconds - 1e-9 do
+			now += tick
+			if now >= due - 1e-9 then
+				count += 1
+				due = pure.scheduleNext(due, now, interval)
+			end
+		end
+		return count
+	end
+	local maxLevel = UpgradeConfig.Upgrades.punchSpeed.maxLevel :: number
+	local base = UpgradeConfig.getEffect("punchSpeed", 0)
+	local top = UpgradeConfig.getEffect("punchSpeed", maxLevel)
+	local mid = UpgradeConfig.getEffect("punchSpeed", 10)
+	check("펀치 주기: 0레벨 20초 = 기본 속도 × 20회", math.abs(countPunches(base, 20) - base * 20) <= 1, tostring(countPunches(base, 20)))
+	check("펀치 주기: 최대 레벨 20초 = 상한 × 20회", math.abs(countPunches(top, 20) - top * 20) <= 1, tostring(countPunches(top, 20)))
+	check("펀치 주기: 10레벨 20초 = (기본 + 10b) × 20회", math.abs(countPunches(mid, 20) - mid * 20) <= 1, tostring(countPunches(mid, 20)))
+	check("펀치 주기: 레벨이 오르면 주기가 짧아진다", pure.punchInterval(top) < pure.punchInterval(mid) and pure.punchInterval(mid) < pure.punchInterval(base))
+	check("펀치 주기: 인자 없으면 기본 속도 주기", math.abs(pure.punchInterval() - 1 / AttackConfig.PUNCH_SPEED_BASE) < 1e-9)
+
+	-- 밀린 펀치를 몰아치지 않는다
+	check("scheduleNext: 제때면 예정 + 주기", math.abs(pure.scheduleNext(10, 10.02, 0.5) - 10.5) < 1e-9)
+	check("scheduleNext: 한참 밀렸으면 지금 + 주기(몰아치기 없음)", math.abs(pure.scheduleNext(10, 13, 0.5) - 13.5) < 1e-9)
 end
 
 do

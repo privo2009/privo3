@@ -33,6 +33,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
+local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 
 type BigNumber = BigNum.BigNumber
 
@@ -50,6 +51,7 @@ export type State = {
 	maxWalkSpeed: number,
 	maxStage: number,
 	padIndex: number,
+	upgrades: { [string]: number }, -- 업그레이드 레벨 (지시서 #7). 키 = UpgradeConfig 이름 8개
 }
 
 export type Key =
@@ -62,6 +64,7 @@ export type Key =
 	| "maxWalkSpeed"
 	| "maxStage"
 	| "padIndex"
+	| "upgrades"
 
 export type Setter = (Key, any) -> ()
 export type Source = (Setter) -> ()
@@ -91,6 +94,7 @@ local DUMMY_STATE: State = {
 	maxWalkSpeed = 9999,
 	maxStage = 17,
 	padIndex = 24,
+	upgrades = {}, -- freshState가 UpgradeConfig 이름마다 0을 채운다(이름을 여기 다시 적지 않는다)
 }
 
 local BIG_NUM_KEYS: { [Key]: boolean } = {
@@ -101,10 +105,22 @@ local BIG_NUM_KEYS: { [Key]: boolean } = {
 	rebirths = true,
 }
 
+-- 표 값(업그레이드 레벨)은 얕은 복사로 뜬다 — get으로 받은 표를 고쳐도 내부 상태가 안 바뀐다.
+local TABLE_KEYS: { [Key]: boolean } = {
+	upgrades = true,
+}
+
 local function cloneValue(key: Key, value: any): any
 	if BIG_NUM_KEYS[key] then
 		local big = value :: BigNumber
 		return { m = big.m, e = big.e }
+	end
+	if TABLE_KEYS[key] and type(value) == "table" then
+		local copy = {}
+		for k, v in pairs(value) do
+			copy[k] = v
+		end
+		return copy
 	end
 	return value
 end
@@ -112,6 +128,19 @@ end
 local function valuesEqual(key: Key, a: any, b: any): boolean
 	if BIG_NUM_KEYS[key] then
 		return BigNum.eq(a :: BigNumber, b :: BigNumber)
+	end
+	if TABLE_KEYS[key] and type(a) == "table" and type(b) == "table" then
+		for k, v in pairs(a) do
+			if b[k] ~= v then
+				return false
+			end
+		end
+		for k in pairs(b) do
+			if a[k] == nil then
+				return false
+			end
+		end
+		return true
 	end
 	return a == b
 end
@@ -123,6 +152,11 @@ local function freshState(): State
 	for key: string, value: any in pairs(DUMMY_STATE :: any) do
 		fresh[key] = cloneValue(key :: any, value)
 	end
+	local levels: { [string]: number } = {}
+	for name in pairs(UpgradeConfig.Upgrades) do
+		levels[name] = 0
+	end
+	fresh.upgrades = levels
 	return fresh :: any
 end
 

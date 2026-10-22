@@ -65,6 +65,9 @@ do
 	local w = WorldLabelLogic.wall(cleared)
 	check("벽: 클리어 뒤 다음 층 보상(StageConfig 원본)", w.visible and w.role == "advance"
 		and w.detail == "다음 층 +" .. Formatter.format(StageConfig.getBloxReward(4)), w.detail)
+	local boosted = { active = true, stage = 3, cleared = true, canAdvance = true, reward = BigNum.new(7.29, 0), nextReward = BigNum.new(3.3, 2) }
+	check("벽: 서버가 nextReward를 주면 그 값(업그레이드 배수는 서버가 곱한다 — 지시서 #7)",
+		WorldLabelLogic.wall(boosted).detail == "다음 층 +" .. Formatter.format(BigNum.new(3.3, 2)), WorldLabelLogic.wall(boosted).detail)
 	check("벽: 클리어 전에는 안 뜸", not WorldLabelLogic.wall(notCleared).visible)
 	local final = { active = true, stage = 25, cleared = true, canAdvance = false, reward = BigNum.new(1, 0) }
 	local wf = WorldLabelLogic.wall(final)

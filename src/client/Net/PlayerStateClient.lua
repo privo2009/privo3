@@ -9,6 +9,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local StateSync = require(script.Parent.StateSync)
 
 type BigNumber = BigNum.BigNumber
@@ -29,6 +30,20 @@ local function isBig(v: any): boolean
 	return type(v) == "table" and isFinite(v.m) and isFinite(v.e)
 end
 
+-- 업그레이드 레벨 표(지시서 #7). UpgradeConfig의 이름마다 0 이상의 유한한 숫자여야 한다.
+local function isValidUpgrades(v: any): boolean
+	if type(v) ~= "table" then
+		return false
+	end
+	for name in pairs(UpgradeConfig.Upgrades) do
+		local level = v[name]
+		if not isFinite(level) or level < 0 then
+			return false
+		end
+	end
+	return true
+end
+
 -- payload 형태 검사. 하나라도 틀리면 false.
 function PlayerStateClient.isValidPayload(payload: any): boolean
 	if type(payload) ~= "table" then
@@ -44,7 +59,7 @@ function PlayerStateClient.isValidPayload(payload: any): boolean
 			return false
 		end
 	end
-	return true
+	return isValidUpgrades(payload.upgrades)
 end
 
 -- payload를 setter에 반영한다. 형태가 틀리면 아무것도 반영하지 않고 false.
@@ -59,6 +74,11 @@ function PlayerStateClient.apply(setter: (string, any) -> (), payload: any): boo
 	for _, key in ipairs(NUMBER_KEYS) do
 		setter(key, payload[key])
 	end
+	local levels: { [string]: number } = {}
+	for name in pairs(UpgradeConfig.Upgrades) do
+		levels[name] = payload.upgrades[name]
+	end
+	setter("upgrades", levels)
 	return true
 end
 

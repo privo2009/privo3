@@ -31,6 +31,7 @@ local function samplePayload(): any
 		maxWalkSpeed = 36,
 		maxStage = 6,
 		padIndex = 3,
+		upgrades = { punchDamage = 2, punchSpeed = 1, moveSpeed = 0, bloxGain = 0, auraLuck = 0, titleLuck = 0, petLuck = 0, petSlots = 0 },
 	}
 end
 
@@ -47,6 +48,15 @@ do
 	r.blox = 5
 	check("형태: BigNum 자리에 숫자면 거부", not PlayerStateClient.isValidPayload(r))
 	check("형태: 테이블이 아니면 거부", not PlayerStateClient.isValidPayload("x"))
+	local u = samplePayload()
+	u.upgrades = nil
+	check("형태: 업그레이드 표가 없으면 거부(지시서 #7)", not PlayerStateClient.isValidPayload(u))
+	local v = samplePayload()
+	v.upgrades.bloxGain = nil
+	check("형태: 업그레이드 키가 빠지면 거부", not PlayerStateClient.isValidPayload(v))
+	local x = samplePayload()
+	x.upgrades.punchSpeed = -1
+	check("형태: 음수 레벨은 거부", not PlayerStateClient.isValidPayload(x))
 end
 
 -- 2. Store 반영 -----------------------------------------------------------------------------
@@ -67,6 +77,11 @@ do
 
 	payload.blox.m = 9
 	check("반영: payload를 고쳐도 Store 값은 안 바뀐다 (복사)", BigNum.eq(store.get("blox"), BigNum.new(1.5, 3)))
+	check("반영: 업그레이드 레벨", store.get("upgrades").punchDamage == 2 and store.get("upgrades").punchSpeed == 1)
+	payload.upgrades.punchDamage = 7
+	local got = store.get("upgrades")
+	got.punchSpeed = 99
+	check("반영: 업그레이드 표도 복사 (payload · get 반환값을 고쳐도 안 바뀐다)", store.get("upgrades").punchDamage == 2 and store.get("upgrades").punchSpeed == 1)
 
 	local received: any = nil
 	store.subscribe("strength", function(value)

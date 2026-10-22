@@ -87,6 +87,12 @@ do
 	local startOk = ChallengeService.startRun(fakePlayer :: any, 1)
 	check("startRun은 성공", startOk == true)
 
+	-- 블럭스 획득량 배수(지시서 #7): 가짜 Player는 프로필이 없어 0레벨 = 배수 1. 보이는 값이 층 보상 그대로이고,
+	-- 다음 층 수령액(nextReward)이 서버 view에 실린다.
+	local view = ChallengeService.getRunState(fakePlayer :: any)
+	check("view: reward = 1층 보상(배수 1)", view ~= nil and BigNum.eq(view.reward, StageConfig.getBloxReward(1)))
+	check("view: nextReward = 2층 보상(배수 1)", view ~= nil and view.nextReward ~= nil and BigNum.eq(view.nextReward :: any, StageConfig.getBloxReward(2)))
+
 	local advanceOk = ChallengeService.advance(fakePlayer :: any)
 	check("클리어 전 advance는 거부됨", advanceOk == false)
 
@@ -135,6 +141,7 @@ do
 	local cleared = ChallengeService.getRunState(fakePlayer :: any)
 	check("최종 층이 실제로 클리어됨", cleared ~= nil and cleared.cleared == true)
 	check("클리어했는데도 canAdvance == false (벽 비활성)", cleared ~= nil and cleared.canAdvance == false)
+	check("최종 층 view: nextReward = 0 (다음 층 없음)", cleared ~= nil and cleared.nextReward ~= nil and BigNum.eq(cleared.nextReward :: any, BigNum.new(0, 0)))
 
 	local advanceOk = ChallengeService.advance(fakePlayer :: any)
 	check("최종 층에서 advance 거부 (assert로 터지지 않고 false 반환)", advanceOk == false)
@@ -458,6 +465,16 @@ end
 -- 가짜 함수가 남는다 — 그 상태로 Play가 계속되면 실물 종료가 전부 가짜를 탄다.
 restoreReturnToSpawn()
 check("테스트가 _deps.returnToSpawn을 원래대로 되돌렸다", ChallengeService._deps.returnToSpawn == originalReturnToSpawn)
+
+-- 블럭스 획득량 업그레이드를 곱하는 유일한 함수 (지시서 #7 S4) ------------------------------------
+do
+	local base = BigNum.new(7.29, 3)
+	check("payableReward: 배수 1이면 층 보상 그대로", BigNum.eq(pure.payableReward(base, 1), base))
+	check("payableReward: 배수 1이어도 새 테이블", pure.payableReward(base, 1) ~= base)
+	check("payableReward: 배수 1.5 = 보상 × 1.5", BigNum.eq(pure.payableReward(base, 1.5), BigNum.mul(base, BigNum.fromNumber(1.5))))
+	check("payableReward: 두 번 곱하지 않는다(≠ × 1.5²)", not BigNum.eq(pure.payableReward(base, 1.5), BigNum.mul(base, BigNum.fromNumber(2.25))))
+	check("payableReward: 입력 테이블을 고치지 않는다", BigNum.eq(base, BigNum.new(7.29, 3)))
+end
 
 print(string.format("[ChallengeServiceTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
