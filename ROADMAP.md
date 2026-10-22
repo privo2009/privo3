@@ -41,7 +41,7 @@
 | `Tests/AssetImageTests.server.lua` | 16 | 미도착→Frame·도착→ImageLabel·SliceCenter·UIStroke 3px |
 | `Tests/TextScaleTests.server.lua` | 16 | 글자 5단계 존재·heightFraction·maxTextSize 값 일치 ※ |
 | `Tests/ScreenControllerTests.client.lua` | 29 | ScreenGui 3층·지연 생성·Window 단일 오픈·Overlay 다중·배경 흐리게·오류 케이스·closeAll이 자기 인스턴스에만 닿음 |
-| `Tests/StoreTests.client.lua` | 32 | 초기값·구독/해지·setSource 교체·BigNum 형태 유지 |
+| `Tests/StoreTests.client.lua` | 30 | 초기값·구독/해지·setSource 교체·BigNum 형태 유지·싱글톤 API 존재 · 누수 없음(싱글톤에 쓰지 않음) |
 | `Tests/PanelTests.client.lua` | 19 | 크기 2종 규격·제목/X버튼/여백의 화면 기준 환산 일치(root-상대 Scale 보정) |
 | `Tests/ButtonTests.client.lua` | 37 | 색 6종 생성·크기 2종·비활성 gray 전환·미도착/도착 눌림 처리 ※ |
 | `Tests/ValuePanelTests.client.lua` | 15 | 8자/4자 폭 AspectRatio·TextScaled·MaxTextSize·잘림 방지 |
@@ -64,7 +64,12 @@
 | `Tests/AdvanceWallRendererTests.client.lua` | 62 | 상태별 충돌·투명·색(닫힘·열림·최종층·숨김)·create 계약(Anchored·CanTouch=false) |
 | `Tests/EntranceGateServiceTests.server.lua` | 25 | 런 없음→1층 startRun·런 있음 무동작·서 있기 반복·디바운스 공유·플레이어 격리·스펙 파생(지면·블록 바깥면 앞) |
 | `Tests/RunDeathServiceTests.server.lua` | 9 | 런 있음 abandon 1회·런 없음 0회·같은 죽음 두 번 차단·리스폰 뒤 새 죽음 |
-| **합계** | **2344** | |
+| `Systems/PlayerStateServiceTests.server.lua` | 33 | 상태 스냅샷 형태 · 직렬화 왕복 · 같음 비교 · 로드 시 1회 · 빈도 상한 · sync 모음(로드 전 요청 포함) · 리스폰 · 퇴장 |
+| `Tests/PlayerStateClientTests.client.lua` | 15 | payload 형태 판정 · Store 반영 · 틀린 payload 통째로 버림 |
+| `Tests/CoreScreensTests.client.lua` | 47 | 런 안내 · 로딩 판정, 3D 안내 내용(서버 · Config 원본), 화면 규칙(Offset 0 · 금지 구역 밖 · 층 순서 · 역할 색) |
+| `Systems/RebirthRequestServiceTests.server.lua` | 10 | 환생 요청 거부 경로(블럭스 부족 · 빈도 상한 · 부분 실패) · 성공 결과 형태 |
+| `Tests/RebirthWindowTests.client.lua` | 38 | 표시 값(서버와 같은 함수) · 사유 문구 · 확인 단계 없이는 요청 안 나감 · 잠김 · 창 규격 · 버튼 그림 ZIndex |
+| **합계** | **2485** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -92,7 +97,20 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-10-22 Studio Play 런타임 실측 (전량, 드론 폐기 뒤 · 리포트 끈 Play).** 46개 행 전부가
+최근 갱신: **2026-10-22 Studio Play 런타임 실측 (전량, 환생 창 · REBIRTH_VERIFY 삭제 뒤 · 리포트 끈 Play).** 51개 행 전부가
+한 Play에 찍혔다. **2485 passed / 0 failed** — 서버 1533 + 클라 952.
+
+```
+신설   PlayerStateServiceTests      33          (f28f8b0)
+       PlayerStateClientTests       15          (f28f8b0)
+       CoreScreensTests             47          (3229ce0)
+       RebirthRequestServiceTests   10          (6e5c27d)
+       RebirthWindowTests           38          (6e5c27d)
+갱신   StoreTests                   32  → 30    싱글톤에 쓰지 않음 (89b4877)
+유지   나머지 45행
+```
+
+그 전 갱신: **2026-10-22 Studio Play 런타임 실측 (전량, 드론 폐기 뒤 · 리포트 끈 Play).** 46개 행 전부가
 한 Play에 찍혔다. **2344 passed / 0 failed** — 서버 1490 + 클라 854.
 
 ```
@@ -1247,18 +1265,20 @@ U3-5(힘·레벨·속도 블록, `PowerBlock`) · U3-6(로벅스 구좌 `ShopSlo
 MCP로 기기 해상도를 바꿀 수 없다) 하나다(→ `docs/PENDING.md` "다음 Play 검증 순서 (U3-8)").
 
 ```
-상태 (2026-10-22)
+상태 (2026-10-22, 지시서 #5 뒤)
 U0 · U1   완료
-U2        지환 진행 중 — G1 통과(2026-08-23), G2(패널 2층) 대기
-U3        HUD 7종 코드 완료 · Play 확인 · U3-10b 해소. 남은 것: 모바일 관측(9번) · G4(세이프존, G1~G3 선행)
-U4 이후   미착수
-환생 창   없다 — 게임 안 환생 진입점(UI)이 없다. MenuRail "환생" 칸은 등록된 창이 없어 warn만 낸다
-워프      MenuRail 셋째 칸이 드론 → "워프"(월드·워프 창 진입)로 바뀌었다(8f6f59f). 창은 없다
+U2        G1 통과(2026-08-23), G2(패널 2층) 대기. PNG 제작은 이제 지환 · 희준 둘 다(사람 결정)
+U3        완료 — HUD 7종 · Play 확인 · U3-10b · 모바일 9번(Galaxy A06 시뮬레이션) 통과,
+          HUD가 서버 값을 보인다(PlayerState 채널, f28f8b0). G4(세이프존)는 G1~G3 뒤
+U4        완료 — 로딩 · 클리어 안내 · 실패 · 3D 안내 4종(3229ce0). 걸어서 1→8층 한 판 확인
+환생 창   완료 — 메뉴 "환생" → 작은 창, 두 번 누름 확인, 서버 재판정(6e5c27d). 실제 환생은 아직 안 해 봤다
+          (개발 계정 블럭스 부족 + 사람 승인 필요)
+워프      메뉴 칸만 있다. 월드 · 워프 창 없음
+U5 · U6   미착수
 ```
 
-**다음: Phase 6 — U3 남은 확인(9번 모바일) → U4(코어 화면 + 3D 안내) → 환생 창.**
-(지시서 #4는 "U3 화면 확인 → U3-10b → U4 → 환생 창"으로 적었지만, U3 화면 확인 대부분과
-U3-10b는 2026-10-21에 이미 끝나 있어 남은 것만 적었다.)
+**다음: 사람이 직접 한 판(실플레이로 볼 것 — `docs/PENDING.md`) → 월드 · 워프 창(U7) → U5 상점.**
+(지시서 #4의 "U3 화면 확인 → U3-10b → U4 → 환생 창"은 지시서 #5로 전부 끝났다.)
 
 ⚠️ 이 단계가 전체에서 가장 오래 걸린다
 
