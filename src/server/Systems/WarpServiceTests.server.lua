@@ -58,6 +58,9 @@ type World = {
 	calls: { string },
 	reasons: { string },
 	failAt: string?,
+	canMove: boolean,
+	moveOk: boolean,
+	movedTo: number?,
 }
 
 local function newWorld(blox: BigNum.BigNumber?, runActiveStage: number?): World
@@ -68,6 +71,9 @@ local function newWorld(blox: BigNum.BigNumber?, runActiveStage: number?): World
 		calls = {},
 		reasons = {},
 		failAt = nil,
+		canMove = true,
+		moveOk = true,
+		movedTo = nil,
 	}
 end
 
@@ -102,6 +108,22 @@ local function depsFor(w: World)
 			w.startedStage = stage
 			w.runActiveStage = stage
 			return true
+		end,
+
+		hasActiveRun = function(_player: Player)
+			table.insert(w.calls, "hasActiveRun")
+			return w.runActiveStage ~= nil
+		end,
+
+		canMove = function(_player: Player)
+			table.insert(w.calls, "canMove")
+			return w.canMove
+		end,
+
+		moveToEntrance = function(_player: Player, stage: number)
+			table.insert(w.calls, "moveToEntrance")
+			w.movedTo = stage
+			return w.moveOk
 		end,
 	}
 end
@@ -378,34 +400,65 @@ do
 	)
 end
 
--- ===== 이미 런이 진행 중일 때 =========================================================
+-- ===== 이미 런이 진행 중일 때 (W1, 사람 결정 2026-10-22) ================================
 
 do
-	-- ⚠️ 덮어쓰기가 **정상 동작이다.** 거부되지 않는다 —
-	-- ChallengeService.startRun이 기존 런을 조용히 덮어쓰기 때문이고,
-	-- 워프는 "지금 어디에 있든 목표 층으로 간다"이므로 그것이 곧 기능이다.
+	-- 예전에는 덮어쓰기가 정상 동작이었다. W1부터 런 중 워프는 **거부된다** — 부작용 0.
 	local start = BigNum.mul(TARGET_COST, BigNum.fromNumber(10))
 	local w = newWorld(BigNum.new(start.m, start.e), 7) -- 7층 런이 진행 중
 
 	local ok, result = pure.runWarp(depsFor(w) :: any, fakePlayer, TARGET, "test")
 
-	check("진행 중인 런이 있어도 워프는 거부되지 않는다", ok == true, tostring(result))
-	check("진행 중이던 런이 목표 stage로 덮어써졌다", w.runActiveStage == TARGET, tostring(w.runActiveStage))
-	check("덮어쓸 때도 비용은 정상 차감된다", BigNum.eq(w.blox :: any, BigNum.sub(start, TARGET_COST)))
-
-	-- abandonRun을 따로 부르지 않는다 — 덮어쓰기가 이미 그 일을 한다.
-	check("abandonRun을 따로 부르지 않는다", not table.find(w.calls, "abandonRun"), table.concat(w.calls, " -> "))
+	check("W1: 진행 중인 런이 있으면 워프는 run_active로 거부", ok == false and result == WarpService.REASON_RUN_ACTIVE, tostring(result))
+	checkRejectedCleanly("W1: 런 중 거부", w, start)
+	check("W1: 런 중 거부는 이동도 하지 않는다", w.movedTo == nil)
+	check("W1: 진행 중이던 런은 그대로", w.runActiveStage == 7)
 end
 
 do
-	-- 같은 층으로 워프해도 거부되지 않는다. 비용은 그대로 나간다 (전 구간 유료).
+	-- 런이 끝난 뒤(활성 런 없음)에는 다시 워프할 수 있다 — 같은 층이어도 비용은 그대로 나간다(전 구간 유료).
 	local start = BigNum.mul(TARGET_COST, BigNum.fromNumber(10))
-	local w = newWorld(BigNum.new(start.m, start.e), TARGET)
+	local w = newWorld(BigNum.new(start.m, start.e), nil)
 
 	local ok = pure.runWarp(depsFor(w) :: any, fakePlayer, TARGET, "test")
 
-	check("현재와 같은 층으로 워프해도 거부되지 않는다", ok == true)
-	check("같은 층 워프도 비용을 낸다 (전 구간 유료)", BigNum.eq(w.blox :: any, BigNum.sub(start, TARGET_COST)))
+	check("런이 없으면 워프된다", ok == true)
+	check("워프도 비용을 낸다 (전 구간 유료)", BigNum.eq(w.blox :: any, BigNum.sub(start, TARGET_COST)))
+end
+
+-- ===== 목표층 입구 이동 (W2, 사람 결정 2026-10-22) ======================================
+
+do
+	local start = BigNum.mul(TARGET_COST, BigNum.fromNumber(10))
+	local w = newWorld(BigNum.new(start.m, start.e), nil)
+	local ok = pure.runWarp(depsFor(w) :: any, fakePlayer, TARGET, "test")
+	check("W2: 성공", ok == true)
+	check("W2: 목표층 입구로 옮긴다", w.movedTo == TARGET, tostring(w.movedTo))
+	local iSub = table.find(w.calls, "subtractBlox")
+	local iMove = table.find(w.calls, "moveToEntrance")
+	local iStart = table.find(w.calls, "startRun")
+	check("W2: 순서 — 차감 → 이동 → 런 시작", iSub ~= nil and iMove ~= nil and iStart ~= nil and iSub < iMove and iMove < iStart,
+		table.concat(w.calls, " -> "))
+end
+
+do
+	-- 옮길 캐릭터가 없으면 차감 전에 거부한다 — 부작용 0.
+	local start = BigNum.mul(TARGET_COST, BigNum.fromNumber(10))
+	local w = newWorld(BigNum.new(start.m, start.e), nil)
+	w.canMove = false
+	local ok, result = pure.runWarp(depsFor(w) :: any, fakePlayer, TARGET, "test")
+	check("W2: 캐릭터가 없으면 no_character로 거부", ok == false and result == WarpService.REASON_NO_CHARACTER, tostring(result))
+	checkRejectedCleanly("W2: 캐릭터 없음 거부", w, start)
+end
+
+do
+	-- 사전 검사를 통과한 뒤 이동이 실패해도(그 사이 캐릭터가 사라짐) 런은 시작한다 — 블럭스는 이미 빠졌다.
+	local start = BigNum.mul(TARGET_COST, BigNum.fromNumber(10))
+	local w = newWorld(BigNum.new(start.m, start.e), nil)
+	w.moveOk = false
+	local ok = pure.runWarp(depsFor(w) :: any, fakePlayer, TARGET, "test")
+	check("W2: 이동 실패에도 워프는 성공으로 끝난다(런 시작)", ok == true and w.startedStage == TARGET)
+	check("W2: 이동 실패에도 비용은 한 번만", BigNum.eq(w.blox :: any, BigNum.sub(start, TARGET_COST)))
 end
 
 -- ===== 진행 상태 비참조 ===============================================================
@@ -418,10 +471,11 @@ do
 	-- 양쪽 다 "안 줄어든" 상태로 같아지고, 그러면 이 케이스가 아무것도 확인하지 못한다.
 	local start = BigNum.mul(TARGET_COST, BigNum.fromNumber(10))
 
-	local fromLow = newWorld(BigNum.new(start.m, start.e), 1)
+	-- W1 뒤로는 활성 런이 있으면 거부되므로, 런 없이 두 번 잰다(deps에 위치가 없다는 것이 구조적 증거).
+	local fromLow = newWorld(BigNum.new(start.m, start.e), nil)
 	pure.runWarp(depsFor(fromLow) :: any, fakePlayer, TARGET, "test")
 
-	local fromHigh = newWorld(BigNum.new(start.m, start.e), LAST_STAGE)
+	local fromHigh = newWorld(BigNum.new(start.m, start.e), nil)
 	pure.runWarp(depsFor(fromHigh) :: any, fakePlayer, TARGET, "test")
 
 	check(

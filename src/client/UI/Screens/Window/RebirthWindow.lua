@@ -19,6 +19,7 @@ local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local Panel = require(script.Parent.Parent.Parent.Components.Panel)
 local Button = require(script.Parent.Parent.Parent.Components.Button)
+local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local Store = require(script.Parent.Parent.Parent.Store)
 local RebirthWindowLogic = require(script.Parent.Parent.Parent.Logic.RebirthWindowLogic)
 
@@ -48,43 +49,8 @@ local ROWS = {
 local BUTTON_H = 0.15
 local BUTTON_W = 0.46
 
-local function makeText(name: string, parent: Instance, level: TextScale.Level, x: number, y: number, w: number, h: number, align: Enum.TextXAlignment?): TextLabel
-	local label = Instance.new("TextLabel")
-	label.Name = name
-	label.BackgroundTransparency = 1
-	label.BorderSizePixel = 0
-	label.Position = UDim2.fromScale(x, y)
-	label.Size = UDim2.fromScale(w, h)
-	label.TextScaled = true
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.Font = Enum.Font.SourceSansBold
-	label.TextXAlignment = align or Enum.TextXAlignment.Left
-	label.ZIndex = 4
-	local size = Instance.new("UITextSizeConstraint")
-	size.MaxTextSize = TextScale.Levels[level].maxTextSize
-	size.Parent = label
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.new(0, 0, 0)
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-	stroke.Parent = label
-	label.Parent = parent
-	return label
-end
-
--- 버튼 위에 글자와 투명 HitArea를 얹는다.
-local function decorateButton(button: Button.ButtonHandle, text: string): (TextLabel, TextButton)
-	local label = makeText("Label", button.root, "medium", 0, 0, 1, 1, Enum.TextXAlignment.Center)
-	label.ZIndex = 6
-	label.Text = text
-	local hit = Instance.new("TextButton")
-	hit.Name = "HitArea"
-	hit.Size = UDim2.fromScale(1, 1)
-	hit.BackgroundTransparency = 1
-	hit.Text = ""
-	hit.ZIndex = 7
-	hit.Parent = button.root
-	return label, hit
-end
+local makeText = WindowParts.makeText
+local decorateButton = WindowParts.decorateButton
 
 export type Deps = {
 	store: any?, -- Store 인스턴스. 생략하면 싱글톤(BloxDisplay.create와 같은 이유)
@@ -159,24 +125,9 @@ function RebirthWindow.create(deps: Deps): Handle
 	cancelButton.root.Parent = body
 	local _cancelLabel, cancelHit = decorateButton(cancelButton, RebirthWindow.CANCEL_TEXT)
 
-	local closeHit = Instance.new("TextButton")
-	closeHit.Name = "HitArea"
-	closeHit.Size = UDim2.fromScale(1, 1)
-	closeHit.BackgroundTransparency = 1
-	closeHit.Text = ""
-	closeHit.ZIndex = 7
-	closeHit.Parent = panel.closeButton.root
+	local closeHit = WindowParts.hitArea(panel.closeButton.root)
 
-	-- 버튼 안쪽 그림(Components/Button의 Color/Gray)은 ZIndex 1이라 패널 배경층(Panel 2층 구조) 밑에 깔린다
-	-- (2026-10-22 Play: X 버튼과 버튼 바탕이 안 보였다). 버튼 안쪽 전부를 본문 글자보다 위로 올린다.
-	-- 글자(6) · HitArea(7)는 이미 그 위다.
-	for _, buttonRoot in ipairs({ button.root, cancelButton.root, panel.closeButton.root }) do
-		for _, obj in ipairs(buttonRoot:GetDescendants()) do
-			if obj:IsA("GuiObject") and obj.ZIndex < 5 then
-				obj.ZIndex = 5
-			end
-		end
-	end
+	WindowParts.raiseButtons({ button.root, cancelButton.root, panel.closeButton.root })
 
 	local confirm = RebirthWindowLogic.newConfirm()
 	local view: RebirthWindowLogic.View = RebirthWindowLogic.compute(source.get("blox"), source.get("rebirths"))

@@ -14,6 +14,8 @@
 --   SyncRequest     클라→서버. "지금 상태를 다시 보내 달라" (Phase 6). 접속 직후 동기화용
 --   RebirthRequest  클라→서버. 환생 창의 환생 요청 (Phase 6). 서버가 다시 판정한다
 --   RebirthResult   서버→클라. 그 요청의 결과(성공 / 거부 사유 코드)
+--   WarpRequest     클라→서버. 월드·워프 창의 워프 요청(목표 층) (Phase 6 지시서 #6)
+--   WarpResult      서버→클라. 그 요청의 결과
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --
@@ -74,6 +76,8 @@ Remotes.PLAYER_STATE = "PlayerState"
 Remotes.SYNC_REQUEST = "SyncRequest"
 Remotes.REBIRTH_REQUEST = "RebirthRequest"
 Remotes.REBIRTH_RESULT = "RebirthResult"
+Remotes.WARP_REQUEST = "WarpRequest"
+Remotes.WARP_RESULT = "WarpResult"
 
 -- ===== payload 타입 ====================================================================
 --
@@ -242,6 +246,23 @@ export type RebirthResultPayload = {
 	gained: BigNum.BigNumber,
 }
 
+-- WarpRequest: 이 층으로 워프해 달라 (클라 → 서버). stage만 싣는다 — 비용을 싣지 않는다(규약 2).
+-- stage는 "요청"이다. 서버가 타입 · 정수 · 범위를 다시 재고(WarpRequestService · WarpConfig.canWarp),
+-- 활성 런이 없는지(W1)도 다시 본다. 빈도는 서버가 자른다(규약 3).
+export type WarpRequestPayload = {
+	stage: number,
+}
+
+-- WarpResult: 워프 요청의 결과 (서버 → 클라). 바뀐 블럭스는 PlayerState, 새 런은 RunStateChanged가 보낸다.
+--   reason  거부 사유 코드(WarpService.REASON_* · "rate_limited"). 성공이면 ""
+--   cost    차감된 비용. 거부면 0 (선택 필드 금지)
+export type WarpResultPayload = {
+	ok: boolean,
+	reason: string,
+	stage: number,
+	cost: BigNum.BigNumber,
+}
+
 export type Channels = {
 	blockDamaged: RemoteEvent,
 	runStateChanged: RemoteEvent,
@@ -253,6 +274,8 @@ export type Channels = {
 	syncRequest: RemoteEvent,
 	rebirthRequest: RemoteEvent,
 	rebirthResult: RemoteEvent,
+	warpRequest: RemoteEvent,
+	warpResult: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -311,6 +334,8 @@ function Remotes.getServer(): Channels
 		syncRequest = ensureEvent(folder, Remotes.SYNC_REQUEST),
 		rebirthRequest = ensureEvent(folder, Remotes.REBIRTH_REQUEST),
 		rebirthResult = ensureEvent(folder, Remotes.REBIRTH_RESULT),
+		warpRequest = ensureEvent(folder, Remotes.WARP_REQUEST),
+		warpResult = ensureEvent(folder, Remotes.WARP_RESULT),
 	}
 	cached = channels
 	return channels
@@ -355,6 +380,8 @@ function Remotes.getClient(): Channels
 		syncRequest = waitFor(folder, Remotes.SYNC_REQUEST) :: RemoteEvent,
 		rebirthRequest = waitFor(folder, Remotes.REBIRTH_REQUEST) :: RemoteEvent,
 		rebirthResult = waitFor(folder, Remotes.REBIRTH_RESULT) :: RemoteEvent,
+		warpRequest = waitFor(folder, Remotes.WARP_REQUEST) :: RemoteEvent,
+		warpResult = waitFor(folder, Remotes.WARP_RESULT) :: RemoteEvent,
 	}
 	cached = channels
 	return channels

@@ -46,6 +46,7 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local WarpConfig = require(ReplicatedStorage.Shared.Config.WarpConfig)
 local CurrencyService = require(script.Parent.CurrencyService)
 local ChallengeService = require(script.Parent.ChallengeService)
+local ArenaService = require(script.Parent.ArenaService)
 
 type BigNumber = BigNum.BigNumber
 
@@ -85,6 +86,12 @@ WarpService.REASON_NO_PROFILE = "no_profile"
 -- 상태이고 이쪽은 **아무것도 일어나지 않은** 상태다. 같은 이름을 쓰면 로그를 보는
 -- 사람이 "복구가 필요한가"를 판단할 수 없다.
 WarpService.REASON_SUBTRACT_FAILED = "subtract_failed"
+
+-- 활성 런이 있다 (W1 사람 결정 2026-10-22: 워프는 활성 런이 없을 때만). 부작용 0인 정상 거부다.
+WarpService.REASON_RUN_ACTIVE = "run_active"
+
+-- 캐릭터가 없어 목표층 입구로 옮길 수 없다 (W2). 차감 전에 거른다 — 부작용 0인 정상 거부다.
+WarpService.REASON_NO_CHARACTER = "no_character"
 
 -- 차감은 끝났는데 런이 시작되지 않았다. **여기서만 유저가 손해를 본다.**
 -- 되돌리지 않는다 — 아래 reportStartRunFailure 주석 참고.
@@ -164,6 +171,9 @@ export type Deps = {
 	getBlox: (Player) -> BigNumber?,
 	subtractBlox: (Player, BigNumber, string) -> boolean,
 	startRun: (Player, number) -> boolean,
+	hasActiveRun: (Player) -> boolean, -- W1
+	canMove: (Player) -> boolean, -- W2 사전 검사 (캐릭터 · 루트 파트가 있는가)
+	moveToEntrance: (Player, number) -> boolean, -- W2 목표층 입구로 옮긴다
 }
 
 -- 워프 결과.
@@ -185,6 +195,12 @@ local function runWarp(deps: Deps, player: Player, targetStage: number, source: 
 		return false, REASON_NO_PROFILE
 	end
 
+	-- 1b. 활성 런 (W1). 런 중에는 워프하지 않는다 — 예전에는 startRun이 진행 중인 런을 덮어썼다.
+	-- 사람 결정: 런 중 워프는 진행 중인 판을 버리는 길이 되고, 창의 버튼도 잠근다(이유 문구).
+	if deps.hasActiveRun(player) then
+		return false, WarpService.REASON_RUN_ACTIVE
+	end
+
 	-- 2. 가능 판정. 목표층 검증(INVALID_STAGE) · 범위(STAGE_OUT_OF_RANGE) ·
 	--    잔액(INSUFFICIENT_BLOX)이 전부 여기서 갈리고, 그 우선순위도 WarpConfig의 계약이다.
 	--
@@ -197,6 +213,12 @@ local function runWarp(deps: Deps, player: Player, targetStage: number, source: 
 	end
 	local cost = costOrReason :: BigNumber
 
+	-- 2b. 옮길 수 있는가 (W2 사전 검사). 차감 전에 거른다 — 차감한 뒤 "옮길 캐릭터가 없다"가 되면
+	-- 블럭스만 사라진다. 이 검사를 통과한 뒤 6번 이동이 실패하는 것은 그 사이 캐릭터가 사라진 경우뿐이다.
+	if not deps.canMove(player) then
+		return false, WarpService.REASON_NO_CHARACTER
+	end
+
 	-- ===== 여기부터 되돌릴 수 없다 =====================================================
 
 	-- 3. 비용 차감. ⚠️ 런 시작보다 **먼저**다.
@@ -208,12 +230,21 @@ local function runWarp(deps: Deps, player: Player, targetStage: number, source: 
 		return reportSubtractFailure(player, targetStage, cost, sourceTag)
 	end
 
-	-- 4. 목표 층에서 런을 새로 시작한다.
+	-- 4. 캐릭터를 목표층 입구로 옮긴다 (W2 사람 결정 2026-10-22). 런 시작보다 먼저 — 타이머(20초)는
+	-- 그 층 입구에 선 순간부터 흐른다. 예전에는 스폰에서 런을 세워 걷는 동안 시간이 다 흘러 실패가
+	-- 확정됐다. 입장 게이트(1층 전용)는 거치지 않는다.
 	--
-	-- ⚠️ 기존 런이 있으면 startRun이 **조용히 덮어쓴다.** 이것이 정상 동작이다 —
-	-- 거부하지 않는다(ChallengeService.startRun 주석). 워프는 "지금 어디에 있든
-	-- 목표 층으로 간다"이므로 진행 중인 런을 없애는 것이 곧 기능이다.
-	-- abandonRun을 먼저 부르지 않는 이유도 같다: 덮어쓰기가 이미 그 일을 한다.
+	-- 실패 처리(Claude 판단): 2b를 통과했으므로 실패는 그 사이 캐릭터가 사라진 경우뿐이다. 블럭스는 이미
+	-- 빠졌으므로 런은 그대로 시작한다(유저가 걸어가면 된다) — ERROR 로그만 남긴다. 되돌리기(재지급)는
+	-- CurrencyService.add가 lifetimeBlox · lifeBlox까지 올려 다른 값을 흔들기 때문에 하지 않는다.
+	if not deps.moveToEntrance(player, targetStage) then
+		warn(string.format(
+			"[WarpService][ERROR] 목표층 입구 이동 실패(차감 뒤): UserId=%d stage=%d cost=%s source=%s. 런은 그대로 시작한다.",
+			(player :: any).UserId or -1, targetStage, BigNum.tostring(cost), sourceTag
+		))
+	end
+
+	-- 5. 목표 층에서 런을 새로 시작한다. 1b에서 활성 런을 걸렀으므로 덮어쓸 런이 없다.
 	--
 	-- ⚠️ pcall로 감싼다. startRun은 false를 돌려주는 경로가 없지만 error는 던질 수 있고
 	-- (BlockService.enterStage 내부 오류 등), 그 시점엔 이미 blox가 사라져 있다.
@@ -224,7 +255,7 @@ local function runWarp(deps: Deps, player: Player, targetStage: number, source: 
 		return reportStartRunFailure(player, targetStage, cost, sourceTag, startErr)
 	end
 
-	-- 5. 성공. 돌려주는 것은 **차감된 비용**이다.
+	-- 6. 성공. 돌려주는 것은 **차감된 비용**이다.
 	--
 	-- ⚠️ run 상태를 여기서 돌려주지 않는다. startRun이 RunStateChanged를 이미 발화했으므로
 	-- (reason 태그 "start"), 같은 정보를 두 경로로 주면 어느 쪽이 최신인지 물어야 한다.
@@ -252,6 +283,15 @@ local REAL: Deps = {
 	startRun = function(player: Player, stage: number)
 		return ChallengeService.startRun(player, stage)
 	end,
+	hasActiveRun = function(player: Player)
+		return ChallengeService.getRunState(player) ~= nil
+	end,
+	canMove = function(player: Player)
+		return ArenaService.canMoveCharacter(player)
+	end,
+	moveToEntrance = function(player: Player, stage: number)
+		return ArenaService.moveToStageEntrance(player, stage)
+	end,
 }
 
 -- 워프를 실행한다.
@@ -278,11 +318,8 @@ local initialized = false
 -- (Bootstrap의 호출 지점 주석 참고). 그 둘을 검사하지는 않는다 — 서로 init 상태를
 -- 물어보는 API가 없고, 만들면 서비스끼리 준비 여부를 캐묻는 결합이 새로 생긴다.
 --
--- ⚠️ 지금은 진입점이 없다. 워프를 실제로 부르는 경로가 아직 없고, 3D 파트나 Remote는
--- 이번 단계에서 만들지 않았다 — 진입점은 Phase 6 UI(텔레포트 버튼 → 스테이지 선택창)에
--- 붙인다. 그래서 이 함수는 지금 로그 한 줄이 전부다. 그럼에도 두는 이유는 그 진입점이
--- 붙을 자리를 한 곳으로 정해두기 위해서다 — 없으면 호출부가 각자 WarpService를
--- require하게 된다 (RebirthService.init과 같은 판단).
+-- 진입점은 월드·워프 창이다(Phase 6 지시서 #6): 클라 WarpRequest → WarpRequestService가 빈도와
+-- 입력을 거르고 warp(player, stage, "ui")를 부른다. 이 함수는 로그 한 줄이 전부다.
 function WarpService.init()
 	if initialized then
 		warn("[WarpService] init()이 이미 호출된 상태 - 중복 호출 무시")
@@ -290,7 +327,7 @@ function WarpService.init()
 	end
 	initialized = true
 
-	print("[WarpService] 워프 준비 완료 (진입점은 아직 없음)")
+	print("[WarpService] 워프 준비 완료 (진입점: 월드·워프 창 → WarpRequestService)")
 end
 
 return WarpService

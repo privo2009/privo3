@@ -12,6 +12,7 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
+local ConfirmFlow = require(script.Parent.ConfirmFlow)
 
 type BigNumber = BigNum.BigNumber
 
@@ -81,37 +82,11 @@ RebirthWindowLogic.KEEPS = "남는 것: 환생 배수(오름) · 운동기구 ·
 
 RebirthWindowLogic.CONFIRM_WINDOW_SEC = 5 -- 시각 튜닝값(세션 로그)
 
-export type ConfirmAction = "askConfirm" | "send" | "locked"
+export type ConfirmAction = ConfirmFlow.Action
 
-function RebirthWindowLogic.newConfirm()
-	local armedAt: number? = nil
-	local confirm = {}
-
-	-- 버튼을 눌렀다. 반환값대로 화면이 움직인다.
-	function confirm.press(now: number, canRebirth: boolean): ConfirmAction
-		if not canRebirth then
-			armedAt = nil
-			return "locked"
-		end
-		local armed = armedAt
-		if armed ~= nil and now - armed <= RebirthWindowLogic.CONFIRM_WINDOW_SEC then
-			armedAt = nil
-			return "send"
-		end
-		armedAt = now
-		return "askConfirm"
-	end
-
-	function confirm.cancel()
-		armedAt = nil
-	end
-
-	function confirm.isArmed(now: number): boolean
-		local armed = armedAt
-		return armed ~= nil and now - armed <= RebirthWindowLogic.CONFIRM_WINDOW_SEC
-	end
-
-	return confirm
+-- 확인 단계는 월드·워프 창과 같은 규칙이라 UI/Logic/ConfirmFlow로 옮겼다(지시서 #6). 이름은 그대로 둔다.
+function RebirthWindowLogic.newConfirm(): ConfirmFlow.Flow
+	return ConfirmFlow.new(RebirthWindowLogic.CONFIRM_WINDOW_SEC)
 end
 
 return RebirthWindowLogic

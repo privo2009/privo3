@@ -294,6 +294,41 @@ function ArenaService.returnToSpawn(player: Player): boolean
 	return true
 end
 
+-- 워프 이동 대상이 되는가 (W2 사전 검사, Phase 6 지시서 #6). 캐릭터와 HumanoidRootPart가 있어야 한다.
+-- yield하지 않는다 — WarpService.runWarp 안(무-yield 계약)에서 불린다.
+function ArenaService.canMoveCharacter(player: Player): boolean
+	if typeof(player) ~= "Instance" then
+		return false
+	end
+	local character = (player :: any).Character
+	return character ~= nil and character:FindFirstChild("HumanoidRootPart") ~= nil
+end
+
+-- 캐릭터를 스테이지 N 입구(ArenaConfig.getStageEntranceX(N), 통로 가운데 Z = 0)에 세운다 (W2).
+-- 지면은 Y = 0(ArenaConfig "아레나 바닥" — topY)이고, 높이는 returnToSpawn과 같은 이유로 실제 바운딩
+-- 박스에서 받는다. +X(진행 방향)를 바라보게 세운다.
+--
+-- ⚠️ returnToSpawn과 같은 규칙: yield하지 않는다(PivotTo는 즉시 반환), 실패해도 error를 던지지 않고
+--    false로 접는다. 호출자(WarpService)는 이미 차감한 뒤라 여기서 error가 나면 흐름이 반쯤 끝난다.
+function ArenaService.moveToStageEntrance(player: Player, stage: number): boolean
+	if not ArenaService.canMoveCharacter(player) then
+		warn(string.format("[ArenaService] %s 입구 이동 실패 - 캐릭터 없음", tostring((player :: any).Name)))
+		return false
+	end
+	local character = (player :: any).Character
+	local ok, err = pcall(function()
+		local extents = character:GetExtentsSize()
+		local x = ArenaConfig.getStageEntranceX(stage)
+		local position = Vector3.new(x, extents.Y / 2, 0)
+		character:PivotTo(CFrame.lookAt(position, position + Vector3.new(1, 0, 0)))
+	end)
+	if not ok then
+		warn(string.format("[ArenaService] %s 입구 이동 실패 - %s", player.Name, tostring(err)))
+		return false
+	end
+	return true
+end
+
 local initialized = false
 
 -- 스폰 지점과 경계를 Workspace에 세운다.
