@@ -85,6 +85,36 @@ function WorldLabelLogic.pad(index: number, lifeBlox: BigNumber): Label
 	}
 end
 
+-- 패드 표시를 띄울 패드인가 (Phase 6 지시서 #6). 24장이 한 줄이라 다 띄우면 스폰에서 겹쳐 안 읽혔다.
+-- 유저가 패드에서 내리는 판단은 셋뿐이라 그 셋만 띄운다(Claude 판단, 세션 로그):
+--   지금 세팅된 패드           — 내가 어디 서 있었나
+--   열린 것 중 가장 좋은 패드  — 밟으러 갈 곳 (지금 패드와 같으면 하나)
+--   다음 해금 대상             — 얼마 더 모아야 하나 (전부 열렸으면 없다)
+export type PadRole = "current" | "best" | "next"
+
+function WorldLabelLogic.padRole(index: number, selectedIndex: number, unlockedCount: number): PadRole?
+	if index == selectedIndex then
+		return "current"
+	elseif index == unlockedCount then
+		return "best"
+	elseif index == unlockedCount + 1 then
+		return "next"
+	end
+	return nil
+end
+
+function WorldLabelLogic.isPadShown(index: number, selectedIndex: number, unlockedCount: number): boolean
+	return WorldLabelLogic.padRole(index, selectedIndex, unlockedCount) ~= nil
+end
+
+-- 역할별 높이(지면 위 studs). 세 패드가 붙어 있어(간격 12) 스폰 쪽에서 보면 같은 높이의 표시가 겹친다 —
+-- 계단처럼 높이를 달리해 위아래로 벌린다(2026-10-22 Play 스크린샷). 표시 높이 3 + 틈 1.5.
+WorldLabelLogic.PAD_HEIGHT = {
+	current = 4,
+	best = 8.5,
+	["next"] = 13,
+}
+
 -- 입장 게이트. 위치 안내만. 런 중에는 숨긴다(이미 지나왔다).
 function WorldLabelLogic.gate(runActive: boolean): Label
 	if runActive then

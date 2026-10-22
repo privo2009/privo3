@@ -80,6 +80,27 @@ do
 	local p2open = WorldLabelLogic.pad(2, ClickPadConfig.getPadUnlock(1, 2))
 	check("패드: 조건을 채우면 주황", p2open.role == "power")
 
+	-- 패드 표시는 셋만 (지시서 #6): 지금 패드 · 열린 것 중 최고 · 다음 해금 대상
+	local function shownCount(selected: number, unlocked: number): number
+		local n = 0
+		for i = 1, ClickPadConfig.getSet(1).count do
+			if WorldLabelLogic.isPadShown(i, selected, unlocked) then
+				n += 1
+			end
+		end
+		return n
+	end
+	check("패드 표시: 지금 · 최고 · 다음 셋", shownCount(2, 5) == 3)
+	check("패드 표시: 지금 패드가 최고면 둘", shownCount(5, 5) == 2)
+	check("패드 표시: 전부 열렸으면 다음이 없다", shownCount(ClickPadConfig.getSet(1).count, ClickPadConfig.getSet(1).count) == 1)
+	check("패드 표시: 다음 해금 대상이 포함", WorldLabelLogic.isPadShown(6, 2, 5))
+	check("패드 표시: 사이 패드는 숨김", not WorldLabelLogic.isPadShown(3, 2, 5) and not WorldLabelLogic.isPadShown(7, 2, 5))
+	check("패드 표시: 역할 — 지금 · 최고 · 다음", WorldLabelLogic.padRole(2, 2, 5) == "current"
+		and WorldLabelLogic.padRole(5, 2, 5) == "best" and WorldLabelLogic.padRole(6, 2, 5) == "next")
+	local H = WorldLabelLogic.PAD_HEIGHT
+	check("패드 표시: 역할마다 높이가 달라 위아래로 벌어진다(표시 높이 3보다 크게)",
+		H.best - H.current > 3 and H["next"] - H.best > 3)
+
 	check("게이트: 런 없으면 보임", WorldLabelLogic.gate(false).visible)
 	check("게이트: 런 중에는 숨김", not WorldLabelLogic.gate(true).visible)
 

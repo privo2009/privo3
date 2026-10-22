@@ -206,11 +206,26 @@ end)
 
 local padBoards: { [number]: Billboard } = {}
 
+local ClickPadConfig = require(ReplicatedStorage.Shared.Config.ClickPadConfig)
+
 local function refreshPad(index: number)
 	local board = padBoards[index]
-	if board ~= nil then
-		apply(board, WorldLabelLogic.pad(index, Store.get("lifeBlox")))
+	if board == nil then
+		return
 	end
+	local lifeBlox = Store.get("lifeBlox")
+	local unlocked = ClickPadConfig.getUnlockedPadCount(1, lifeBlox)
+	local role = WorldLabelLogic.padRole(index, Store.get("padIndex"), unlocked)
+	if role == nil then
+		apply(board, WorldLabelLogic.HIDDEN)
+		return
+	end
+	local adornee = board.gui.Adornee
+	if adornee ~= nil and adornee:IsA("BasePart") then
+		local groundOffset = -adornee.Size.Y / 2 + WorldLabelLogic.PAD_HEIGHT[role] + SIZE.pad.Y / 2
+		board.gui.StudsOffsetWorldSpace = Vector3.new(0, groundOffset, 0)
+	end
+	apply(board, WorldLabelLogic.pad(index, lifeBlox))
 end
 
 local function attachPad(pad: Instance)
@@ -227,11 +242,13 @@ local function attachPad(pad: Instance)
 	refreshPad(index)
 end
 
-Store.subscribe("lifeBlox", function()
+local function refreshAllPads()
 	for index in pairs(padBoards) do
 		refreshPad(index)
 	end
-end)
+end
+Store.subscribe("lifeBlox", refreshAllPads)
+Store.subscribe("padIndex", refreshAllPads) -- 패드를 밟아 세팅이 바뀌면 "지금 패드" 표시가 옮겨 간다
 
 task.spawn(function()
 	local folder = Workspace:WaitForChild("ClickPads")
