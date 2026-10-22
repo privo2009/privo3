@@ -23,8 +23,15 @@
 -- 계산식을 새로 만들지 않는다. 실물과 어긋나면 리포트가 거짓말을 하기 때문이다:
 --   클릭 획득   padPower × 클릭수 × 배수   (ClickService.computeGain과 같은 식)
 --   배수 결합   StrengthMultiplier.compute (직접 곱하지 않는다)
---   1회 데미지  힘 그대로                   (AttackService.computePunchDamage)
---   펀치 간격   1 / AttackConfig.PUNCH_SPEED_BASE
+--   1회 데미지  힘 × 펀치 데미지 배수       (AttackService.computePunchDamage — 배수는 UpgradeConfig.getEffect)
+--   펀치 간격   1 / 펀치 속도               (UpgradeConfig.getEffect("punchSpeed", 레벨))
+--   수령액      층 보상 × 블럭스 획득 배수  (ChallengeService.payableReward)
+--
+-- ===== 업그레이드 (S5, 지시서 #7) ==========================================================
+--
+-- 구매 규칙은 SuccessRateReport.MODEL.UPGRADE_POLICY와 SuccessRateReport.buyCheapestFirst를 그대로 쓴다
+-- (환생 직전 버려질 나머지로 가장 싼 것부터). run()은 결정 모델(S5)로 전체 표를 찍고, 끝에 "업그레이드 0" 비교를 나란히 찍는다.
+-- 이동속도는 이 리포트에 없다(걷는 시간을 재지 않는다 — 아래 "재지 않는 것").
 --
 -- ⚠️ 펀치 속도를 1회 데미지에 곱하지 않는다. 이중 계산이 되어 실제 DPS가 속도의 제곱이
 --    된다 (CLAUDE.md 금지 사항). 속도는 **간격**으로만 들어간다.
@@ -58,6 +65,7 @@ local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 
 local Schema = require(script.Parent.Parent.Data.Schema)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
+local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 -- 운동기구 훈련 시간의 원본. 시뮬레이터 파라미터만 읽는다(이 모듈의 함수는 부르지 않는다).
 local SuccessRateReport = require(script.Parent.SuccessRateReport)
 
@@ -164,6 +172,7 @@ type SimState = {
 	runCount: number,
 	rebirthCount: number,
 	ticks: number,
+	upgrades: { [string]: number }, -- 업그레이드 레벨(노출 4종). 환생해도 남는다(S5)
 }
 
 local function copyBig(v: BigNumber): BigNumber
@@ -182,6 +191,7 @@ local function copyState(s: SimState): SimState
 		runCount = s.runCount,
 		rebirthCount = s.rebirthCount,
 		ticks = s.ticks,
+		upgrades = table.clone(s.upgrades),
 	}
 end
 
@@ -200,6 +210,7 @@ local function newState(): SimState
 		runCount = 0,
 		rebirthCount = 0,
 		ticks = 0,
+		upgrades = SuccessRateReport.newUpgradeLevels(),
 	}
 end
 
@@ -232,7 +243,8 @@ local function simulateStage(input: SimState, stage: number, clickRate: number):
 
 	local totalHp = StageConfig.getTotalHp(stage)
 	local timerSec = StageConfig.CHALLENGE_TIMER_SEC
-	local punchInterval = 1 / AttackConfig.PUNCH_SPEED_BASE
+	local punchInterval = 1 / SuccessRateReport.effect(s.upgrades, "punchSpeed")
+	local damageMultiplier = BigNum.fromNumber(SuccessRateReport.effect(s.upgrades, "punchDamage"))
 
 	local remaining = totalHp
 	local dealtFull = BigNum.new(0, 0)
@@ -265,10 +277,11 @@ local function simulateStage(input: SimState, stage: number, clickRate: number):
 		punchCarry += SIM.DT_SEC
 		while punchCarry >= punchInterval do
 			punchCarry -= punchInterval
-			-- 1회 데미지 = 힘 그대로 (AttackService.computePunchDamage)
-			dealtFull = BigNum.add(dealtFull, s.strength)
+			-- 1회 데미지 = 힘 × 펀치 데미지 배수 (AttackService.computePunchDamage)
+			local damage = BigNum.mul(s.strength, damageMultiplier)
+			dealtFull = BigNum.add(dealtFull, damage)
 			if not cleared then
-				remaining = BigNum.sub(remaining, s.strength)
+				remaining = BigNum.sub(remaining, damage)
 				if BigNum.lte(remaining, zero) then
 					cleared = true
 					spentSec = t
@@ -366,7 +379,7 @@ local function runOnce(state: SimState, clickRate: number, records: { [number]: 
 
 	-- 수령. 보상은 갱신(덮어쓰기)이라 도달한 층의 값 하나만 받는다 — 누적이 아니다.
 	-- CurrencyService.add가 blox와 lifetimeBlox · lifeBlox를 함께 올리는 것과 같다.
-	local reward = StageConfig.getBloxReward(stage)
+	local reward = BigNum.mul(StageConfig.getBloxReward(stage), BigNum.fromNumber(SuccessRateReport.effect(state.upgrades, "bloxGain")))
 	state.blox = BigNum.add(state.blox, reward)
 	state.lifetimeBlox = BigNum.add(state.lifetimeBlox, reward)
 	state.lifeBlox = BigNum.add(state.lifeBlox, reward)
@@ -399,6 +412,10 @@ local function maybeRebirth(state: SimState, reachedStage: number, maxStage: num
 		return state, reachedStage -- 아직 전진 중이다. 환생하지 않는다.
 	end
 
+	-- S5: 환생 직전 버려질 나머지로 업그레이드(SuccessRateReport와 같은 함수). 나머지만 쓰므로 얻는 배수는 그대로다.
+	if SuccessRateReport.MODEL.UPGRADE_POLICY == "s5" then
+		SuccessRateReport.buyCheapestFirst(state.upgrades, RebirthConfig.getLeftover(state.blox))
+	end
 	local gained = RebirthConfig.getGainedRebirths(state.blox)
 	state.rebirths = BigNum.add(state.rebirths, gained)
 	state.blox = BigNum.new(0, 0)
@@ -1182,6 +1199,39 @@ function StandardPathReport.getClickRates(): { number }
 	return copy
 end
 
+-- ===== 업그레이드 0 vs S5 (지시서 #7) =====================================================
+--
+-- 위 표는 전부 결정 모델(S5)이다. 같은 클릭률로 "업그레이드 0"을 한 번 더 돌려 최고층 첫 도달 시각 · 환생 수를 나란히 놓는다.
+-- MODEL.UPGRADE_POLICY는 잠깐 바꿨다가 (에러가 나도) 되돌린다 — SuccessRateReport.runBand와 같은 규칙. yield하지 않는다.
+local function printUpgradeComparison(s5Results: { RateResult }, maxStage: number)
+	local model = SuccessRateReport.MODEL
+	local saved = model.UPGRADE_POLICY
+	model.UPGRADE_POLICY = "none"
+	local ok, noneResults = pcall(StandardPathReport.simulateAll, maxStage)
+	model.UPGRADE_POLICY = saved
+	if not ok then
+		error(noneResults)
+	end
+
+	print(string.format("\n===== 업그레이드 0 vs S5 (%d층 첫 도달) =====", maxStage))
+	print("  클릭률 | 업그레이드 0: 도달(분) · 환생 | S5: 도달(분) · 환생 | S5 끝 레벨 (데미지 · 속도 · 이동 · 블럭스)")
+	for i, s5 in ipairs(s5Results) do
+		local none = (noneResults :: { RateResult })[i]
+		local function cell(r: RateResult): string
+			local last = r.records[maxStage]
+			if last == nil then
+				return string.format("      - · %3d", r.finalState.rebirthCount)
+			end
+			return string.format("%7.1f · %3d", last.elapsedSec / 60, last.rebirthCount)
+		end
+		local levels = {}
+		for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+			table.insert(levels, tostring(s5.finalState.upgrades[name] or 0))
+		end
+		print(string.format("  %6d | %s | %s | %s", s5.clickRate, cell(none), cell(s5), table.concat(levels, " · ")))
+	end
+end
+
 -- ===== 진입점 =======================================================================
 
 function StandardPathReport.run()
@@ -1209,6 +1259,7 @@ function StandardPathReport.run()
 		SuccessRateReport.MODEL.GYM_TRAIN_SEC,
 		GymConfig.getRebirthTierCount()
 	))
+	print(string.format("  업그레이드: %s (SuccessRateReport.MODEL.UPGRADE_POLICY — s5 = 환생 직전 나머지로 가장 싼 것부터)", SuccessRateReport.MODEL.UPGRADE_POLICY))
 	print("  ⚠️ 거리 판정 없음 — 캐릭터가 반경 안에 계속 있다고 가정한 **이론 상한**이다.")
 	print("     이동 시간과 워프도 계산하지 않는다. 실제 딜은 이보다 작다.")
 	print("")
@@ -1237,6 +1288,8 @@ function StandardPathReport.run()
 
 	local powerSweepPoints = runPowerSweep(maxStage)
 	printPowerSweep(powerSweepPoints, maxStage)
+
+	printUpgradeComparison(results, maxStage)
 
 	print("\n[StandardPathReport] 끝.")
 end

@@ -27,13 +27,20 @@
 --
 --   클릭 획득   padPower × 클릭수 × 배수   (ClickService.computeGain과 같은 식)
 --   배수 결합   StrengthMultiplier.compute
---   1회 데미지  힘 그대로                   (AttackService.computePunchDamage)
---   펀치 간격   1 / AttackConfig.PUNCH_SPEED_BASE
---   걷기        스폰 → 입장 게이트 거리(ArenaConfig.getSpawnToEntrance) ÷ LevelConfig.getMaxSpeed(힘)
+--   1회 데미지  힘 × 펀치 데미지 배수       (AttackService.computePunchDamage — 배수는 UpgradeConfig.getEffect)
+--   펀치 간격   1 / 펀치 속도               (UpgradeConfig.getEffect("punchSpeed", 레벨) — 0레벨 = PUNCH_SPEED_BASE)
+--   수령액      층 보상 × 블럭스 획득 배수  (ChallengeService.payableReward)
+--   걷기        스폰 → 입장 게이트 거리(ArenaConfig.getSpawnToEntrance) ÷ LevelConfig.getMaxSpeed(힘, 이동속도 효과)
 --               런은 게이트에서 서므로(DESIGN.md "런 시작") 걷는 시간은 20초 밖이고, 그동안은
 --               평소 속도로 클릭한다. 수령·실패 뒤에는 스폰으로 돌아오므로 런마다 한 번 걷는다
 --
 -- ⚠️ 펀치 속도를 1회 데미지에 곱하지 않는다 (CLAUDE.md 금지 사항). 속도는 간격으로만 들어간다.
+--
+-- ===== 업그레이드 구매 규칙 (S5, 2026-10-22 사람 결정 — 지시서 #7) ==========================
+--
+-- 환생 직전, 어차피 버려질 나머지(RebirthConfig.getLeftover — BLOX_PER_REBIRTH 미만)로 가장 싼 업그레이드부터
+-- 살 수 있는 만큼 산다(buyCheapestFirst). 업그레이드는 환생해도 남는다. 결정 모델 = MODEL.UPGRADE_POLICY "s5".
+-- "none"은 비교 줄(업그레이드 0 — 지시서 #7 이전의 모든 측정이 이 가정이었다).
 --
 -- ===== 재지 않는 것 ===================================================================
 --
@@ -52,7 +59,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
-local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 local ClickPadConfig = require(ReplicatedStorage.Shared.Config.ClickPadConfig)
 local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
 local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
@@ -60,6 +66,7 @@ local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local WarpConfig = require(ReplicatedStorage.Shared.Config.WarpConfig)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
+local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 
 local Schema = require(script.Parent.Parent.Data.Schema)
 
@@ -112,6 +119,9 @@ local MODEL = {
 	-- 공허 훈련 구역(로벅스 전용 기구)을 샀는가. 결정 모델은 false(무과금). true는 구매자 비교 줄 —
 	-- 처음부터 공허에서 GYM_TRAIN_SEC초 훈련한다(환생 기구보다 언제나 세다 — GymConfig.validate).
 	OWNS_VOID_ZONE = false,
+
+	-- 업그레이드 구매 규칙. "s5"가 결정 모델(2026-10-22 사람 결정 S5 — 파일 상단), "none"은 업그레이드 0 비교 줄.
+	UPGRADE_POLICY = "s5",
 }
 SuccessRateReport.MODEL = MODEL
 
@@ -132,6 +142,9 @@ local SIM = {
 
 	-- 서버 스크립트 시간 초과를 피하려고 이 런 수마다 한 번 양보한다.
 	YIELD_EVERY_RUNS = 200,
+
+	-- true면 run()이 결정 모델 · 업그레이드 0 · 업그레이드 TEMP 후보만 돈다(후보를 빨리 비교할 때). 커밋 값은 false.
+	UPGRADE_SWEEP_ONLY = false,
 }
 SuccessRateReport.SIM = SIM
 
@@ -158,10 +171,55 @@ export type Player = {
 	lastRunSec: number?,
 	warps: number,
 	warpStageSum: number,
+	upgrades: { [string]: number }, -- 업그레이드 레벨(노출 4종). 환생해도 남는다(S5)
+	upgradeSpent: BigNumber, -- 업그레이드에 쓴 블럭스 합(관측용)
 }
 
 local function copyBig(v: BigNumber): BigNumber
 	return BigNum.new(v.m, v.e)
+end
+
+-- ===== 업그레이드 (S5) =====================================================================
+
+-- 노출 4종 레벨 0. 비노출 4종은 시스템이 없어 넣지 않는다(상점 비노출).
+function SuccessRateReport.newUpgradeLevels(): { [string]: number }
+	local levels: { [string]: number } = {}
+	for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+		levels[name] = 0
+	end
+	return levels
+end
+
+-- S5: 예산 안에서 가장 싼 업그레이드부터 하나씩 산다(살 수 있는 것이 없을 때까지). 값이 같으면 SHOP_ORDER 앞쪽.
+-- 판정은 게임과 같은 UpgradeConfig.canBuy(최대 레벨 · 잔액). levels를 제자리에서 올린다. 쓴 양 · 산 횟수를 돌려준다.
+-- StandardPathReport도 이 함수를 부른다(규칙을 두 곳에 두지 않는다).
+function SuccessRateReport.buyCheapestFirst(levels: { [string]: number }, budget: BigNumber): (BigNumber, number)
+	local remaining = BigNum.new(budget.m, budget.e)
+	local spent = BigNum.new(0, 0)
+	local count = 0
+	while true do
+		local bestName: string? = nil
+		local bestCost: BigNumber? = nil
+		for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+			local ok, _reason, cost = UpgradeConfig.canBuy(name, levels[name] or 0, remaining)
+			if ok and cost ~= nil and (bestCost == nil or BigNum.lt(cost, bestCost :: BigNumber)) then
+				bestName, bestCost = name, cost
+			end
+		end
+		if bestName == nil or bestCost == nil then
+			break
+		end
+		remaining = BigNum.sub(remaining, bestCost)
+		spent = BigNum.add(spent, bestCost)
+		levels[bestName] = (levels[bestName] or 0) + 1
+		count += 1
+	end
+	return spent, count
+end
+
+-- 업그레이드 효과. 식은 UpgradeConfig.getEffect 하나(게임 · 상점 창과 같은 함수).
+function SuccessRateReport.effect(levels: { [string]: number }, name: string): number
+	return UpgradeConfig.getEffect(name, levels[name] or 0)
 end
 
 function SuccessRateReport.newPlayer(rng: Random): Player
@@ -185,6 +243,8 @@ function SuccessRateReport.newPlayer(rng: Random): Player
 		lastRunSec = nil,
 		warps = 0,
 		warpStageSum = 0,
+		upgrades = SuccessRateReport.newUpgradeLevels(),
+		upgradeSpent = BigNum.new(0, 0),
 	}
 end
 
@@ -222,7 +282,7 @@ end
 
 -- 스폰 → 입장 게이트. 걷는 동안 평소 속도로 클릭한다. 걸린 초를 돌려준다.
 function SuccessRateReport.walkToGate(p: Player): number
-	local speed = LevelConfig.getMaxSpeed(p.strength)
+	local speed = LevelConfig.getMaxSpeed(p.strength, SuccessRateReport.effect(p.upgrades, "moveSpeed"))
 	local sec = ArenaConfig.getSpawnToEntrance() / speed
 	addClicks(p, math.floor(p.clickRate * sec))
 	p.elapsedSec += sec
@@ -240,7 +300,8 @@ export type StageOutcome = { cleared: boolean, timeLeft: number, punches: number
 
 function SuccessRateReport.simulateStage(p: Player, stage: number, outOfRadiusSec: number, phase: number): StageOutcome
 	local timer = StageConfig.CHALLENGE_TIMER_SEC
-	local interval = 1 / AttackConfig.PUNCH_SPEED_BASE
+	local interval = 1 / SuccessRateReport.effect(p.upgrades, "punchSpeed")
+	local damageMultiplier = BigNum.fromNumber(SuccessRateReport.effect(p.upgrades, "punchDamage"))
 	local runClickRate = p.clickRate * MODEL.RUN_CLICK_FACTOR
 
 	local remaining = StageConfig.getTotalHp(stage)
@@ -258,7 +319,7 @@ function SuccessRateReport.simulateStage(p: Player, stage: number, outOfRadiusSe
 		addClicks(p, clicks)
 		t = nextPunch
 
-		remaining = BigNum.sub(remaining, p.strength)
+		remaining = BigNum.sub(remaining, BigNum.mul(p.strength, damageMultiplier))
 		punches += 1
 		if BigNum.lte(remaining, zero) then
 			p.elapsedSec += t
@@ -325,7 +386,7 @@ function SuccessRateReport.runOnce(
 	end
 	local gateAt = p.elapsedSec
 
-	local interval = 1 / AttackConfig.PUNCH_SPEED_BASE
+	local interval = 1 / SuccessRateReport.effect(p.upgrades, "punchSpeed")
 	local stage = startStage or 1
 	local best = 0
 
@@ -352,8 +413,8 @@ function SuccessRateReport.runOnce(
 		stage += 1
 	end
 
-	-- 수령. 보상은 갱신이라 도달한 층의 값 하나만 받는다.
-	local reward = StageConfig.getBloxReward(best)
+	-- 수령. 보상은 갱신이라 도달한 층의 값 하나만 받는다. 블럭스 획득 배수는 ChallengeService.payableReward와 같은 식.
+	local reward = BigNum.mul(StageConfig.getBloxReward(best), BigNum.fromNumber(SuccessRateReport.effect(p.upgrades, "bloxGain")))
 	p.blox = BigNum.add(p.blox, reward)
 	p.lifetimeBlox = BigNum.add(p.lifetimeBlox, reward)
 	p.lifeBlox = BigNum.add(p.lifeBlox, reward)
@@ -405,6 +466,11 @@ end
 
 -- RebirthService와 같은 대상: blox 0, 힘 초기값, rebirths 누적, lifeBlox 0 · 패드 1. lifetimeBlox 유지.
 local function rebirth(p: Player)
+	-- S5: 환생 직전 버려질 나머지로 업그레이드(나머지만 쓰므로 얻는 배수는 그대로다).
+	if MODEL.UPGRADE_POLICY == "s5" then
+		local spent = SuccessRateReport.buyCheapestFirst(p.upgrades, RebirthConfig.getLeftover(p.blox))
+		p.upgradeSpent = BigNum.add(p.upgradeSpent, spent)
+	end
 	p.rebirths = BigNum.add(p.rebirths, RebirthConfig.getGainedRebirths(p.blox))
 	p.blox = BigNum.new(0, 0)
 	p.strength = copyBig(Schema.new().strength)
@@ -425,6 +491,7 @@ export type PlayerResult = {
 	warps: number,
 	warpStageSum: number,
 	finalRebirthsLog10: number?, -- 최고층 첫 진입 시점의 환생 수(rebirths) 상용로그
+	upgrades: { [string]: number }, -- 끝났을 때 업그레이드 레벨
 }
 
 function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTry: { [number]: Tally }): PlayerResult
@@ -484,6 +551,7 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 		warps = p.warps,
 		warpStageSum = p.warpStageSum,
 		finalRebirthsLog10 = finalRebirthsLog10,
+		upgrades = p.upgrades,
 	}
 end
 
@@ -522,7 +590,8 @@ end
 -- 비교용 변형. ⚠️ 사람 결정 모델을 바꾸는 것이 아니라 "규칙이 결과를 얼마나 움직이는가"를
 -- 옆에 놓고 보는 자리다. 첫 줄(빈 덮어쓰기)이 사람 결정 모델이고 표 전체를 찍는다.
 local VARIANTS: { { label: string, override: { [string]: any } } } = {
-	{ label = "결정 모델 (남은 시간 50~90%)", override = {} },
+	{ label = "결정 모델 (남은 시간 50~90% · 업그레이드 S5)", override = {} },
+	{ label = "업그레이드 0 (비교 — 지시서 #7 이전 가정)", override = { UPGRADE_POLICY = "none" } },
 	{ label = "운동기구 안 씀 (비교)", override = { GYM_TRAIN_SEC = 0 } },
 	{ label = "공허 훈련 구역 구매자 (비교)", override = { OWNS_VOID_ZONE = true } },
 	{ label = "첫 결정 (남은 시간 10~50%)", override = { ADVANCE_THRESHOLD_MIN = 0.1, ADVANCE_THRESHOLD_MAX = 0.5 } },
@@ -562,9 +631,10 @@ local function runModel(label: string, full: boolean, compact: boolean?)
 
 	print(string.format("[SUCCESSRATE] ----- %s -----", label))
 	print(string.format(
-		"[SUCCESSRATE] 모델: 클릭 %g~%g/초 · 반경 밖 0~%g초/층 · 런 중 클릭 ×%g · 규칙 %s (문턱 %g~%g%%, 편차 ±%g%%p)",
+		"[SUCCESSRATE] 모델: 클릭 %g~%g/초 · 반경 밖 0~%g초/층 · 런 중 클릭 ×%g · 규칙 %s (문턱 %g~%g%%, 편차 ±%g%%p) · 업그레이드 %s",
 		MODEL.CLICK_RATE_MIN, MODEL.CLICK_RATE_MAX, MODEL.OUT_OF_RADIUS_MAX_SEC, MODEL.RUN_CLICK_FACTOR,
-		MODEL.ADVANCE_RULE, MODEL.ADVANCE_THRESHOLD_MIN * 100, MODEL.ADVANCE_THRESHOLD_MAX * 100, MODEL.ADVANCE_NOISE * 100
+		MODEL.ADVANCE_RULE, MODEL.ADVANCE_THRESHOLD_MIN * 100, MODEL.ADVANCE_THRESHOLD_MAX * 100, MODEL.ADVANCE_NOISE * 100,
+		MODEL.UPGRADE_POLICY
 	))
 	print(string.format(
 		"[SUCCESSRATE] 표본: 플레이어 %d · seed %d · 환생 인내 %d런 · 계산 %.1f초",
@@ -647,6 +717,18 @@ local function runModel(label: string, full: boolean, compact: boolean?)
 		if medRebirthLog ~= nil then string.format("10^%.2f", medRebirthLog) else "-",
 		tostring(MODEL.GYM_TRAIN_SEC)
 	))
+	if MODEL.UPGRADE_POLICY ~= "none" then
+		local parts = {}
+		for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+			local xs = {}
+			for _, r in ipairs(results) do
+				table.insert(xs, r.upgrades[name] or 0)
+			end
+			local m = median(xs)
+			table.insert(parts, string.format("%s %s", name, if m ~= nil then tostring(m) else "-"))
+		end
+		print("[SUCCESSRATE] 업그레이드 레벨 중앙값(끝났을 때, S5): " .. table.concat(parts, " · "))
+	end
 	if MODEL.WARP_POLICY ~= "none" then
 		print(string.format(
 			"[SUCCESSRATE] 워프: 런의 %.1f%% · 평균 목표층 %s · 가격 ×%g",
@@ -761,9 +843,58 @@ local WARP_VARIANTS: { { label: string, override: { [string]: any } } } = {
 	{ label = "워프 상한 · 가격 ×0.01", override = { WARP_POLICY = "greedy", WARP_PRICE_SCALE = 0.01 } },
 }
 
+-- 업그레이드 TEMP 후보 스윕 (지시서 #7 4단계). ⚠️ UpgradeConfig를 고치는 것이 아니라 메모리에서 잠깐 갈아끼운다
+-- (HP 곡선 후보와 같은 패턴). 끝나면 원래 값을 되돌린다. 후보는 결정 모델(S5)로만 돈다.
+-- 지시서 #7 "추가 권한": 최대 레벨 · 기준 비용 · 비용 증가율 · 펀치 데미지/블럭스 획득 증가량만 만진다.
+-- 펀치 속도 증가량은 S2 유도값이라 후보에 넣지 않는다(최대 레벨을 바꾸면 따라 바뀐다).
+export type UpgradeOverride = { [string]: { [string]: any } }
+SuccessRateReport.UPGRADE_VARIANTS = {
+	{ label = "U0  현재 UpgradeConfig", override = {} },
+	-- 조정 이력(2026-10-22, 지시서 #7 4단계 — 결정 모델 S5, 17~25층 합산. 목표 40~55% ±10%p):
+	--   첫 TEMP 기준 10 · 데미지/블럭스 0.1 → 68.7% (업그레이드 0은 47.8%)
+	--   1차: 기준 50 → 56.4 · 기준 100 → 58.4 · 0.05 → 56.3 · 증가율 1.3/1.35 → 62.8 · 펀치 속도만 못 사게(진단) → 66.8 · 0.05 + 기준 50 → 58.3
+	--   2차: 블럭스 못 사게(진단) → 65.1 · 데미지 못 사게(진단) → 57.1 (펀치 데미지가 주원인) · 0.03 → 60.3
+	--        0.05 + 기준 100 → 53.8 ← 채택(U10) · 0.05 + 증가율 1.3/1.35 → 58.1 · 최대 10레벨 → 69.1
+	--   3차: 데미지 0.03 · 블럭스 0.05 + 기준 100 → 57.4 · 0.05 + 기준 200 → 49.8 · 블럭스 0.1 → 61.2 · 무한 증가율 1.2 → 54.2
+	--   기준 200은 가운데에 더 가깝지만 25층까지 각 2레벨뿐이라 상점이 월드 1에서 거의 의미가 없다 → 기준 100(각 4레벨)을 골랐다(Claude 판단)
+	{ label = "첫 TEMP  기준 10 · 데미지/블럭스 0.1 (비교)", override = {
+		punchDamage = { baseCost = 10, effectPerLevel = 0.1 }, punchSpeed = { baseCost = 10 }, moveSpeed = { baseCost = 10 }, bloxGain = { baseCost = 10, effectPerLevel = 0.1 } } },
+	{ label = "기준 200 (비교)", override = {
+		punchDamage = { baseCost = 200 }, punchSpeed = { baseCost = 200 }, moveSpeed = { baseCost = 200 }, bloxGain = { baseCost = 200 } } },
+} :: { { label: string, override: UpgradeOverride } }
+
+-- override를 적용한 채 fn을 돈다. 에러가 나도 되돌린다. baseCost는 숫자로 적는다(BigNum.fromNumber로 바꾼다).
+function SuccessRateReport.withUpgradeOverride(override: UpgradeOverride, fn: () -> ())
+	local saved: { [string]: { [string]: any } } = {}
+	for name, fields in pairs(override) do
+		local def = (UpgradeConfig.Upgrades :: any)[name]
+		saved[name] = {}
+		for key, value in pairs(fields) do
+			saved[name][key] = { value = def[key] }
+			def[key] = if key == "baseCost" then BigNum.fromNumber(value) else value
+		end
+	end
+	local ok, err = pcall(function()
+		UpgradeConfig.validate()
+		fn()
+	end)
+	for name, fields in pairs(saved) do
+		local def = (UpgradeConfig.Upgrades :: any)[name]
+		for key, box in pairs(fields) do
+			def[key] = box.value
+		end
+	end
+	if not ok then
+		error(err)
+	end
+end
+
 function SuccessRateReport.run()
 	print("[SUCCESSRATE] ===== 확률적 플레이어 성공률 (4-2-f) =====")
 	for i, variant in ipairs(VARIANTS) do
+		if SIM.UPGRADE_SWEEP_ONLY and i > 2 then
+			break
+		end
 		local saved: { [string]: any } = {}
 		for k, v in pairs(variant.override) do
 			saved[k] = (MODEL :: any)[k]
@@ -775,33 +906,47 @@ function SuccessRateReport.run()
 		end
 	end
 
-	print("[SUCCESSRATE] ===== HP 곡선 후보 (결정 모델) =====")
-	local world = WorldConfig.get(SIM.WORLD_ID) :: WorldConfig.WorldDef
-	local original = world.hpGrowthSegments
-	for _, variant in ipairs(CURVE_VARIANTS) do
-		world.hpGrowthSegments = variant.segments
-		local ok, err = pcall(WorldConfig.validate)
-		if ok then
+	if SIM.UPGRADE_SWEEP_ONLY then
+		print("[SUCCESSRATE] (UPGRADE_SWEEP_ONLY — HP 곡선 · 워프 · 문턱 비교 건너뜀)")
+	else
+		print("[SUCCESSRATE] ===== HP 곡선 후보 (결정 모델) =====")
+		local world = WorldConfig.get(SIM.WORLD_ID) :: WorldConfig.WorldDef
+		local original = world.hpGrowthSegments
+		for _, variant in ipairs(CURVE_VARIANTS) do
+			world.hpGrowthSegments = variant.segments
+			local ok, err = pcall(WorldConfig.validate)
+			if ok then
+				runModel(variant.label, false, true)
+			else
+				print(string.format("[SUCCESSRATE] %s — 규약 위반으로 건너뜀: %s", variant.label, tostring(err)))
+			end
+		end
+		world.hpGrowthSegments = original
+
+		print("[SUCCESSRATE] ===== 워프 비교 (결정 모델 + 워프 상한 규칙) =====")
+		for _, variant in ipairs(WARP_VARIANTS) do
+			local saved: { [string]: any } = {}
+			for k, v in pairs(variant.override) do
+				saved[k] = (MODEL :: any)[k]
+				;(MODEL :: any)[k] = v
+			end
 			runModel(variant.label, false, true)
-		else
+			for k, v in pairs(saved) do
+				(MODEL :: any)[k] = v
+			end
+		end
+		printBandTable()
+	end
+
+	print("[SUCCESSRATE] ===== 업그레이드 TEMP 후보 (결정 모델 S5) =====")
+	for _, variant in ipairs(SuccessRateReport.UPGRADE_VARIANTS) do
+		local ok, err = pcall(SuccessRateReport.withUpgradeOverride, variant.override, function()
+			runModel(variant.label, false, true)
+		end)
+		if not ok then
 			print(string.format("[SUCCESSRATE] %s — 규약 위반으로 건너뜀: %s", variant.label, tostring(err)))
 		end
 	end
-	world.hpGrowthSegments = original
-
-	print("[SUCCESSRATE] ===== 워프 비교 (결정 모델 + 워프 상한 규칙) =====")
-	for _, variant in ipairs(WARP_VARIANTS) do
-		local saved: { [string]: any } = {}
-		for k, v in pairs(variant.override) do
-			saved[k] = (MODEL :: any)[k]
-			;(MODEL :: any)[k] = v
-		end
-		runModel(variant.label, false, true)
-		for k, v in pairs(saved) do
-			(MODEL :: any)[k] = v
-		end
-	end
-	printBandTable()
 	print("[SUCCESSRATE] 끝.")
 end
 

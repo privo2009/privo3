@@ -19,6 +19,8 @@ local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 local WarpConfig = require(ReplicatedStorage.Shared.Config.WarpConfig)
 local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local SuccessRateReport = require(ServerScriptService.Server.Tools.SuccessRateReport)
+local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
+local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
 
 local checkClose = TestHelpers.checkClose
 
@@ -322,6 +324,77 @@ do
 	local usedVoid = SuccessRateReport.trainAtGym(c, 10)
 	SuccessRateReport.MODEL.OWNS_VOID_ZONE = savedOwns
 	check("공허 구매자는 환생 0이어도 공허를 쓴다", void ~= nil and usedVoid == void, tostring(usedVoid))
+end
+
+-- 업그레이드 (S5 — 지시서 #7) ------------------------------------------------------------------
+do
+	check("결정 모델 업그레이드 규칙 = s5", SuccessRateReport.MODEL.UPGRADE_POLICY == "s5", tostring(SuccessRateReport.MODEL.UPGRADE_POLICY))
+	local fresh = SuccessRateReport.newPlayer(Random.new(10))
+	local allZero = true
+	local n = 0
+	for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+		n += 1
+		if fresh.upgrades[name] ~= 0 then
+			allZero = false
+		end
+	end
+	check("새 플레이어: 노출 4종 레벨 0", allZero and n == 4)
+	check("효과는 UpgradeConfig.getEffect 그대로", SuccessRateReport.effect({ punchSpeed = 5 }, "punchSpeed") == UpgradeConfig.getEffect("punchSpeed", 5))
+
+	-- 예산이 가장 싼 것보다 작으면 아무것도 안 산다
+	local cheapest = UpgradeConfig.getCostAtLevel(UpgradeConfig.SHOP_ORDER[1], 0)
+	for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+		local c = UpgradeConfig.getCostAtLevel(name, 0)
+		if BigNum.lt(c, cheapest) then
+			cheapest = c
+		end
+	end
+	local l0 = SuccessRateReport.newUpgradeLevels()
+	local spent0, count0 = SuccessRateReport.buyCheapestFirst(l0, BigNum.sub(cheapest, BigNum.fromNumber(1)))
+	check("S5: 예산 < 가장 싼 값이면 0개", count0 == 0 and BigNum.eq(spent0, BigNum.new(0, 0)))
+
+	-- 가장 싼 것부터: 매번 지금 레벨 기준으로 제일 싼 항목을 산다 → 쓴 양 ≤ 예산, 남은 예산으로는 아무것도 못 산다
+	local levels = SuccessRateReport.newUpgradeLevels()
+	local budget = BigNum.fromNumber(999)
+	local spent, count = SuccessRateReport.buyCheapestFirst(levels, budget)
+	check("S5: 쓴 양 ≤ 예산", BigNum.lte(spent, budget), BigNum.tostring(spent))
+	local left = BigNum.sub(budget, spent)
+	local canMore = false
+	for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+		if UpgradeConfig.canBuy(name, levels[name], left) then
+			canMore = true
+		end
+	end
+	check("S5: 남은 예산으로 더 살 수 있는 것이 없다", not canMore and count > 0, string.format("count=%d left=%s", count, BigNum.tostring(left)))
+	local sumLevels = 0
+	for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+		sumLevels += levels[name]
+	end
+	check("S5: 산 횟수 = 레벨 합", sumLevels == count)
+
+	-- 최대 레벨 항목은 건너뛴다
+	local maxed = SuccessRateReport.newUpgradeLevels()
+	maxed.punchSpeed = UpgradeConfig.Upgrades.punchSpeed.maxLevel :: number
+	SuccessRateReport.buyCheapestFirst(maxed, BigNum.fromNumber(999))
+	check("S5: 최대 레벨 항목은 더 안 산다", maxed.punchSpeed == UpgradeConfig.Upgrades.punchSpeed.maxLevel)
+
+	-- 예산 = 환생하면 버려질 나머지
+	check("getLeftover: 1999 → 999", BigNum.eq(RebirthConfig.getLeftover(BigNum.fromNumber(1999)), BigNum.fromNumber(999)))
+	check("getLeftover: 500 → 500 (환생 못 해도 전부 나머지)", BigNum.eq(RebirthConfig.getLeftover(BigNum.fromNumber(500)), BigNum.fromNumber(500)))
+	check("getLeftover: 3000 → 0", BigNum.eq(RebirthConfig.getLeftover(BigNum.fromNumber(3000)), BigNum.new(0, 0)))
+	check("getLeftover: 아주 크면 0 이상(음수 잡음 없음)", RebirthConfig.getLeftover(BigNum.new(1.234567, 30)).m >= 0)
+
+	-- 업그레이드 TEMP 후보 스윕: 갈아끼운 값은 끝나면 되돌아온다
+	local before = UpgradeConfig.Upgrades.punchDamage.effectPerLevel
+	local seen: number? = nil
+	SuccessRateReport.withUpgradeOverride({ punchDamage = { effectPerLevel = 0.5 } }, function()
+		seen = UpgradeConfig.Upgrades.punchDamage.effectPerLevel
+	end)
+	check("withUpgradeOverride: 안에서는 바뀐 값", seen == 0.5)
+	check("withUpgradeOverride: 끝나면 원래 값", UpgradeConfig.Upgrades.punchDamage.effectPerLevel == before)
+	local okErr = pcall(SuccessRateReport.withUpgradeOverride, { punchDamage = { costGrowth = 1 } }, function() end)
+	check("withUpgradeOverride: 규약 위반 후보는 에러 + 되돌림", not okErr and UpgradeConfig.Upgrades.punchDamage.costGrowth > 1)
+	check("업그레이드 스윕 단독 모드는 커밋 값 false", SuccessRateReport.SIM.UPGRADE_SWEEP_ONLY == false)
 end
 
 print(string.format("[SuccessRateReportTests] %d passed, %d failed", passed, failed))

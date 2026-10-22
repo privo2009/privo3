@@ -48,10 +48,12 @@ local UpgradeConfig = {}
 
 local Upgrades: { [string]: UpgradeDef } = {
 	-- ===== 1차 상점 (S0) =====
-	punchDamage = { exposed = true, maxLevel = nil, baseCost = BigNum.new(1, 1), costGrowth = 1.15, effectBase = 1, effectPerLevel = 0.1 }, -- TEMP
-	punchSpeed = { exposed = true, maxLevel = 20, baseCost = BigNum.new(1, 1), costGrowth = 1.2 }, -- TEMP(레벨·비용). 효과는 S2 유도
-	moveSpeed = { exposed = true, maxLevel = 20, baseCost = BigNum.new(1, 1), costGrowth = 1.2, effectBase = 0, effectPerLevel = 1 }, -- TEMP(레벨·비용)
-	bloxGain = { exposed = true, maxLevel = nil, baseCost = BigNum.new(1, 1), costGrowth = 1.15, effectBase = 1, effectPerLevel = 0.1 }, -- TEMP
+	-- TEMP — 지시서 #7 4단계 조정값(U10). 첫 TEMP(기준 비용 10 · 데미지/블럭스 0.1)는 S5 시뮬레이션에서 17~25층 68.7%로
+	-- 목표(40~55%)를 넘었다 → 기준 비용 100 · 데미지/블럭스 0.05로 53.8%. 이력 표는 DESIGN.md "7. 업그레이드 상점".
+	punchDamage = { exposed = true, maxLevel = nil, baseCost = BigNum.new(1, 2), costGrowth = 1.15, effectBase = 1, effectPerLevel = 0.05 }, -- TEMP
+	punchSpeed = { exposed = true, maxLevel = 20, baseCost = BigNum.new(1, 2), costGrowth = 1.2 }, -- TEMP(레벨·비용). 효과는 S2 유도
+	moveSpeed = { exposed = true, maxLevel = 20, baseCost = BigNum.new(1, 2), costGrowth = 1.2, effectBase = 0, effectPerLevel = 1 }, -- TEMP(레벨·비용)
+	bloxGain = { exposed = true, maxLevel = nil, baseCost = BigNum.new(1, 2), costGrowth = 1.15, effectBase = 1, effectPerLevel = 0.05 }, -- TEMP
 	-- radius(파괴 반경) 삭제됨: 데미지 오버플로우 도입으로 반경 개념 자체가 없어짐
 	-- (DESIGN.md 2장 "데미지 오버플로우" / 7장 업그레이드 상점). 펀치 데미지와 중복이었다.
 

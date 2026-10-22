@@ -97,6 +97,19 @@ function RebirthConfig.canRebirth(blox: BigNumber): boolean
 	return BigNum.gte(RebirthConfig.getGainedRebirths(blox), BigNum.fromNumber(1))
 end
 
+-- 환생하면 아무것도 되지 않고 버려지는 양 = 보유 − 얻는 배수 × 단가 (BLOX_PER_REBIRTH 미만 나머지).
+-- 환생 창("버려지는 양")과 시뮬레이터의 업그레이드 예산(지시서 #7 S5)이 같이 읽는다.
+-- 블럭스가 아주 크면(지수 11 이상 — floorBig이 내림을 안 한다) 나머지가 표현되지 않아 0이다. 음수 잡음도 0으로 접는다.
+function RebirthConfig.getLeftover(blox: BigNumber): BigNumber
+	local gained = RebirthConfig.getGainedRebirths(blox)
+	local spent = BigNum.mul(gained, BigNum.fromNumber(RebirthConfig.BLOX_PER_REBIRTH))
+	local leftover = BigNum.sub(blox, spent)
+	if leftover.m < 0 then
+		return zero()
+	end
+	return leftover
+end
+
 -- 테스트 전용 통로. 공개 API 계약이 아니므로 이 밖에서는 쓰지 말 것.
 -- (ClickService._pure / SpeedService._pure와 같은 패턴)
 RebirthConfig._pure = {
