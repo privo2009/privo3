@@ -73,6 +73,16 @@ ScreenController.open("PowerBlock")
 ScreenController.open("ShopSlots")
 ScreenController.open("AutoTools")
 
+-- 폰 대응 (Phase 6 지시서 #6) -------------------------------------------------------------
+-- 글자 높이 하한: 세 ScreenGui 전부(지금 있는 글자 + 나중에 열리는 창 · 오버레이 글자).
+-- 터치 조작 자리: 점프 버튼이 있으면 우하단 묶음을 그 위로 올린다(PC는 TouchGui가 없어 그대로).
+local TextMinimum = require(script.Parent.TextMinimum)
+local TouchSafeLayout = require(script.Parent.TouchSafeLayout)
+for _, gui in pairs(ScreenController._debug.guis) do
+	TextMinimum.attach(gui)
+end
+TouchSafeLayout.attach(ScreenController._debug.guis.Hud, { autoTools.root, shopSlots.root })
+
 -- ⚠️ 이 로그는 "register+open을 불렀다"는 뜻이지 "지금 화면에 떠 있다"는 보장이
 -- 아니다. 이후 다른 스크립트가 같은 이름을 close()하면(예전엔 ScreenControllerTests의
 -- closeAll()이 그랬다 — U3-4 사고, docs/PENDING.md 해소 기록 참고) 이 줄이 찍힌

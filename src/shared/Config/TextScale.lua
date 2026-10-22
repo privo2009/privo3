@@ -30,4 +30,11 @@ local Levels: { [Level]: LevelSpec } = {
 
 TextScale.Levels = Levels
 
+-- 글자 높이 하한(px). 단계 비율은 화면 높이를 따라 줄어서, 폰(Galaxy A06 시뮬레이션 HudGui 높이 280)에서
+-- 소 단계 라벨이 6~7px로 나와 읽히지 않았다(2026-10-22 실측). 로블록스 폰 GUI 픽셀은 포인트에 가깝고
+-- Apple HIG의 최소 가독 크기가 11pt라 11로 잡았다(Phase 6 지시서 #6 — Claude 판단, 세션 로그).
+-- UITextSizeConstraint.MinTextSize로 건다(UI/TextMinimum). Offset이 아니다 — 글자 크기 하한일 뿐 칸
+-- 크기 · 위치는 그대로 Scale이다.
+TextScale.MIN_TEXT_PX = 11
+
 return TextScale

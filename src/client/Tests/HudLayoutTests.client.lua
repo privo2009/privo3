@@ -64,6 +64,8 @@ local MenuRail = require(script.Parent.Parent.UI.Screens.Hud.MenuRail)
 local PowerBlock = require(script.Parent.Parent.UI.Screens.Hud.PowerBlock)
 local ShopSlots = require(script.Parent.Parent.UI.Screens.Hud.ShopSlots)
 local AutoTools = require(script.Parent.Parent.UI.Screens.Hud.AutoTools)
+local TouchSafeLayout = require(script.Parent.Parent.UI.TouchSafeLayout)
+local TextScale = require(game:GetService("ReplicatedStorage").Shared.Config.TextScale)
 
 local passed = 0
 local failed = 0
@@ -448,6 +450,20 @@ local function checkShopSlotsAndAutoToolsBudget()
 	check("AutoTools가 HudGui 아래 register+open돼 실물로 있다(예산 검증 전제)", autoRendered)
 
 	local hudSize = hud.AbsoluteSize
+	-- 터치 기기에서는 우하단 묶음이 점프 버튼 위로 올라간다(UI/TouchSafeLayout). 그때는 "하단 경계와 일치" 대신
+	-- "점프 버튼 윗변 - 간격보다 위"를 본다.
+	local jump = TouchSafeLayout.readJumpRect(hud)
+	local function bottomCheck(name: string, actualBottom: number, expectedBottom: number)
+		if jump == nil then
+			check(string.format("%s(오차<=%dpx)", name, SHOP_AUTO_PIXEL_TOLERANCE),
+				math.abs(actualBottom - expectedBottom) <= SHOP_AUTO_PIXEL_TOLERANCE,
+				string.format("actual=%.1f expected=%.1f", actualBottom, expectedBottom))
+		else
+			local limit = ((jump :: TouchSafeLayout.Rect).y0 - TouchSafeLayout.GAP) * hudSize.Y
+			check(name .. " — 터치 기기: 점프 버튼 위로 올라가 있다", actualBottom <= limit + SHOP_AUTO_PIXEL_TOLERANCE,
+				string.format("actual=%.1f limit=%.1f", actualBottom, limit))
+		end
+	end
 
 	if shopRendered and shopRoot ~= nil then
 		local expectedWidth = (Layout.RAIL_WIDTH - Layout.EDGE_MARGIN * 2) * hudSize.X
@@ -468,11 +484,7 @@ local function checkShopSlotsAndAutoToolsBudget()
 			math.abs(absSize.Y - expectedHeight) <= SHOP_AUTO_PIXEL_TOLERANCE,
 			string.format("actual=%d expected=%.1f", absSize.Y, expectedHeight)
 		)
-		check(
-			string.format("ShopSlots 하단이 하단 여백 경계와 일치한다(오차<=%dpx)", SHOP_AUTO_PIXEL_TOLERANCE),
-			math.abs(actualBottom - expectedBottom) <= SHOP_AUTO_PIXEL_TOLERANCE,
-			string.format("actual=%.1f expected=%.1f", actualBottom, expectedBottom)
-		)
+		bottomCheck("ShopSlots 하단이 하단 여백 경계와 일치한다", actualBottom, expectedBottom)
 	end
 
 	if autoRendered and autoRoot ~= nil then
@@ -495,14 +507,68 @@ local function checkShopSlotsAndAutoToolsBudget()
 			math.abs(absSize.Y - expectedHeight) <= SHOP_AUTO_PIXEL_TOLERANCE,
 			string.format("actual=%d expected=%.1f", absSize.Y, expectedHeight)
 		)
-		check(
-			string.format(
-				"AutoTools 하단이 하단 띠 경계(Y=0.75)와 일치한다 — 하단 띠 안이 아니라 그 경계 위다(오차<=%dpx)",
-				SHOP_AUTO_PIXEL_TOLERANCE
-			),
-			math.abs(actualBottom - expectedBottom) <= SHOP_AUTO_PIXEL_TOLERANCE,
-			string.format("actual=%.1f expected=%.1f", actualBottom, expectedBottom)
-		)
+		bottomCheck("AutoTools 하단이 하단 띠 경계(Y=0.75)와 일치한다 — 하단 띠 안이 아니라 그 경계 위다", actualBottom, expectedBottom)
+	end
+end
+
+-- 검사 9 — 글자 높이 하한 (Phase 6 지시서 #6). 제약에 하한이 걸려 있는가(화면 크기와 무관한 구조 검사)와
+-- 지금 화면에서 실제 글자 높이가 하한 이상인가.
+local function checkTextMinimum(hud: Instance)
+	local missing = 0
+	for _, obj in ipairs(hud:GetDescendants()) do
+		if obj:IsA("UITextSizeConstraint") then
+			local c = obj :: UITextSizeConstraint
+			if c.MinTextSize < math.min(TextScale.MIN_TEXT_PX, c.MaxTextSize) then
+				missing += 1
+			end
+		end
+	end
+	check(string.format("모든 UITextSizeConstraint에 글자 하한 %dpx가 걸려 있다", TextScale.MIN_TEXT_PX), missing == 0, tostring(missing) .. "개 빠짐")
+
+	local tooSmall = {}
+	for _, obj in ipairs(hud:GetDescendants()) do
+		if obj:IsA("TextLabel") and obj.Text ~= "" then
+			local label = obj :: TextLabel
+			local visible = true
+			local node: Instance? = label
+			while node ~= nil and node ~= hud do
+				if node:IsA("GuiObject") and not (node :: GuiObject).Visible then
+					visible = false
+				end
+				node = node.Parent
+			end
+			if visible and label.TextBounds.Y > 0 and label.TextBounds.Y < TextScale.MIN_TEXT_PX - 0.5 then
+				table.insert(tooSmall, string.format("%s=%.1f", label.Name, label.TextBounds.Y))
+			end
+		end
+	end
+	check(string.format("보이는 글자의 실제 높이가 %dpx 이상이다", TextScale.MIN_TEXT_PX), #tooSmall == 0, table.concat(tooSmall, ", "))
+end
+
+-- 검사 10 — 터치 조작 자리 (Phase 6 지시서 #6). TouchGui가 있을 때만 의미가 있다(PC Play에는 없다 →
+-- 건너뛰었다는 사실 하나만 기록). 점프 버튼과 조이스틱 휴지 자리를 실측 사각형으로, HUD 컴포넌트 전부와
+-- 화면 좌표로 비교한다.
+local function checkTouchControls(hud: ScreenGui)
+	local playerGui = game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	local touchGui = playerGui and playerGui:FindFirstChild("TouchGui")
+	if touchGui == nil then
+		check("터치 조작 검사: TouchGui 없음(PC) — 건너뜀", true)
+		return
+	end
+	local avoid = {}
+	for _, name in ipairs({ "JumpButton", "ThumbstickStart" }) do
+		local obj = touchGui:FindFirstChild(name, true)
+		if obj ~= nil and obj:IsA("GuiObject") and obj.Visible then
+			table.insert(avoid, { name = name, obj = obj :: GuiObject })
+		end
+	end
+	for _, comp in ipairs(hud:GetChildren()) do
+		if comp:IsA("GuiObject") and comp.Visible then
+			for _, a in ipairs(avoid) do
+				local w, h = rectIntersection(comp.AbsolutePosition, comp.AbsoluteSize, a.obj.AbsolutePosition, a.obj.AbsoluteSize)
+				check(string.format("터치: '%s'가 %s와 겹치지 않는다", comp.Name, a.name), w <= 0 or h <= 0, string.format("교차 %dx%dpx", w, h))
+			end
+		end
 	end
 end
 
@@ -554,29 +620,32 @@ task.defer(function()
 	local bounds = HudLayoutGate.computeUsableBounds(hud, viewportSize)
 	local modeText = string.format("IgnoreGuiInset=%s", tostring(hud.IgnoreGuiInset))
 
+	-- 0.5px 오차: 폰 해상도(705×338 시뮬레이션)에서 AbsPos.Y가 -0.x로 나와 "0 >= 0"이 실패로 찍혔다
+	-- (2026-10-22, 표시는 %d라 0으로 보였다). 픽셀 미만은 부동소수점 반올림이지 침범이 아니다.
+	local EDGE_EPS = 0.5
 	for _, rec in ipairs(records) do
 		local x0, y0 = rec.absPos.X, rec.absPos.Y
 		local x1, y1 = x0 + rec.absSize.X, y0 + rec.absSize.Y
 
 		check(
 			string.format("'%s' 상단이 사용 가능 영역 안쪽이다(top=%d, %s)", rec.path, bounds.top, modeText),
-			y0 >= bounds.top,
-			string.format("AbsPos.Y=%d 기준선=%d(%s)", y0, bounds.top, modeText)
+			y0 >= bounds.top - EDGE_EPS,
+			string.format("AbsPos.Y=%.2f 기준선=%d(%s)", y0, bounds.top, modeText)
 		)
 		check(
 			string.format("'%s' 하단이 사용 가능 영역 안쪽이다(bottom=%d, %s)", rec.path, bounds.bottom, modeText),
-			y1 <= bounds.bottom,
-			string.format("AbsPos.Y+AbsSize.Y=%d 기준선=%d(%s)", y1, bounds.bottom, modeText)
+			y1 <= bounds.bottom + EDGE_EPS,
+			string.format("AbsPos.Y+AbsSize.Y=%.2f 기준선=%d(%s)", y1, bounds.bottom, modeText)
 		)
 		check(
 			string.format("'%s' 좌측이 사용 가능 영역 안쪽이다(left=%d, %s)", rec.path, bounds.left, modeText),
-			x0 >= bounds.left,
-			string.format("AbsPos.X=%d 기준선=%d(%s)", x0, bounds.left, modeText)
+			x0 >= bounds.left - EDGE_EPS,
+			string.format("AbsPos.X=%.2f 기준선=%d(%s)", x0, bounds.left, modeText)
 		)
 		check(
 			string.format("'%s' 우측이 사용 가능 영역 안쪽이다(right=%d, %s)", rec.path, bounds.right, modeText),
-			x1 <= bounds.right,
-			string.format("AbsPos.X+AbsSize.X=%d 기준선=%d(%s)", x1, bounds.right, modeText)
+			x1 <= bounds.right + EDGE_EPS,
+			string.format("AbsPos.X+AbsSize.X=%.2f 기준선=%d(%s)", x1, bounds.right, modeText)
 		)
 	end
 
@@ -597,6 +666,12 @@ task.defer(function()
 
 	-- 검사 8 — 다른 컴포넌트끼리 겹침 (U3-10b) ------------------------------------------
 	checkCrossComponentOverlaps(hud, records)
+
+	-- 검사 9 — 글자 높이 하한 (지시서 #6) ----------------------------------------------------
+	checkTextMinimum(hud)
+
+	-- 검사 10 — 터치 조작 자리 (지시서 #6) ---------------------------------------------------
+	checkTouchControls(hud)
 
 	finish()
 end)
