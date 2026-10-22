@@ -34,7 +34,7 @@
 | `Systems/SpeedServiceTests.server.lua` | 21 | 요청값 클램프·입력 위생·환생 하향·최대치 상승 불변 |
 | `Systems/SpeedRequestServiceTests.server.lua` | 32 | 요청 빈도 상한·폐기·로그 억제·응답 payload |
 | `Systems/RebirthServiceTests.server.lua` | 71 | 거부 시 부작용 0·순서·누적·부분 실패·패드 되돌리기(11단계) ※ |
-| `Systems/WarpServiceTests.server.lua` | 73 | 거부 시 차감 0·차감이 런 시작보다 먼저·부분 실패 3종 ※ |
+| `Systems/WarpServiceTests.server.lua` | 84 | 거부 시 차감 0·차감이 런 시작보다 먼저·부분 실패 3종·W1 런 중 거부·W2 차감→이동→시작 순서·캐릭터 없음 거부·이동 실패에도 런 시작 ※ |
 | `Systems/AttackServiceTests.server.lua` | 73 | 반경 밖 미호출·이중 계산 방지·경계(float32 이웃)·방향 독립 |
 | `Tests/UiThemeTests.server.lua` | 33 | 색 역할 8종 존재·밝은/기본/어두운 3단계·Color3 타입 |
 | `Tests/AssetRegistryTests.server.lua` | 125 | 24종 등록·source/scaleType/placeholderRole 검증·resolve() 도착·미도착 판정 ※ |
@@ -50,7 +50,7 @@
 | `Tests/ChallengeInfoTests.client.lua` | 17 | 상단 정보 15% 안·타이머 특대 단계·active=false 레이아웃 유지 |
 | `Tests/MenuRailTests.client.lua` | 59 | 6개 생성·좌측 레일 폭·세로 합계·BloxDisplay 비침범·AspectRatio·라벨 2~4자·격자 열 수 구성값 ※ |
 | `Tests/HudVisibilityTests.client.lua` | 31 | PlayerGui 부착·Visible·Enabled·AbsoluteSize·10프레임 지속 관찰 ※ |
-| `Tests/HudLayoutTests.client.lua` | 407 | 뷰포트 게이트 뒤 실물 HudGui — 크기 0·인셋/뷰포트 경계 침범·형제 겹침·MenuRail 격자 배치(AbsolutePosition)·칸 안 자식·컴포넌트 간 겹침 ※ |
+| `Tests/HudLayoutTests.client.lua` | 410 | 뷰포트 게이트 뒤 실물 HudGui — 크기 0·인셋/뷰포트 경계 침범·형제 겹침·MenuRail 격자 배치(AbsolutePosition)·칸 안 자식·컴포넌트 간 겹침·글자 하한·터치 조작부 겹침 ※ |
 | `Tests/PowerBlockTests.client.lua` | 49 | 세 행 Y 범위·하단 띠·8자/4자 규격·진행률 경계·Store 구독 반영·다른 인스턴스 미유출 |
 | `Tests/ShopSlotsTests.client.lua` | 34 | 상점 4구좌 배치·ShopConfig 원본 참조 |
 | `Tests/AutoToolsTests.client.lua` | 28 | 자동 도구 아이콘 배치 |
@@ -66,10 +66,13 @@
 | `Tests/RunDeathServiceTests.server.lua` | 9 | 런 있음 abandon 1회·런 없음 0회·같은 죽음 두 번 차단·리스폰 뒤 새 죽음 |
 | `Systems/PlayerStateServiceTests.server.lua` | 33 | 상태 스냅샷 형태 · 직렬화 왕복 · 같음 비교 · 로드 시 1회 · 빈도 상한 · sync 모음(로드 전 요청 포함) · 리스폰 · 퇴장 |
 | `Tests/PlayerStateClientTests.client.lua` | 15 | payload 형태 판정 · Store 반영 · 틀린 payload 통째로 버림 |
-| `Tests/CoreScreensTests.client.lua` | 47 | 런 안내 · 로딩 판정, 3D 안내 내용(서버 · Config 원본), 화면 규칙(Offset 0 · 금지 구역 밖 · 층 순서 · 역할 색) |
+| `Tests/CoreScreensTests.client.lua` | 54 | 런 안내 · 로딩 판정, 3D 안내 내용(서버 · Config 원본), 화면 규칙(Offset 0 · 금지 구역 밖 · 층 순서 · 역할 색), 패드 표시 역할 3종 · 역할별 높이 |
 | `Systems/RebirthRequestServiceTests.server.lua` | 10 | 환생 요청 거부 경로(블럭스 부족 · 빈도 상한 · 부분 실패) · 성공 결과 형태 |
 | `Tests/RebirthWindowTests.client.lua` | 38 | 표시 값(서버와 같은 함수) · 사유 문구 · 확인 단계 없이는 요청 안 나감 · 잠김 · 창 규격 · 버튼 그림 ZIndex |
-| **합계** | **2485** | |
+| `Tests/TouchSafeLayoutTests.client.lua` | 13 | 폰 실측 사각형으로 겹침 판정(구좌 · 자동 도구 겹침, 힘 블록 안 겹침) · 점프 버튼 위로 올림 양(간격 포함) · 올릴 필요 없으면 0 · Scale 환산 |
+| `Systems/WarpRequestServiceTests.server.lua` | 12 | 워프 요청 payload 위생(invalid_stage) · 서버 거부 사유 그대로(W1 · 블럭스 부족) · 성공 결과 형태 · 빈도 상한 · 결과 매번 송신 |
+| `Tests/WarpWindowTests.client.lua` | 34 | 표시 값(WarpConfig.cost 원본) · 잠김(블럭스 부족 · W1 런 중) · 사유 문구 · 확인 단계 · 쪽 넘김 · 창 규격 |
+| **합계** | **2565** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -97,7 +100,20 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-10-22 Studio Play 런타임 실측 (전량, 환생 창 · REBIRTH_VERIFY 삭제 뒤 · 리포트 끈 Play).** 51개 행 전부가
+최근 갱신: **2026-10-22 Studio Play 런타임 실측 (전량, 지시서 #6 — 폰 결함 · 패드 표시 · 월드·워프 창 · 리포트 끈 Play).** 54개 행 전부가
+한 Play에 찍혔다. **2565 passed / 0 failed** — 서버 1556(34행) + 클라 1009(20행).
+
+```
+신설   TouchSafeLayoutTests         13          (fd6cf4d)
+       WarpRequestServiceTests      12          (f4fe428)
+       WarpWindowTests              34          (f4fe428)
+갱신   HudLayoutTests              407 → 410    글자 하한 · 터치 조작부 (fd6cf4d)
+       CoreScreensTests             47 →  54    패드 표시 역할 (55c3b05)
+       WarpServiceTests             73 →  84    W1 · W2 (f4fe428)
+유지   나머지 48행 (ChallengeInfoTests는 비교 방식만 바뀜, 17 그대로 — ab66959)
+```
+
+그 전 갱신: **2026-10-22 Studio Play 런타임 실측 (전량, 환생 창 · REBIRTH_VERIFY 삭제 뒤 · 리포트 끈 Play).** 51개 행 전부가
 한 Play에 찍혔다. **2485 passed / 0 failed** — 서버 1533 + 클라 952.
 
 ```
@@ -828,6 +844,11 @@ Prompt 3  배선        04c9dfd   Bootstrap의 WARP_VERIFY 블록 (검증 전용
 진입점은 Phase 6 UI(텔레포트 버튼 → 스테이지 선택창)에 붙인다
 (4-2-d 환생과 같은 판단이다).
 
+✅ **2026-10-22 진입점이 붙었다 (f4fe428, 지시서 #6).** 월드·워프 창 → `WarpRequest` →
+`WarpRequestService`(빈도 상한) → `WarpService.warp(player, stage, "ui")`. 서버가 다시 판정한다.
+W1(런 중 거부) · W2(차감 → 목표층 입구 이동 → 런 시작)가 함께 들어갔다 — 규칙은 `DESIGN.md` "워프 실행 규칙".
+Bootstrap `WARP_VERIFY_ENABLED` 블록은 같은 커밋에서 지웠다(잔재 조건 "Phase 6 UI 진입 후" 충족).
+
 `cost(목표층)`은 수식이고 `canWarp(보유블럭스, 목표층)`이 정책이다. 범위 밖 층은
 `cost`에서 값이 나오고 `canWarp`이 거부한다 — 상한은 숫자가 아니라
 `StageConfig.hasStage`를 통해 `WorldConfig`에서 파생되므로 월드 2가 추가되면
@@ -1265,20 +1286,22 @@ U3-5(힘·레벨·속도 블록, `PowerBlock`) · U3-6(로벅스 구좌 `ShopSlo
 MCP로 기기 해상도를 바꿀 수 없다) 하나다(→ `docs/PENDING.md` "다음 Play 검증 순서 (U3-8)").
 
 ```
-상태 (2026-10-22, 지시서 #5 뒤)
+상태 (2026-10-22, 지시서 #6 뒤)
 U0 · U1   완료
 U2        G1 통과(2026-08-23), G2(패널 2층) 대기. PNG 제작은 이제 지환 · 희준 둘 다(사람 결정)
 U3        완료 — HUD 7종 · Play 확인 · U3-10b · 모바일 9번(Galaxy A06 시뮬레이션) 통과,
           HUD가 서버 값을 보인다(PlayerState 채널, f28f8b0). G4(세이프존)는 G1~G3 뒤
+          폰 결함 수정(fd6cf4d) — 점프 버튼 자리 비키기 · 글자 하한 11px. 패드 표시 3장(55c3b05)
 U4        완료 — 로딩 · 클리어 안내 · 실패 · 3D 안내 4종(3229ce0). 걸어서 1→8층 한 판 확인
 환생 창   완료 — 메뉴 "환생" → 작은 창, 두 번 누름 확인, 서버 재판정(6e5c27d). 실제 환생은 아직 안 해 봤다
           (개발 계정 블럭스 부족 + 사람 승인 필요)
-워프      메뉴 칸만 있다. 월드 · 워프 창 없음
-U5 · U6   미착수
+워프 창   완료 — 메뉴 "워프" → 작은 창, 층 목록 · 두 번 누름 확인 · 서버 재판정 · W1/W2(f4fe428).
+          Play에서 1층 워프 1회 실행(32 → 22 블럭스, 1층 입구로 이동, 런 시작)
+U5 · U6   미착수. U5 상점은 수치 결정이 먼저다(`docs/PENDING.md` "상점 착수 전 결정")
 ```
 
-**다음: 사람이 직접 한 판(실플레이로 볼 것 — `docs/PENDING.md`) → 월드 · 워프 창(U7) → U5 상점.**
-(지시서 #4의 "U3 화면 확인 → U3-10b → U4 → 환생 창"은 지시서 #5로 전부 끝났다.)
+**다음: 사람이 직접 한 판(실플레이로 볼 것 — `docs/PENDING.md`) → 상점 수치 결정(사람) → U5 상점.**
+(지시서 #5의 "월드 · 워프 창(U7)"은 지시서 #6으로 끝났다.)
 
 ⚠️ 이 단계가 전체에서 가장 오래 걸린다
 
