@@ -118,6 +118,10 @@ AttackService.init()
 local RebirthService = require(script.Parent.Systems.RebirthService)
 RebirthService.init()
 
+-- 환생 창의 요청 채널 (Phase 6 지시서 #5). RebirthService.init() 뒤 — 요청을 그쪽으로 넘긴다.
+local RebirthRequestService = require(script.Parent.Systems.RebirthRequestService)
+RebirthRequestService.init()
+
 -- 플레이어 상태 채널을 연다 (Phase 6 지시서 #5 — HUD가 서버 값을 보인다).
 -- ⚠️ 순서: ProfileManager · PadService · SpeedService · ChallengeService가 준비된 뒤여야 한다.
 -- 스냅샷은 그 넷에서 읽고, 접속 직후 런 상태 sync는 ChallengeService.syncRunState가 보낸다.

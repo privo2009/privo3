@@ -12,6 +12,8 @@
 --   SpeedApplied    서버→클라. 실제 적용된 속도 + 현재 최대치 (4-2-c)
 --   PlayerState     서버→클라. 플레이어 상태 전체 스냅샷 (Phase 6). 바뀔 때만, 플레이어당 빈도 상한
 --   SyncRequest     클라→서버. "지금 상태를 다시 보내 달라" (Phase 6). 접속 직후 동기화용
+--   RebirthRequest  클라→서버. 환생 창의 환생 요청 (Phase 6). 서버가 다시 판정한다
+--   RebirthResult   서버→클라. 그 요청의 결과(성공 / 거부 사유 코드)
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --
@@ -55,6 +57,7 @@ local RunService = game:GetService("RunService")
 
 -- payload 타입의 실제 정의처. 이 모듈은 별칭만 다시 export한다.
 local GameTypes = require(script.Parent.GameTypes)
+local BigNum = require(script.Parent.BigNum)
 
 local Remotes = {}
 
@@ -69,6 +72,8 @@ Remotes.SPEED_REQUEST = "SpeedRequest"
 Remotes.SPEED_APPLIED = "SpeedApplied"
 Remotes.PLAYER_STATE = "PlayerState"
 Remotes.SYNC_REQUEST = "SyncRequest"
+Remotes.REBIRTH_REQUEST = "RebirthRequest"
+Remotes.REBIRTH_RESULT = "RebirthResult"
 
 -- ===== payload 타입 ====================================================================
 --
@@ -221,6 +226,22 @@ export type PlayerStatePayload = PlayerStateView
 -- payload에 결과값을 담지 않는다(규약 2) — 비어 있는 테이블이다. 빈도는 서버가 자른다(규약 3).
 export type SyncRequestPayload = {}
 
+-- RebirthRequest: 환생해 달라 (클라 → 서버). payload는 비어 있다 — 규약 2(결과값 금지). 얻을 배수를
+-- 클라가 실어 보내지 않는다. 서버가 RebirthService.rebirth 안에서 canRebirth로 다시 판정한다.
+-- 확인 단계(두 번 누름)는 클라 화면의 일이다 — 서버는 요청 하나를 환생 하나로 본다.
+-- 빈도는 서버가 자른다(규약 3, Server/Systems/RebirthRequestService).
+export type RebirthRequestPayload = {}
+
+-- RebirthResult: 환생 요청의 결과 (서버 → 클라). 바뀐 값(블럭스 · 배수 · 힘)은 PlayerState가 따로 보낸다.
+--   ok      true면 환생됨
+--   reason  거부 사유 코드(RebirthService.REASON_* 또는 "rate_limited"). 성공이면 ""
+--   gained  얻은 배수. 거부면 0 (선택 필드 금지 — nil인 키는 직렬화에서 사라진다)
+export type RebirthResultPayload = {
+	ok: boolean,
+	reason: string,
+	gained: BigNum.BigNumber,
+}
+
 export type Channels = {
 	blockDamaged: RemoteEvent,
 	runStateChanged: RemoteEvent,
@@ -230,6 +251,8 @@ export type Channels = {
 	speedApplied: RemoteEvent,
 	playerState: RemoteEvent,
 	syncRequest: RemoteEvent,
+	rebirthRequest: RemoteEvent,
+	rebirthResult: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -286,6 +309,8 @@ function Remotes.getServer(): Channels
 		speedApplied = ensureEvent(folder, Remotes.SPEED_APPLIED),
 		playerState = ensureEvent(folder, Remotes.PLAYER_STATE),
 		syncRequest = ensureEvent(folder, Remotes.SYNC_REQUEST),
+		rebirthRequest = ensureEvent(folder, Remotes.REBIRTH_REQUEST),
+		rebirthResult = ensureEvent(folder, Remotes.REBIRTH_RESULT),
 	}
 	cached = channels
 	return channels
@@ -328,6 +353,8 @@ function Remotes.getClient(): Channels
 		speedApplied = waitFor(folder, Remotes.SPEED_APPLIED) :: RemoteEvent,
 		playerState = waitFor(folder, Remotes.PLAYER_STATE) :: RemoteEvent,
 		syncRequest = waitFor(folder, Remotes.SYNC_REQUEST) :: RemoteEvent,
+		rebirthRequest = waitFor(folder, Remotes.REBIRTH_REQUEST) :: RemoteEvent,
+		rebirthResult = waitFor(folder, Remotes.REBIRTH_RESULT) :: RemoteEvent,
 	}
 	cached = channels
 	return channels
