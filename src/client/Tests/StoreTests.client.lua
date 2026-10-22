@@ -217,50 +217,23 @@ do
 	)
 end
 
--- 7. 싱글톤이 여전히 살아 있고 동작한다 (실물 HUD 경로) -------------------------------
+-- 7. 싱글톤이 여전히 살아 있다 (실물 HUD 경로) ------------------------------------------
 --
--- 격리를 만드느라 실물 경로를 끊어먹지 않았는지 본다. maxStage를 쓰는 이유는
--- 이 키를 읽는 HUD가 하나도 없기 때문이다(grep 확인) — strength/walkSpeed였다면
--- 여기서 잠깐 바꾸는 동안 실물 PowerBlock이 그 값을 그리게 되고, PowerBlockTests와
--- 다시 경쟁하게 된다. 그래도 끝에서 더미값으로 되돌린다.
-
--- ⚠️ 싱글톤은 Phase 6부터 서버 PlayerState가 채운다. 이 테스트가 돌 때 이미 실값이 와 있을 수
---    있으므로 "더미값이다"를 전제하지 않고, 바꾸기 전 값을 기억했다가 그 값으로 되돌린다
---    (예전처럼 더미 17로 되돌리면 실값을 덮어쓴다 — 서버는 바뀐 값만 보내므로 그대로 남는다).
+-- ⚠️ 싱글톤에 값을 쓰지 않는다. Phase 6(지시서 #5)부터 싱글톤은 서버 PlayerState가 채운다 —
+--    테스트가 쓰고 yield하는 사이 실값이 들어와 검사가 깨졌고(2026-10-22 Play: 기대 20, 실제 7),
+--    되돌리면 실값을 덮는다. 그래서 API가 살아 있는지와, 자기 인스턴스 변경이 싱글톤으로 새지
+--    않는지만 본다. 누수 검사는 yield 없이 한다 — 그 사이에는 이벤트가 끼어들 수 없다.
 do
 	check("Store.new가 함수다", type(Store.new) == "function")
+	check("싱글톤 get이 maxStage(number)를 돌려준다", type(Store.get("maxStage")) == "number")
+	check("싱글톤 subscribe · unsubscribe · setSource가 함수다",
+		type(Store.subscribe) == "function" and type(Store.unsubscribe) == "function" and type(Store.setSource) == "function")
+
 	local before = Store.get("maxStage")
-	check("싱글톤 get이 maxStage(number)를 돌려준다", type(before) == "number")
-
-	local received: number? = nil
-	local handle = Store.subscribe("maxStage", function(value: any)
-		received = value :: number
-	end)
-
-	Store.setSource(function(setter)
-		setter("maxStage", 20)
-	end)
-	task.wait()
-
-	check("싱글톤 구독자가 새 값으로 불린다", received == 20, tostring(received))
-	check("싱글톤 상태가 갱신된다", checkClose(Store.get("maxStage"), 20))
-
-	Store.unsubscribe(handle)
-
-	-- 자기 인스턴스의 변경이 싱글톤으로 새지 않는다. 이번 사고의 정확한 반대 방향
-	-- 검사다 — store는 4절에서 maxStage=21이 됐지만 싱글톤은 20 그대로여야 한다.
 	store.setSource(function(setter)
-		setter("maxStage", 4321)
+		setter("maxStage", before + 4321)
 	end)
-	task.wait()
-	check("자기 인스턴스 변경이 싱글톤으로 새지 않는다", checkClose(Store.get("maxStage"), 20))
-
-	-- 원상 복구 (싱글톤은 실물 HUD가 계속 쓴다). 더미가 아니라 바꾸기 전 값으로.
-	Store.setSource(function(setter)
-		setter("maxStage", before)
-	end)
-	task.wait()
-	check("싱글톤이 바꾸기 전 값으로 복구된다", checkClose(Store.get("maxStage"), before))
+	check("자기 인스턴스 변경이 싱글톤으로 새지 않는다 (yield 없음)", Store.get("maxStage") == before)
 end
 
 print(string.format("[StoreTests] %d passed, %d failed", passed, failed))
