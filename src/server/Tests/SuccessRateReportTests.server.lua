@@ -406,6 +406,112 @@ do
 	check("걷는 동안 클릭 없음: 힘 그대로 · 시간은 더한다", ok and BigNum.eq(walker.strength, before) and checkClose(walker.elapsedSec, sec :: number))
 end
 
+-- 칭호 행동 모델 S7 (지시서 #10 6단계) --------------------------------------------------------------
+do
+	local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
+	local T = TitleConfig.Titles
+	local N = #T
+	check("결정 모델 칭호 규칙 = s7 · 자동 롤 기준 10%", MODEL.TITLE_POLICY == "s7" and MODEL.TITLE_AUTO_SHARE == 0.10)
+	check("칭호 스윕 단독 모드는 커밋 값 false", SuccessRateReport.SIM.TITLE_SWEEP_ONLY == false)
+
+	local p = SuccessRateReport.newPlayer(Random.new(5))
+	check("새 플레이어: 칭호 없음 · 자동 롤 끔 · 배수 1", p.titleIndex == 0 and p.autoRoll == false and SuccessRateReport.titleMult(p) == 1)
+	p.titleIndex = N
+	check("칭호 배수 = TitleConfig 값", SuccessRateReport.titleMult(p) == T[N].mult)
+	MODEL.TITLE_POLICY = "none"
+	local noneMult = SuccessRateReport.titleMult(p)
+	MODEL.TITLE_POLICY = "s7"
+	check("칭호 없음 모델에서는 배수 1", noneMult == 1)
+
+	-- 자동 롤 켜기 판단: 비용 ≤ 벌이 × 10%
+	local cost = SuccessRateReport.autoRollCostPerSec()
+	local q = SuccessRateReport.newPlayer(Random.new(6))
+	SuccessRateReport.decideAutoRoll(q)
+	check("판단 재료가 없으면 그대로(끔)", q.autoRoll == false)
+	local runSec = 10
+	local atThreshold = BigNum.mul(BigNum.div(cost, BigNum.fromNumber(MODEL.TITLE_AUTO_SHARE)), BigNum.fromNumber(runSec))
+	q.lastRunReward, q.lastRunSec, q.lastBest = BigNum.mul(atThreshold, BigNum.fromNumber(1.001)), runSec, 7
+	q.elapsedSec = 120
+	SuccessRateReport.decideAutoRoll(q)
+	check("벌이가 기준 바로 위 → 켠다 · 켠 시각 · 층 기록", q.autoRoll and q.autoOnSec == 120 and q.autoOnStage == 7)
+	q.lastRunReward = BigNum.mul(atThreshold, BigNum.fromNumber(0.999))
+	SuccessRateReport.decideAutoRoll(q)
+	check("벌이가 기준 바로 아래 → 끈다 · 처음 켠 시각은 남는다", not q.autoRoll and q.autoOnSec == 120)
+	q.lastRunReward = BigNum.new(0, 0)
+	q.autoRoll = true
+	SuccessRateReport.decideAutoRoll(q)
+	check("실패한 런(보상 0)으로는 바꾸지 않는다", q.autoRoll == true)
+
+	-- 자동 롤 지출 · 장착
+	local r = SuccessRateReport.newPlayer(Random.new(7))
+	r.autoRoll = true
+	r.titleRandom = function()
+		return 0 -- 가장 높은 등급부터 걸린다
+	end
+	r.blox = BigNum.mul(TitleConfig.ROLL_COST, BigNum.fromNumber(3.5))
+	local rolled = SuccessRateReport.spendAutoRolls(r, TitleConfig.ROLL_INTERVAL_SEC * 5)
+	check("자동 롤: 간격 5개 · 돈은 3.5회분 → 3회만 굴리고 남은 틱은 건너뛴다", rolled == 3 and r.titleRolls == 3,
+		tostring(rolled))
+	check("자동 롤: 지갑에서 뺀다", BigNum.eq(r.blox, BigNum.mul(TitleConfig.ROLL_COST, BigNum.fromNumber(0.5))))
+	check("자동 롤: 더 높은 등급 → 장착", r.titleIndex == N)
+	r.titleRandom = function()
+		return 0.999999 -- 폴백
+	end
+	r.blox = BigNum.mul(TitleConfig.ROLL_COST, BigNum.fromNumber(2))
+	SuccessRateReport.spendAutoRolls(r, TitleConfig.ROLL_INTERVAL_SEC * 2)
+	check("자동 롤: 낮은 결과로 장착이 내려가지 않는다", r.titleIndex == N)
+	local half = SuccessRateReport.newPlayer(Random.new(8))
+	half.autoRoll, half.titleRandom, half.blox = true, r.titleRandom, BigNum.fromNumber(1e6)
+	check("자동 롤: 간격 반 개는 다음으로 넘긴다", SuccessRateReport.spendAutoRolls(half, TitleConfig.ROLL_INTERVAL_SEC * 0.5) == 0
+		and SuccessRateReport.spendAutoRolls(half, TitleConfig.ROLL_INTERVAL_SEC * 0.5) == 1)
+	local off = SuccessRateReport.newPlayer(Random.new(9))
+	off.titleRandom, off.blox = r.titleRandom, BigNum.fromNumber(1e6)
+	check("자동 롤 끔이면 굴리지 않는다", SuccessRateReport.spendAutoRolls(off, 100) == 0)
+
+	-- 칭호 배수가 클릭 힘과 수령액에 한 번씩 들어간다
+	local function walkGain(index: number): BigNum.BigNumber
+		local w = SuccessRateReport.newPlayer(Random.new(12))
+		w.titleIndex = index
+		local before = w.strength
+		SuccessRateReport.walkToGate(w)
+		return BigNum.sub(w.strength, before)
+	end
+	local plain, titled = walkGain(0), walkGain(N)
+	check("클릭 힘: 칭호 배수만큼 (한 번)", math.abs(BigNum.toRatio(titled, plain) - T[N].mult) < 0.05,
+		string.format("%.4f vs %.4f", BigNum.toRatio(titled, plain), T[N].mult))
+
+	local function cashoutReward(index: number): BigNum.BigNumber
+		local c = SuccessRateReport.newPlayer(Random.new(13))
+		c.strength = BigNum.new(1, 300)
+		c.advanceThreshold = 2 -- 절대 진행하지 않는다 → 1층 수령
+		c.titleIndex = index
+		local before = c.blox
+		withoutRunClicks(function()
+			SuccessRateReport.runOnce(c, Random.new(14), {}, {})
+		end)
+		return BigNum.sub(c.blox, before)
+	end
+	local base, boosted = cashoutReward(0), cashoutReward(N)
+	check("수령액: 층 보상 × 칭호 배수 (한 번)", math.abs(BigNum.toRatio(boosted, base) - T[N].mult) < 1e-9,
+		string.format("%.6f", BigNum.toRatio(boosted, base)))
+
+	-- 배수 후보 갈아끼우기: 끝나면 되돌린다 · 권한 밖(최고 > 3.0)은 거부
+	local orig = T[N].mult
+	local seenTop: number? = nil
+	local cand = {}
+	for i, def in ipairs(T) do
+		cand[i] = def.mult
+	end
+	cand[N] = 2.5
+	SuccessRateReport.withTitleMults(cand, function()
+		seenTop = T[N].mult
+	end)
+	check("withTitleMults: 안에서는 후보 값 · 끝나면 원래 값", seenTop == 2.5 and T[N].mult == orig)
+	cand[N] = 3.5
+	local okBig = pcall(SuccessRateReport.withTitleMults, cand, function() end)
+	check("withTitleMults: 최고 ×3.0 초과 후보는 거부 + 되돌림", not okBig and T[N].mult == orig)
+end
+
 print(string.format("[SuccessRateReportTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[SuccessRateReportTests] %d test(s) failed", failed))

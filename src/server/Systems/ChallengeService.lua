@@ -143,6 +143,8 @@ end
 local function combineBloxMultiplier(sources: BloxSources): number
 	return factorOr1(sources.bloxGain) * factorOr1(sources.titleMult)
 end
+-- 시뮬레이터(SuccessRateReport)도 이 함수를 부른다 — 결합 식을 두 곳에 두지 않는다.
+ChallengeService.combineBloxMultiplier = combineBloxMultiplier
 
 local function payableReward(baseReward: BigNumber, bloxMultiplier: number): BigNumber
 	if bloxMultiplier == 1 then
