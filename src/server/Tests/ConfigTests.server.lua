@@ -163,6 +163,59 @@ check("ShopConfig: 힘 배수 게임패스는 최고 단계만 적용된다", fu
 	return mult == 1024
 end)
 
+-- TitleConfig validate가 규칙 위반을 잡는다 (지시서 #10 G5) — 표를 잠깐 바꿨다가 되돌린다 ---------------
+local function titleValidateRejects(mutate: (any) -> ()): boolean
+	local titles = TitleConfig.Titles :: any
+	local saved = {}
+	for i, def in ipairs(titles) do
+		saved[i] = table.clone(def)
+	end
+	local savedLen = #titles
+	mutate(titles)
+	local ok = pcall(TitleConfig.validate)
+	for i = 1, math.max(#titles, savedLen) do
+		titles[i] = saved[i]
+	end
+	return not ok
+end
+
+check("TitleConfig.validate: 폴백에 확률이 있으면 거부", function()
+	return titleValidateRejects(function(t)
+		t[1].baseChance = 0.5
+	end)
+end)
+check("TitleConfig.validate: 폴백 배수가 1이 아니면 거부", function()
+	return titleValidateRejects(function(t)
+		t[1].mult = 1.01
+	end)
+end)
+check("TitleConfig.validate: 배수가 단조 증가가 아니면 거부", function()
+	return titleValidateRejects(function(t)
+		t[3].mult = t[2].mult
+	end)
+end)
+check("TitleConfig.validate: 높은 등급 확률이 더 크면 거부", function()
+	return titleValidateRejects(function(t)
+		t[#t].baseChance = t[2].baseChance
+	end)
+end)
+check("TitleConfig.validate: 폴백 제외 확률 합 > 1이면 거부", function()
+	return titleValidateRejects(function(t)
+		t[2].baseChance = 0.999
+		t[3].baseChance = 0.99
+	end)
+end)
+check("TitleConfig.validate: 되돌린 뒤 원래 표는 통과", function()
+	return TitleConfig.validate()
+end)
+check("TitleConfig: 폴백 id로 조회 · 높은 등급 비교", function()
+	local t = TitleConfig.Titles
+	local def, i = TitleConfig.get(t[1].id)
+	return def == t[1] and i == 1 and TitleConfig.get("ghost") == nil
+		and TitleConfig.isHigher(t[2].id, t[1].id) and not TitleConfig.isHigher(t[1].id, t[2].id)
+		and TitleConfig.isHigher(t[1].id, false) and not TitleConfig.isHigher("ghost", false)
+end)
+
 -- 파생 함수 (v5, 지시서 #10 S12 · S13) -------------------------------------------------------
 
 check("PetConfig.getSlots: 기본 · 업그레이드 · 게임패스 · 상한", function()

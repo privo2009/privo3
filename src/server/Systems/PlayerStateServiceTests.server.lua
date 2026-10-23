@@ -120,6 +120,30 @@ do
 	check("업그레이드: JSON 왕복 뒤에도 같다", ok and pure.snapshotsEqual(snap, HttpService:JSONDecode(encoded)))
 end
 
+-- 3c. 칭호 요약 (지시서 #10) -------------------------------------------------------------
+do
+	local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
+	local T = TitleConfig.Titles
+	local data = sampleData()
+	data.cosmetics.ownedTitles[T[3].id] = true
+	data.cosmetics.ownedTitles[T[2].id] = true
+	data.cosmetics.equippedTitle = T[3].id
+	local snap = pure.buildSnapshot(data, 20, 36, 3)
+	check("칭호: 요약이 실린다 (owned 희귀도 순 · equipped · autoRoll)",
+		type(snap.titles) == "table" and #snap.titles.owned == 2 and snap.titles.owned[1] == T[2].id
+			and snap.titles.equipped == T[3].id and snap.titles.autoRoll == false)
+	local base = pure.buildSnapshot(sampleData(), 20, 36, 3)
+	check("칭호: 빈 프로필은 owned {} · equipped \"\" (선택 필드 없음)", #base.titles.owned == 0 and base.titles.equipped == "")
+	check("비교: 칭호 보유가 다르면 다르다", not pure.snapshotsEqual(base, snap))
+	local auto = sampleData()
+	auto.rolling.autoRollTitle = true
+	check("비교: 자동 롤 토글이 다르면 다르다", not pure.snapshotsEqual(base, pure.buildSnapshot(auto, 20, 36, 3)))
+	local ok, encoded = pcall(HttpService.JSONEncode, HttpService, snap)
+	check("칭호: JSON 왕복 뒤에도 같다", ok and pure.snapshotsEqual(snap, HttpService:JSONDecode(encoded)))
+	local okEmpty, encEmpty = pcall(HttpService.JSONEncode, HttpService, base)
+	check("칭호: 빈 owned도 JSON 왕복 뒤 같다", okEmpty and pure.snapshotsEqual(base, HttpService:JSONDecode(encEmpty)))
+end
+
 -- 4. 런타임 — 로드 시 1회 · 바뀔 때만 · 빈도 상한 -----------------------------------------
 local fakePlayer: any = { Name = "PlayerStateTest", UserId = 1 }
 

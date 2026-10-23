@@ -34,6 +34,8 @@ local SpeedService = require(script.Parent.SpeedService)
 local ChallengeService = require(script.Parent.ChallengeService)
 -- 업그레이드 레벨(지시서 #7). 저장값 읽기 규칙은 UpgradeService.readLevels가 원본이다.
 local UpgradeService = require(script.Parent.UpgradeService)
+-- 칭호 요약(지시서 #10). 읽기 규칙은 TitleService.summarize가 원본이다.
+local TitleService = require(script.Parent.TitleService)
 
 type BigNumber = BigNum.BigNumber
 type PlayerStateView = Remotes.PlayerStateView
@@ -81,7 +83,27 @@ local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number
 		maxStage = finiteOr(progress.maxStage, 1),
 		padIndex = finiteOr(padIndex, 1),
 		upgrades = UpgradeService.readLevels(data),
+		titles = TitleService.summarize(data),
 	}
+end
+
+-- 칭호 요약이 같은가. owned는 희귀도 순으로 만들어지므로 순서까지 같으면 같다.
+local function titlesEqual(a: any, b: any): boolean
+	if type(a) ~= "table" or type(b) ~= "table" then
+		return a == b
+	end
+	if a.equipped ~= b.equipped or a.autoRoll ~= b.autoRoll then
+		return false
+	end
+	if type(a.owned) ~= "table" or type(b.owned) ~= "table" or #a.owned ~= #b.owned then
+		return false
+	end
+	for i, id in ipairs(a.owned) do
+		if b.owned[i] ~= id then
+			return false
+		end
+	end
+	return true
 end
 
 -- 업그레이드 레벨 표가 같은가. 키 집합은 양쪽 다 UpgradeConfig 8키다(readLevels). JSON 왕복 뒤에도 키는 문자열 그대로다.
@@ -116,7 +138,7 @@ local function snapshotsEqual(a: PlayerStateView?, b: PlayerStateView?): boolean
 			return false
 		end
 	end
-	return upgradesEqual((a :: any).upgrades, (b :: any).upgrades)
+	return upgradesEqual((a :: any).upgrades, (b :: any).upgrades) and titlesEqual((a :: any).titles, (b :: any).titles)
 end
 
 export type Deps = {

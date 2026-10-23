@@ -134,6 +134,13 @@ WarpRequestService.init()
 local UpgradeRequestService = require(script.Parent.Systems.UpgradeRequestService)
 UpgradeRequestService.init()
 
+-- 타이틀(칭호) — 자동 롤 서버 단일 루프 + 요청 채널 (Phase 7 지시서 #10).
+-- ⚠️ 순서: ProfileManager.init() 뒤(접속 시 머리 위 칭호 Attribute를 onLoaded로 세운다). 요청 채널은 TitleService 뒤.
+local TitleService = require(script.Parent.Systems.TitleService)
+TitleService.init()
+local TitleRequestService = require(script.Parent.Systems.TitleRequestService)
+TitleRequestService.init()
+
 -- 플레이어 상태 채널을 연다 (Phase 6 지시서 #5 — HUD가 서버 값을 보인다).
 -- ⚠️ 순서: ProfileManager · PadService · SpeedService · ChallengeService가 준비된 뒤여야 한다.
 -- 스냅샷은 그 넷에서 읽고, 접속 직후 런 상태 sync는 ChallengeService.syncRunState가 보낸다.
@@ -247,6 +254,7 @@ Players.PlayerAdded:Connect(function(player: Player)
 				-- 클릭 지급이 쓰는 것과 **같은 compute**를 태워야 값이 갈리지 않는다.
 				local mult = StrengthMultiplier.compute({
 					rebirths = CurrencyService.get(player, "rebirths"),
+					titleMult = TitleService.getMult(player),
 				})
 
 				print(string.format(

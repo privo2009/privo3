@@ -18,6 +18,8 @@
 --   WarpResult      서버→클라. 그 요청의 결과
 --   UpgradeRequest  클라→서버. 상점 창의 업그레이드 구매 요청(항목 이름) (Phase 6 지시서 #7)
 --   UpgradeResult   서버→클라. 그 요청의 결과
+--   TitleRequest    클라→서버. 타이틀 창의 요청(roll · equip · setAuto) (Phase 7 지시서 #10)
+--   TitleResult     서버→클라. 그 요청의 결과 + 자동 롤로 새 칭호를 얻었을 때의 알림(중복은 보내지 않는다)
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --
@@ -82,6 +84,8 @@ Remotes.WARP_REQUEST = "WarpRequest"
 Remotes.WARP_RESULT = "WarpResult"
 Remotes.UPGRADE_REQUEST = "UpgradeRequest"
 Remotes.UPGRADE_RESULT = "UpgradeResult"
+Remotes.TITLE_REQUEST = "TitleRequest"
+Remotes.TITLE_RESULT = "TitleResult"
 
 -- ===== payload 타입 ====================================================================
 --
@@ -287,6 +291,29 @@ export type UpgradeResultPayload = {
 	cost: BigNum.BigNumber,
 }
 
+-- TitleRequest: 타이틀 창 요청 (클라 → 서버). 결과 · 비용 · 확률을 싣지 않는다(규약 2) — 서버가 전부 다시 판정한다.
+--   action  "roll" | "equip" | "setAuto"
+--   titleId equip일 때만 의미가 있다(다른 action이면 무시)
+--   on      setAuto일 때만 의미가 있다
+export type TitleRequestPayload = {
+	action: string,
+	titleId: string?,
+	on: boolean?,
+}
+
+-- TitleResult: 요청 결과 또는 자동 롤 신규 획득 알림 (서버 → 클라). 바뀐 블럭스 · 칭호 목록은 PlayerState가 따로 보낸다.
+--   action  요청의 action, 자동 롤 알림이면 "autoRoll"
+--   reason  거부 사유 코드(RollService.REASON_* · TitleService.REASON_* · "rate_limited"). 성공이면 ""
+--   titleId 롤 결과 · 장착한 칭호. 없으면 "" / isNew 처음 얻은 칭호인가 / equipped 이 요청으로 장착이 바뀌었는가 (선택 필드 금지)
+export type TitleResultPayload = {
+	action: string,
+	ok: boolean,
+	reason: string,
+	titleId: string,
+	isNew: boolean,
+	equipped: boolean,
+}
+
 export type Channels = {
 	blockDamaged: RemoteEvent,
 	runStateChanged: RemoteEvent,
@@ -302,6 +329,8 @@ export type Channels = {
 	warpResult: RemoteEvent,
 	upgradeRequest: RemoteEvent,
 	upgradeResult: RemoteEvent,
+	titleRequest: RemoteEvent,
+	titleResult: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -364,6 +393,8 @@ function Remotes.getServer(): Channels
 		warpResult = ensureEvent(folder, Remotes.WARP_RESULT),
 		upgradeRequest = ensureEvent(folder, Remotes.UPGRADE_REQUEST),
 		upgradeResult = ensureEvent(folder, Remotes.UPGRADE_RESULT),
+		titleRequest = ensureEvent(folder, Remotes.TITLE_REQUEST),
+		titleResult = ensureEvent(folder, Remotes.TITLE_RESULT),
 	}
 	cached = channels
 	return channels
@@ -412,6 +443,8 @@ function Remotes.getClient(): Channels
 		warpResult = waitFor(folder, Remotes.WARP_RESULT) :: RemoteEvent,
 		upgradeRequest = waitFor(folder, Remotes.UPGRADE_REQUEST) :: RemoteEvent,
 		upgradeResult = waitFor(folder, Remotes.UPGRADE_RESULT) :: RemoteEvent,
+		titleRequest = waitFor(folder, Remotes.TITLE_REQUEST) :: RemoteEvent,
+		titleResult = waitFor(folder, Remotes.TITLE_RESULT) :: RemoteEvent,
 	}
 	cached = channels
 	return channels

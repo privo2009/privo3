@@ -11,23 +11,21 @@
 --
 -- ===== 지금 인식하는 필드 =============================================================
 --
---   sources.rebirths   환생 배수 (BigNum). 결과는 1 + rebirths
+--   sources.rebirths   환생 배수 (BigNum). 1 + rebirths
+--   sources.titleMult  장착 칭호 힘 배수 (number, TitleConfig.multOf). 장착 없음 = 1  (지시서 #10)
+--
+--   결과 = (1 + rebirths) × titleMult
+--
+-- ===== 결합 규칙 (S3, 2026-10-24 사람 결정 — DESIGN.md "3. 화폐와 배수 > 배수 계통") =================
+--
+-- 힘 계통은 **출처끼리 곱한다.** 이 함수 한 곳에서 한다. 예외 둘:
+--   펫              안에서 합산 — 펫 배수 = 1 + Σ(펫 배수 − 1) (G9). 그 결과 하나를 여기서 곱한다 (#12)
+--   힘 배수 게임패스 최고 단계만 — ⚠️ 중첩 금지 (CLAUDE.md 금지 사항) (Phase 8)
+-- 아우라 힘 배율(#11) · 힘 포션(Phase 8)도 필드로 붙어 곱해진다. 운동기구 · 패드는 여기 들어오지 않는다
+-- (ClickService.computeGain의 클릭 1회 값 — 다른 자리다).
 --
 -- 환생 배수가 선형 가산인 근거는 DESIGN.md "3. 화폐와 배수 > 환생"이 원본이다
 -- (1000 블럭스 = +1x). ⚠️ 수치를 여기로 복사하지 말 것.
---
--- ===== 앞으로 붙을 필드 ===============================================================
---
--- Phase 7·8에서 아래가 이 함수에 필드로 붙는다 (DESIGN.md "3. 화폐와 배수 > 배수 계통"):
---
---   아우라          힘 배율
---   펫              합산, 힘 배수 전담
---   힘 배수 게임패스 2x~1024x — ⚠️ 중첩 금지, 최고 단계만 적용 (CLAUDE.md 금지 사항)
---   힘 포션         15분 2x
---
--- ⚠️ 각 배수를 **합산할지 곱할지는 지금 정하지 않는다.** 붙이는 시점에 위 DESIGN 절을
---    근거로 정한다. 여기서 미리 `1 + a + b + c` 같은 골격을 만들어두면, 그게 곧
---    결정이 되어버리고 근거 없이 굳는다. 필드가 하나뿐인 지금은 그 결정이 불필요하다.
 --
 -- ⚠️ "서로 곱하지 않는다"는 것은 **힘 계통과 블럭스 계통 사이의** 이야기다
 --    (DESIGN "배수 계통"). 힘 계통 안에서의 결합 방식과는 다른 질문이니 혼동하지 말 것.
@@ -41,6 +39,7 @@ local StrengthMultiplier = {}
 -- 힘 배수 출처. 필드는 전부 선택이다 — 없으면 "그 배수 없음"으로 본다.
 export type Sources = {
 	rebirths: BigNumber?,
+	titleMult: number?,
 }
 
 -- ⚠️ 상수 테이블을 만들어 재사용하지 않는다. BigNum 값은 평범한 테이블이라 호출자가
@@ -83,6 +82,12 @@ function StrengthMultiplier.compute(sources: Sources?): BigNumber
 	-- 환생: 1 + rebirths (선형 가산).
 	if isBigNum(sources.rebirths) then
 		total = BigNum.add(total, sources.rebirths :: BigNumber)
+	end
+
+	-- 칭호: 곱한다(S3). 1 이하 · nan · inf · 숫자 아님은 "배수 없음" — 0이나 1 미만이 곱해지면 성장이 줄거나 멈춘다.
+	local title = sources.titleMult
+	if type(title) == "number" and title == title and title > 1 and title < math.huge then
+		total = BigNum.mul(total, BigNum.fromNumber(title))
 	end
 
 	return total

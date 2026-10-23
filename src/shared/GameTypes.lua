@@ -64,6 +64,14 @@ export type PlayerStateView = {
 	padIndex: number, -- 지금 세팅된 클릭 파워 패드
 	-- 업그레이드 레벨. 키 = UpgradeConfig.Upgrades의 이름 8개 전부(비노출 포함), 값 = 0 이상 정수 (지시서 #7)
 	upgrades: { [string]: number },
+	-- 칭호 요약 (지시서 #10). owned = 보유 id(희귀도 낮은 순), equipped = 장착 id(없으면 ""), autoRoll = 자동 롤 켬
+	titles: TitleSummary,
+}
+
+export type TitleSummary = {
+	owned: { string },
+	equipped: string,
+	autoRoll: boolean,
 }
 
 return GameTypes

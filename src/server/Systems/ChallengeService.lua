@@ -38,6 +38,8 @@ local function warnFolded(player: Player, reasonKey: string, message: string)
 end
 -- 블럭스 획득량 업그레이드 효과 (지시서 #7). 식은 UpgradeConfig, 레벨은 UpgradeService가 안다.
 local UpgradeService = require(script.Parent.UpgradeService)
+-- 장착 칭호 블럭스 배수 (지시서 #10 S4). TitleService는 이 파일을 require하지 않는다(순환 없음).
+local TitleService = require(script.Parent.TitleService)
 local BlockService = require(script.Parent.BlockService)
 -- 스폰 복귀. 좌표도 파트도 ArenaService가 소유한다 — 여기서 SPAWN_X를 다시 읽지 않는다.
 local ArenaService = require(script.Parent.ArenaService)
@@ -123,6 +125,25 @@ end
 -- run.currentReward에는 곱하지 않은 층 보상(StageConfig.getBloxReward)이 그대로 있다. 배수는 지급 · 표시 순간에 곱한다 —
 -- 런 도중 업그레이드를 사면 그 런의 수령액부터 오른다.
 -- 배수 = UpgradeConfig.getEffect("bloxGain", 레벨) = 1 + 증가량 × 레벨 (S1). 0레벨이면 1이라 예전과 같다.
+-- ===== 블럭스 계통 결합 (S4, 2026-10-24 사람 결정 — 지시서 #10) ===================================
+--
+-- 블럭스 계통 배수는 **이 함수 한 곳에서** 곱한다: 블럭스 획득 업그레이드 × 칭호 블럭스 배수
+-- (× 2x 블럭스 게임패스 × 승리 포션 — Phase 8에 필드로 붙는다). 그 결과 하나를 payableReward가 보상에 곱한다.
+-- 각 출처는 여기서 **한 번만** 곱한다 — 두 자리에서 곱하면 그 출처만 제곱이 된다(ChallengeServiceTests "한 번만").
+-- 깨진 값(nil · nan · 1 미만 · inf)은 1 — 배수가 보상을 깎지 않는다.
+export type BloxSources = { bloxGain: number?, titleMult: number? }
+
+local function factorOr1(v: any): number
+	if type(v) ~= "number" or v ~= v or v < 1 or v == math.huge then
+		return 1
+	end
+	return v
+end
+
+local function combineBloxMultiplier(sources: BloxSources): number
+	return factorOr1(sources.bloxGain) * factorOr1(sources.titleMult)
+end
+
 local function payableReward(baseReward: BigNumber, bloxMultiplier: number): BigNumber
 	if bloxMultiplier == 1 then
 		return BigNum.new(baseReward.m, baseReward.e)
@@ -153,6 +174,7 @@ ChallengeService._pure = {
 	canCashout = canCashout,
 	normalizeSource = normalizeSource,
 	payableReward = payableReward,
+	combineBloxMultiplier = combineBloxMultiplier,
 }
 
 -- ===== 공개 API (Player 상태 보관) ======================================================
@@ -219,7 +241,10 @@ local function buildView(run: RunState, bloxMultiplier: number): RunStateView
 end
 
 local function bloxMultiplierOf(player: Player): number
-	return UpgradeService.getEffect(player, "bloxGain")
+	return combineBloxMultiplier({
+		bloxGain = UpgradeService.getEffect(player, "bloxGain"),
+		titleMult = TitleService.getMult(player),
+	})
 end
 
 -- active=false는 "이 런은 끝났고 state는 끝나는 순간의 스냅샷"이라는 뜻이다.
