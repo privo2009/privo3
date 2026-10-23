@@ -18,8 +18,10 @@
 --   moveSpeed    최대 이동속도 +   c × L          LevelConfig.getMaxSpeed가 "16 + 레벨"에 더한 뒤 MAX_WALK_SPEED로 자른다 (S3)
 --   bloxGain     블럭스 획득 배수  1 + d × L      블럭스 계통. ChallengeService 수령 지급 한 곳에서만 곱한다 (S4)
 --
--- 아우라 행운 · 타이틀 행운 · 펫 행운 · 펫 장착 슬롯은 **Phase 7 — 상점 비노출**(`exposed = false`).
--- 뽑기 · 펫 시스템이 없어 사도 아무 일도 일어나지 않는다. 지우지 않는다 — 프로필 스키마(upgrades)가 8키다.
+-- 아우라 행운 · 타이틀 행운 · 펫 행운 · 펫 장착 슬롯은 **Phase 7** 항목이다. 시스템이 붙는 지시서에서 상점에 연다(G13):
+--   titleLuck #10 · auraLuck #11 · petLuck · petSlots #12. 그 전까지 `exposed = false`(사도 아무 일도 일어나지 않는다).
+--   행운 효과 = 1 + 레벨당 증가량 × 레벨(더하기 — S1과 같다). 그 뽑기의 행운 체인에 곱한다(RollService.computeLuck).
+--   펫 장착 슬롯 효과 = 레벨 × 보너스 — 슬롯 수 식은 PetConfig.getSlots가 원본이다.
 --
 -- ===== TEMP =========================================================================
 --
@@ -57,10 +59,11 @@ local Upgrades: { [string]: UpgradeDef } = {
 	-- radius(파괴 반경) 삭제됨: 데미지 오버플로우 도입으로 반경 개념 자체가 없어짐
 	-- (DESIGN.md 2장 "데미지 오버플로우" / 7장 업그레이드 상점). 펀치 데미지와 중복이었다.
 
-	-- ===== Phase 7 — 상점 비노출 (뽑기 · 펫 시스템이 생기면 효과 식을 정한다) =====
-	auraLuck = { exposed = false, maxLevel = nil, baseCost = BigNum.new(1, 2), costGrowth = 1.25, effectBase = 0, effectPerLevel = 0.01 }, -- 소폭씩만 (롤 상품 보호)
-	titleLuck = { exposed = false, maxLevel = nil, baseCost = BigNum.new(1, 2), costGrowth = 1.25, effectBase = 0, effectPerLevel = 0.01 }, -- 소폭씩만
-	petLuck = { exposed = false, maxLevel = 20, baseCost = BigNum.new(1, 2), costGrowth = 1.2, effectBase = 0, effectPerLevel = 0.02 }, -- 상한 있음
+	-- ===== Phase 7 — 행운 · 슬롯 (G13: 행운 = 1 + 증가량 × 레벨, 2026-10-24 사람 결정) =====
+	-- effectBase 1 = "행운 업그레이드 0레벨은 ×1"(행운 체인의 곱셈 항이라 0이면 확률이 0이 된다).
+	auraLuck = { exposed = false, maxLevel = nil, baseCost = BigNum.new(1, 2), costGrowth = 1.25, effectBase = 1, effectPerLevel = 0.01 }, -- 소폭씩만 (롤 상품 보호). #11에서 연다
+	titleLuck = { exposed = false, maxLevel = nil, baseCost = BigNum.new(1, 2), costGrowth = 1.25, effectBase = 1, effectPerLevel = 0.01 }, -- 소폭씩만
+	petLuck = { exposed = false, maxLevel = 20, baseCost = BigNum.new(1, 2), costGrowth = 1.2, effectBase = 1, effectPerLevel = 0.02 }, -- 상한 있음. #12에서 연다
 	petSlots = { exposed = false, maxLevel = 1, baseCost = BigNum.new(1, 4), costGrowth = 1, effectBase = 0, effectPerLevel = 1 }, -- 최대 +1
 }
 
