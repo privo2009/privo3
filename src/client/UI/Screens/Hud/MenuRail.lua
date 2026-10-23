@@ -51,7 +51,9 @@ local ITEMS = {
 	{ assetKey = "icon_shop", label = "상점", screenName = "Shop" },
 	{ assetKey = "icon_rebirth", label = "환생", screenName = "Rebirth" },
 	{ assetKey = "icon_warp", label = "워프", screenName = "Warp" }, -- 월드·워프 창 (창은 아직 없다)
-	{ assetKey = "icon_aura", label = "아우라", screenName = "Aura" },
+	-- ⚠️ 임시(지시서 #10 S15): 아우라 창이 생길 때(#11)까지 이 칸이 타이틀 창을 연다. #11에서
+	--    { assetKey = "icon_aura", label = "아우라", screenName = "Aura" }로 되돌린다(docs/PENDING.md 잔재).
+	{ assetKey = "icon_title", label = "칭호", screenName = "Title" },
 	{ assetKey = "icon_pet", label = "펫 목록", screenName = "Pet" },
 	{ assetKey = "icon_settings", label = "설정", screenName = "Settings" },
 }

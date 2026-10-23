@@ -95,4 +95,29 @@ channels.upgradeResult.OnClientEvent:Connect(function(payload: Remotes.UpgradeRe
 	shopWindow.onResult(payload)
 end)
 
+-- ===== 타이틀(칭호) 창 (지시서 #10) ==============================================================
+-- 요청은 TitleRequest{action, titleId?, on?}(결과 · 비용 · 확률을 싣지 않는다), 결과는 TitleResult.
+-- 바뀐 블럭스 · 칭호 목록은 PlayerState → Store. 새 칭호 토스트는 OverlayBoot가 같은 TitleResult로 띄운다.
+-- 메뉴 레일 넷째 칸(임시 "칭호")이 "Title"로 연다 — #11에서 아우라 창으로 되돌린다.
+
+local TitleWindow = require(script.Parent.Screens.Window.TitleWindow)
+
+local titleWindow = TitleWindow.create({
+	sendRequest = function(payload)
+		local p: Remotes.TitleRequestPayload = { action = payload.action, titleId = payload.titleId, on = payload.on }
+		channels.titleRequest:FireServer(p)
+	end,
+	onClose = function()
+		ScreenController.close("Title")
+	end,
+})
+
+ScreenController.register("Title", "Window", function()
+	return titleWindow.root
+end)
+
+channels.titleResult.OnClientEvent:Connect(function(payload: Remotes.TitleResultPayload)
+	titleWindow.onResult(payload)
+end)
+
 StateSync.request()

@@ -32,6 +32,7 @@ local function samplePayload(): any
 		maxStage = 6,
 		padIndex = 3,
 		upgrades = { punchDamage = 2, punchSpeed = 1, moveSpeed = 0, bloxGain = 0, auraLuck = 0, titleLuck = 0, petLuck = 0, petSlots = 0 },
+		titles = { owned = { "novice", "breaker" }, equipped = "breaker", autoRoll = true },
 	}
 end
 
@@ -57,6 +58,18 @@ do
 	local x = samplePayload()
 	x.upgrades.punchSpeed = -1
 	check("형태: 음수 레벨은 거부", not PlayerStateClient.isValidPayload(x))
+	local t1 = samplePayload()
+	t1.titles = nil
+	check("형태: 칭호 요약이 없으면 거부(지시서 #10)", not PlayerStateClient.isValidPayload(t1))
+	local t2 = samplePayload()
+	t2.titles.owned = { "novice", 3 }
+	check("형태: 칭호 owned에 문자열이 아닌 값이면 거부", not PlayerStateClient.isValidPayload(t2))
+	local t3 = samplePayload()
+	t3.titles.autoRoll = "yes"
+	check("형태: 칭호 autoRoll이 boolean이 아니면 거부", not PlayerStateClient.isValidPayload(t3))
+	local t4 = samplePayload()
+	t4.titles = { owned = {}, equipped = "", autoRoll = false }
+	check("형태: 빈 칭호 요약은 통과", PlayerStateClient.isValidPayload(t4))
 end
 
 -- 2. Store 반영 -----------------------------------------------------------------------------
@@ -82,6 +95,12 @@ do
 	local got = store.get("upgrades")
 	got.punchSpeed = 99
 	check("반영: 업그레이드 표도 복사 (payload · get 반환값을 고쳐도 안 바뀐다)", store.get("upgrades").punchDamage == 2 and store.get("upgrades").punchSpeed == 1)
+
+	local titles = store.get("titles")
+	check("반영: 칭호 요약", titles.equipped == "breaker" and titles.autoRoll == true and #titles.owned == 2 and titles.owned[2] == "breaker")
+	payload.titles.owned[1] = "mythic"
+	titles.owned[2] = "legend"
+	check("반영: 칭호 요약도 깊은 복사", store.get("titles").owned[1] == "novice" and store.get("titles").owned[2] == "breaker")
 
 	local received: any = nil
 	store.subscribe("strength", function(value)

@@ -114,7 +114,7 @@ do
 	for _ in pairs(handle._debug.rows) do
 		n += 1
 	end
-	check("창: 줄 4개", n == 4)
+	check("창: 줄 수 = SHOP_ORDER (지시서 #10부터 칭호 행운 포함 5)", n == #UpgradeConfig.SHOP_ORDER)
 	local dmg = handle._debug.rows.punchDamage
 	check("창: 줄 문구 = 로직 값", dmg.title.Text == UpgradeShopLogic.row("punchDamage", 0, blox).title and dmg.effect.Text == UpgradeShopLogic.row("punchDamage", 0, blox).effectText)
 	check("창: 살 수 있는 줄은 버튼 켜짐", not dmg.button.isDisabled())

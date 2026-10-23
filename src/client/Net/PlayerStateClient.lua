@@ -44,6 +44,20 @@ local function isValidUpgrades(v: any): boolean
 	return true
 end
 
+-- 칭호 요약(지시서 #10). owned는 문자열 배열, equipped는 문자열("" = 없음), autoRoll은 boolean.
+local function isValidTitles(v: any): boolean
+	if type(v) ~= "table" or type(v.owned) ~= "table" or type(v.equipped) ~= "string" or type(v.autoRoll) ~= "boolean" then
+		return false
+	end
+	for _, id in ipairs(v.owned) do
+		if type(id) ~= "string" then
+			return false
+		end
+	end
+	return true
+end
+PlayerStateClient.isValidTitles = isValidTitles
+
 -- payload 형태 검사. 하나라도 틀리면 false.
 function PlayerStateClient.isValidPayload(payload: any): boolean
 	if type(payload) ~= "table" then
@@ -59,7 +73,7 @@ function PlayerStateClient.isValidPayload(payload: any): boolean
 			return false
 		end
 	end
-	return isValidUpgrades(payload.upgrades)
+	return isValidUpgrades(payload.upgrades) and isValidTitles(payload.titles)
 end
 
 -- payload를 setter에 반영한다. 형태가 틀리면 아무것도 반영하지 않고 false.
@@ -79,6 +93,7 @@ function PlayerStateClient.apply(setter: (string, any) -> (), payload: any): boo
 		levels[name] = payload.upgrades[name]
 	end
 	setter("upgrades", levels)
+	setter("titles", payload.titles) -- Store가 깊게 복사한다
 	return true
 end
 

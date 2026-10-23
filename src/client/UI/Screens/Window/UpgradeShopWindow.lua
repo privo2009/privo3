@@ -32,8 +32,9 @@ UpgradeShopWindow.TITLE = "상점"
 UpgradeShopWindow.SUCCESS_TEXT = "%s Lv %d (-%s)"
 
 -- 본문 안 배치(본문 기준 비율). Claude가 정한 배치값(세션 로그).
-local ROW_H = 0.2
-local ROW_GAP = 0.02
+-- 지시서 #10: 칭호 행운이 5번째 줄로 들어와 0.2 → 0.17, 간격 0.02 → 0.01(5줄 0.9 + 상태 문구). 폰 줄 높이에서도 글자 하한 11px.
+local ROW_H = 0.17
+local ROW_GAP = 0.01
 local STATUS_Y = (ROW_H + ROW_GAP) * #UpgradeConfig.SHOP_ORDER + 0.01
 local STATUS_H = 1 - STATUS_Y
 -- 줄 안(줄 기준 비율)
@@ -96,8 +97,8 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 		frame.ZIndex = 3
 		frame.Parent = body
 
-		local title = WindowParts.makeText("Title", frame, "medium", 0.02, 0.04, LEFT_W, 0.5)
-		local effect = WindowParts.makeText("Effect", frame, "small", 0.02, 0.56, LEFT_W, 0.4)
+		local title = WindowParts.makeText("Title", frame, "medium", 0.02, 0.03, LEFT_W, 0.5)
+		local effect = WindowParts.makeText("Effect", frame, "small", 0.02, 0.54, LEFT_W, 0.44)
 
 		local button = Button.create({ size = "Small", color = "blue", widthScale = BUTTON_W, heightScale = BUTTON_H })
 		button.root.Name = "BuyButton"

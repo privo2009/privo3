@@ -61,4 +61,29 @@ local Colors: { [ColorRole]: RoleColors } = {
 
 UiTheme.Colors = Colors
 
+-- ===== 희귀도 색 — 역할색과 별도 묶음 (2026-10-24 사람 결정 S14, docs/UI.md "3. 색 > 희귀도 색") =====
+--
+-- 역할(무엇을 하는가)과 희귀도(얼마나 귀한가)는 축이 다르다. 그래서 Colors 표에 넣지 않고 따로 둔다.
+--   - 역할색 hex를 재사용하지 않는다(UiThemeTests가 24개 역할 hex와 대조한다)
+--   - 단계가 오를수록 채도가 오르고 밝기는 내려가지 않는다 — 40px에서 "더 귀한 것이 더 눈에 띈다"
+--   - 쓰는 곳은 뽑기 창 · 결과 연출 · 토스트 · 칭호 표시뿐이다(버튼 · HUD · 3D 오브젝트에 쓰지 않는다)
+-- 타이틀 6등급 = tier1~6. 아우라 · 펫 4등급 매핑은 #11 · #12에서 정한다. hex는 Claude가 골랐다(세션 로그).
+--   tier1 따뜻한 회색(채도 9%) · tier2 연초록 · tier3 하늘 · tier4 보라 · tier5 금 · tier6 진분홍(채도 92%)
+export type RarityTier = "tier1" | "tier2" | "tier3" | "tier4" | "tier5" | "tier6"
+UiTheme.RARITY_TIERS = { "tier1", "tier2", "tier3", "tier4", "tier5", "tier6" } :: { RarityTier }
+UiTheme.Rarity = {
+	tier1 = Color3.fromHex("B8B2A7"),
+	tier2 = Color3.fromHex("7FCF9A"),
+	tier3 = Color3.fromHex("5AA8F0"),
+	tier4 = Color3.fromHex("B050FF"),
+	tier5 = Color3.fromHex("FFB21E"),
+	tier6 = Color3.fromHex("FF1470"),
+} :: { [RarityTier]: Color3 }
+
+-- 단계 번호(1~6) → 색. 범위 밖은 가장 가까운 끝 단계.
+function UiTheme.rarityColor(tier: number): Color3
+	local i = math.clamp(math.floor(tonumber(tier) or 1), 1, #UiTheme.RARITY_TIERS)
+	return UiTheme.Rarity[UiTheme.RARITY_TIERS[i]]
+end
+
 return UiTheme

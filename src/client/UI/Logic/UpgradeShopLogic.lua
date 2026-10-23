@@ -22,6 +22,7 @@ UpgradeShopLogic.NAMES = {
 	punchSpeed = "펀치 속도",
 	moveSpeed = "이동 속도",
 	bloxGain = "블럭스 획득",
+	titleLuck = "칭호 행운", -- 지시서 #10 (G13 — 칭호 뽑기 확률 배수)
 } :: { [string]: string }
 
 UpgradeShopLogic.BUY_TEXT = "구매"
@@ -34,7 +35,7 @@ function UpgradeShopLogic.formatEffect(name: string, value: number): string
 	elseif name == "moveSpeed" then
 		return string.format("최대 속도 +%d", math.floor(value + 0.5))
 	end
-	return string.format("×%.2f", value) -- punchDamage · bloxGain (배수)
+	return string.format("×%.2f", value) -- punchDamage · bloxGain · titleLuck (배수)
 end
 
 export type Row = {
@@ -99,7 +100,7 @@ function UpgradeShopLogic.row(name: string, level: number, blox: BigNumber, stre
 	}
 end
 
--- 상점 4줄. 순서는 UpgradeConfig.SHOP_ORDER(노출 4종).
+-- 상점 줄. 순서는 UpgradeConfig.SHOP_ORDER(노출 항목 — 지시서 #10부터 5종).
 function UpgradeShopLogic.rows(levels: any, blox: BigNumber, strength: BigNumber?): { Row }
 	local out = {}
 	for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do

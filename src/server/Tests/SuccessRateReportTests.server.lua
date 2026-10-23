@@ -338,7 +338,7 @@ do
 			allZero = false
 		end
 	end
-	check("새 플레이어: 노출 4종 레벨 0", allZero and n == 4)
+	check("새 플레이어: 노출 항목 전부 레벨 0 (지시서 #10부터 칭호 행운 포함)", allZero and n == #UpgradeConfig.SHOP_ORDER and n > 0)
 	check("효과는 UpgradeConfig.getEffect 그대로", SuccessRateReport.effect({ punchSpeed = 5 }, "punchSpeed") == UpgradeConfig.getEffect("punchSpeed", 5))
 
 	-- 예산이 가장 싼 것보다 작으면 아무것도 안 산다

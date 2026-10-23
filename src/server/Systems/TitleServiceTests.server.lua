@@ -44,6 +44,8 @@ local function world(opts: { blox: number?, data: any? }?)
 		notified = {} :: { any },
 		attr = "unset" :: any,
 		present = true,
+		balanceHidden = false,
+		balanceShown = nil :: any, -- 미리 보기에만 보이는 잔액(경합 흉내). nil이면 실제 잔액
 	}
 	local deps: TitleService.Deps = {
 		now = function()
@@ -51,6 +53,12 @@ local function world(opts: { blox: number?, data: any? }?)
 		end,
 		getData = function(_p)
 			return if w.present then w.data else nil
+		end,
+		getBlox = function(_p)
+			if w.balanceHidden then
+				return nil
+			end
+			return if w.balanceShown ~= nil then w.balanceShown else w.blox
 		end,
 		subtractBlox = function(_p, amount, reason)
 			table.insert(w.log, "subtract:" .. reason)
@@ -95,11 +103,25 @@ do
 	local w, rt = world({ blox = 5 })
 	local ok, reason = rt.roll(P, "manual")
 	check("잔액 부족 → insufficient_blox", not ok and reason == RollService.REASON_INSUFFICIENT_BLOX)
-	check("잔액 부족: 롤 · 저장 · 알림 · 보유 변화 없음",
-		#w.log == 1 and w.log[1] == "subtract:title_roll_manual" and w.saves == 0 and #w.notified == 0 and next(w.data.cosmetics.ownedTitles) == nil)
+	check("잔액 부족: 차감도 부르지 않는다 (자동 롤 거부 로그 소음 방지) · 롤 · 저장 · 알림 · 보유 변화 없음",
+		#w.log == 0 and w.saves == 0 and #w.notified == 0 and next(w.data.cosmetics.ownedTitles) == nil)
 	w.blox = BigNum.fromNumber(1000)
 	local ok2 = rt.roll(P, "manual")
 	check("잔액 부족은 롤 시계를 쓰지 않는다 (바로 다시 굴릴 수 있다)", ok2)
+end
+
+do
+	local w, rt = world()
+	w.balanceHidden = true
+	local ok, reason = rt.roll(P, "manual")
+	check("잔액을 못 읽으면 insufficient_blox · 차감 없음", not ok and reason == RollService.REASON_INSUFFICIENT_BLOX and #w.log == 0)
+
+	-- 미리 보기는 넉넉해 보여도 실제 차감이 거부하면(경합) 거부 — 판정의 권위는 차감이다
+	local w2, rt2 = world({ blox = 5 })
+	w2.balanceShown = BigNum.fromNumber(1000)
+	local ok2, reason2 = rt2.roll(P, "manual")
+	check("차감이 거부하면 insufficient_blox · 롤 없음", not ok2 and reason2 == RollService.REASON_INSUFFICIENT_BLOX
+		and #w2.log == 1 and w2.log[1] == "subtract:title_roll_manual")
 end
 
 -- 2. 순서 · 신규 · 자동 장착 · 저장 ----------------------------------------------------------------

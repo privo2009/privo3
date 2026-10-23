@@ -17,7 +17,8 @@ local FeedbackLogic = require(script.Parent.Parent.Parent.Logic.FeedbackLogic)
 
 local RebirthNotice = {}
 
-local WIDTH = 0.5
+-- 0.5 → 0.44 (지시서 #10): 오른쪽 상단 띠에 토스트(ToastStack, x 0.73~)가 들어와 겹치지 않게 줄였다. 세 줄 문구는 그대로 들어간다.
+local WIDTH = 0.44
 local TOP = 0.01
 local GAP = 0.005
 local TITLE_H = TextScale.Levels.large.heightFraction

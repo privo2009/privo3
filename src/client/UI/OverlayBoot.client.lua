@@ -5,6 +5,7 @@
 --   로딩       시작하자마자 연다. 첫 PlayerState가 오면 닫는다. TIMEOUT_SEC를 넘기면 닫고 오류를 연다
 --   런 안내    RunStateChanged를 RunNoticeLogic에 넣어 나온 대로 띄운다(비차단)
 --   환생 안내  RebirthResult가 성공이면 "×이전 → ×이후"를 잠깐 띄운다(알림층, 지시서 #8)
+--   토스트     TitleResult가 새 칭호면 "새 칭호! 이름 (힘·블럭스 ×N)"(알림층, 최대 3개 · 큐, 지시서 #10)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
@@ -23,6 +24,9 @@ local loading = LoadingScreen.create()
 local errorNotice = ErrorNotice.create()
 local runNotice = RunNotice.create()
 local rebirthNotice = RebirthNotice.create()
+local ToastStack = require(script.Parent.Screens.Overlay.ToastStack)
+local TitleWindowLogic = require(script.Parent.Logic.TitleWindowLogic)
+local toastStack = ToastStack.create()
 
 ScreenController.register("Loading", "Overlay", function()
 	return loading.root
@@ -35,6 +39,9 @@ ScreenController.register("RunNotice", "Overlay", function()
 end)
 ScreenController.register("RebirthNotice", "Overlay", function()
 	return rebirthNotice.root
+end)
+ScreenController.register("ToastStack", "Overlay", function()
+	return toastStack.root
 end)
 
 -- ===== 로딩 ==================================================================================
@@ -90,5 +97,19 @@ channels.rebirthResult.OnClientEvent:Connect(function(payload: Remotes.RebirthRe
 		return
 	end
 	rebirthNotice.show(FeedbackLogic.rebirthNotice(BigNum.new(payload.total.m, payload.total.e), BigNum.new(payload.gained.m, payload.gained.e)))
+end)
+-- ===== 토스트 — 새 칭호 (지시서 #10 S15) ==========================================================
+-- 수동 롤 응답(action "roll")과 자동 롤 알림(action "autoRoll") 둘 다 같은 채널로 온다. 중복은 서버가 보내지 않거나 isNew false다.
+
+ScreenController.open("ToastStack") -- 열어 두고, 줄마다 Visible로 보인다
+channels.titleResult.OnClientEvent:Connect(function(payload: Remotes.TitleResultPayload)
+	if not TitleWindowLogic.shouldToast(payload) then
+		return
+	end
+	local toast = TitleWindowLogic.toastFor(payload.titleId)
+	if toast ~= nil then
+		toastStack.push(toast)
+		print(string.format("[OverlayBoot] 토스트: %s (%s)", toast.text, payload.action)) -- 실물 관측용(토스트는 몇 초 뒤 사라진다)
+	end
 end)
 StateSync.request()

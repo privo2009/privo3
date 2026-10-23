@@ -10,6 +10,8 @@
 --
 --   1. 프로필 · 칭호 표 읽기            없으면 no_profile
 --   2. 롤 시계(G6)                      ROLL_INTERVAL_SEC 안 두 번째 롤이면 rate_limited (수동 · 자동이 같은 시계)
+--   2b. 잔액 미리 보기                  비용보다 적으면 insufficient_blox — 차감을 부르지 않는다. 자동 롤이 돈이 떨어진 채 켜져 있으면
+--       매 틱 CurrencyService 거부 warn이 찍혔다(2026-10-24 Play). 판정의 권위는 여전히 3번 차감이다(경합 대비)
 --   ----- 여기까지 부작용 0 -----
 --   3. CurrencyService.subtract(비용)   단일 게이트(절대 규칙 2). 거부면 insufficient_blox — 아직 부작용 0, 시계도 그대로
 --   4. 시계 기록 → 행운(RollService.computeLuck) → 순차 판정(RollService.roll — 서버 RNG)
@@ -61,6 +63,7 @@ export type RollResult = {
 export type Deps = {
 	now: () -> number,
 	getData: (Player) -> any?, -- profile.Data. 없으면 nil
+	getBlox: (Player) -> BigNumber?, -- 잔액 미리 보기(없으면 부족으로 본다)
 	subtractBlox: (Player, BigNumber, string) -> boolean,
 	roll: (tiers: { TitleConfig.TitleDef }, luck: number) -> (TitleConfig.TitleDef, number),
 	save: (Player) -> (),
@@ -106,6 +109,12 @@ local function createRuntime(deps: Deps)
 		local last = lastRollAt[player]
 		if last ~= nil and now - last < TitleConfig.ROLL_INTERVAL_SEC - CLOCK_EPSILON_SEC then
 			return false, RollService.REASON_RATE_LIMITED
+		end
+
+		-- 2b. 잔액 미리 보기
+		local blox = deps.getBlox(player)
+		if blox == nil or BigNum.lt(blox, TitleConfig.ROLL_COST) then
+			return false, RollService.REASON_INSUFFICIENT_BLOX
 		end
 
 		-- ===== 여기부터 부작용 =====
@@ -248,6 +257,9 @@ local REAL: Deps = {
 	getData = function(player: Player)
 		local profile = ProfileManager.get(player)
 		return if profile ~= nil then profile.Data else nil
+	end,
+	getBlox = function(player: Player)
+		return CurrencyService.get(player, "blox")
 	end,
 	subtractBlox = function(player: Player, amount: BigNumber, reason: string)
 		return (CurrencyService.subtract(player, "blox", amount, reason))

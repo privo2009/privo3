@@ -52,7 +52,10 @@ export type State = {
 	maxStage: number,
 	padIndex: number,
 	upgrades: { [string]: number }, -- 업그레이드 레벨 (지시서 #7). 키 = UpgradeConfig 이름 8개
+	titles: TitleSummary, -- 칭호 요약 (지시서 #10). 서버 TitleService.summarize
 }
+
+export type TitleSummary = { owned: { string }, equipped: string, autoRoll: boolean }
 
 export type Key =
 	"strength"
@@ -65,6 +68,7 @@ export type Key =
 	| "maxStage"
 	| "padIndex"
 	| "upgrades"
+	| "titles"
 
 export type Setter = (Key, any) -> ()
 export type Source = (Setter) -> ()
@@ -95,6 +99,7 @@ local DUMMY_STATE: State = {
 	maxStage = 17,
 	padIndex = 24,
 	upgrades = {}, -- freshState가 UpgradeConfig 이름마다 0을 채운다(이름을 여기 다시 적지 않는다)
+	titles = { owned = {}, equipped = "", autoRoll = false }, -- 첫 PlayerState 전 — 아무 칭호 없음
 }
 
 local BIG_NUM_KEYS: { [Key]: boolean } = {
@@ -110,7 +115,40 @@ local TABLE_KEYS: { [Key]: boolean } = {
 	upgrades = true,
 }
 
+-- 칭호 요약은 owned 배열까지 깊게 뜬다(얕은 복사면 get으로 받은 배열을 고쳐 내부 상태가 바뀐다).
+local function cloneTitles(v: any): TitleSummary
+	local owned: { string } = {}
+	if type(v) == "table" and type(v.owned) == "table" then
+		for i, id in ipairs(v.owned) do
+			owned[i] = id
+		end
+	end
+	return {
+		owned = owned,
+		equipped = if type(v) == "table" and type(v.equipped) == "string" then v.equipped else "",
+		autoRoll = type(v) == "table" and v.autoRoll == true,
+	}
+end
+
+local function titlesEqual(a: any, b: any): boolean
+	if type(a) ~= "table" or type(b) ~= "table" then
+		return a == b
+	end
+	if a.equipped ~= b.equipped or a.autoRoll ~= b.autoRoll or #a.owned ~= #b.owned then
+		return false
+	end
+	for i, id in ipairs(a.owned) do
+		if b.owned[i] ~= id then
+			return false
+		end
+	end
+	return true
+end
+
 local function cloneValue(key: Key, value: any): any
+	if key == "titles" then
+		return cloneTitles(value)
+	end
 	if BIG_NUM_KEYS[key] then
 		local big = value :: BigNumber
 		return { m = big.m, e = big.e }
@@ -126,6 +164,9 @@ local function cloneValue(key: Key, value: any): any
 end
 
 local function valuesEqual(key: Key, a: any, b: any): boolean
+	if key == "titles" then
+		return titlesEqual(a, b)
+	end
 	if BIG_NUM_KEYS[key] then
 		return BigNum.eq(a :: BigNumber, b :: BigNumber)
 	end
