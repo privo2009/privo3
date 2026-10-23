@@ -3,7 +3,11 @@
 -- ROADMAP Phase 2-1 검증: 정상 템플릿이 자기 자신의 validate를 통과하는지,
 -- 그리고 오염된 데이터 각각이 의도한 이유로 정확히 실패하는지 확인한다.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Schema = require(script.Parent.Schema)
+-- LIMITS는 Config와 중복이다(Schema는 Config를 몰라야 한다). 어긋나면 여기서 잡는다.
+local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
+local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
 
 local passed = 0
 local failed = 0
@@ -46,10 +50,27 @@ do
 	check("new()는 매번 독립된 깊은 복사본을 반환함", b.blox.m == 0)
 end
 
-check("Schema.VERSION == 4 (v4: lifeBlox 추가)", Schema.VERSION == 4)
-check("LIMITS.MAX_DRONES == 5", Schema.LIMITS.MAX_DRONES == 5)
-check("LIMITS.MAX_PET_SLOTS == 6", Schema.LIMITS.MAX_PET_SLOTS == 6)
-check("LIMITS.MAX_AURA_PACKS == 5", Schema.LIMITS.MAX_AURA_PACKS == 5)
+check("Schema.VERSION == 5 (v5: 파생값 · 드론 필드 삭제)", Schema.VERSION == 5)
+check("LIMITS.MAX_PET_SLOTS == PetConfig.MaxSlots", Schema.LIMITS.MAX_PET_SLOTS == PetConfig.MaxSlots)
+check("LIMITS.MAX_PET_STORAGE == PetConfig.getStorage(게임패스 있음)", Schema.LIMITS.MAX_PET_STORAGE == PetConfig.getStorage(true))
+do
+	local packCount = 0
+	for _ in pairs(AuraConfig.Packs) do
+		packCount += 1
+	end
+	check("LIMITS.MAX_AURA_PACKS == AuraConfig 팩 수", Schema.LIMITS.MAX_AURA_PACKS == packCount)
+end
+check("LIMITS에 드론 상한이 없다(v5)", (Schema.LIMITS :: any).MAX_DRONES == nil)
+
+-- v5: 파생값 · 폐기 필드는 템플릿에 없다 (S12 · S13 — 게임패스가 섞인 값을 저장하지 않는다)
+do
+	local t = Schema.getTemplate() :: any
+	check("v5 템플릿: pets.slots 없음", t.pets.slots == nil)
+	check("v5 템플릿: pets.storage 없음", t.pets.storage == nil)
+	check("v5 템플릿: rolling.unlockedAuraPacks 없음", t.rolling.unlockedAuraPacks == nil)
+	check("v5 템플릿: drones 없음", t.drones == nil)
+	check("v5 템플릿: rolling.selectedPack · autoRollTitle은 남는다", t.rolling.selectedPack == 1 and t.rolling.autoRollTitle == false)
+end
 
 -- 2. isBigNum: 정상 케이스 ------------------------------------------------------
 
@@ -128,12 +149,6 @@ do
 	check("validate 통과: selectedPadIndex 상한은 Schema의 책임이 아님", ok)
 end
 
-do
-	local data = Schema.new()
-	data.drones.count = 6
-	local ok, errors = Schema.validate(data)
-	check("validate 실패: drones.count=6", not ok and errorsContain(errors, "drones.count"))
-end
 
 do
 	local data = Schema.new()
@@ -149,21 +164,63 @@ do
 	check("validate 실패: owned에 없는 펫 장착", not ok and errorsContain(errors, "pets.equipped"))
 end
 
-do
+-- v5: 장착 · 보유 상한은 게임패스 최대 보너스까지 허용한다 — 로드 시점에는 게임패스를 모른다.
+-- 패스 보유자를 로드에서 깨뜨리지 않는 것이 목적이다(실제 슬롯 잘라내기는 게임패스 확인 뒤 — PENDING).
+local function petsWith(owned: number, equipped: number)
 	local data = Schema.new()
-	data.pets.owned["a"] = { petId = "x", tier = 1 }
-	data.pets.owned["b"] = { petId = "x", tier = 1 }
-	data.pets.owned["c"] = { petId = "x", tier = 1 }
-	data.pets.equipped = { "a", "b", "c" } -- 기본 slots=2인데 3개 장착
-	local ok, errors = Schema.validate(data)
-	check("validate 실패: equipped가 slots 초과", not ok and errorsContain(errors, "slots"))
+	for i = 1, owned do
+		data.pets.owned[tostring(i)] = { petId = "x", tier = 1 }
+	end
+	for i = 1, equipped do
+		table.insert(data.pets.equipped, tostring(i))
+	end
+	return data
+end
+
+do
+	local base = PetConfig.getSlots(0, false)
+	local ok = Schema.validate(petsWith(base + 1, base + 1))
+	check("validate 통과: 장착이 기본 슬롯보다 많아도 최대 슬롯 이하면 통과 (패스 보유자)", ok)
+	local okMax = Schema.validate(petsWith(Schema.LIMITS.MAX_PET_SLOTS, Schema.LIMITS.MAX_PET_SLOTS))
+	check("validate 통과: 장착 = 최대 슬롯", okMax)
+	local okOver, errors = Schema.validate(petsWith(Schema.LIMITS.MAX_PET_SLOTS + 1, Schema.LIMITS.MAX_PET_SLOTS + 1))
+	check("validate 실패: 장착 > 최대 슬롯", not okOver and errorsContain(errors, "최대 슬롯"))
+end
+
+do
+	local okBase = Schema.validate(petsWith(PetConfig.getStorage(false) + 1, 0))
+	check("validate 통과: 보유가 기본 저장 공간보다 많아도 최대 이하면 통과 (패스 보유자)", okBase)
+	local okMax = Schema.validate(petsWith(Schema.LIMITS.MAX_PET_STORAGE, 0))
+	check("validate 통과: 보유 = 최대 저장 공간", okMax)
+	local okOver, errors = Schema.validate(petsWith(Schema.LIMITS.MAX_PET_STORAGE + 1, 0))
+	check("validate 실패: 보유 > 최대 저장 공간", not okOver and errorsContain(errors, "최대 저장 공간"))
 end
 
 do
 	local data = Schema.new()
-	data.rolling.selectedPack = 2 -- 기본 unlockedAuraPacks=1
+	data.rolling.selectedPack = Schema.LIMITS.MAX_AURA_PACKS
+	check("validate 통과: selectedPack = 팩 상한 (열렸는지는 Schema 책임 아님 — 파생)", (Schema.validate(data)))
+	for _, bad in ipairs({ 0, Schema.LIMITS.MAX_AURA_PACKS + 1, 1.5 }) do
+		local d = Schema.new()
+		d.rolling.selectedPack = bad
+		local ok, errors = Schema.validate(d)
+		check("validate 실패: selectedPack=" .. tostring(bad), not ok and errorsContain(errors, "selectedPack"))
+	end
+end
+
+do
+	local data = Schema.new() :: any
+	data.rolling.autoRollTitle = "yes"
 	local ok, errors = Schema.validate(data)
-	check("validate 실패: selectedPack이 unlockedAuraPacks 초과", not ok and errorsContain(errors, "selectedPack"))
+	check("validate 실패: autoRollTitle이 boolean이 아님", not ok and errorsContain(errors, "autoRollTitle"))
+end
+
+do
+	-- v4 필드가 남아 있어도(마이그레이션 전 데이터를 검증하는 경우) 검증이 그것을 읽지 않는다
+	local data = Schema.new() :: any
+	data.pets.slots = 0
+	data.pets.storage = 0
+	check("validate: 지운 slots · storage 값을 읽지 않는다", (Schema.validate(data)))
 end
 
 -- 5. validate: cosmetics 관련 추가 케이스 -----------------------------------------------

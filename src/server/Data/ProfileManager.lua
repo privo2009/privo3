@@ -59,6 +59,18 @@ function ProfileManager.get(player: Player): Profile?
 	return profiles[player]
 end
 
+-- 지금 저장을 요청한다(ProfileStore Profile:Save — 다음 자동 저장을 뒤로 미루고 새 스레드에서 저장).
+-- 고정 주기 저장 루프는 두지 않는다(DESIGN.md "6. 뽑기 3종 > 공통" S11) — 새 id를 처음 얻었을 때만 부른다.
+-- 프로필이 없거나 세션이 끝났으면 false.
+function ProfileManager.save(player: Player): boolean
+	local profile = profiles[player]
+	if profile == nil or not profile:IsActive() then
+		return false
+	end
+	profile:Save()
+	return true
+end
+
 function ProfileManager.waitFor(player: Player, timeoutSec: number?): Profile?
 	local deadline = os.clock() + (timeoutSec or 30)
 
@@ -73,6 +85,44 @@ function ProfileManager.waitFor(player: Player, timeoutSec: number?): Profile?
 	end
 
 	return profiles[player]
+end
+
+-- 마이그레이션 전후 대조용 한 줄 요약. 스키마가 실제로 바뀐 로드에서만 찍는다(평소 로드는 조용하다).
+-- 지우는 필드(파생값 · 폐기)는 보지 않는다 — 남아야 하는 값이 그대로인지 보는 줄이다.
+local function bigText(v: any): string
+	if type(v) ~= "table" then
+		return tostring(v)
+	end
+	return string.format("%se%s", tostring(v.m), tostring(v.e))
+end
+
+local function countKeys(t: any): number
+	local n = 0
+	if type(t) == "table" then
+		for _ in pairs(t) do
+			n += 1
+		end
+	end
+	return n
+end
+
+local function summarize(data: any): string
+	local upgradeSum = 0
+	if type(data.upgrades) == "table" then
+		for _, level in pairs(data.upgrades) do
+			if type(level) == "number" then
+				upgradeSum += level
+			end
+		end
+	end
+	local cosmetics = if type(data.cosmetics) == "table" then data.cosmetics else {}
+	local pets = if type(data.pets) == "table" then data.pets else {}
+	local progress = if type(data.progress) == "table" then data.progress else {}
+	return string.format(
+		"blox=%s lifetime=%s life=%s strength=%s rebirths=%s maxStage=%s upgrades합=%d titles=%d auras=%d pets=%d",
+		bigText(data.blox), bigText(data.lifetimeBlox), bigText(data.lifeBlox), bigText(data.strength), bigText(data.rebirths),
+		tostring(progress.maxStage), upgradeSum, countKeys(cosmetics.ownedTitles), countKeys(cosmetics.ownedAuras), countKeys(pets.owned)
+	)
 end
 
 local function handlePlayerAdded(player: Player)
@@ -104,6 +154,8 @@ local function handlePlayerAdded(player: Player)
 
 	profile:AddUserId(player.UserId) -- GDPR 삭제 요청 대응
 
+	local fromVersion = profile.Data.schemaVersion
+	local before = if fromVersion ~= Migrations.CURRENT then summarize(profile.Data) else nil
 	local migrateOk, migrateErr = Migrations.run(profile.Data)
 	if not migrateOk then
 		warn(string.format("[ProfileManager] %s(%d) 마이그레이션 실패: %s - 킥", player.Name, player.UserId, tostring(migrateErr)))
@@ -123,6 +175,15 @@ local function handlePlayerAdded(player: Player)
 		profile:EndSession()
 		player:Kick("데이터가 손상되어 로드할 수 없습니다. 관리자에게 문의해 주세요.")
 		return
+	end
+
+	if before ~= nil then
+		local after = summarize(profile.Data)
+		print(string.format(
+			"[ProfileManager] %s(%d) 스키마 v%s → v%d · 값 %s\n  전 %s\n  후 %s",
+			player.Name, player.UserId, tostring(fromVersion), Migrations.CURRENT,
+			if before == after then "그대로" else "⚠️ 달라짐", before, after
+		))
 	end
 
 	-- 신규 프로필 초기화. firstJoin이 0이면 이번이 첫 세션이라는 뜻.

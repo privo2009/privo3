@@ -6,15 +6,20 @@
 
 local Schema = {}
 
-Schema.VERSION = 4 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드, Phase 4-2-b)
+Schema.VERSION = 5 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드, Phase 4-2-b)
 -- v4: lifeBlox 추가 (이번 생애 누적 blox — 패드 해금 기준, 환생하면 0. 2026-10-21)
+-- v5: pets.slots · pets.storage · rolling.unlockedAuraPacks · drones 삭제 (2026-10-24 지시서 #10 S12 · S13).
+--     슬롯 · 저장 공간 · 열린 아우라 팩은 저장하지 않고 파생한다 — PetConfig.getSlots · getStorage, AuraConfig.getUnlockedPacks.
+--     게임패스가 들어가는 값이라 저장하면 절대 규칙 5(게임패스 소유 상태 저장 금지)를 어긴다.
 
--- 구조적 상한값. DESIGN.md 5/6/9장 수치와 같지만 Schema는 Config를 몰라야 하므로 별도로 둔다.
--- TODO: Phase 8 전후로 ShopConfig/PetConfig/AuraConfig와 단일 출처로 합칠 것 (지금은 중복 관리).
+-- 구조적 상한값. DESIGN.md 6장 수치와 같지만 Schema는 Config를 몰라야 하므로 별도로 둔다.
+-- 중복이 어긋나면 SchemaTests가 잡는다(PetConfig · AuraConfig 값과 대조한다).
+-- 게임패스 보너스를 **최대로** 넣은 값이다 — 로드 시점에는 게임패스 확인 전이라, 패스 보유자의 장착 · 보유를
+-- 여기서 깨뜨리지 않으려면 "패스가 있으면 가능한 최대"까지 허용해야 한다(v5, 지시서 #10 2단계).
 Schema.LIMITS = {
-	MAX_DRONES = 5, -- ⚠️ 드론 폐기(2026-10-21) — drones 필드와 함께 다음 스키마 변경 때 정리
-	MAX_PET_SLOTS = 6, -- 기본 2 + 업그레이드 최대 +1 + 게임패스 +3
-	MAX_AURA_PACKS = 5,
+	MAX_PET_SLOTS = 6, -- 기본 2 + 업그레이드 최대 +1 + 게임패스 +3 (= PetConfig.MaxSlots)
+	MAX_PET_STORAGE = 150, -- 기본 50 + 게임패스 +100 (= PetConfig.getStorage(true))
+	MAX_AURA_PACKS = 5, -- AuraConfig.Packs 개수
 }
 
 local function isFiniteNumber(n: any): boolean
@@ -89,15 +94,6 @@ local function buildTemplate()
 			petSlots = 0, -- 최대 +1
 		},
 
-		-- ⚠️ 드론 폐기(2026-10-21 사람 결정, 태그 drone-archive-2026-10-21) — 다음 스키마 변경 때 정리.
-		--    이 필드만을 위해 스키마를 올리지 않는다(지시서 #4 1단계). validate 검사도 기존 프로필 호환을 위해 그때까지 남긴다.
-		drones = {
-			count = 1,
-			-- [수정 3] 템플릿 단계에서는 서버 시각을 알 수 없어 0으로만 둔다.
-			-- 실제 초기화(os.time())는 신규 프로필 생성 시 ProfileManager가 담당한다.
-			lastCollectAt = 0,
-		},
-
 		cosmetics = {
 			-- [수정 1] nil 대신 false. DataStore는 nil 값을 가진 필드를 저장하지 못하고
 			-- (키 자체가 사라짐), ProfileStore의 Reconcile도 템플릿 값이 nil이면 채워 넣지
@@ -113,8 +109,7 @@ local function buildTemplate()
 		pets = {
 			owned = {}, -- {[uid] = {petId, tier}} — uid는 반드시 문자열
 			equipped = {}, -- uid 문자열 배열
-			slots = 2,
-			storage = 50,
+			-- 슬롯 · 저장 공간은 v5에서 지웠다 — 파생값이다(PetConfig.getSlots · getStorage).
 			-- [수정 2] 다음 발급할 uid 번호. 실제 uid는 tostring(nextUid)로 발급해서
 			-- 항상 문자열 키만 쓴다. 숫자 키를 그대로 쓰면 DataStore는 JSON을 거치며
 			-- 테이블 키를 문자열로 바꿔버려서, pets.equipped가 들고 있던 숫자 참조와
@@ -123,7 +118,7 @@ local function buildTemplate()
 		},
 
 		rolling = {
-			unlockedAuraPacks = 1,
+			-- 열린 아우라 팩은 v5에서 지웠다 — 파생값이다(AuraConfig.getUnlockedPacks).
 			selectedPack = 1,
 			autoRollTitle = false,
 		},
@@ -142,7 +137,7 @@ local function buildTemplate()
 			bestRunDepth = 0,
 			offlineClaims = 0,
 			playtimeSec = 0,
-			-- [수정 3] drones.lastCollectAt과 동일한 이유로 0. ProfileManager가 os.time()으로 채운다.
+			-- [수정 3] 템플릿 단계에서는 서버 시각을 알 수 없어 0으로만 둔다. ProfileManager가 os.time()으로 채운다.
 			firstJoin = 0,
 		},
 	}
@@ -218,17 +213,6 @@ function Schema.validate(data: any): (boolean, { string })
 		addError(errors, "upgrades 테이블이 없음")
 	end
 
-	-- drones (폐기 2026-10-21 — 다음 스키마 변경 때 이 검사와 필드를 같이 지운다) -------------
-
-	if type(data.drones) == "table" then
-		local count = data.drones.count
-		if type(count) ~= "number" or count % 1 ~= 0 or count < 1 or count > Schema.LIMITS.MAX_DRONES then
-			addError(errors, string.format("drones.count는 1~%d 사이의 정수여야 함", Schema.LIMITS.MAX_DRONES))
-		end
-	else
-		addError(errors, "drones 테이블이 없음")
-	end
-
 	-- pets --------------------------------------------------------------------------
 
 	if type(data.pets) == "table" then
@@ -253,23 +237,17 @@ function Schema.validate(data: any): (boolean, { string })
 				end
 			end
 
-			if type(pets.slots) ~= "number" then
-				addError(errors, "pets.slots가 number가 아님")
-			elseif #pets.equipped > pets.slots then
-				addError(errors, string.format("pets.equipped 개수(%d)가 slots(%d)를 초과함", #pets.equipped, pets.slots))
+			-- 실제 슬롯은 세션 값(게임패스)을 알아야 정해진다. 여기서는 구조적 최대까지만 본다.
+			-- 슬롯보다 많이 장착된 경우의 잘라내기는 게임패스 확인 뒤에 한다(docs/PENDING.md — #12 / Phase 8).
+			if #pets.equipped > Schema.LIMITS.MAX_PET_SLOTS then
+				addError(errors, string.format("pets.equipped 개수(%d)가 최대 슬롯(%d)을 초과함", #pets.equipped, Schema.LIMITS.MAX_PET_SLOTS))
 			end
 		else
 			addError(errors, "pets.equipped 테이블이 없음")
 		end
 
-		if type(pets.slots) == "number" and pets.slots > Schema.LIMITS.MAX_PET_SLOTS then
-			addError(errors, string.format("pets.slots(%d)가 구조적 상한(%d)을 초과함", pets.slots, Schema.LIMITS.MAX_PET_SLOTS))
-		end
-
-		if type(pets.storage) ~= "number" then
-			addError(errors, "pets.storage가 number가 아님")
-		elseif ownedCount > pets.storage then
-			addError(errors, string.format("pets.owned 개수(%d)가 storage(%d)를 초과함", ownedCount, pets.storage))
+		if ownedCount > Schema.LIMITS.MAX_PET_STORAGE then
+			addError(errors, string.format("pets.owned 개수(%d)가 최대 저장 공간(%d)을 초과함", ownedCount, Schema.LIMITS.MAX_PET_STORAGE))
 		end
 	else
 		addError(errors, "pets 테이블이 없음")
@@ -301,14 +279,13 @@ function Schema.validate(data: any): (boolean, { string })
 
 	if type(data.rolling) == "table" then
 		local rolling = data.rolling
-		if type(rolling.unlockedAuraPacks) ~= "number" or rolling.unlockedAuraPacks < 1 or rolling.unlockedAuraPacks > Schema.LIMITS.MAX_AURA_PACKS then
-			addError(errors, string.format("rolling.unlockedAuraPacks는 1~%d 사이여야 함", Schema.LIMITS.MAX_AURA_PACKS))
+		-- 열렸는지는 lifetimeBlox · 월드에서 파생된다(Config를 알아야 한다). 여기서는 범위만 본다.
+		local pack = rolling.selectedPack
+		if type(pack) ~= "number" or pack % 1 ~= 0 or pack < 1 or pack > Schema.LIMITS.MAX_AURA_PACKS then
+			addError(errors, string.format("rolling.selectedPack은 1~%d 사이의 정수여야 함", Schema.LIMITS.MAX_AURA_PACKS))
 		end
-
-		if type(rolling.selectedPack) ~= "number" or type(rolling.unlockedAuraPacks) ~= "number" then
-			addError(errors, "rolling.selectedPack/unlockedAuraPacks가 number가 아님")
-		elseif rolling.selectedPack > rolling.unlockedAuraPacks then
-			addError(errors, "rolling.selectedPack이 unlockedAuraPacks를 초과함")
+		if type(rolling.autoRollTitle) ~= "boolean" then
+			addError(errors, "rolling.autoRollTitle이 boolean이 아님")
 		end
 	else
 		addError(errors, "rolling 테이블이 없음")

@@ -62,6 +62,24 @@ Migrations[3] = function(data)
 	return data
 end
 
+-- v4 -> v5: 파생값 · 폐기 필드 삭제 (2026-10-24 지시서 #10 S12 · S13).
+--   pets.slots · pets.storage   → PetConfig.getSlots · getStorage 파생 (게임패스는 세션 값 — 절대 규칙 5)
+--   rolling.unlockedAuraPacks  → AuraConfig.getUnlockedPacks 파생 (lifetimeBlox · 월드)
+--   drones                     → 드론 폐기(2026-10-21). 읽는 코드 없음
+-- 삭제만 하므로 잃는 데이터가 없다 — 네 값은 다른 필드에서 다시 계산된다(드론은 쓰는 곳이 없다).
+-- 멱등: 필드가 없거나 테이블이 아니어도 그대로 지나간다.
+Migrations[4] = function(data)
+	if type(data.pets) == "table" then
+		data.pets.slots = nil
+		data.pets.storage = nil
+	end
+	if type(data.rolling) == "table" then
+		data.rolling.unlockedAuraPacks = nil
+	end
+	data.drones = nil
+	return data
+end
+
 -- data.schemaVersion부터 Migrations.CURRENT까지 등록된 변환 함수를 순서대로 적용하고
 -- data.schemaVersion을 최종 버전으로 갱신한다. data는 in-place로 수정된다.
 --

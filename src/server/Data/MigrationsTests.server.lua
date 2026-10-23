@@ -20,7 +20,50 @@ end
 
 -- 1. 기본 -----------------------------------------------------------------
 
-check("Migrations.CURRENT == 4 (변환 3개 등록됨: radius 제거 / selectedPadIndex 추가 / lifeBlox 추가)", Migrations.CURRENT == 4)
+check("Migrations.CURRENT == 5 (변환 4개: radius 제거 / selectedPadIndex 추가 / lifeBlox 추가 / 파생값 · 드론 삭제)", Migrations.CURRENT == 5)
+
+-- v4 -> v5: pets.slots · pets.storage · rolling.unlockedAuraPacks · drones 삭제. 나머지 값은 그대로.
+do
+	local data = {
+		schemaVersion = 4,
+		blox = { m = 3.25, e = 4 },
+		lifetimeBlox = { m = 1.5, e = 9 },
+		lifeBlox = { m = 7, e = 5 },
+		strength = { m = 6.8, e = 4 },
+		rebirths = { m = 3, e = 1 },
+		upgrades = { punchDamage = 6, titleLuck = 2 },
+		drones = { count = 1, lastCollectAt = 0 },
+		cosmetics = { equippedTitle = "apprentice", ownedTitles = { apprentice = true } },
+		pets = { owned = { ["1"] = { petId = "egg1_common", tier = 1 } }, equipped = { "1" }, slots = 5, storage = 150, nextUid = 2 },
+		rolling = { unlockedAuraPacks = 3, selectedPack = 2, autoRollTitle = true },
+	}
+	local ok, err = Migrations.run(data)
+	check("v4->v5: 변환 성공", ok, err)
+	check("v4->v5: schemaVersion 5", data.schemaVersion == 5)
+	check("v4->v5: pets.slots · storage 삭제", data.pets.slots == nil and data.pets.storage == nil)
+	check("v4->v5: rolling.unlockedAuraPacks 삭제", data.rolling.unlockedAuraPacks == nil)
+	check("v4->v5: drones 삭제", data.drones == nil)
+	check("v4->v5: 재화 · 진행 BigNum은 그대로",
+		data.blox.m == 3.25 and data.blox.e == 4 and data.lifetimeBlox.e == 9 and data.lifeBlox.m == 7
+			and data.strength.m == 6.8 and data.rebirths.m == 3)
+	check("v4->v5: upgrades · 칭호는 그대로",
+		data.upgrades.punchDamage == 6 and data.upgrades.titleLuck == 2
+			and data.cosmetics.equippedTitle == "apprentice" and data.cosmetics.ownedTitles.apprentice == true)
+	check("v4->v5: 펫 보유 · 장착 · nextUid는 그대로",
+		data.pets.owned["1"].petId == "egg1_common" and data.pets.equipped[1] == "1" and data.pets.nextUid == 2)
+	check("v4->v5: selectedPack · autoRollTitle은 그대로", data.rolling.selectedPack == 2 and data.rolling.autoRollTitle == true)
+
+	-- 멱등 · 방어: 필드가 없거나 테이블이 아니어도 안 죽는다
+	local bare = { schemaVersion = 4 }
+	local okBare, errBare = Migrations.run(bare)
+	check("v4->v5: pets · rolling · drones가 없어도 통과", okBare and bare.schemaVersion == 5, errBare)
+	local odd: any = { schemaVersion = 4, pets = "broken", rolling = 7, drones = "x" }
+	local okOdd, errOdd = Migrations.run(odd)
+	check("v4->v5: pets · rolling이 테이블이 아니어도 안 죽는다", okOdd and odd.drones == nil and odd.pets == "broken", errOdd)
+	local twice = (Migrations :: any)[4]({ pets = {}, rolling = {} })
+	local again = (Migrations :: any)[4](twice)
+	check("v4->v5: 변환 함수를 두 번 불러도 같다(멱등)", again.pets.slots == nil and again.rolling.unlockedAuraPacks == nil)
+end
 
 -- v3 -> v4: lifeBlox = 지금 보유 blox (하한). 보유 blox가 깨졌으면 0.
 do

@@ -51,6 +51,26 @@ PetConfig.MaxSlots = PetConfig.BaseSlots + PetConfig.UpgradeSlotBonus + PetConfi
 PetConfig.BaseStorage = 50
 PetConfig.GamepassStorageBonus = 100
 
+-- 장착 슬롯 수 — 파생값(v5, 지시서 #10 S12). 프로필에 저장하지 않는다.
+--   슬롯 = 기본 + petSlots 업그레이드 레벨 × 업그레이드 보너스 + (게임패스면 게임패스 보너스), 상한 MaxSlots
+-- hasSlotPass는 세션 값이다(절대 규칙 5 — 매 세션 MarketplaceService 확인). Phase 8 전까지 호출자는 false를 넘긴다.
+-- 레벨이 숫자가 아니거나 음수면 0으로 본다(깨진 입력으로 슬롯이 줄거나 늘지 않게).
+function PetConfig.getSlots(petSlotsLevel: number, hasSlotPass: boolean): number
+	local level = if type(petSlotsLevel) == "number" and petSlotsLevel == petSlotsLevel and petSlotsLevel > 0
+		then math.floor(petSlotsLevel)
+		else 0
+	local slots = PetConfig.BaseSlots + level * PetConfig.UpgradeSlotBonus
+	if hasSlotPass then
+		slots += PetConfig.GamepassSlotBonus
+	end
+	return math.min(slots, PetConfig.MaxSlots)
+end
+
+-- 저장 공간 — 파생값(v5, S12). hasStoragePass는 세션 값(위와 같다).
+function PetConfig.getStorage(hasStoragePass: boolean): number
+	return PetConfig.BaseStorage + (if hasStoragePass then PetConfig.GamepassStorageBonus else 0)
+end
+
 local Eggs: { [number]: EggDef } = {
 	[1] = {
 		eggId = 1,

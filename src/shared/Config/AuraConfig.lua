@@ -4,6 +4,7 @@
 -- 배열은 희귀도 낮은 순으로 정렬한다 (판정 시 배열 뒤에서부터 확인). DESIGN.md 6. 뽑기 3종 참고.
 
 local BigNum = require(script.Parent.Parent.BigNum)
+local WorldConfig = require(script.Parent.WorldConfig)
 
 type BigNumber = BigNum.BigNumber
 
@@ -83,6 +84,26 @@ local Packs: { [number]: AuraPackDef } = {
 }
 
 AuraConfig.Packs = Packs
+
+-- 열린 아우라 팩 — 파생값(v5, 지시서 #10 S13 · G3/S8). 프로필에 저장하지 않는다.
+-- 해금은 두 축이다(패드와 같다): 월드가 **어느 팩이 있는지**(WorldConfig.auraPacks)를,
+-- lifetimeBlox가 **어디까지 열렸는지**를 정한다. 해금 조건 = 그 팩 롤 1회 비용(rollCost — G3).
+-- ⚠️ unlockLifetimeBlox 필드는 이 함수가 읽지 않는다(G3 이전의 값 — #11에서 정리, docs/PENDING.md 잔재).
+-- 반환: 열린 팩 번호 배열(월드 auraPacks 순서). 월드가 없으면 빈 배열.
+function AuraConfig.getUnlockedPacks(lifetimeBlox: BigNumber, worldId: number): { number }
+	local world = WorldConfig.get(worldId)
+	local out: { number } = {}
+	if world == nil then
+		return out
+	end
+	for _, packId in ipairs(world.auraPacks) do
+		local pack = Packs[packId]
+		if pack ~= nil and BigNum.gte(lifetimeBlox, pack.rollCost) then
+			table.insert(out, packId)
+		end
+	end
+	return out
+end
 
 function AuraConfig.validate(): boolean
 	local ids = {}

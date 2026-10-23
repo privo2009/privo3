@@ -163,6 +163,67 @@ check("ShopConfig: 힘 배수 게임패스는 최고 단계만 적용된다", fu
 	return mult == 1024
 end)
 
+-- 파생 함수 (v5, 지시서 #10 S12 · S13) -------------------------------------------------------
+
+check("PetConfig.getSlots: 기본 · 업그레이드 · 게임패스 · 상한", function()
+	local base, up, pass, max = PetConfig.BaseSlots, PetConfig.UpgradeSlotBonus, PetConfig.GamepassSlotBonus, PetConfig.MaxSlots
+	return PetConfig.getSlots(0, false) == base
+		and PetConfig.getSlots(1, false) == math.min(base + up, max)
+		and PetConfig.getSlots(0, true) == math.min(base + pass, max)
+		and PetConfig.getSlots(1, true) == max
+		and PetConfig.getSlots(99, true) == max
+end)
+
+check("PetConfig.getSlots: 깨진 레벨(음수 · nan · 소수 · nil)은 0 또는 내림", function()
+	local base = PetConfig.BaseSlots
+	return PetConfig.getSlots(-3, false) == base
+		and PetConfig.getSlots(0 / 0, false) == base
+		and PetConfig.getSlots(0.9, false) == base
+		and PetConfig.getSlots((nil :: any), false) == base
+end)
+
+check("PetConfig.getStorage: 기본 / 게임패스", function()
+	return PetConfig.getStorage(false) == PetConfig.BaseStorage
+		and PetConfig.getStorage(true) == PetConfig.BaseStorage + PetConfig.GamepassStorageBonus
+end)
+
+check("AuraConfig.getUnlockedPacks: lifetimeBlox 축 — 롤 1회 비용에서 열린다", function()
+	local world = WorldConfig.get(1) :: any
+	local first = AuraConfig.Packs[world.auraPacks[1]]
+	local second = AuraConfig.Packs[world.auraPacks[2]]
+	local below = BigNum.div(first.rollCost, BigNum.fromNumber(2))
+	local justBelowSecond = BigNum.div(second.rollCost, BigNum.fromNumber(2))
+	return #AuraConfig.getUnlockedPacks(BigNum.new(0, 0), 1) == 0
+		and #AuraConfig.getUnlockedPacks(below, 1) == 0
+		and #AuraConfig.getUnlockedPacks(first.rollCost, 1) == 1
+		and #AuraConfig.getUnlockedPacks(justBelowSecond, 1) == 1
+		and #AuraConfig.getUnlockedPacks(second.rollCost, 1) == 2
+end)
+
+check("AuraConfig.getUnlockedPacks: 월드 축 — 그 월드에 없는 팩은 아무리 벌어도 안 열린다", function()
+	local world = WorldConfig.get(1) :: any
+	local got = AuraConfig.getUnlockedPacks(BigNum.new(1, 2000), 1)
+	if #got ~= #world.auraPacks then
+		return false
+	end
+	for i, packId in ipairs(world.auraPacks) do
+		if got[i] ~= packId then
+			return false
+		end
+	end
+	return #AuraConfig.getUnlockedPacks(BigNum.new(1, 2000), 999) == 0
+end)
+
+check("WorldConfig: 월드 1 아우라 팩에 팩 4 · 5가 없다 (G3/S8 — 월드 2로 옮김)", function()
+	local world = WorldConfig.get(1) :: any
+	for _, packId in ipairs(world.auraPacks) do
+		if packId == 4 or packId == 5 then
+			return false
+		end
+	end
+	return true
+end)
+
 check("PetConfig.getNextTier: 최고 등급은 nil", function()
 	return PetConfig.getNextTier(4) == nil and PetConfig.getNextTier(1) == 2
 end)
