@@ -1360,7 +1360,7 @@ U6        미착수 (뽑기 — Phase 7과 같이)
 ✅ **사람이 처음부터 끝까지 한 판 할 수 있는 지점 도달(2026-10-23 직접 플레이 확인).** 두 번째 직접 플레이에서
 새 템포 · 환생 체감 모두 좋았고 기구 1 배수 ×1.2는 그대로 확정됐다(`docs/PENDING.md` "실플레이로 볼 것 > 직접 플레이 기록").
 
-**다음: Phase 7 착수 전 결정** — 게임 수치 16 · 구조 판단 15(`docs/PENDING.md` "미결 > Phase 7 착수 전 결정", 지시서 #9 조사).
+**다음: Phase 7** — 착수 전 결정 31개는 2026-10-24 사람이 정했다(지시서 #10). 계획은 아래 Phase 7 절.
 G2 확인(에셋 도착 시)은 그와 별개로 기다린다.
 
 ⚠️ 이 단계가 전체에서 가장 오래 걸린다
@@ -1369,14 +1369,30 @@ G2 확인(에셋 도착 시)은 그와 별개로 기다린다.
 
 ## Phase 7 — 뽑기 (코드 + 에셋)
 ```
-RollService  — 서버 판정, 순차 확률
+RollLogic    — 순수 판정(순차 확률, 난수 함수 주입). 시뮬레이터도 쓴다
+RollService  — 서버 RNG 소유 · 테스트 주입 · 행운 체인 조립 · 결과 코드
 AuraService  — 팩별 테이블
-TitleService — 자동 롤 배치 처리
+TitleService — 자동 롤 서버 단일 루프
 PetService   — 크래프팅, 장착, 저장 공간
 ```
 
-⚠️ 자동 롤: 1초 단위 배치. 롤당 RemoteEvent 금지.
-   저장은 30초 주기 또는 신규 획득 시에만
+⚠️ 자동 롤: 서버 단일 루프가 간격마다 1회씩. 롤당 RemoteEvent 금지 — 신규 획득만 알린다.
+   저장(S11): 고정 주기 저장 루프는 두지 않는다. ProfileStore 자동 저장에 맡기고 **새 id를 처음 얻었을 때만** `Profile:Save()`
+   (규칙 원본 `DESIGN.md` "6. 뽑기 3종 > 공통")
+
+계획 (2026-10-24 사람 결정 S1 — 규칙은 `DESIGN.md` 3 · 6 · 10장)
+```
+#10  공통 기반 + 타이틀
+     스키마 v5(pets.slots · storage · rolling.unlockedAuraPacks · drones 삭제, 파생 함수) · WorldConfig 월드 1 팩 1~3
+     RollLogic · RollService · TitleConfig 재작성 · TitleService(수동 · 자동 롤, 장착) · 요청 채널
+     배수 연결(StrengthMultiplier · payableReward) · PlayerState titles · 머리 위 칭호
+     UI: 타이틀 창 · 레일 "칭호"(임시) · 토스트 · 희귀도 색 · 상점 titleLuck
+     시뮬레이터 S7 타이틀 모델
+#11  아우라 — 팩 1~3 값(G4 경계) · AuraService · 아우라 큰 창 · 결과 연출(차단층) · 아우라 데미지 배수 · auraLuck 노출
+#12  펫 — 알 · 크래프팅 · 장착 · 놓아주기 · 슬롯 · 펫 인벤토리 큰 창 · 추적 · 자동 공격 연출 · petLuck · petSlots 노출
+     #12 뒤 HP 재확인 한 번(S6)
+Phase 8  롤 상품(아우라 전용) · 행운 게임패스 · 3x 부화 · 슬롯 · 저장 공간 게임패스
+```
 
 착수 전 조사(2026-10-24, 지시서 #9 — 읽기만): Config 3종 · Schema 필드 · 상품 정의 · 비노출 업그레이드는 있고,
 행운 체인 · 순차 판정 · 서비스 4종 · 자동 롤 배치 · 명시 저장 주기 · 화면은 없다.
