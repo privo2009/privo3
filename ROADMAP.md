@@ -20,7 +20,7 @@
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
-| `Tests/ConfigTests.server.lua` | 84 | 모든 Config의 validate + 스모크 · 파생 함수(getSlots · getStorage · getUnlockedPacks, 지시서 #10) · TitleConfig validate 거부 5종 |
+| `Tests/ConfigTests.server.lua` | 93 | 모든 Config의 validate + 스모크 · 파생 함수(getSlots · getStorage · getUnlockedPacks) · TitleConfig validate 거부 5종 · 블럭스 상품 금지(P1) · AuraConfig m = 사다리 × 비율 · G4 · 단조 거부(#11) |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Tests/WarpConfigTests.server.lua` | 31 | 워프 비용 곡선(지수·단조)·순수성·거부 사유 3종 |
 | `Tests/AttackConfigTests.server.lua` | 29 | 펀치 속도·판정 반경 파생·경계(이하) |
@@ -56,7 +56,7 @@
 | `Tests/AutoToolsTests.client.lua` | 28 | 자동 도구 아이콘 배치 |
 | `Systems/ArenaServiceTests.server.lua` | 130 | 스폰 좌표·경계 높이·스테이지 수에 따른 경계 확장·출입구 개방·어깨 벽·바닥 파생과 파트 상한 분할(층 수 흔들기)·전 층 바닥 위 |
 | `Systems/CashoutPadServiceTests.server.lua` | 47 | 발판 좌표·측면 오프셋·디바운스·런당 1회·플레이어별 격리·source 경로·층 불일치 무시·UiTheme 색 |
-| `Tests/SuccessRateReportTests.server.lua` | 97 | 확률 시뮬레이터 식 — 펀치 간격·속도 미곱·반경 밖 지연·런 중 클릭·걷기 시간·진행 규칙 2종·모델 범위·seed 결정성·워프 비교(판단·워프 런)·문턱 구간 비교(구간 수·순서·합산·seed 재현)·운동기구 훈련·공허 구매자·업그레이드 S5(가장 싼 것부터 · 예산 = getLeftover · 최대 레벨 건너뜀)·TEMP 후보 교체 되돌림 · 칭호 S7(자동 롤 기준 · 지출 · 장착 · 배수 한 번씩 · 후보 권한) |
+| `Tests/SuccessRateReportTests.server.lua` | 114 | 확률 시뮬레이터 식 — 펀치 간격·속도 미곱·반경 밖 지연·런 중 클릭·걷기 시간·진행 규칙 2종·모델 범위·seed 결정성·워프 비교(판단·워프 런)·문턱 구간 비교(구간 수·순서·합산·seed 재현)·운동기구 훈련·공허 구매자·업그레이드 S5(가장 싼 것부터 · 예산 = getLeftover · 최대 레벨 건너뜀)·TEMP 후보 교체 되돌림 · 칭호 S7(자동 롤 기준 · 지출 · 장착 · 배수 한 번씩 · 후보 권한) · S5' 1차 4종 · 아우라 A4(20% · 가장 높은 팩 · 장착 · m 클릭 · 1펀치 한 번씩 · 후보 G4) |
 | `Systems/GymServiceTests.server.lua` | 45 | 운동기구 조건·배수·가격 순증가·해금 경계·공허 훈련 구역(로벅스 전용·맨 끝·가장 비쌈·가장 셈·ShopConfig 가격)·스폰 구역 안·게이트 앞·패드와 안 겹침·발판 판정·배수 결정 |
 | `Tests/CashoutPadViewTests.server.lua` | 23 | 런 상태 → 발판 켜짐(클리어 + 같은 층)·꺼짐(미클리어·다른 층·런 없음)·켜진 발판 1개·역할 키 |
 | `Tests/AdvanceWallViewTests.server.lua` | 97 | 런 상태 → 벽 모습(숨김·닫힘·열림)·크기 파생·층별 위치·잘못된 stage·LevelConfig 깊이 소스 등록 |
@@ -64,18 +64,18 @@
 | `Tests/AdvanceWallRendererTests.client.lua` | 62 | 상태별 충돌·투명·색(닫힘·열림·최종층·숨김)·create 계약(Anchored·CanTouch=false) |
 | `Tests/EntranceGateServiceTests.server.lua` | 25 | 런 없음→1층 startRun·런 있음 무동작·서 있기 반복·디바운스 공유·플레이어 격리·스펙 파생(지면·블록 바깥면 앞) |
 | `Tests/RunDeathServiceTests.server.lua` | 9 | 런 있음 abandon 1회·런 없음 0회·같은 죽음 두 번 차단·리스폰 뒤 새 죽음 |
-| `Systems/PlayerStateServiceTests.server.lua` | 45 | 상태 스냅샷 형태 · 직렬화 왕복 · 같음 비교 · 로드 시 1회 · 빈도 상한 · sync 모음(로드 전 요청 포함) · 리스폰 · 퇴장 · 업그레이드 레벨 8키 · 칭호 요약 |
-| `Tests/PlayerStateClientTests.client.lua` | 26 | payload 형태 판정 · Store 반영 · 틀린 payload 통째로 버림 · 업그레이드 표(키 · 음수 · 복사) · 칭호 요약(형태 · 깊은 복사) |
+| `Systems/PlayerStateServiceTests.server.lua` | 49 | 상태 스냅샷 형태 · 직렬화 왕복 · 같음 비교 · 로드 시 1회 · 빈도 상한 · sync 모음(로드 전 요청 포함) · 리스폰 · 퇴장 · 업그레이드 레벨 8키 · 칭호 요약 · 아우라 요약 |
+| `Tests/PlayerStateClientTests.client.lua` | 31 | payload 형태 판정 · Store 반영 · 틀린 payload 통째로 버림 · 업그레이드 표(키 · 음수 · 복사) · 칭호 · 아우라 요약(형태 · 깊은 복사) |
 | `Tests/CoreScreensTests.client.lua` | 56 | 런 안내 · 로딩 판정, 3D 안내 내용(서버 · Config 원본), 화면 규칙(Offset 0 · 금지 구역 밖 · 층 순서 · 역할 색), 패드 표시 역할 3종 · 역할별 높이 · 다음 해금 크기 · 벽 표시 서버 nextReward |
 | `Systems/RebirthRequestServiceTests.server.lua` | 12 | 환생 요청 거부 경로(블럭스 부족 · 빈도 상한 · 부분 실패) · 성공 결과 형태 |
 | `Tests/RebirthWindowTests.client.lua` | 52 | 표시 값(서버와 같은 함수) · 사유 문구 · 확인 단계 없이는 요청 안 나감 · 잠김 · 창 규격 · 버튼 그림 ZIndex · 남는 것에 업그레이드 · 상점 안내 · 상점으로 |
 | `Tests/TouchSafeLayoutTests.client.lua` | 13 | 폰 실측 사각형으로 겹침 판정(구좌 · 자동 도구 겹침, 힘 블록 안 겹침) · 점프 버튼 위로 올림 양(간격 포함) · 올릴 필요 없으면 0 · Scale 환산 |
 | `Systems/WarpRequestServiceTests.server.lua` | 12 | 워프 요청 payload 위생(invalid_stage) · 서버 거부 사유 그대로(W1 · 블럭스 부족) · 성공 결과 형태 · 빈도 상한 · 결과 매번 송신 |
 | `Tests/WarpWindowTests.client.lua` | 36 | 표시 값(WarpConfig.cost 원본) · 잠김(블럭스 부족 · W1 런 중) · 사유 문구 · 확인 단계 · 쪽 넘김 · 창 규격 · 행 색 3단계 |
-| `Tests/UpgradeConfigTests.server.lua` | 58 | 노출 5종(칭호 행운 포함, 지시서 #10) · 비노출 3종 · 스키마 8키 · 효과 선형(S1) · 펀치 속도 증가량 유도 · 최대 레벨 = 상한(S2) · 이동속도 80 상한(S3) · 비용 단조 증가 · canBuy 사유 3종 · validate 거부 |
+| `Tests/UpgradeConfigTests.server.lua` | 61 | 노출 6종(칭호 #10 · 아우라 행운 #11) · 비노출 2종 · 스키마 8키 · 효과 선형(S1) · 펀치 속도 증가량 유도 · 최대 레벨 = 상한(S2) · 이동속도 80 상한(S3) · 비용 단조 증가 · canBuy 사유 3종 · validate 거부 |
 | `Systems/UpgradeServiceTests.server.lua` | 35 | 구매 거부 경로(잘못된 항목 · 최대 레벨 · 블럭스 부족 · 프로필 없음) 부작용 0 · 차감 → 레벨 → 통지 순서 · 부분 실패 · 저장값 읽기 · 환생 경로가 업그레이드를 안 건드림 |
 | `Systems/UpgradeRequestServiceTests.server.lua` | 13 | 구매 요청 payload 위생 · 서버 거부 사유 그대로 · 성공 결과 형태 · 빈도 상한(중복 요청) · 퇴장 정리 |
-| `Tests/UpgradeShopTests.client.lua` | 40 | 상점 표시 값(UpgradeConfig 원본) · 잠김(MAX · 블럭스 부족) · 사유 문구 · 요청 한 번만(결과 대기 · 시간 뒤 풀림 · 잠긴 줄) · 로벅스 자리 숨김 · 창 규격 |
+| `Tests/UpgradeShopTests.client.lua` | 41 | 상점 표시 값(UpgradeConfig 원본) · 잠김(MAX · 블럭스 부족) · 사유 문구 · 요청 한 번만(결과 대기 · 시간 뒤 풀림 · 잠긴 줄) · 로벅스 자리 숨김 · 창 규격 · 행운 줄 문구(#11) |
 | `Tests/FeedbackTests.client.lua` | 44 | 클릭 팝업 증가분 · 문구 · 진행, HUD 환생 배수(서버와 같은 함수), 환생 안내(×이전 → ×이후 · 알림층 · 상단 띠 안), 운동기구 3D 표시 역할 · 문구, 패드 · 기구 본체 색 |
 | `Systems/LogFoldTests.server.lua` | 11 | 첫 줄은 찍는다 · 창 안 반복은 접는다 · 창 뒤 'N번 더' 요약 + 새 줄 · 키(플레이어 · 사유)별 · ChallengeService 판정은 그대로 |
 | `Systems/RollLogicTests.server.lua` | 26 | 순차 판정 — 높은 등급 우선 · p 경계 · 행운 · p ≥ 1 확정 · 폴백(난수 안 씀) · 합 > 1 · 깨진 입력 · 분포 · seed 결정성 · 표본 |
@@ -83,7 +83,13 @@
 | `Systems/TitleServiceTests.server.lua` | 52 | 거부 경로 부작용 0 · 잔액 미리 보기 · 차감 → 롤 순서 · 신규 / 중복 · 자동 장착 · 저장 1회 · 롤 시계(수동 · 자동 공용) · 자동 루프 틱 · 장착 · 토글 · 행운 전달 · 요약 · 배수 힘 · 블럭스 한 번씩 |
 | `Systems/TitleRequestServiceTests.server.lua` | 19 | payload 위생 · 빈도 상한 · 사유 코드 그대로 · 응답 필드 전부 · 자동 롤 알림 모양 |
 | `Tests/TitleWindowTests.client.lua` | 62 | 칭호 창 값(Config · 서버 원본 · 행운 반영 확률) · 보유 / 장착 / 잠김 · 사유 문구 · 결과 문구 · 토스트 판정 · 요청 한 번만 · 롤 간격 잠금 · 토글 두 채널 · 희귀도 색 · 토스트 큐(3개 · 순서 · 오래된 것부터) · 토스트 자리 |
-| **합계** | **3177** | |
+| `Tests/RollOddsTests.server.lua` | 21 | 실제 등장 확률 분포(합 1 · 손계산 · p ≥ 1 · 폴백 · 순수) · 표시 % 합 100(최대 나머지 · 1/50000 비영 · 반올림 경계) · 행운 문구 |
+| `Systems/AuraServiceTests.server.lua` | 38 | 거부 부작용 0(잠긴 · 월드 밖 · 잔액 · 시계 · 잘못된 팩) · 차감 → 판정 · 신규 / 중복 · 더 높은 m 자동 장착 · 저장 1회 · 장착 · 팩 선택 · 행운 전달 · 요약 · m 힘 · 1펀치 한 번씩 |
+| `Systems/AuraRequestServiceTests.server.lua` | 22 | payload 위생 · 빈도 상한 · 사유 그대로 · 응답 필드 전부 · 설정 화이트리스트(키 · 타입 · 빈도 · 프로필 없음) |
+| `Tests/AuraWindowTests.client.lua` | 43 | 카드 값(m · 실제 확률 합 100 · 행운) · 희귀도 매핑 · 보유 / 장착 · 팩 탭 · 잠김 사유 · 결과 판정(모달 · 런 중 토스트) · 요청 한 번만 · 롤 시계 잠금 · 칭호 버튼 |
+| `Tests/BlockingQueueTests.client.lua` | 14 | 차단층 큐(한 번에 하나 · 닫으면 다음 · 우선순위 · 가로채지 않음 · 순서) · 결과 모달 표시 · 차단층 |
+| `Tests/SettingsWindowTests.client.lua` | 10 | 설정 토글(반대 값 1건 · 두 채널 · 거부 문구) · 파티클 방출량(등급 · 숨기기 · 내 것은 보임 · 전체 상한) |
+| **합계** | **3364** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -111,7 +117,27 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-10-24 Studio Play 런타임 실측 (전량, 지시서 #10 — 스키마 v5 · 뽑기 공통 · 타이틀 · 리포트 끈 Play).** 65개 행 전부가
+최근 갱신: **2026-10-24 Studio Play 런타임 실측 (전량, 지시서 #11 — 아우라 · 확률 공개 · 블럭스 팩 제거 · 리포트 끈 Play).** 71개 행 전부가
+한 Play에 찍혔다. **3364 passed / 0 failed** — 서버 2083(45행) + 클라 1281(26행).
+
+```
+신설   RollOddsTests                21          (49c7f7a)
+       AuraServiceTests             38          (b2a6788)
+       AuraRequestServiceTests      22          (b2a6788)
+       AuraWindowTests              43          (40ac9a7)
+       BlockingQueueTests           14          (40ac9a7)
+       SettingsWindowTests          10          (40ac9a7)
+갱신   ConfigTests                  84 →  93    블럭스 상품 금지 · AuraConfig (1771224 · b2a6788)
+       SuccessRateReportTests       97 → 114    S5' · 아우라 A4 (1771224 · 81708d4)
+       PlayerStateServiceTests      45 →  49    아우라 요약 (b2a6788)
+       UpgradeConfigTests           58 →  61    아우라 행운 노출 (40ac9a7)
+       PlayerStateClientTests       26 →  31    아우라 요약 (40ac9a7)
+       UpgradeShopTests             40 →  41    행운 줄 문구 (49c7f7a)
+유지   나머지 59행 (TitleWindowTests 62 — 확률 검사를 실제 등장 확률로 바꿔 개수 그대로)
+대조   직전 3177(서버 1969 + 클라 1208) + 신설 148 + 갱신 +39 = 3364 (서버 +114 · 클라 +73)
+```
+
+그 전 갱신: **2026-10-24 Studio Play 런타임 실측 (전량, 지시서 #10 — 스키마 v5 · 뽑기 공통 · 타이틀 · 리포트 끈 Play).** 65개 행 전부가
 한 Play에 찍혔다. **3177 passed / 0 failed** — 서버 1969(42행) + 클라 1208(23행).
 
 ```
@@ -1386,7 +1412,7 @@ U6        타이틀 창 · 토스트 · 머리 위 칭호(지시서 #10, e071e1a
 ✅ **사람이 처음부터 끝까지 한 판 할 수 있는 지점 도달(2026-10-23 직접 플레이 확인).** 두 번째 직접 플레이에서
 새 템포 · 환생 체감 모두 좋았고 기구 1 배수 ×1.2는 그대로 확정됐다(`docs/PENDING.md` "실플레이로 볼 것 > 직접 플레이 기록").
 
-**다음: Phase 7 #11 아우라** — 착수 전 결정 31개는 2026-10-24 사람이 정했다. #10(공통 + 타이틀) 완료. 계획은 아래 Phase 7 절.
+**다음: Phase 7 #12 펫** — #10(공통 + 타이틀) · #11(아우라 + 확률 공개 + 블럭스 팩 제거) 완료. 계획은 아래 Phase 7 절.
 G2 확인(에셋 도착 시)은 그와 별개로 기다린다.
 
 ⚠️ 이 단계가 전체에서 가장 오래 걸린다
@@ -1407,7 +1433,9 @@ PetService   — 크래프팅, 장착, 저장 공간
    (규칙 원본 `DESIGN.md` "6. 뽑기 3종 > 공통")
 
 진행: **#10 완료(2026-10-24)** — 87d772c 스키마 v5 · 55bee1f RollLogic/RollService · 53a6d7b 타이틀 서버 · e071e1a 타이틀 UI ·
-473352d 시뮬레이터 S7(칭호 배수 시작값 그대로). 다음 #11 아우라.
+473352d 시뮬레이터 S7(칭호 배수 시작값 그대로).
+**#11 완료(2026-10-24)** — 1771224 블럭스 팩 삭제 · S5' · 49c7f7a 확률 공개(RollOdds) · b2a6788 아우라 서버 · 40ac9a7 아우라 UI ·
+81708d4 시뮬레이터 A4 + m 조정(M2) · 13e51d6 토스트 print 삭제. 다음 #12 펫.
 
 계획 (2026-10-24 사람 결정 S1 — 규칙은 `DESIGN.md` 3 · 6 · 10장)
 ```
