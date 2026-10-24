@@ -100,6 +100,7 @@ ServerPackages/ → Wally 패키지 (직접 수정 금지)
 모든 재화 증감은 `Server/Systems/CurrencyService.lua`만 통과한다.
 `profile.blox`를 직접 수정하는 코드를 절대 작성하지 말 것.
 이유: 재화 누수 추적과 검증을 한 지점으로 좁힌다.
+예외 하나: Studio 전용 테스트 프리셋(`Server/Data/TestPresetGate`)은 세션을 열기 **전에** ProfileStore **Mock** 템플릿으로 상태를 만든다 — 런타임 증감이 아니고 실제 데이터에 닿지 않는다(지시서 #13).
 
 ## 3. 서버 권위
 - 챌린지 타이머: 서버 `os.clock()` 기준. 클라 시간 신뢰 금지
