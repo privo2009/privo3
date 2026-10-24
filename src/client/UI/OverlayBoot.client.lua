@@ -116,7 +116,6 @@ channels.titleResult.OnClientEvent:Connect(function(payload: Remotes.TitleResult
 	local toast = TitleWindowLogic.toastFor(payload.titleId)
 	if toast ~= nil then
 		toastStack.push(toast)
-		print(string.format("[OverlayBoot] 토스트: %s (%s)", toast.text, payload.action)) -- 실물 관측용(토스트는 몇 초 뒤 사라진다)
 	end
 end)
 -- ===== 차단층 큐 — 뽑기 결과 모달 (지시서 #11 A6) ===================================================
@@ -154,7 +153,6 @@ channels.auraResult.OnClientEvent:Connect(function(payload: Remotes.AuraResultPa
 		local toast = AuraWindowLogic.toastFor(payload)
 		if toast ~= nil then
 			toastStack.push(toast)
-			print(string.format("[OverlayBoot] 토스트: %s (aura, 런 중)", toast.text))
 		end
 		return
 	end
