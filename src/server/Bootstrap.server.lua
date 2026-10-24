@@ -646,6 +646,17 @@ if SUCCESS_RATE_REPORT_ENABLED then
 	end)
 end
 
+-- ── 개발용 플래그: BALANCE_SUMMARY_ENABLED (지시서 #13 6단계 — 사람용 튜닝 요약) ─────────────
+-- Play 한 번에 핵심 지표를 30줄 안팎으로 찍는다([BALANCE] 줄 — Tools/BalanceSummary). 값을 바꾼 뒤 이것 하나만 켜고 읽는다.
+-- 순서 · 읽는 법은 docs/TUNING.md. 프로필을 읽지도 쓰지도 않는다. 이 플래그를 켠 Play에서는 테스트 개수를 세지 않는다.
+local BALANCE_SUMMARY_ENABLED = false
+
+if BALANCE_SUMMARY_ENABLED then
+	task.spawn(function()
+		require(script.Parent.Tools.BalanceSummary).run()
+	end)
+end
+
 -- ── 개발용 플래그: HP_CANDIDATE_REPORT_ENABLED (지시서 #13 5단계) ─────────────────────
 -- HP 곡선 후보 측정(Tools/HpCandidateReport). 기준점 B4 · 넓게 훑기 · 후보 자세히([HPCAND] 줄). ⚠️ 채택하지 않는다(D2).
 -- SUCCESS_RATE_REPORT_ENABLED와 같은 성격이다 — Config를 메모리에서 잠깐 갈아끼우고 되돌린다. 프로필을 읽지도 쓰지도 않는다.
