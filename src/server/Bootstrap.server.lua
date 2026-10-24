@@ -18,8 +18,14 @@ local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 
+-- ── 테스트 프리셋: TEST_PRESET (Studio 전용, 지시서 #13 3단계) ──────────────────────────
+-- 이름을 적고 Play하면 그 시점 상태의 **Mock 프로필**로 시작한다(실제 데이터에는 읽기도 쓰기도 하지 않는다 — TestPresetGate).
+-- 이름: fresh · before_first_rebirth · floor9 · floor17 · floor25 · floor25_cleared (값 · 출처는 Shared/Config/TestPresets)
+-- Studio가 아니면 무시하고 ERROR 로그를 남긴다. ⚠️ 커밋 값은 언제나 nil이다(TestPresetGateTests가 잰다 — 켠 Play에서는 그 줄이 실패한다).
+local TEST_PRESET: string? = nil
+
 print("[Bootstrap] ProfileManager.init() 호출 시작")
-ProfileManager.init()
+ProfileManager.init(TEST_PRESET)
 print("[Bootstrap] ProfileManager.init() 호출 완료")
 
 -- 스폰 지점과 아레나 경계를 Workspace에 세운다 (4-2-a).
@@ -634,5 +640,18 @@ local SUCCESS_RATE_REPORT_ENABLED = false
 if SUCCESS_RATE_REPORT_ENABLED then
 	task.spawn(function()
 		require(script.Parent.Tools.SuccessRateReport).run()
+	end)
+end
+
+-- ── 개발용 플래그: TEST_PRESET_EXPORT_ENABLED (지시서 #13 3단계) ──────────────────────
+-- 테스트 프리셋(Shared/Config/TestPresets) 값을 다시 뽑는다. SuccessRateReport 결정 모델과 같은 시뮬레이터 · 같은 seed로
+-- 시점마다 중앙값 플레이어의 상태를 Lua 표 글자로 print한다([PRESET] 줄) — 그대로 TestPresets.lua에 옮긴다.
+-- ⚠️ SUCCESS_RATE_REPORT_ENABLED와 같은 성격이다 — Config만 읽고 print한다. 프로필을 읽지도 쓰지도 않는다.
+--    끄는 이유는 소음과 계산 시간이다. 이 플래그를 켠 Play에서는 테스트 개수를 세지 않는다(CLAUDE.md 절대 규칙 8).
+local TEST_PRESET_EXPORT_ENABLED = false
+
+if TEST_PRESET_EXPORT_ENABLED then
+	task.spawn(function()
+		require(script.Parent.Tools.TestPresetExport).run()
 	end)
 end

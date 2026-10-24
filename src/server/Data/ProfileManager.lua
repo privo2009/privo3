@@ -13,10 +13,12 @@
 
 local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
 local ProfileStore = require(ServerScriptService.ServerPackages.ProfileStore)
 local Schema = require(script.Parent.Schema)
 local Migrations = require(script.Parent.Migrations)
+local TestPresetGate = require(script.Parent.TestPresetGate)
 
 -- ProfileStore.Profile<T>은 제네릭이고 T(profile.Data의 실제 형태)는 Schema.validate가
 -- 런타임에 검증하는 대상이라 여기서는 굳이 정적으로 좁히지 않는다.
@@ -44,6 +46,10 @@ local loadClaimed: { [Player]: boolean } = {}
 -- 실제 DataStore 접근이 불가능한 환경(예: API 서비스 비활성화된 Studio)에서는
 -- ProfileStore가 내부적으로 자동 목업 저장소로 전환한다 - 여기서 별도 분기 불필요.
 local playerStore = ProfileStore.New(STORE_NAME, Schema.getTemplate())
+
+-- 세션을 여는 대상. 평소에는 playerStore. Studio 테스트 프리셋이 켜지면 Mock 전용 스토어의 .Mock으로 바뀐다
+-- (TestPresetGate — 그때는 playerStore에 세션을 열지 않는다. 지시서 #13 3단계).
+local sessionStore: any = playerStore
 
 function ProfileManager.onLoaded(callback: (Player, Profile) -> ())
 	table.insert(loadedCallbacks, callback)
@@ -131,7 +137,7 @@ local function handlePlayerAdded(player: Player)
 	end
 	loadClaimed[player] = true
 
-	local profile = playerStore:StartSessionAsync(tostring(player.UserId), {
+	local profile = sessionStore:StartSessionAsync(tostring(player.UserId), {
 		Cancel = function()
 			return player.Parent ~= Players
 		end,
@@ -206,12 +212,27 @@ local function handlePlayerAdded(player: Player)
 	fireLoaded(player, profile)
 end
 
-function ProfileManager.init()
+-- testPreset: Bootstrap의 TEST_PRESET(Studio 전용 테스트 프리셋 이름, 커밋 값은 언제나 nil). TestPresetGate가 판정한다.
+function ProfileManager.init(testPreset: string?)
 	if initialized then
 		warn("[ProfileManager] init()이 이미 호출된 상태 - 중복 호출 무시")
 		return
 	end
 	initialized = true
+
+	-- ⚠️ 첫 세션을 열기 전에 정한다(아래 GetPlayers 순회보다 앞). 프리셋이면 Mock만 — 실제 저장소에는 세션을 열지 않는다.
+	TestPresetGate.register(testPreset)
+	local store, _active, line, level = TestPresetGate.chooseSessionStore(testPreset, RunService:IsStudio(), playerStore, function(name: string, template: any)
+		return ProfileStore.New(name, template)
+	end)
+	sessionStore = store
+	if line ~= nil then
+		if level == "warn" then
+			warn(line)
+		else
+			print(line)
+		end
+	end
 
 	-- ⚠️ 경쟁 조건: 반드시 Connect가 먼저, GetPlayers() 순회는 그 다음이어야 한다.
 	-- 순서가 바뀌면 "GetPlayers() 스냅샷을 찍은 시점"과 "Connect가 걸리는 시점" 사이에

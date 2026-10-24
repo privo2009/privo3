@@ -919,7 +919,18 @@ export type PlayerResult = {
 	eggFirstStage: { [number]: number },
 }
 
-function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTry: { [number]: Tally }, titleRandom: (() -> number)?, auraRandom: (() -> number)?, petRandom: (() -> number)?): PlayerResult
+-- 관측 고리(지시서 #13 — 테스트 프리셋 · 요약 도구). 결과를 바꾸지 않는다: observer는 상태를 읽기만 하고(복사해 간다),
+-- untilFinalClear가 없으면 루프는 예전과 같은 자리에서 끝난다(최고층 첫 진입). 둘 다 nil이면 예전 호출과 같다.
+--   observer(event, p, seen, reached)  event = "run_start"(런 직전) · "run_end"(런 직후, reached = 그 런 최고층) · "rebirth_before"(환생 직전)
+--   untilFinalClear  최고층 첫 진입에서 멈추지 않고 최고층을 처음 깰 때까지 돈다(프리셋 "25층 클리어 직후"용)
+export type SimOptions = {
+	observer: ((event: string, p: Player, seen: { [number]: boolean }, reached: number?) -> ())?,
+	untilFinalClear: boolean?,
+}
+
+function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTry: { [number]: Tally }, titleRandom: (() -> number)?, auraRandom: (() -> number)?, petRandom: (() -> number)?, opts: SimOptions?): PlayerResult
+	local observer = if opts ~= nil then opts.observer else nil
+	local untilFinalClear = opts ~= nil and opts.untilFinalClear == true
 	local p = SuccessRateReport.newPlayer(rng)
 	p.titleRandom = titleRandom
 	p.auraRandom = auraRandom
@@ -941,10 +952,21 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 			p.warps += 1
 			p.warpStageSum += warpTo
 		end
+		if observer ~= nil then
+			observer("run_start", p, seen, nil)
+		end
 		local reached = runOnce(p, rng, firstTry, seen, warpTo)
+		if observer ~= nil then
+			observer("run_end", p, seen, reached)
+		end
 		if seen[maxStage] and finalFirstSec == nil then
 			finalFirstSec = before
 			finalRebirthsLog10 = if p.rebirths.m > 0 then math.log10(p.rebirths.m) + p.rebirths.e else nil
+			if not untilFinalClear then
+				break
+			end
+		end
+		if untilFinalClear and reached >= maxStage then
 			break
 		end
 
@@ -957,6 +979,9 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 			SuccessRateReport.trainAtGym(p, MODEL.GYM_TRAIN_SEC)
 		end
 		if stale >= SIM.REBIRTH_PATIENCE_RUNS and RebirthConfig.canRebirth(p.blox) then
+			if observer ~= nil then
+				observer("rebirth_before", p, seen, nil)
+			end
 			rebirth(p)
 			bestThisLife = 0
 			p.bestThisLife = 0
