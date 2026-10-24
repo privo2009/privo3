@@ -646,6 +646,18 @@ if SUCCESS_RATE_REPORT_ENABLED then
 	end)
 end
 
+-- ── 개발용 플래그: HP_CANDIDATE_REPORT_ENABLED (지시서 #13 5단계) ─────────────────────
+-- HP 곡선 후보 측정(Tools/HpCandidateReport). 기준점 B4 · 넓게 훑기 · 후보 자세히([HPCAND] 줄). ⚠️ 채택하지 않는다(D2).
+-- SUCCESS_RATE_REPORT_ENABLED와 같은 성격이다 — Config를 메모리에서 잠깐 갈아끼우고 되돌린다. 프로필을 읽지도 쓰지도 않는다.
+-- 계산이 길다(수 분). 이 플래그를 켠 Play에서는 테스트 개수를 세지 않는다.
+local HP_CANDIDATE_REPORT_ENABLED = false
+
+if HP_CANDIDATE_REPORT_ENABLED then
+	task.spawn(function()
+		require(script.Parent.Tools.HpCandidateReport).run()
+	end)
+end
+
 -- ── 개발용 플래그: TEST_PRESET_EXPORT_ENABLED (지시서 #13 3단계) ──────────────────────
 -- 테스트 프리셋(Shared/Config/TestPresets) 값을 다시 뽑는다. SuccessRateReport 결정 모델과 같은 시뮬레이터 · 같은 seed로
 -- 시점마다 중앙값 플레이어의 상태를 Lua 표 글자로 print한다([PRESET] 줄) — 그대로 TestPresets.lua에 옮긴다.

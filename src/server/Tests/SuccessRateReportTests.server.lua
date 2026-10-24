@@ -805,6 +805,37 @@ do
 		and StandardPathReport.CLIFF_RATIO_THRESHOLD == 2)
 end
 
+-- 목표 성공률 · 지표 함수 (지시서 #13 5 · 6단계) -----------------------------------------------------------
+do
+	local WorldConfig2 = require(ReplicatedStorage.Shared.Config.WorldConfig)
+	local segs = (WorldConfig2.get(SuccessRateReport.SIM.WORLD_ID) :: any).hpGrowthSegments
+	local same = #segs == #SuccessRateReport.TARGETS
+	for i, seg in ipairs(segs) do
+		local t = SuccessRateReport.TARGETS[i]
+		if t == nil or t.from ~= seg.from or t.to ~= seg.to or not (t.min <= t.max) then
+			same = false
+		end
+	end
+	check("TARGETS 구간 경계 = WorldConfig HP 세그먼트 경계 · 측정 규약 ±10%p", same and SuccessRateReport.TARGET_TOLERANCE == 0.10)
+	check("targetFor: 9층 → 9~16 구간 · 범위 밖 nil", SuccessRateReport.targetFor(9) == SuccessRateReport.TARGETS[2] and SuccessRateReport.targetFor(99) == nil)
+
+	-- metrics: 합성 firstTry · 결과로 식을 잰다
+	local fakeTry: any = {}
+	for stage = 1, 25 do
+		fakeTry[stage] = { attempts = 10, successes = if stage <= 8 then 10 elseif stage <= 16 then 8 else 5 }
+	end
+	local fakeResults: any = {
+		{ reachedFinal = true, finalFirstSec = 600, rebirths = 2, runs = 10, finalRebirthsLog10 = 1, levelCapMin = 5, levelCapStage = 12 },
+		{ reachedFinal = true, finalFirstSec = 1200, rebirths = 4, runs = 20, finalRebirthsLog10 = 2, levelCapMin = nil },
+		{ reachedFinal = false, finalFirstSec = nil, rebirths = 6, runs = 30, finalRebirthsLog10 = nil, levelCapMin = 7, levelCapStage = 20 },
+	}
+	local m = SuccessRateReport.metrics(fakeTry, fakeResults)
+	check("metrics: 구간 성공률 = 합산 시도 대비 성공(1 · 0.8 · 0.5)", m.segments[1].rate == 1 and math.abs((m.segments[2].rate :: number) - 0.8) < 1e-12
+		and math.abs((m.segments[3].rate :: number) - 0.5) < 1e-12 and m.floorRates[17] == 0.5)
+	check("metrics: 25층 중앙값(10 · 20분 → 앞쪽 가운데 10) · 도달 2명 · 평균 환생 4 · 레벨 상한 2명 중앙값 5분 · 12층",
+		m.medianFinalMin == 10 and m.reached == 2 and m.meanRebirths == 4 and m.levelCapReached == 2 and m.medianLevelCapMin == 5 and m.medianLevelCapStage == 12)
+end
+
 print(string.format("[SuccessRateReportTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[SuccessRateReportTests] %d test(s) failed", failed))

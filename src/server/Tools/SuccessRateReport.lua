@@ -219,6 +219,27 @@ local SIM = {
 }
 SuccessRateReport.SIM = SIM
 
+-- ===== 목표 성공률 (판정 기준 — 지시서 #13 HP 후보 도구 · 튜닝 요약) ===================================
+--
+-- ⚠️ 원본은 DESIGN.md "목표 성공률" 표다(조심형 플레이어 기준, 2026-10-21 사람 결정). 도구가 "목표 밖 층"을 세려면 숫자가 필요해
+--    여기 한 번만 옮긴다 — 표가 바뀌면 여기도 바꾼다(SuccessRateReportTests가 구간 경계를 WorldConfig와 대조한다).
+--    측정 규약 ±10%p(TARGET_TOLERANCE) 밖이면 "목표 밖"이다. 게임 수치가 아니다 — 게임에는 이 숫자가 없다.
+SuccessRateReport.TARGETS = {
+	{ from = 1, to = 8, min = 0.95, max = 1.0 },
+	{ from = 9, to = 16, min = 0.65, max = 0.85 },
+	{ from = 17, to = 25, min = 0.40, max = 0.55 },
+}
+SuccessRateReport.TARGET_TOLERANCE = 0.10
+
+function SuccessRateReport.targetFor(stage: number): { from: number, to: number, min: number, max: number }?
+	for _, t in ipairs(SuccessRateReport.TARGETS) do
+		if stage >= t.from and stage <= t.to then
+			return t
+		end
+	end
+	return nil
+end
+
 -- ===== 상태 =========================================================================
 
 export type Player = {
@@ -936,6 +957,8 @@ export type PlayerResult = {
 	petSpentLog10: number?,
 	eggFirstMin: { [number]: number },
 	eggFirstStage: { [number]: number },
+	levelCapMin: number?, -- 레벨 상한(최대 속도 80) 첫 도달 시각(분). 끝날 때까지 못 닿으면 nil
+	levelCapStage: number?, -- 그때 이번 생애 최고층
 }
 
 -- 관측 고리(지시서 #13 — 테스트 프리셋 · 요약 도구). 결과를 바꾸지 않는다: observer는 상태를 읽기만 하고(복사해 간다),
@@ -959,6 +982,16 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 	local stale = 0
 	local finalFirstSec: number? = nil
 	local finalRebirthsLog10: number? = nil
+	-- 레벨 상한(최대 속도 80 — L2) 첫 도달(관측용, 지시서 #13 — BALANCE_SUMMARY). 결과는 바꾸지 않는다.
+	local capLevel = LevelConfig.getSpeedCapLevel()
+	local levelCapSec: number? = nil
+	local levelCapStage: number? = nil
+	local function checkLevelCap(stageNow: number)
+		if levelCapSec == nil and LevelConfig.getLevel(p.strength) >= capLevel then
+			levelCapSec = p.elapsedSec
+			levelCapStage = stageNow
+		end
+	end
 
 	while p.runCount < SIM.MAX_RUNS_PER_PLAYER and p.elapsedSec < SIM.MAX_SIM_SEC_PER_PLAYER do
 		local before = p.elapsedSec
@@ -978,6 +1011,7 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 		if observer ~= nil then
 			observer("run_end", p, seen, reached)
 		end
+		checkLevelCap(math.max(bestThisLife, reached))
 		if seen[maxStage] and finalFirstSec == nil then
 			finalFirstSec = before
 			finalRebirthsLog10 = if p.rebirths.m > 0 then math.log10(p.rebirths.m) + p.rebirths.e else nil
@@ -996,6 +1030,7 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 		else
 			stale += 1
 			SuccessRateReport.trainAtGym(p, MODEL.GYM_TRAIN_SEC)
+			checkLevelCap(bestThisLife)
 		end
 		if stale >= SIM.REBIRTH_PATIENCE_RUNS and RebirthConfig.canRebirth(p.blox) then
 			if observer ~= nil then
@@ -1054,6 +1089,8 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 			return t
 		end)(),
 		eggFirstStage = p.eggFirstStage,
+		levelCapMin = if levelCapSec ~= nil then (levelCapSec :: number) / 60 else nil,
+		levelCapStage = levelCapStage,
 	}
 end
 
@@ -1105,23 +1142,42 @@ local VARIANTS: { { label: string, override: { [string]: any } } } = {
 	{ label = "배율 인식 ±20%p", override = { ADVANCE_RULE = "growth_aware", ADVANCE_NOISE = 0.2 } },
 }
 
--- HP 곡선 후보 스윕. ⚠️ WorldConfig를 고치는 것이 아니라 메모리에서 잠깐 갈아끼운다
--- (StandardPathReport 파워 스윕과 같은 패턴). 끝나면 원래 표를 되돌린다. 후보는 결정 모델로만 돈다.
--- ⚠️ 후보값은 판단 재료이지 결정이 아니다 — 고르는 것은 사람이다(게임 수치).
--- 곡선 규약 1(HP > 보상 2.7)을 깨는 후보는 넣지 않는다.
+-- HP 곡선 후보 (지시서 #13 5단계 — ⚠️ 채택하지 않는다. D2: 고르는 것은 사람이다). WorldConfig를 고치는 것이 아니라 메모리에서
+-- 잠깐 갈아끼운다(StandardPathReport 파워 스윕과 같은 패턴). 끝나면 원래 표를 되돌린다. 후보는 결정 모델로만 돈다.
+-- 바꾸는 것은 성장률 세 값뿐이다 — 구간 경계 · hpBase · 보상 곡선은 그대로. 곡선 규약(각 값 > 보상 2.7 · 1 < 2 < 3)을 지킨다.
+-- 넓게 훑기(Tools/HpCandidateReport GRID 72개 — 1~8 {2.75 · 2.8 · 2.9} × 9~16 {3.6 · 3.8 · 4.0 · 4.3} × 17~25 {6 ~ 9})에서
+-- "시간이 짧은 쪽"(H1 · H2)부터 "목표 한가운데"(H9)까지 고르게 9개를 골랐다(Claude — 추천 아님). 지난 후보 A · B · C · 옛은 지웠다(git 이력).
+-- 측정(2026-10-25, 200명 · 같은 seed, 결정 모델 S5' + S7 + A4 + E11 · L1 · L3 — 자세한 값은 #13 완료 보고 · docs/PENDING.md):
+--   구간 % · 25층 중앙값 · 환생 · 목표 ±10%p 밖 층 · 한도 여유(아우라 / 펫 · CRAFT, 분) · 절벽 16→17 실재 클릭률 · 8→9 실재 클릭률
+--   B4 2.8 / 3.8 / 6.0   96.8 / 82.4 / 67.0 · 38.7분 · 4.1회 · 5층 · +1.8 / +0.9 · 10 · 없음  (넓게 훑기의 같은 칸과 같은 값 — 재현)
+--   H1 2.75 / 3.8 / 8.0  98.0 / 82.4 / 58.0 · 40.2분 · 4.5회 · 2층 · −0.2 / −1.7 · 8 · 10
+--   H2 2.8 / 3.8 / 7.5   97.2 / 81.2 / 59.7 · 41.0분 · 4.5회 · 3층 · +0.1 / −0.2 · 10 · 없음
+--   H3 2.75 / 4.0 / 8.0  97.8 / 81.3 / 54.8 · 41.3분 · 4.4회 · 3층 · −1.2 / −2.9 · 6 · 10 · 10
+--   H4 2.8 / 3.6 / 9.0   97.1 / 86.8 / 53.9 · 41.5분 · 4.7회 · 2층 · −2.8 / −2.3 · 6 · 8 · 10 · 없음
+--   H5 2.75 / 3.8 / 9.0  97.8 / 83.8 / 48.7 · 41.7분 · 4.5회 · 4층 · −3.8 / −3.1 · 8 · 10
+--   H6 2.75 / 4.3 / 7.5  97.3 / 73.1 / 54.5 · 43.1분 · 4.6회 · 2층 · −1.2 / −3.1 · 8 · 10
+--   H7 2.8 / 4.0 / 9.0   97.4 / 80.2 / 45.5 · 45.3분 · 5.0회 · 1층 · −4.1 / −4.2 · 8 · 없음
+--   H8 2.8 / 4.3 / 8.0   97.5 / 77.1 / 53.8 · 45.8분 · 5.0회 · 1층 · −4.7 / −4.1 · 없음 · 6
+--   H9 2.9 / 4.3 / 9.0   96.2 / 73.9 / 45.6 · 51.4분 · 5.6회 · 0층 · −10.8 / −6.6 · 없음 · 6
+--   ⚠️ HP를 올리면 아우라 · 펫 한도("뽑기 없음 기준선 × 0.9")의 여유가 줄어 거의 모두 음수가 된다 — 기준선(뽑기 없음)이 더 크게 늘기 때문이다.
+--      즉 HP를 올리면 뽑기가 25층 시간을 10% 넘게 줄인다. 한도를 지키려면 뽑기 m도 같이 다시 봐야 한다(사람 결정 — #13 보고)
 local CURVE_VARIANTS: { { label: string, segments: { WorldConfig.GrowthSegment } } } = {
-	{ label = "A  1~8 ×2.85 / 9~16 ×4.0 / 17~25 ×7.0", segments = {
-		{ from = 1, to = 8, growth = 2.85 }, { from = 9, to = 16, growth = 4.0 }, { from = 17, to = 25, growth = 7.0 } } },
-	{ label = "B  1~8 ×2.85 / 9~16 ×4.0 / 17~25 ×6.5", segments = {
-		{ from = 1, to = 8, growth = 2.85 }, { from = 9, to = 16, growth = 4.0 }, { from = 17, to = 25, growth = 6.5 } } },
-	{ label = "C  1~8 ×2.8 / 9~16 ×4.0 / 17~25 ×6.0", segments = {
-		{ from = 1, to = 8, growth = 2.8 }, { from = 9, to = 16, growth = 4.0 }, { from = 17, to = 25, growth = 6.0 } } },
-	-- D(2.8 / 3.8 / 6.0)는 2026-10-21 채택돼 WorldConfig 현재값이 됐다. 대신 옛 곡선을 비교로 둔다.
-	{ label = "옛  1~8 ×3.0 / 9~16 ×4.0 / 17~25 ×7.0", segments = {
-		{ from = 1, to = 8, growth = 3.0 }, { from = 9, to = 16, growth = 4.0 }, { from = 17, to = 25, growth = 7.0 } } },
+	{ label = "H1  2.75 / 3.8 / 8.0", segments = { { from = 1, to = 8, growth = 2.75 }, { from = 9, to = 16, growth = 3.8 }, { from = 17, to = 25, growth = 8.0 } } },
+	{ label = "H2  2.8 / 3.8 / 7.5", segments = { { from = 1, to = 8, growth = 2.8 }, { from = 9, to = 16, growth = 3.8 }, { from = 17, to = 25, growth = 7.5 } } },
+	{ label = "H3  2.75 / 4.0 / 8.0", segments = { { from = 1, to = 8, growth = 2.75 }, { from = 9, to = 16, growth = 4.0 }, { from = 17, to = 25, growth = 8.0 } } },
+	{ label = "H4  2.8 / 3.6 / 9.0", segments = { { from = 1, to = 8, growth = 2.8 }, { from = 9, to = 16, growth = 3.6 }, { from = 17, to = 25, growth = 9.0 } } },
+	{ label = "H5  2.75 / 3.8 / 9.0", segments = { { from = 1, to = 8, growth = 2.75 }, { from = 9, to = 16, growth = 3.8 }, { from = 17, to = 25, growth = 9.0 } } },
+	{ label = "H6  2.75 / 4.3 / 7.5", segments = { { from = 1, to = 8, growth = 2.75 }, { from = 9, to = 16, growth = 4.3 }, { from = 17, to = 25, growth = 7.5 } } },
+	{ label = "H7  2.8 / 4.0 / 9.0", segments = { { from = 1, to = 8, growth = 2.8 }, { from = 9, to = 16, growth = 4.0 }, { from = 17, to = 25, growth = 9.0 } } },
+	{ label = "H8  2.8 / 4.3 / 8.0", segments = { { from = 1, to = 8, growth = 2.8 }, { from = 9, to = 16, growth = 4.3 }, { from = 17, to = 25, growth = 8.0 } } },
+	{ label = "H9  2.9 / 4.3 / 9.0", segments = { { from = 1, to = 8, growth = 2.9 }, { from = 9, to = 16, growth = 4.3 }, { from = 17, to = 25, growth = 9.0 } } },
 }
+SuccessRateReport.CURVE_VARIANTS = CURVE_VARIANTS
 
-local function runModel(label: string, full: boolean, compact: boolean?)
+-- ===== 측정 (runModel · 튜닝 요약 · HP 후보 도구가 같은 함수를 쓴다 — 지시서 #13) ======================
+
+-- 지금 MODEL · Config로 SIM.PLAYERS명을 같은 seed로 돌린다. 출력하지 않는다.
+function SuccessRateReport.simulateAll(players: number?, noYield: boolean?): ({ [number]: Tally }, { PlayerResult }, number)
 	local maxStage = findLastStage()
 	local rng = Random.new(SIM.SEED)
 	local titleRandom = RollService.seededRandom(SIM.TITLE_SEED)
@@ -1129,13 +1185,100 @@ local function runModel(label: string, full: boolean, compact: boolean?)
 	local petRandom = RollService.seededRandom(SIM.PET_SEED)
 	local firstTry: { [number]: Tally } = {}
 	local results: { PlayerResult } = {}
-
 	local startedAt = os.clock()
-	for _ = 1, SIM.PLAYERS do
+	for _ = 1, players or SIM.PLAYERS do
 		table.insert(results, SuccessRateReport.simulatePlayer(rng, maxStage, firstTry, titleRandom, auraRandom, petRandom))
-		task.wait()
+		if not noYield then
+			task.wait()
+		end
 	end
-	local tookSec = os.clock() - startedAt
+	return firstTry, results, os.clock() - startedAt
+end
+
+export type SegmentMetric = { from: number, to: number, growth: number, attempts: number, successes: number, rate: number?, lowest: number?, highest: number? }
+export type Metrics = {
+	maxStage: number,
+	players: number,
+	segments: { SegmentMetric },
+	floorRates: { [number]: number }, -- 층 → 첫 시도 성공률(0~1). 아무도 안 들어간 층은 없다
+	reached: number, -- 최고층에 처음 들어간 사람 수
+	medianFinalMin: number?,
+	meanRuns: number,
+	meanRebirths: number,
+	medianRebirthLog: number?,
+	levelCapReached: number, -- 최고층 첫 진입 전 레벨 상한에 닿은 사람 수
+	medianLevelCapMin: number?,
+	medianLevelCapStage: number?,
+}
+
+-- firstTry · 결과 → 지표(숫자만). 구간 경계는 WorldConfig에서 읽는다.
+function SuccessRateReport.metrics(firstTry: { [number]: Tally }, results: { PlayerResult }): Metrics
+	local maxStage = findLastStage()
+	local segments: { SegmentMetric } = {}
+	for _, seg in ipairs(hpSegments()) do
+		local m: SegmentMetric = { from = seg.from, to = seg.to, growth = seg.growth, attempts = 0, successes = 0 }
+		for stage = seg.from, math.min(seg.to, maxStage) do
+			local t = firstTry[stage]
+			if t ~= nil and t.attempts > 0 then
+				m.attempts += t.attempts
+				m.successes += t.successes
+				local r = t.successes / t.attempts
+				m.lowest = if m.lowest == nil then r else math.min(m.lowest :: number, r)
+				m.highest = if m.highest == nil then r else math.max(m.highest :: number, r)
+			end
+		end
+		m.rate = if m.attempts > 0 then m.successes / m.attempts else nil
+		table.insert(segments, m)
+	end
+	local floorRates: { [number]: number } = {}
+	for stage = 1, maxStage do
+		local t = firstTry[stage]
+		if t ~= nil and t.attempts > 0 then
+			floorRates[stage] = t.successes / t.attempts
+		end
+	end
+	local finals, rebirthLogs, capMins, capStages = {}, {}, {}, {}
+	local rebirthsSum, runsSum = 0, 0
+	for _, r in ipairs(results) do
+		if r.reachedFinal and r.finalFirstSec ~= nil then
+			table.insert(finals, r.finalFirstSec / 60)
+		end
+		if r.finalRebirthsLog10 ~= nil then
+			table.insert(rebirthLogs, r.finalRebirthsLog10)
+		end
+		if r.levelCapMin ~= nil then
+			table.insert(capMins, r.levelCapMin)
+			table.insert(capStages, r.levelCapStage or 0)
+		end
+		rebirthsSum += r.rebirths
+		runsSum += r.runs
+	end
+	local n = math.max(#results, 1)
+	return {
+		maxStage = maxStage,
+		players = #results,
+		segments = segments,
+		floorRates = floorRates,
+		reached = #finals,
+		medianFinalMin = median(finals),
+		meanRuns = runsSum / n,
+		meanRebirths = rebirthsSum / n,
+		medianRebirthLog = median(rebirthLogs),
+		levelCapReached = #capMins,
+		medianLevelCapMin = median(capMins),
+		medianLevelCapStage = median(capStages),
+	}
+end
+
+-- 결정 모델 한 벌을 돌려 지표만 돌려준다(HP 후보 도구 · 튜닝 요약).
+function SuccessRateReport.measure(players: number?, noYield: boolean?): (Metrics, { PlayerResult })
+	local firstTry, results = SuccessRateReport.simulateAll(players, noYield)
+	return SuccessRateReport.metrics(firstTry, results), results
+end
+
+local function runModel(label: string, full: boolean, compact: boolean?)
+	local maxStage = findLastStage()
+	local firstTry, results, tookSec = SuccessRateReport.simulateAll()
 
 	print(string.format("[SUCCESSRATE] ----- %s -----", label))
 	print(string.format(
