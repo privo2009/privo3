@@ -22,16 +22,24 @@
 --
 -- 계산식을 새로 만들지 않는다. 실물과 어긋나면 리포트가 거짓말을 하기 때문이다:
 --   클릭 획득   padPower × 클릭수 × 배수   (ClickService.computeGain과 같은 식)
---   배수 결합   StrengthMultiplier.compute (직접 곱하지 않는다)
---   1회 데미지  힘 × 펀치 데미지 배수       (AttackService.computePunchDamage — 배수는 UpgradeConfig.getEffect)
+--   배수 결합   SuccessRateReport.clickMultiplier → StrengthMultiplier.compute(환생 · 칭호 · 아우라 · 펫)
+--   1회 데미지  힘 × SuccessRateReport.damageMultiplier (AttackService.combineDamageMultiplier — 펀치 데미지 × 아우라)
 --   펀치 간격   1 / 펀치 속도               (UpgradeConfig.getEffect("punchSpeed", 레벨))
---   수령액      층 보상 × 블럭스 획득 배수  (ChallengeService.payableReward)
+--   수령액      층 보상 × SuccessRateReport.bloxMultiplier (ChallengeService.combineBloxMultiplier — 블럭스 획득 × 칭호)
+--
+-- ===== 뽑기 3종 · 레벨 · 환생은 SuccessRateReport 함수 그대로 (지시서 #13 4단계) ==================
+--
+-- 상태(SimState)가 SuccessRateReport.Player 그 자체다 — 따로 다시 구현하지 않는다:
+--   칭호 S7     런 시작 SuccessRateReport.decideAutoRoll · 런 끝 spendAutoRolls (자동 롤, 지갑에서 뺀다)
+--   아우라 A4 · 펫 E11 · 업그레이드 S5'   환생 직전 — SuccessRateReport.rebirth(아우라 20% → 펫 15% → 환생 → S5' 3종)
+--   걷기 L1 · L2  런마다 SuccessRateReport.walkToGate(스폰 → 게이트 ÷ LevelConfig.getMaxSpeed — 32 + 레벨, 걷는 동안 클릭)
+--   운동기구     SuccessRateReport.trainAtGym
+-- 뽑기 난수는 클릭률마다 SuccessRateReport.SIM의 칭호 · 아우라 · 펫 seed로 새로 연다(결정적).
 --
 -- ===== 업그레이드 (S5, 지시서 #7) ==========================================================
 --
 -- 구매 규칙은 SuccessRateReport.MODEL.UPGRADE_POLICY와 SuccessRateReport.buyCheapestFirst를 그대로 쓴다
--- (환생 직전 버려질 나머지로 가장 싼 것부터). run()은 결정 모델(S5)로 전체 표를 찍고, 끝에 "업그레이드 0" 비교를 나란히 찍는다.
--- 이동속도는 이 리포트에 없다(걷는 시간을 재지 않는다 — 아래 "재지 않는 것").
+-- (환생 직전 버려질 나머지로 가장 싼 것부터 — S5' 3종). run()은 결정 모델(S5)로 전체 표를 찍고, 끝에 "업그레이드 0" 비교를 나란히 찍는다.
 --
 -- ⚠️ 펀치 속도를 1회 데미지에 곱하지 않는다. 이중 계산이 되어 실제 DPS가 속도의 제곱이
 --    된다 (CLAUDE.md 금지 사항). 속도는 **간격**으로만 들어간다.
@@ -40,7 +48,7 @@
 --
 -- ⚠️ 거리 판정을 넣지 않았다. 캐릭터가 판정 반경 안에 계속 있다고 가정한다.
 --    즉 결과는 DESIGN.md "펀치와 딜 총량"의 **이론 상한 D 기준이고 실제 딜은 이보다 작다.**
---    패드를 밟으러 가는 이동 시간도 계산하지 않는다. 워프도 쓰지 않는다
+--    패드를 밟으러 가는 이동 시간 · 층 사이 걷기는 계산하지 않는다(스폰 → 게이트 걷기만 — 지시서 #13). 워프도 쓰지 않는다
 --    (blox를 환생과 같은 지갑에서 빼가 변수가 하나 늘어난다).
 --
 -- ===== 운동기구 (2026-10-22 지시서 #4) ==================================================
@@ -56,18 +64,17 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
-local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 local ClickPadConfig = require(ReplicatedStorage.Shared.Config.ClickPadConfig)
 local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 
-local Schema = require(script.Parent.Parent.Data.Schema)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
--- 운동기구 훈련 시간의 원본. 시뮬레이터 파라미터만 읽는다(이 모듈의 함수는 부르지 않는다).
+-- 플레이어 상태 · 배수 · 뽑기 3종 · 걷기 · 환생 · 운동기구의 원본(지시서 #13 — 같은 함수를 부른다).
 local SuccessRateReport = require(script.Parent.SuccessRateReport)
+local RollService = require(script.Parent.Parent.Systems.RollService)
 
 type BigNumber = BigNum.BigNumber
 
@@ -91,6 +98,9 @@ local SIM = {
 
 	-- 무한 루프 방지. 도달하면 경고와 함께 중단한다.
 	MAX_RUNS = 1000,
+
+	-- 이 런 수마다 한 번 양보한다(지시서 #13 — 런이 틱 단위라 SuccessRateReport보다 무겁다). 관측 해상도와 무관하다.
+	YIELD_EVERY_RUNS = 10,
 
 	-- 총 틱 예산. 서버 시작을 붙잡지 않기 위한 안전장치다 —
 	-- MAX_RUNS만으로는 런 하나가 길어질 때를 막지 못한다.
@@ -161,57 +171,39 @@ end
 
 -- ===== 상태 =========================================================================
 
-type SimState = {
-	strength: BigNumber,
-	blox: BigNumber,
-	lifetimeBlox: BigNumber,
-	lifeBlox: BigNumber, -- 이번 생애 누적 blox. 패드 해금 기준, 환생하면 0
-	rebirths: BigNumber, -- 누적 환생 배수분. 배수 = 1 + 이 값
-	padIndex: number,
-	elapsedSec: number,
-	runCount: number,
-	rebirthCount: number,
-	ticks: number,
-	upgrades: { [string]: number }, -- 업그레이드 레벨(노출 항목 — S5'는 그중 3종만 산다). 환생해도 남는다(S5)
-}
+-- 상태 = SuccessRateReport.Player + 틱 카운터(지시서 #13 4단계 — 칭호 · 아우라 · 펫 · 업그레이드 · 걷기를 그 모듈 함수로 돌린다).
+-- 업그레이드 레벨은 노출 항목 전부(S5'는 그중 3종만 산다). 환생해도 남는다(S5). 뽑기 결과(칭호 · 아우라 · 펫)도 남는다.
+type SimState = SuccessRateReport.Player & { ticks: number }
 
 local function copyBig(v: BigNumber): BigNumber
 	return BigNum.new(v.m, v.e)
 end
 
+-- 탐색(probe)용 복사. BigNum은 연산마다 새 표를 만들므로(제자리 수정 없음) 얕은 복사로 충분하고,
+-- 제자리에서 바뀌는 표(업그레이드 · 펫 · 클리어 기록 · 첫 롤 기록)만 따로 복사한다. 난수 함수는 같은 것을 가리킨다 —
+-- 탐색은 simulateStage(클릭 · 펀치)만 돌고 뽑기를 하지 않는다.
 local function copyState(s: SimState): SimState
-	return {
-		strength = copyBig(s.strength),
-		blox = copyBig(s.blox),
-		lifetimeBlox = copyBig(s.lifetimeBlox),
-		lifeBlox = copyBig(s.lifeBlox),
-		rebirths = copyBig(s.rebirths),
-		padIndex = s.padIndex,
-		elapsedSec = s.elapsedSec,
-		runCount = s.runCount,
-		rebirthCount = s.rebirthCount,
-		ticks = s.ticks,
-		upgrades = table.clone(s.upgrades),
-	}
+	local c = table.clone(s) :: any
+	c.upgrades = table.clone(s.upgrades)
+	c.pets = table.clone(s.pets)
+	c.climbSec = table.clone(s.climbSec)
+	c.packFirstSec = table.clone(s.packFirstSec)
+	c.packFirstStage = table.clone(s.packFirstStage)
+	c.eggFirstSec = table.clone(s.eggFirstSec)
+	c.eggFirstStage = table.clone(s.eggFirstStage)
+	return c :: SimState
 end
 
--- 신규 프로필과 같은 시작점. ⚠️ 힘 초기값은 0이 아니라 1이다 — Schema가 원본이고
--- 여기 숫자로 적지 않는다 (RebirthService도 같은 이유로 Schema.new()를 쓴다).
-local function newState(): SimState
-	local template = Schema.new()
-	return {
-		strength = copyBig(template.strength),
-		blox = copyBig(template.blox),
-		lifetimeBlox = copyBig(template.lifetimeBlox),
-		lifeBlox = copyBig(template.lifeBlox),
-		rebirths = copyBig(template.rebirths),
-		padIndex = ClickPadConfig.getUnlockedPadCount(SIM.WORLD_ID, template.lifeBlox),
-		elapsedSec = 0,
-		runCount = 0,
-		rebirthCount = 0,
-		ticks = 0,
-		upgrades = SuccessRateReport.newUpgradeLevels(),
-	}
+-- 신규 프로필과 같은 시작점(SuccessRateReport.newPlayer — Schema.new()에서 온다. 힘 초기값 1). 클릭률만 고정값으로 덮는다.
+local function newState(clickRate: number): SimState
+	local SRSIM = SuccessRateReport.SIM
+	local p = SuccessRateReport.newPlayer(Random.new(SRSIM.SEED)) :: any
+	p.clickRate = clickRate
+	p.titleRandom = RollService.seededRandom(SRSIM.TITLE_SEED)
+	p.auraRandom = RollService.seededRandom(SRSIM.AURA_SEED)
+	p.petRandom = RollService.seededRandom(SRSIM.PET_SEED)
+	p.ticks = 0
+	return p :: SimState
 end
 
 -- ===== 한 층 시뮬레이션 ==============================================================
@@ -237,14 +229,14 @@ local function simulateStage(input: SimState, stage: number, clickRate: number):
 	local s = copyState(input)
 
 	local padPower = ClickPadConfig.getPadPower(SIM.WORLD_ID, s.padIndex)
-	-- ⚠️ 배수는 여기서 결합한다. 직접 곱하지 않는다 (곱셈 지점이 흩어지면 하나가 빠져도
-	--    조용히 어긋난다 — StrengthMultiplier 상단 주석).
-	local multiplier = StrengthMultiplier.compute({ rebirths = s.rebirths })
+	-- ⚠️ 배수는 SuccessRateReport의 같은 함수로 결합한다. 직접 곱하지 않는다 (곱셈 지점이 흩어지면 하나가 빠져도
+	--    조용히 어긋난다 — StrengthMultiplier 상단 주석). 층 안에서는 뽑기가 일어나지 않아 한 번만 잰다.
+	local multiplier = SuccessRateReport.clickMultiplier(s)
 
 	local totalHp = StageConfig.getTotalHp(stage)
 	local timerSec = StageConfig.CHALLENGE_TIMER_SEC
 	local punchInterval = 1 / SuccessRateReport.effect(s.upgrades, "punchSpeed")
-	local damageMultiplier = BigNum.fromNumber(SuccessRateReport.effect(s.upgrades, "punchDamage"))
+	local damageMultiplier = BigNum.fromNumber(SuccessRateReport.damageMultiplier(s))
 
 	local remaining = totalHp
 	local dealtFull = BigNum.new(0, 0)
@@ -330,6 +322,10 @@ export type StageRecord = {
 local function runOnce(state: SimState, clickRate: number, records: { [number]: StageRecord }): (SimState, number)
 	state.runCount += 1
 	local runNo = state.runCount
+	-- S7: 매 런 시작에 마지막 런 벌이로 자동 롤을 다시 판단한다 · L1 · L2: 스폰 → 게이트를 걷는다(걷는 동안 클릭)
+	SuccessRateReport.decideAutoRoll(state)
+	local runStartedAt = state.elapsedSec
+	SuccessRateReport.walkToGate(state)
 
 	local function record(stage: number, entry: SimState, result: StageResult)
 		if records[stage] ~= nil then
@@ -354,7 +350,12 @@ local function runOnce(state: SimState, clickRate: number, records: { [number]: 
 	-- (ClickService는 ChallengeService를 참조하지 않는다) 실패한 20초에도 힘은 자랐다.
 	local first = simulateStage(state, 1, clickRate)
 	if not first.cleared then
-		return first.state, 0
+		local failed = first.state
+		failed.lastRunReward = BigNum.new(0, 0)
+		failed.lastRunSec = failed.elapsedSec - runStartedAt
+		failed.lastBest = 0
+		SuccessRateReport.spendAutoRolls(failed, failed.lastRunSec :: number) -- 런 동안 흐른 시간의 자동 롤
+		return failed, 0
 	end
 	record(1, state, first)
 	state = first.state
@@ -377,15 +378,21 @@ local function runOnce(state: SimState, clickRate: number, records: { [number]: 
 		stage = nextStage
 	end
 
+	-- 런 동안 흐른 시간의 자동 롤(S7) — 보상이 들어오기 전 지갑에서 쓴다(SuccessRateReport.runOnce와 같은 순서).
+	SuccessRateReport.spendAutoRolls(state, state.elapsedSec - runStartedAt)
+
 	-- 수령. 보상은 갱신(덮어쓰기)이라 도달한 층의 값 하나만 받는다 — 누적이 아니다.
 	-- CurrencyService.add가 blox와 lifetimeBlox · lifeBlox를 함께 올리는 것과 같다.
-	local reward = BigNum.mul(StageConfig.getBloxReward(stage), BigNum.fromNumber(SuccessRateReport.effect(state.upgrades, "bloxGain")))
+	local reward = BigNum.mul(StageConfig.getBloxReward(stage), BigNum.fromNumber(SuccessRateReport.bloxMultiplier(state)))
 	state.blox = BigNum.add(state.blox, reward)
 	state.lifetimeBlox = BigNum.add(state.lifetimeBlox, reward)
 	state.lifeBlox = BigNum.add(state.lifeBlox, reward)
 
 	-- 파워는 세팅이지 누적이 아니다. 열린 패드가 있으면 즉시 그 패드로 바꾼다.
 	state.padIndex = ClickPadConfig.getUnlockedPadCount(SIM.WORLD_ID, state.lifeBlox)
+	state.lastRunReward = reward
+	state.lastRunSec = state.elapsedSec - runStartedAt
+	state.lastBest = stage
 
 	return state, stage
 end
@@ -412,39 +419,14 @@ local function maybeRebirth(state: SimState, reachedStage: number, maxStage: num
 		return state, reachedStage -- 아직 전진 중이다. 환생하지 않는다.
 	end
 
-	-- S5: 환생 직전 버려질 나머지로 업그레이드(SuccessRateReport와 같은 함수). 나머지만 쓰므로 얻는 배수는 그대로다.
-	if SuccessRateReport.MODEL.UPGRADE_POLICY == "s5" then
-		SuccessRateReport.buyCheapestFirst(state.upgrades, RebirthConfig.getLeftover(state.blox))
-	end
-	local gained = RebirthConfig.getGainedRebirths(state.blox)
-	state.rebirths = BigNum.add(state.rebirths, gained)
-	state.blox = BigNum.new(0, 0)
-	state.strength = copyBig(Schema.new().strength)
-	state.lifeBlox = BigNum.new(0, 0)
-	state.padIndex = 1
-	state.rebirthCount += 1
+	-- SuccessRateReport.rebirth 그대로: 아우라 20%(A4) → 펫 15%(E11) → 환생 → 남는 나머지로 S5'. 대상은 RebirthService와 같다.
+	SuccessRateReport.rebirth(state)
 	return state, 0 -- 새 생애
 end
 
--- 운동기구 훈련 (파일 상단 "운동기구"). 쓴 기구 번호(0 = 안 씀).
--- ClickService와 같은 식: padPower × 기구 배수 × 클릭수 × 환생 배수.
-local function trainAtGym(state: SimState, clickRate: number): number
-	local sec = SuccessRateReport.MODEL.GYM_TRAIN_SEC
-	if sec <= 0 then
-		return 0
-	end
-	local index = GymConfig.getUnlockedCount(state.rebirths)
-	if index == 0 then
-		return 0
-	end
-	local clicks = math.floor(clickRate * sec)
-	local padPower = ClickPadConfig.getPadPower(SIM.WORLD_ID, state.padIndex)
-	local multiplier = StrengthMultiplier.compute({ rebirths = state.rebirths })
-	local gain = BigNum.mul(BigNum.mul(padPower, BigNum.fromNumber(clicks)), multiplier)
-	gain = BigNum.mul(gain, BigNum.fromNumber(GymConfig.getMultiplier(index)))
-	state.strength = BigNum.add(state.strength, gain)
-	state.elapsedSec += sec
-	return index
+-- 운동기구 훈련 (파일 상단 "운동기구"). 쓴 기구 번호(0 = 안 씀). SuccessRateReport.trainAtGym 그대로(배수 · 자동 롤 포함).
+local function trainAtGym(state: SimState): number
+	return SuccessRateReport.trainAtGym(state, SuccessRateReport.MODEL.GYM_TRAIN_SEC)
 end
 
 -- ===== 클릭률 한 종 돌리기 ===========================================================
@@ -459,7 +441,7 @@ export type RateResult = {
 }
 
 local function simulateRate(clickRate: number, maxStage: number): RateResult
-	local state = newState()
+	local state = newState(clickRate)
 	local records: { [number]: StageRecord } = {}
 	local stoppedReason = "최고층 첫 도달까지 기록 완료"
 	local bestThisLife = 0
@@ -481,11 +463,17 @@ local function simulateRate(clickRate: number, maxStage: number): RateResult
 		local reached: number
 		local bestBefore = bestThisLife
 		state, reached = runOnce(state, clickRate, records)
+		-- 서버 스크립트 시간 초과를 피하려고 가끔 양보한다. 결과는 바뀌지 않는다.
+		if state.runCount % SIM.YIELD_EVERY_RUNS == 0 then
+			task.wait()
+		end
 		if reached <= bestBefore then
-			trainAtGym(state, clickRate) -- 이번 생애 최고층을 못 넘겼다 → 기구에서 힘을 올린다
+			trainAtGym(state) -- 이번 생애 최고층을 못 넘겼다 → 기구에서 힘을 올린다
 		end
 		local rebirthCountBefore = state.rebirthCount
+		state.bestThisLife = math.max(bestThisLife, reached) -- 아우라 · 펫 첫 롤 층(관측용 — SuccessRateReport 필드)
 		state, bestThisLife = maybeRebirth(state, reached, maxStage, bestThisLife)
+		state.bestThisLife = bestThisLife
 		if state.rebirthCount > rebirthCountBefore then
 			table.insert(rebirthTimestamps, state.elapsedSec)
 		end
@@ -692,26 +680,40 @@ end
 --
 -- ⚠️ 임계(SIM.CLIFF_RATIO_THRESHOLD)는 숫자를 보기 전에 고정했다. 보고 나서 정하면
 --    원하는 결론에 기준을 맞추게 된다.
-local function printCliffVerdict(results: { RateResult })
-	local function staySec(records: { [number]: StageRecord }, stage: number): number?
-		local tr = transitionOf(records, stage)
+-- 경계 stage→stage+1 의 체류(초)를 그 앞 두 전환의 평균과 견준다. 돌려주는 값: (경계 체류, 이웃 평균, 비율) 또는 nil(구간 미도달).
+-- printCliffVerdict와 튜닝 요약(BalanceSummary)이 같은 함수를 쓴다 — 판정 식을 두 곳에 두지 않는다.
+function StandardPathReport.cliffRatio(result: RateResult, boundary: number): (number?, number?, number?)
+	local function staySec(stage: number): number?
+		local tr = transitionOf(result.records, stage)
 		return tr ~= nil and tr.staySec or nil
 	end
+	local here = staySec(boundary)
+	local n1 = staySec(boundary - 2)
+	local n2 = staySec(boundary - 1)
+	if here == nil or n1 == nil or n2 == nil then
+		return nil, nil, nil
+	end
+	local neighbour = (n1 + n2) / 2
+	return here, neighbour, here / neighbour -- ← raw number. 둘 다 초 단위라 BigNum이 아니다.
+end
 
+-- 절벽 판정 임계(숫자를 보기 전에 고정 — SIM 상단)와 경계 목록(WorldConfig 파생)을 밖에 보여 준다.
+StandardPathReport.CLIFF_RATIO_THRESHOLD = SIM.CLIFF_RATIO_THRESHOLD
+function StandardPathReport.boundaries(): { SegmentBoundary }
+	return segmentBoundaries()
+end
+
+local function printCliffVerdict(results: { RateResult })
 	-- 경계 stage→stage+1 의 체류를, 그 앞 두 전환의 평균과 견준다.
 	local function judge(label: string, results2: { RateResult }, boundary: number)
 		print(string.format("\n  --- %s ---", label))
 		print("  클릭률 | 경계 체류 | 이웃 평균 |  비율 | 판정      | 그 구간 런/환생")
 		print("  -------+-----------+-----------+-------+-----------+----------------")
 		for _, result in ipairs(results2) do
-			local here = staySec(result.records, boundary)
-			local n1 = staySec(result.records, boundary - 2)
-			local n2 = staySec(result.records, boundary - 1)
-			if here == nil or n1 == nil or n2 == nil then
+			local here, neighbour, ratio = StandardPathReport.cliffRatio(result, boundary)
+			if here == nil or neighbour == nil or ratio == nil then
 				print(string.format("  %6d | (구간 미도달)", result.clickRate))
 			else
-				local neighbour = (n1 + n2) / 2
-				local ratio = here / neighbour -- ← raw number. 둘 다 초 단위라 BigNum이 아니다.
 				local verdict = ratio >= SIM.CLIFF_RATIO_THRESHOLD and "절벽 실재" or "절벽 없음"
 				local tr = transitionOf(result.records, boundary)
 				print(string.format(
@@ -1259,7 +1261,11 @@ function StandardPathReport.run()
 		SuccessRateReport.MODEL.GYM_TRAIN_SEC,
 		GymConfig.getRebirthTierCount()
 	))
-	print(string.format("  업그레이드: %s (SuccessRateReport.MODEL.UPGRADE_POLICY — s5 = 환생 직전 나머지로 가장 싼 것부터)", SuccessRateReport.MODEL.UPGRADE_POLICY))
+	print(string.format("  업그레이드: %s (SuccessRateReport.MODEL.UPGRADE_POLICY — s5 = 환생 직전 나머지로 가장 싼 것부터, S5' 3종)", SuccessRateReport.MODEL.UPGRADE_POLICY))
+	print(string.format(
+		"  뽑기: 칭호 %s · 아우라 %s · 펫 %s · 걷기 스폰 → 게이트 (레벨 L1 · 최대 속도 32 + 레벨 L2) — SuccessRateReport 함수 그대로 (지시서 #13)",
+		SuccessRateReport.MODEL.TITLE_POLICY, SuccessRateReport.MODEL.AURA_POLICY, SuccessRateReport.MODEL.PET_POLICY
+	))
 	print("  ⚠️ 거리 판정 없음 — 캐릭터가 반경 안에 계속 있다고 가정한 **이론 상한**이다.")
 	print("     이동 시간과 워프도 계산하지 않는다. 실제 딜은 이보다 작다.")
 	print("")

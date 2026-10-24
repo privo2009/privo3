@@ -733,6 +733,78 @@ do
 		and string.find(txt, "크래프팅 중앙값 1", 1, true) ~= nil)
 end
 
+-- 배수 세 자리 · 환생 · 관측 고리 — StandardPathReport가 같은 함수를 부른다 (지시서 #13 4단계) ---------------
+do
+	local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
+	local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
+	local AttackService = require(ServerScriptService.Server.Systems.AttackService)
+	local ChallengeService = require(ServerScriptService.Server.Systems.ChallengeService)
+	local Schema = require(ServerScriptService.Server.Data.Schema)
+	local StandardPathReport = require(ServerScriptService.Server.Tools.StandardPathReport)
+
+	local p = SuccessRateReport.newPlayer(Random.new(41))
+	p.rebirths = BigNum.new(3, 1)
+	p.titleIndex = 4
+	p.auraId = "pack2_epic"
+	p.pets[PetConfig.Eggs[1].pets[2].id .. ":2"] = 1
+	p.upgrades.punchDamage = 3
+	p.upgrades.bloxGain = 2
+	local expectClick = StrengthMultiplier.compute({ rebirths = p.rebirths, titleMult = SuccessRateReport.titleMult(p),
+		auraMult = SuccessRateReport.auraMult(p), petMult = SuccessRateReport.petMult(p) })
+	check("clickMultiplier = StrengthMultiplier.compute(환생 · 칭호 · 아우라 · 펫) 그대로",
+		BigNum.eq(SuccessRateReport.clickMultiplier(p), expectClick) and SuccessRateReport.titleMult(p) == TitleConfig.multOf(TitleConfig.Titles[4].id))
+	check("damageMultiplier = AttackService.combineDamageMultiplier(펀치 데미지 × 아우라)", SuccessRateReport.damageMultiplier(p)
+		== AttackService.combineDamageMultiplier({ punchDamage = UpgradeConfig.getEffect("punchDamage", 3), auraMult = SuccessRateReport.auraMult(p) }))
+	check("bloxMultiplier = ChallengeService.combineBloxMultiplier(블럭스 획득 × 칭호)", SuccessRateReport.bloxMultiplier(p)
+		== ChallengeService.combineBloxMultiplier({ bloxGain = UpgradeConfig.getEffect("bloxGain", 2), titleMult = SuccessRateReport.titleMult(p) }))
+
+	local r = SuccessRateReport.newPlayer(Random.new(42))
+	r.blox = BigNum.fromNumber(5500)
+	r.strength = BigNum.new(1, 9)
+	r.lifeBlox = BigNum.fromNumber(5500)
+	r.padIndex = 7
+	local savedA, savedP = SuccessRateReport.MODEL.AURA_POLICY, SuccessRateReport.MODEL.PET_POLICY
+	SuccessRateReport.rebirth(r) -- 난수 함수가 없어 아우라 · 펫은 굴리지 않는다
+	check("SuccessRateReport.rebirth(공개): 환생 +5 · 블럭스 0 · 힘 초기값 · 이번 생애 0 · 패드 1 · 횟수 1",
+		BigNum.eq(r.rebirths, BigNum.fromNumber(5)) and r.blox.m == 0 and BigNum.eq(r.strength, Schema.new().strength)
+			and r.lifeBlox.m == 0 and r.padIndex == 1 and r.rebirthCount == 1 and savedA == SuccessRateReport.MODEL.AURA_POLICY and savedP == SuccessRateReport.MODEL.PET_POLICY)
+
+	-- 관측 고리는 결과를 바꾸지 않는다: 같은 seed · 같은 3명을 고리 없이 / 있이 돌려 같은 결과
+	local function threePlayers(withObserver: boolean): (string, number)
+		local SIM = SuccessRateReport.SIM
+		local rng = Random.new(SIM.SEED)
+		local tr = require(ServerScriptService.Server.Systems.RollService).seededRandom(SIM.TITLE_SEED)
+		local ar = require(ServerScriptService.Server.Systems.RollService).seededRandom(SIM.AURA_SEED)
+		local pr = require(ServerScriptService.Server.Systems.RollService).seededRandom(SIM.PET_SEED)
+		local out = {}
+		local seenEvents = 0
+		for _ = 1, 3 do
+			local opts = if withObserver then { observer = function()
+				seenEvents += 1
+			end } else nil
+			local res = SuccessRateReport.simulatePlayer(rng, 25, {}, tr, ar, pr, opts)
+			table.insert(out, string.format("%s/%d/%d", tostring(res.finalFirstSec), res.runs, res.rebirths))
+		end
+		return table.concat(out, ","), seenEvents
+	end
+	local a = threePlayers(false)
+	local b, events = threePlayers(true)
+	check("관측 고리: 고리를 달아도 결과가 같다(같은 seed 3명) · 고리는 불렸다", a == b and (events :: any) > 0, a .. " | " .. b)
+
+	-- StandardPathReport 절벽 판정 함수: 합성 기록으로 식을 잰다(경계 체류 ÷ 앞 두 전환 평균)
+	local function rec(t: number): any
+		return { elapsedSec = t, runNo = 1, rebirthCount = 0 }
+	end
+	local fake: any = { records = { [14] = rec(0), [15] = rec(60), [16] = rec(120), [17] = rec(420) } }
+	local here, neighbour, ratio = StandardPathReport.cliffRatio(fake, 16)
+	check("StandardPathReport.cliffRatio: 16→17 체류 300초 ÷ 이웃 평균 60초 = 5", here == 300 and neighbour == 60 and ratio == 5)
+	local missing = StandardPathReport.cliffRatio(fake, 8)
+	check("StandardPathReport.cliffRatio: 기록이 없으면 nil(구간 미도달)", missing == nil)
+	local bs = StandardPathReport.boundaries()
+	check("StandardPathReport.boundaries: WorldConfig 세그먼트 경계(8 · 16) · 임계 2.0(보기 전에 고정)", #bs == 2 and bs[1].stage == 8 and bs[2].stage == 16
+		and StandardPathReport.CLIFF_RATIO_THRESHOLD == 2)
+end
+
 print(string.format("[SuccessRateReportTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[SuccessRateReportTests] %d test(s) failed", failed))

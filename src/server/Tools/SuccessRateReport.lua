@@ -631,18 +631,41 @@ function SuccessRateReport.spendAutoRolls(p: Player, sec: number): number
 	return rolled
 end
 
+-- ===== 배수 세 자리 (StandardPathReport도 이 함수들을 부른다 — 지시서 #13 4단계) =====================
+
+-- 클릭 힘 배수: StrengthMultiplier.compute(환생 · 칭호 · 아우라 · 펫) — ClickService와 같은 함수.
+function SuccessRateReport.clickMultiplier(p: Player): BigNumber
+	return StrengthMultiplier.compute({
+		rebirths = p.rebirths,
+		titleMult = SuccessRateReport.titleMult(p),
+		auraMult = SuccessRateReport.auraMult(p),
+		petMult = SuccessRateReport.petMult(p), -- E3 — 클릭 힘 한 자리(데미지 항 없음)
+	})
+end
+
+-- 1펀치 데미지 배수: AttackService.combineDamageMultiplier(펀치 데미지 업그레이드 × 아우라 m — A10).
+function SuccessRateReport.damageMultiplier(p: Player): number
+	return AttackService.combineDamageMultiplier({
+		punchDamage = SuccessRateReport.effect(p.upgrades, "punchDamage"),
+		auraMult = SuccessRateReport.auraMult(p),
+	})
+end
+
+-- 수령액 배수: ChallengeService.combineBloxMultiplier(블럭스 획득 업그레이드 × 칭호).
+function SuccessRateReport.bloxMultiplier(p: Player): number
+	return ChallengeService.combineBloxMultiplier({
+		bloxGain = SuccessRateReport.effect(p.upgrades, "bloxGain"),
+		titleMult = SuccessRateReport.titleMult(p),
+	})
+end
+
 -- 클릭 n번만큼 힘을 올린다. ClickService.computeGain과 같은 식. gymMultiplier는 운동기구 위에서만(없으면 1).
 local function addClicks(p: Player, clicks: number, gymMultiplier: number?)
 	if clicks <= 0 then
 		return
 	end
 	local padPower = ClickPadConfig.getPadPower(SIM.WORLD_ID, p.padIndex)
-	local multiplier = StrengthMultiplier.compute({
-		rebirths = p.rebirths,
-		titleMult = SuccessRateReport.titleMult(p),
-		auraMult = SuccessRateReport.auraMult(p),
-		petMult = SuccessRateReport.petMult(p), -- E3 — 클릭 힘 한 자리(데미지 항 없음)
-	})
+	local multiplier = SuccessRateReport.clickMultiplier(p)
 	local gain = BigNum.mul(BigNum.mul(padPower, BigNum.fromNumber(clicks)), multiplier)
 	if gymMultiplier ~= nil and gymMultiplier ~= 1 then
 		gain = BigNum.mul(gain, BigNum.fromNumber(gymMultiplier))
@@ -693,10 +716,7 @@ function SuccessRateReport.simulateStage(p: Player, stage: number, outOfRadiusSe
 	local timer = StageConfig.CHALLENGE_TIMER_SEC
 	local interval = 1 / SuccessRateReport.effect(p.upgrades, "punchSpeed")
 	-- 1펀치 데미지 배수: 게임과 같은 AttackService.combineDamageMultiplier(펀치 데미지 업그레이드 × 아우라 m — A10)
-	local damageMultiplier = BigNum.fromNumber(AttackService.combineDamageMultiplier({
-		punchDamage = SuccessRateReport.effect(p.upgrades, "punchDamage"),
-		auraMult = SuccessRateReport.auraMult(p),
-	}))
+	local damageMultiplier = BigNum.fromNumber(SuccessRateReport.damageMultiplier(p))
 	local runClickRate = p.clickRate * MODEL.RUN_CLICK_FACTOR
 
 	local remaining = StageConfig.getTotalHp(stage)
@@ -815,11 +835,7 @@ function SuccessRateReport.runOnce(
 	SuccessRateReport.spendAutoRolls(p, p.elapsedSec - runStartedAt)
 
 	-- 수령. 보상은 갱신이라 도달한 층의 값 하나만 받는다. 블럭스 계통 배수는 ChallengeService.combineBloxMultiplier — 게임과 같은 함수.
-	local bloxMultiplier = ChallengeService.combineBloxMultiplier({
-		bloxGain = SuccessRateReport.effect(p.upgrades, "bloxGain"),
-		titleMult = SuccessRateReport.titleMult(p),
-	})
-	local reward = BigNum.mul(StageConfig.getBloxReward(best), BigNum.fromNumber(bloxMultiplier))
+	local reward = BigNum.mul(StageConfig.getBloxReward(best), BigNum.fromNumber(SuccessRateReport.bloxMultiplier(p)))
 	p.blox = BigNum.add(p.blox, reward)
 	p.lifetimeBlox = BigNum.add(p.lifetimeBlox, reward)
 	p.lifeBlox = BigNum.add(p.lifeBlox, reward)
@@ -871,6 +887,7 @@ function SuccessRateReport.chooseWarp(p: Player): number?
 end
 
 -- RebirthService와 같은 대상: blox 0, 힘 초기값, rebirths 누적, lifeBlox 0 · 패드 1. lifetimeBlox 유지.
+-- StandardPathReport도 이 함수로 환생한다(SuccessRateReport.rebirth — 지시서 #13 4단계).
 local function rebirth(p: Player)
 	-- A4: 환생 직전 보유 블럭스의 20%로 아우라(가장 높은 해금 팩). E11: 그다음 남은 보유의 15%로 펫. 그다음 환생 → 남는 양으로 S5'.
 	SuccessRateReport.spendAuraBeforeRebirth(p)
@@ -890,6 +907,8 @@ local function rebirth(p: Player)
 	table.clear(p.climbSec)
 	p.lastWalkSec = nil
 end
+
+SuccessRateReport.rebirth = rebirth
 
 export type PlayerResult = {
 	reachedFinal: boolean,

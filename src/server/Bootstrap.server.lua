@@ -622,7 +622,10 @@ end
 local STANDARD_PATH_REPORT_ENABLED = false
 
 if STANDARD_PATH_REPORT_ENABLED then
-	require(script.Parent.Tools.StandardPathReport).run()
+	-- task.spawn: 뽑기 3종 · 걷기가 들어가(지시서 #13) 계산이 길어졌다 — 서버 시작을 붙잡지 않는다(SUCCESS_RATE_REPORT와 같다).
+	task.spawn(function()
+		require(script.Parent.Tools.StandardPathReport).run()
+	end)
 end
 
 
