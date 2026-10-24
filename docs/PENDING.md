@@ -223,12 +223,13 @@ ModuleScript **67개 중 아무도 require하지 않는 고아는
 "6. 뽑기 3종" · "10. 데이터 스키마", `docs/UI.md` "3. 색 > 희귀도 색"이다. 순서: 공통 + 타이틀 #10 → 아우라 #11 → 펫 #12 → 상품 Phase 8.
 
 조사 때의 문서-Config 불일치 13개가 해소되는 자리:
-1. 아우라 "상위 팩 > 하위 팩" — G4(팩 N 최저 > 팩 N−1 최고, 힘 · 데미지 둘 다) → **#11** 값 조정 + `AuraConfig.validate`
-2. 아우라 해금 두 곳 — G3/S8 두 축(월드 = 있는 팩, lifetimeBlox = 열린 팩). 월드 1 = 팩 1~3 → **#10**(`WorldConfig` · `getUnlockedPacks`) · 값 **#11**
+1. 아우라 "상위 팩 > 하위 팩" — G4(팩 N 최저 m > 팩 N−1 최고 m — A1로 m 하나) → **#11 4단계**(`AuraConfig` 재작성 · validate)
+2. 아우라 해금 두 곳 — G3/S8 두 축(월드 = 있는 팩, lifetimeBlox = 열린 팩). 월드 1 = 팩 1~3 → **#10**(`WorldConfig` · `getUnlockedPacks`) ·
+   `unlockLifetimeBlox` 필드 삭제 **#11 4단계**
 3. 펫 알 해금 — G8(lifetimeBlox ≥ 부화 1회 비용) → **#12**
 4. 배수 계통 목록에 타이틀 없음 — S4로 DESIGN 3장에 추가 → **#10**(문서 · `payableReward`)
 5. 행운 체인 항 정의 — G14(행운 업그레이드 × 롤 상품 × 행운 게임패스 × 부스트 1) → **#10**(`RollService.computeLuck`)
-6. 롤 상품 대상 — G15 아우라 전용 → **Phase 8**
+6. 롤 상품 대상 — G15 아우라 전용 → **Phase 8**(유료 랜덤 아이템 P2 — 아래 "그 밖의 미결")
 7. `pets.slots` · `storage` 저장값 — S12 파생 · v5 삭제 → **#10**(스키마 · `PetConfig.getSlots` · `getStorage`)
 8. `rolling.unlockedAuraPacks` 저장값 — S13 파생 · v5 삭제 → **#10**
 9. 펫 자동 공격 정의 없음 — S9/G12 클라 연출만, 데미지는 펫 힘 배수로 → **#12**
@@ -269,6 +270,12 @@ ModuleScript **67개 중 아무도 require하지 않는 고아는
 - **칭호 창 확률은 "판정 확률(기본 × 행운)"이다.** — 2026-10-24 지시서 #10 5단계 (Claude 판단 기록).
   순차 판정이라 실제 등장 확률은 위 등급에서 빗나간 몫만큼 조금 작다(`RollLogic.distribution`, 견습생 20% → 실제 약 19.6%).
   지금 표 값은 등급마다 차이가 1% 미만이라 판정 확률을 보였다. 행운이 커져 차이가 벌어지면 표시 방식을 다시 본다.
+
+- **로벅스 행운 상품은 유료 랜덤 아이템이다 — Phase 8 (P2, 2026-10-24 사람 결정).**
+  대상: 럭키 · 슈퍼 롤, 10x 아우라 행운 · 10x 칭호 행운, 2x 펫 행운. 붙일 때 할 일:
+  (1) 구매 전에 확률 영향을 숫자로 설명 (2) 활성 중에는 갱신된 실제 확률 표시 (3) 제한 지역 유저에게는 상품을 숨긴다
+  (`PolicyService:GetPolicyInfoForPlayerAsync` — ArePaidRandomItemsRestricted). 근거 · 출처 `DESIGN.md` "6. 뽑기 3종 > 유료 랜덤 아이템 정책".
+  확률 표시는 #11에서 이미 실제 등장 확률(P3)이다 — 상품이 붙으면 행운 배수만 체인에 더해진다.
 
 - **자동 클리커 가격 — Phase 8.** — 2026-10-24 지시서 #9 불일치 13.
   `DESIGN.md` "9. 수익화"는 자동 클리커 49(15회/초) · OP 자동 클리커 89(30회/초) 두 상품, `ShopConfig`는 `autoClicker` "OP 자동 클리커" 79 하나.
@@ -894,9 +901,9 @@ Studio에서는 정상 동작해 드러나지 않는다. clone·롤백·Team Cre
 | `Bootstrap`의 `SUCCESS_RATE_REPORT_ENABLED` 블록 (플래그·호출부만) | 4-2-f 종료 뒤. 위와 같은 성격(순수 계산, 오염 없음, 기본 false는 소음·계산 시간 때문) |
 | `StandardPathReport` 모듈 자체 | 외부 소비자 없음(유일한 소비자 `DroneRateReport`는 2026-10-21 폐기). `Bootstrap`의 `run()` 호출만 남았다 — 위 플래그·호출부와 같은 시점에 함께 지울 수 있다. 시뮬레이터 파라미터 `GYM_TRAIN_SEC`는 `SuccessRateReport.MODEL`에서 읽는다(`1dad8da`) |
 | `Bootstrap`의 `VERIFY_CHALLENGE` 블록 | 미정 — 대신 쓸 관측 경로를 정한 뒤 (아래 ⚠️). 2026-10-22부터 `false`(V1) |
-| 메뉴 레일 넷째 칸 "칭호"(`MenuRail` ITEMS — icon_title · screenName "Title") | 지시서 #11 아우라 창이 생길 때 `{ icon_aura, "아우라", "Aura" }`로 되돌린다. 타이틀 창은 아우라 창 안에서 연다(`docs/UI.md` "메뉴 진입은 6개다") |
-| `AuraConfig` 팩의 `unlockLifetimeBlox` 필드 | 지시서 #11. 해금 조건은 롤 1회 비용(G3)이라 `getUnlockedPacks`가 읽지 않는다 — 팩 값을 다시 정할 때 지운다 |
-| `OverlayBoot`의 "[OverlayBoot] 토스트:" print | 토스트 실물 캡처(위 미결) 뒤. 지워도 되지만 신규 칭호 관측 줄로 남겨도 소음이 적다(신규일 때만) |
+| 메뉴 레일 넷째 칸 "칭호"(`MenuRail` ITEMS — icon_title · screenName "Title") | **지시서 #11 5단계**(아우라 창과 같은 커밋)에서 `{ icon_aura, "아우라", "Aura" }`로 되돌린다. 타이틀 창은 아우라 창 "칭호" 버튼 |
+| `AuraConfig` 팩의 `unlockLifetimeBlox` 필드 | **지시서 #11 4단계**(`AuraConfig` 재작성)에서 지운다. 해금 조건은 롤 1회 비용(G3) |
+| `OverlayBoot`의 "[OverlayBoot] 토스트:" print | **지시서 #11 7단계** — 토스트 실물 캡처 뒤 지운다 |
 
 ⚠️ **`ChunkBreakerDemo`는 파편 연출을 육안으로 확인하기 전에 지우지 말 것**
 (2026-08-29 조건 재정의). 파일은 `DEMO_ENABLED = false`로 꺼져 있고 코드 참조는 0건이지만,

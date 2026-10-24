@@ -1417,7 +1417,12 @@ PetService   — 크래프팅, 장착, 저장 공간
      배수 연결(StrengthMultiplier · payableReward) · PlayerState titles · 머리 위 칭호
      UI: 타이틀 창 · 레일 "칭호"(임시) · 토스트 · 희귀도 색 · 상점 titleLuck
      시뮬레이터 S7 타이틀 모델
-#11  아우라 — 팩 1~3 값(G4 경계) · AuraService · 아우라 큰 창 · 결과 연출(차단층) · 아우라 데미지 배수 · auraLuck 노출
+#11  아우라 + 확률 공개 + 블럭스 팩 제거 (2026-10-24 사람 결정 A1~A11 · P1~P4 · S5')
+     2 블럭스 팩 삭제(P1) · 시뮬레이터 S5' 1차 4종 고정 · 새 기준선 B1
+     3 RollLogic.distribution 실제 등장 확률 · 표시 % 합 100(P3) · 칭호 창 · 상점 행운 문구
+     4 AuraConfig 재작성(m 하나 A1 · G4 · 롤 시계) · AuraService · AuraRequest · SettingsRequest · 배수 두 자리 · PlayerState auras
+     5 아우라 큰 창 · 범용 차단층 큐 + 결과 모달(런 중 토스트) · 설정 창 · 파티클 · 상점 auraLuck · 레일 "아우라" 복귀
+     6 시뮬레이터 A4(환생 직전 20%) · m 조정 권한 · 7 실물 검증
 #12  펫 — 알 · 크래프팅 · 장착 · 놓아주기 · 슬롯 · 펫 인벤토리 큰 창 · 추적 · 자동 공격 연출 · petLuck · petSlots 노출
      #12 뒤 HP 재확인 한 번(S6)
 Phase 8  롤 상품(아우라 전용) · 행운 게임패스 · 3x 부화 · 슬롯 · 저장 공간 게임패스
