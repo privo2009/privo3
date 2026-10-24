@@ -141,6 +141,14 @@ TitleService.init()
 local TitleRequestService = require(script.Parent.Systems.TitleRequestService)
 TitleRequestService.init()
 
+-- 아우라 + 설정 요청 채널 (Phase 7 지시서 #11). ⚠️ 순서: ProfileManager.init() 뒤(접속 시 아우라 Attribute를 onLoaded로 세운다).
+local AuraService = require(script.Parent.Systems.AuraService)
+AuraService.init()
+local AuraRequestService = require(script.Parent.Systems.AuraRequestService)
+AuraRequestService.init()
+local SettingsRequestService = require(script.Parent.Systems.SettingsRequestService)
+SettingsRequestService.init()
+
 -- 플레이어 상태 채널을 연다 (Phase 6 지시서 #5 — HUD가 서버 값을 보인다).
 -- ⚠️ 순서: ProfileManager · PadService · SpeedService · ChallengeService가 준비된 뒤여야 한다.
 -- 스냅샷은 그 넷에서 읽고, 접속 직후 런 상태 sync는 ChallengeService.syncRunState가 보낸다.
@@ -255,6 +263,7 @@ Players.PlayerAdded:Connect(function(player: Player)
 				local mult = StrengthMultiplier.compute({
 					rebirths = CurrencyService.get(player, "rebirths"),
 					titleMult = TitleService.getMult(player),
+					auraMult = AuraService.getMult(player),
 				})
 
 				print(string.format(

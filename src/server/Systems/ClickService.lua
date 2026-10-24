@@ -29,6 +29,8 @@ local PadService = require(script.Parent.PadService)
 local GymService = require(script.Parent.GymService)
 -- 장착 칭호 힘 배수 (지시서 #10 S3). TitleService는 이 파일을 require하지 않는다(순환 없음).
 local TitleService = require(script.Parent.TitleService)
+-- 장착 아우라 m (지시서 #11 A10).
+local AuraService = require(script.Parent.AuraService)
 
 type BigNumber = BigNum.BigNumber
 
@@ -281,6 +283,7 @@ function ClickService.processClicks(player: Player, count: number, source: strin
 		local multiplier = StrengthMultiplier.compute({
 			rebirths = CurrencyService.get(player, "rebirths"),
 			titleMult = TitleService.getMult(player), -- 장착 칭호 (지시서 #10 S3)
+			auraMult = AuraService.getMult(player), -- 장착 아우라 m (지시서 #11 A10)
 		})
 		-- 운동기구 배수. 기구 위에 서 있을 때만 1보다 크다(GymService — 그 순간의 위치로 판정).
 		-- 패드 파워에 곱해서 넘긴다 — 둘 다 "클릭 1회가 얼마짜리인가"를 정하는 자리값이고, 힘 배수

@@ -13,15 +13,17 @@
 --
 --   sources.rebirths   환생 배수 (BigNum). 1 + rebirths
 --   sources.titleMult  장착 칭호 힘 배수 (number, TitleConfig.multOf). 장착 없음 = 1  (지시서 #10)
+--   sources.auraMult   장착 아우라 m (number, AuraConfig.multOf). 장착 없음 = 1  (지시서 #11 A10)
+--                      m은 1펀치 데미지(AttackService.combineDamageMultiplier)에도 한 번 들어간다 — DPS에는 m²(A1, 의도)
 --
---   결과 = (1 + rebirths) × titleMult
+--   결과 = (1 + rebirths) × titleMult × auraMult
 --
 -- ===== 결합 규칙 (S3, 2026-10-24 사람 결정 — DESIGN.md "3. 화폐와 배수 > 배수 계통") =================
 --
 -- 힘 계통은 **출처끼리 곱한다.** 이 함수 한 곳에서 한다. 예외 둘:
 --   펫              안에서 합산 — 펫 배수 = 1 + Σ(펫 배수 − 1) (G9). 그 결과 하나를 여기서 곱한다 (#12)
 --   힘 배수 게임패스 최고 단계만 — ⚠️ 중첩 금지 (CLAUDE.md 금지 사항) (Phase 8)
--- 아우라 힘 배율(#11) · 힘 포션(Phase 8)도 필드로 붙어 곱해진다. 운동기구 · 패드는 여기 들어오지 않는다
+-- 힘 포션(Phase 8)도 필드로 붙어 곱해진다. 운동기구 · 패드는 여기 들어오지 않는다
 -- (ClickService.computeGain의 클릭 1회 값 — 다른 자리다).
 --
 -- 환생 배수가 선형 가산인 근거는 DESIGN.md "3. 화폐와 배수 > 환생"이 원본이다
@@ -40,6 +42,7 @@ local StrengthMultiplier = {}
 export type Sources = {
 	rebirths: BigNumber?,
 	titleMult: number?,
+	auraMult: number?,
 }
 
 -- ⚠️ 상수 테이블을 만들어 재사용하지 않는다. BigNum 값은 평범한 테이블이라 호출자가
@@ -84,11 +87,15 @@ function StrengthMultiplier.compute(sources: Sources?): BigNumber
 		total = BigNum.add(total, sources.rebirths :: BigNumber)
 	end
 
-	-- 칭호: 곱한다(S3). 1 이하 · nan · inf · 숫자 아님은 "배수 없음" — 0이나 1 미만이 곱해지면 성장이 줄거나 멈춘다.
-	local title = sources.titleMult
-	if type(title) == "number" and title == title and title > 1 and title < math.huge then
-		total = BigNum.mul(total, BigNum.fromNumber(title))
+	-- 칭호 · 아우라: 곱한다(S3). 1 이하 · nan · inf · 숫자 아님은 "배수 없음" — 0이나 1 미만이 곱해지면 성장이 줄거나 멈춘다.
+	-- ⚠️ ipairs로 돌리지 말 것 — 앞 값이 nil이면(칭호 없음) 뒤 값(아우라)에서 멈춘다(2026-10-24 AuraServiceTests가 잡았다).
+	local function apply(factor: any)
+		if type(factor) == "number" and factor == factor and factor > 1 and factor < math.huge then
+			total = BigNum.mul(total, BigNum.fromNumber(factor))
+		end
 	end
+	apply(sources.titleMult)
+	apply(sources.auraMult)
 
 	return total
 end

@@ -144,6 +144,26 @@ do
 	check("칭호: 빈 owned도 JSON 왕복 뒤 같다", okEmpty and pure.snapshotsEqual(base, HttpService:JSONDecode(encEmpty)))
 end
 
+-- 3d. 아우라 요약 (지시서 #11) ---------------------------------------------------------------
+do
+	local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
+	local A = AuraConfig.Packs[1].auras
+	local data = sampleData()
+	data.cosmetics.ownedAuras[A[2].id] = true
+	data.cosmetics.equippedAura = A[2].id
+	data.rolling.selectedPack = 2
+	local snap = pure.buildSnapshot(data, 20, 36, 3)
+	check("아우라: 요약이 실린다 (owned · equipped · selectedPack · hideOtherAuras)", type(snap.auras) == "table" and #snap.auras.owned == 1
+		and snap.auras.equipped == A[2].id and snap.auras.selectedPack == 2 and snap.auras.hideOtherAuras == false)
+	local base = pure.buildSnapshot(sampleData(), 20, 36, 3)
+	check("비교: 아우라 보유가 다르면 다르다", not pure.snapshotsEqual(base, snap))
+	local hide = sampleData()
+	hide.cosmetics.hideOtherAuras = true
+	check("비교: 숨기기 설정이 다르면 다르다", not pure.snapshotsEqual(base, pure.buildSnapshot(hide, 20, 36, 3)))
+	local ok, encoded = pcall(HttpService.JSONEncode, HttpService, snap)
+	check("아우라: JSON 왕복 뒤에도 같다", ok and pure.snapshotsEqual(snap, HttpService:JSONDecode(encoded)))
+end
+
 -- 4. 런타임 — 로드 시 1회 · 바뀔 때만 · 빈도 상한 -----------------------------------------
 local fakePlayer: any = { Name = "PlayerStateTest", UserId = 1 }
 

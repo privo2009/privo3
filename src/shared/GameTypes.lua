@@ -66,6 +66,15 @@ export type PlayerStateView = {
 	upgrades: { [string]: number },
 	-- 칭호 요약 (지시서 #10). owned = 보유 id(희귀도 낮은 순), equipped = 장착 id(없으면 ""), autoRoll = 자동 롤 켬
 	titles: TitleSummary,
+	-- 아우라 요약 (지시서 #11). owned = 보유 id(팩 · 등급 순), equipped = 장착 id(없으면 ""), selectedPack · hideOtherAuras
+	auras: AuraSummary,
+}
+
+export type AuraSummary = {
+	owned: { string },
+	equipped: string,
+	selectedPack: number,
+	hideOtherAuras: boolean,
 }
 
 export type TitleSummary = {

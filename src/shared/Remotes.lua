@@ -20,6 +20,10 @@
 --   UpgradeResult   서버→클라. 그 요청의 결과
 --   TitleRequest    클라→서버. 타이틀 창의 요청(roll · equip · setAuto) (Phase 7 지시서 #10)
 --   TitleResult     서버→클라. 그 요청의 결과 + 자동 롤로 새 칭호를 얻었을 때의 알림(중복은 보내지 않는다)
+--   AuraRequest     클라→서버. 아우라 창의 요청(roll · equip · selectPack) (Phase 7 지시서 #11)
+--   AuraResult      서버→클라. 그 요청의 결과 1건(결과 연출용). 브로드캐스트하지 않는다
+--   SettingsRequest 클라→서버. 설정 창의 값 변경(허용 키 화이트리스트) (지시서 #11)
+--   SettingsResult  서버→클라. 그 요청의 결과
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --
@@ -86,6 +90,10 @@ Remotes.UPGRADE_REQUEST = "UpgradeRequest"
 Remotes.UPGRADE_RESULT = "UpgradeResult"
 Remotes.TITLE_REQUEST = "TitleRequest"
 Remotes.TITLE_RESULT = "TitleResult"
+Remotes.AURA_REQUEST = "AuraRequest"
+Remotes.AURA_RESULT = "AuraResult"
+Remotes.SETTINGS_REQUEST = "SettingsRequest"
+Remotes.SETTINGS_RESULT = "SettingsResult"
 
 -- ===== payload 타입 ====================================================================
 --
@@ -314,6 +322,41 @@ export type TitleResultPayload = {
 	equipped: boolean,
 }
 
+-- AuraRequest: 아우라 창 요청 (클라 → 서버). 결과 · 비용 · 확률을 싣지 않는다(규약 2).
+--   action  "roll" | "equip" | "selectPack" / pack roll · selectPack일 때 팩 번호 / auraId equip일 때
+export type AuraRequestPayload = {
+	action: string,
+	pack: number?,
+	auraId: string?,
+}
+
+-- AuraResult: 요청 결과 1건 (서버 → 클라). 바뀐 블럭스 · 보유 목록은 PlayerState가 따로 보낸다. 선택 필드 금지.
+--   reason 사유 코드(성공이면 "") / auraId 결과 · 장착한 아우라(없으면 "") / packId · tier 결과의 팩 · 등급(없으면 0)
+--   isNew 처음 얻은 아우라인가 / equipped 이 요청으로 장착이 바뀌었는가
+export type AuraResultPayload = {
+	action: string,
+	ok: boolean,
+	reason: string,
+	auraId: string,
+	packId: number,
+	tier: number,
+	isNew: boolean,
+	equipped: boolean,
+}
+
+-- SettingsRequest: 설정 값 하나 바꾸기 (클라 → 서버). 허용 키는 서버 화이트리스트(SettingsRequestService)가 정한다.
+export type SettingsRequestPayload = {
+	key: string,
+	value: any,
+}
+
+export type SettingsResultPayload = {
+	ok: boolean,
+	reason: string,
+	key: string,
+	value: boolean,
+}
+
 export type Channels = {
 	blockDamaged: RemoteEvent,
 	runStateChanged: RemoteEvent,
@@ -331,6 +374,10 @@ export type Channels = {
 	upgradeResult: RemoteEvent,
 	titleRequest: RemoteEvent,
 	titleResult: RemoteEvent,
+	auraRequest: RemoteEvent,
+	auraResult: RemoteEvent,
+	settingsRequest: RemoteEvent,
+	settingsResult: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -395,6 +442,10 @@ function Remotes.getServer(): Channels
 		upgradeResult = ensureEvent(folder, Remotes.UPGRADE_RESULT),
 		titleRequest = ensureEvent(folder, Remotes.TITLE_REQUEST),
 		titleResult = ensureEvent(folder, Remotes.TITLE_RESULT),
+		auraRequest = ensureEvent(folder, Remotes.AURA_REQUEST),
+		auraResult = ensureEvent(folder, Remotes.AURA_RESULT),
+		settingsRequest = ensureEvent(folder, Remotes.SETTINGS_REQUEST),
+		settingsResult = ensureEvent(folder, Remotes.SETTINGS_RESULT),
 	}
 	cached = channels
 	return channels
@@ -445,6 +496,10 @@ function Remotes.getClient(): Channels
 		upgradeResult = waitFor(folder, Remotes.UPGRADE_RESULT) :: RemoteEvent,
 		titleRequest = waitFor(folder, Remotes.TITLE_REQUEST) :: RemoteEvent,
 		titleResult = waitFor(folder, Remotes.TITLE_RESULT) :: RemoteEvent,
+		auraRequest = waitFor(folder, Remotes.AURA_REQUEST) :: RemoteEvent,
+		auraResult = waitFor(folder, Remotes.AURA_RESULT) :: RemoteEvent,
+		settingsRequest = waitFor(folder, Remotes.SETTINGS_REQUEST) :: RemoteEvent,
+		settingsResult = waitFor(folder, Remotes.SETTINGS_RESULT) :: RemoteEvent,
 	}
 	cached = channels
 	return channels

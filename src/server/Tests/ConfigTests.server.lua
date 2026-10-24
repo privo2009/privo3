@@ -104,6 +104,66 @@ check("AuraConfig.validate", function()
 	return AuraConfig.validate()
 end)
 
+-- 아우라 (지시서 #11 A1 · A2 · G4) ---------------------------------------------------------------
+check("AuraConfig: m = LADDER × PACK_RATIO^(팩-1) (A2 — 팩 4 · 5도 같은 비율)", function()
+	for packId, pack in pairs(AuraConfig.Packs) do
+		for tier, aura in ipairs(pack.auras) do
+			local expect = AuraConfig.LADDER[tier] * AuraConfig.PACK_RATIO ^ (packId - 1)
+			if math.abs(aura.mult - expect) > 1e-4 then
+				return false
+			end
+		end
+	end
+	return true
+end)
+
+check("AuraConfig: 아우라 하나에 m 하나 (힘 · 데미지 따로 두지 않는다 — A1)", function()
+	local a = AuraConfig.Packs[1].auras[1] :: any
+	return a.strengthMult == nil and a.damageMult == nil and type(a.mult) == "number"
+end)
+
+check("AuraConfig: common은 폴백(확률 없음) · 위 셋 확률 0.3 · 0.09 · 0.01 모양", function()
+	local p = AuraConfig.Packs[1].auras
+	return p[1].baseChance == nil and p[2].baseChance == 0.3 and p[3].baseChance == 0.09 and p[4].baseChance == 0.01
+end)
+
+check("AuraConfig: 롤 비용 1K부터 팩마다 1000배 · 해금 필드 없음 (G2 · G3)", function()
+	for packId, pack in pairs(AuraConfig.Packs) do
+		if not BigNum.eq(pack.rollCost, BigNum.new(1, 3 * packId)) or (pack :: any).unlockLifetimeBlox ~= nil then
+			return false
+		end
+	end
+	return true
+end)
+
+check("AuraConfig.validate: G4 위반(팩 비율이 사다리보다 작다) 거부 · 되돌리면 통과", function()
+	local saved = AuraConfig.PACK_RATIO
+	AuraConfig.PACK_RATIO = 1.5 -- 2.0(팩 1 최고) × ... 팩 2 최저 1.1 × 1.5 = 1.65 < 2.0
+	AuraConfig.rebuild()
+	local ok = pcall(AuraConfig.validate)
+	AuraConfig.PACK_RATIO = saved
+	AuraConfig.rebuild()
+	return not ok and AuraConfig.validate()
+end)
+
+check("AuraConfig.validate: 팩 안 m이 단조가 아니면 거부", function()
+	local saved = table.clone(AuraConfig.LADDER)
+	AuraConfig.LADDER[3] = AuraConfig.LADDER[2]
+	AuraConfig.rebuild()
+	local ok = pcall(AuraConfig.validate)
+	AuraConfig.LADDER = saved
+	AuraConfig.rebuild()
+	return not ok and AuraConfig.validate()
+end)
+
+check("AuraConfig: get · isHigher · 롤 시계 > 0", function()
+	local p1, p2 = AuraConfig.Packs[1], AuraConfig.Packs[2]
+	local def, packId, tier = AuraConfig.get(p2.auras[3].id)
+	return def == p2.auras[3] and packId == 2 and tier == 3 and AuraConfig.get("ghost") == nil
+		and AuraConfig.isHigher(p2.auras[1].id, p1.auras[4].id) and not AuraConfig.isHigher(p1.auras[1].id, p1.auras[2].id)
+		and AuraConfig.isHigher(p1.auras[1].id, false) and AuraConfig.ROLL_INTERVAL_SEC > 0
+end)
+
 check("TitleConfig.validate", function()
 	return TitleConfig.validate()
 end)

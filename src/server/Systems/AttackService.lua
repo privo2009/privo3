@@ -64,6 +64,8 @@ local CurrencyService = require(script.Parent.CurrencyService)
 local ChallengeService = require(script.Parent.ChallengeService)
 -- 펀치 데미지 · 펀치 속도 업그레이드 효과(지시서 #7). 효과 식은 UpgradeConfig, 레벨은 UpgradeService가 안다.
 local UpgradeService = require(script.Parent.UpgradeService)
+-- 장착 아우라 m (지시서 #11 A10). AuraService는 이 파일을 require하지 않는다(순환 없음).
+local AuraService = require(script.Parent.AuraService)
 
 type BigNumber = BigNum.BigNumber
 
@@ -124,6 +126,25 @@ end
 -- ⚠️ 새 테이블을 돌려준다. 프로필이 들고 있는 BigNum 테이블을 그대로 넘기면
 -- 하류(BlockService)가 그것을 고칠 때 플레이어의 힘이 조용히 바뀐다.
 -- (RebirthConfig의 zero() 주석이 경고하는 것과 같은 사고다)
+-- ===== 1펀치 데미지 배수 결합 (S5, 지시서 #11) =====================================================
+-- 펀치 데미지 업그레이드 × 장착 아우라 m — **이 함수 한 곳에서** 하나의 배수로 합치고 computePunchDamage가 한 번 곱한다.
+-- 각 출처는 여기서 한 번만 곱한다(AuraServiceTests "한 번만"). 깨진 값(nil · nan · 1 미만 · inf)은 1.
+-- ⚠️ 펀치 속도는 여기 들어오지 않는다(CLAUDE.md 금지 사항) — 속도는 주기만 정한다.
+export type DamageSources = { punchDamage: number?, auraMult: number? }
+
+local function factorOr1(v: any): number
+	if type(v) ~= "number" or v ~= v or v < 1 or v == math.huge then
+		return 1
+	end
+	return v
+end
+
+local function combineDamageMultiplier(sources: DamageSources): number
+	return factorOr1(sources.punchDamage) * factorOr1(sources.auraMult)
+end
+-- 시뮬레이터(SuccessRateReport)도 이 함수를 부른다 — 결합 식을 두 곳에 두지 않는다.
+AttackService.combineDamageMultiplier = combineDamageMultiplier
+
 local function computePunchDamage(strength: BigNumber, damageMultiplier: number): BigNumber
 	if damageMultiplier == 1 then
 		return BigNum.new(strength.m, strength.e)
@@ -247,6 +268,7 @@ end
 AttackService._pure = {
 	runPunch = runPunch,
 	computePunchDamage = computePunchDamage,
+	combineDamageMultiplier = combineDamageMultiplier,
 	punchInterval = punchInterval,
 	scheduleNext = scheduleNext,
 	tickSec = tickSec,
@@ -286,7 +308,10 @@ local REAL: Deps = {
 		return ChallengeService.applyDamage(player, position, damage)
 	end,
 	getDamageMultiplier = function(player: Player)
-		return UpgradeService.getEffect(player, "punchDamage")
+		return combineDamageMultiplier({
+			punchDamage = UpgradeService.getEffect(player, "punchDamage"),
+			auraMult = AuraService.getMult(player),
+		})
 	end,
 }
 
