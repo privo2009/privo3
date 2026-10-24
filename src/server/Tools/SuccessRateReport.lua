@@ -1161,6 +1161,7 @@ local VARIANTS: { { label: string, override: { [string]: any } } } = {
 --   H9 2.9 / 4.3 / 9.0   96.2 / 73.9 / 45.6 · 51.4분 · 5.6회 · 0층 · −10.8 / −6.6 · 없음 · 6
 --   ⚠️ HP를 올리면 아우라 · 펫 한도("뽑기 없음 기준선 × 0.9")의 여유가 줄어 거의 모두 음수가 된다 — 기준선(뽑기 없음)이 더 크게 늘기 때문이다.
 --      즉 HP를 올리면 뽑기가 25층 시간을 10% 넘게 줄인다. 한도를 지키려면 뽑기 m도 같이 다시 봐야 한다(사람 결정 — #13 보고)
+--   2026-10-25 미채택, B4 유지(사람 결정 K1 — 지시서 #14). 뽑기 한도 "× 0.9"는 폐기(K2) — 위 여유 열은 기록이다.
 local CURVE_VARIANTS: { { label: string, segments: { WorldConfig.GrowthSegment } } } = {
 	{ label = "H1  2.75 / 3.8 / 8.0", segments = { { from = 1, to = 8, growth = 2.75 }, { from = 9, to = 16, growth = 3.8 }, { from = 17, to = 25, growth = 8.0 } } },
 	{ label = "H2  2.8 / 3.8 / 7.5", segments = { { from = 1, to = 8, growth = 2.8 }, { from = 9, to = 16, growth = 3.8 }, { from = 17, to = 25, growth = 7.5 } } },

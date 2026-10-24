@@ -6,6 +6,7 @@
 --    끝나면 되돌린다(SuccessRateReport CURVE_VARIANTS와 같은 패턴). 켜는 곳은 Bootstrap의 HP_CANDIDATE_REPORT_ENABLED 하나다.
 --
 -- 후보 목록(자세히 볼 것)은 SuccessRateReport.CURVE_VARIANTS가 원본이고, 측정 기록은 그 표 위 주석에 남긴다.
+-- 2026-10-25 미채택, B4 유지(사람 결정 K1 — 지시서 #14). H1~H9는 기록으로 남긴다.
 -- 이 파일은 (1) 기준점 B4 (2) 넓게 훑기 격자 (3) 후보마다 자세한 지표를 찍는다.
 --
 -- 후보마다 찍는 것(지시서 #13 5단계):
