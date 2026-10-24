@@ -740,6 +740,14 @@ do
 	check("스테이지 1: 반경 밖은 여전히 out_of_range", far.result == AttackService.RESULT_OUT_OF_RANGE, far.result)
 end
 
+-- ===== 앞 항이 없어도 뒤 항이 곱해진다 (지시서 #12 2단계 — #11 StrengthMultiplier ipairs 구멍과 같은 종류) =====
+do
+	local c = AttackService.combineDamageMultiplier
+	check("1펀치 결합: 펀치 데미지 없음(nil)이어도 아우라 m은 곱해진다", math.abs(c({ punchDamage = nil, auraMult = 1.4 }) - 1.4) < 1e-9)
+	check("1펀치 결합: 펀치 데미지가 깨져도(nan) 아우라 m은 곱해진다", math.abs(c({ punchDamage = 0 / 0, auraMult = 1.4 }) - 1.4) < 1e-9)
+	check("1펀치 결합: 아우라 없음(nil)이어도 펀치 데미지는 곱해진다", math.abs(c({ punchDamage = 1.3, auraMult = nil }) - 1.3) < 1e-9)
+end
+
 print(string.format("[AttackServiceTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[AttackServiceTests] %d test(s) failed", failed))

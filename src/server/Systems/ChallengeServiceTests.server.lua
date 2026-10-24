@@ -476,6 +476,14 @@ do
 	check("payableReward: 입력 테이블을 고치지 않는다", BigNum.eq(base, BigNum.new(7.29, 3)))
 end
 
+-- ===== 앞 항이 없어도 뒤 항이 곱해진다 (지시서 #12 2단계 — #11 StrengthMultiplier ipairs 구멍과 같은 종류) =====
+do
+	local c = ChallengeService.combineBloxMultiplier
+	check("블럭스 결합: 블럭스 획득 없음(nil)이어도 칭호 배수는 곱해진다", math.abs(c({ bloxGain = nil, titleMult = 1.8 }) - 1.8) < 1e-9)
+	check("블럭스 결합: 블럭스 획득이 깨져도(0.5) 칭호 배수는 곱해진다", math.abs(c({ bloxGain = 0.5, titleMult = 1.8 }) - 1.8) < 1e-9)
+	check("블럭스 결합: 칭호 없음(nil)이어도 블럭스 획득은 곱해진다", math.abs(c({ bloxGain = 1.25, titleMult = nil }) - 1.25) < 1e-9)
+end
+
 print(string.format("[ChallengeServiceTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[ChallengeServiceTests] %d test(s) failed", failed))

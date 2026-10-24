@@ -112,6 +112,19 @@ do
 	check("잔액 부족 코드는 상점과 같은 문자열 (UI 문구 공유)", RollService.REASON_INSUFFICIENT_BLOX == UpgradeConfig.REASON_INSUFFICIENT_BLOX)
 end
 
+-- ===== 앞 항이 없어도 뒤 항이 곱해진다 (지시서 #12 2단계 — #11 StrengthMultiplier ipairs 구멍과 같은 종류) =====
+do
+	local close = function(a: number, b: number): boolean
+		return math.abs(a - b) < 1e-9
+	end
+	check("행운 체인: 업그레이드 없음 · 롤 상품 없음이어도 행운 게임패스 · 부스트는 곱해진다",
+		close(RollService.computeLuck("aura", nil, { rollProductMult = nil, luckPassMult = 2, boostMult = 3 }), 6))
+	check("행운 체인: 롤 상품이 깨져도(nan) 뒤 항은 곱해진다",
+		close(RollService.computeLuck("aura", nil, { rollProductMult = 0 / 0, luckPassMult = 2 }), 2))
+	check("행운 체인(펫): 업그레이드 0 · 롤 상품 비대상이어도 행운 게임패스는 곱해진다",
+		close(RollService.computeLuck("pet", nil, { luckPassMult = 2 }), 2))
+end
+
 print(string.format("[RollServiceTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[RollServiceTests] %d test(s) failed", failed))
