@@ -7,6 +7,7 @@
 --   환생 안내  RebirthResult가 성공이면 "×이전 → ×이후"를 잠깐 띄운다(알림층, 지시서 #8)
 --   토스트     TitleResult가 새 칭호면 "새 칭호! 이름 (힘·블럭스 ×N)"(알림층, 최대 3개 · 큐, 지시서 #10)
 --   결과 모달  AuraResult가 새 아우라이거나 epic 이상이면 차단층 큐(한 번에 하나). 런 중이면 모달 대신 토스트(지시서 #11 A6)
+--              PetResult(부화)가 새 펫이거나 영웅 이상이면 같은 큐 · 같은 규칙(지시서 #12 E8)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
@@ -124,6 +125,7 @@ end)
 local ResultModal = require(script.Parent.Screens.Overlay.ResultModal)
 local BlockingQueueLogic = require(script.Parent.Logic.BlockingQueueLogic)
 local AuraWindowLogic = require(script.Parent.Logic.AuraWindowLogic)
+local PetWindowLogic = require(script.Parent.Logic.PetWindowLogic)
 
 local resultModal = ResultModal.create()
 ScreenController.register("ResultModal", "Overlay", function()
@@ -157,6 +159,23 @@ channels.auraResult.OnClientEvent:Connect(function(payload: Remotes.AuraResultPa
 		return
 	end
 	local view = AuraWindowLogic.resultView(payload)
+	if view ~= nil and blockingQueue.push(BlockingQueueLogic.PRIORITY.rollResult, view) then
+		renderQueue()
+	end
+end)
+
+channels.petResult.OnClientEvent:Connect(function(payload: Remotes.PetResultPayload)
+	if not PetWindowLogic.shouldModal(payload) then
+		return -- 중복 하위 등급 · 크래프팅 · 장착 · 거부는 창 안 상태 문구로만
+	end
+	if runActive then
+		local toast = PetWindowLogic.toastFor(payload)
+		if toast ~= nil then
+			toastStack.push(toast)
+		end
+		return
+	end
+	local view = PetWindowLogic.resultView(payload)
 	if view ~= nil and blockingQueue.push(BlockingQueueLogic.PRIORITY.rollResult, view) then
 		renderQueue()
 	end

@@ -26,20 +26,25 @@ local function close(a: number, b: number): boolean
 	return math.abs(a - b) < 1e-9
 end
 
-local EXPOSED = { "punchDamage", "punchSpeed", "moveSpeed", "bloxGain", "titleLuck", "auraLuck" } -- titleLuck #10 · auraLuck #11
-local HIDDEN = { "petLuck", "petSlots" }
+local EXPOSED = { "punchDamage", "punchSpeed", "moveSpeed", "bloxGain", "titleLuck", "auraLuck", "petSlots", "petLuck" } -- titleLuck #10 · auraLuck #11 · petSlots · petLuck #12
 
 -- 1. validate · 노출 구분 ---------------------------------------------------------------------
 do
 	local ok, err = pcall(UpgradeConfig.validate)
 	check("validate 통과", ok, tostring(err))
-	check("SHOP_ORDER = 1차 4종 + 칭호 행운 + 아우라 행운 순서", table.concat(UpgradeConfig.SHOP_ORDER, ",") == table.concat(EXPOSED, ","))
+	check("SHOP_ORDER = 1차 4종 + 칭호 행운 + 아우라 행운 + 펫 슬롯 + 펫 행운 순서 (E7)", table.concat(UpgradeConfig.SHOP_ORDER, ",") == table.concat(EXPOSED, ","))
 	for _, name in ipairs(EXPOSED) do
 		check("노출: " .. name, UpgradeConfig.isExposed(name))
 	end
-	for _, name in ipairs(HIDDEN) do
-		check("비노출(Phase 7): " .. name, UpgradeConfig.Upgrades[name] ~= nil and not UpgradeConfig.isExposed(name))
+	local hidden = 0
+	for _, def in pairs(UpgradeConfig.Upgrades) do
+		if not def.exposed then
+			hidden += 1
+		end
 	end
+	check("비노출 항목 없음 (#12에서 마지막 둘을 열었다)", hidden == 0)
+	check("펫 슬롯: 최대 1레벨 · 효과 +1 (PetConfig.UpgradeSlotBonus와 같은 단위)", UpgradeConfig.Upgrades.petSlots.maxLevel == 1
+		and close(UpgradeConfig.getEffect("petSlots", 1), 1))
 	check("없는 이름 · nil · 숫자는 노출 아님", not UpgradeConfig.isExposed("radius") and not UpgradeConfig.isExposed(nil) and not UpgradeConfig.isExposed(1))
 
 	-- 프로필 스키마의 upgrades 키가 Config 8키와 1:1이다(비노출 4종을 지우지 않았다)
@@ -129,8 +134,13 @@ do
 	local rich = BigNum.new(1, 100)
 	local ok1, r1 = UpgradeConfig.canBuy("radius", 0, rich)
 	check("canBuy: 없는 항목 → invalid_upgrade", not ok1 and r1 == UpgradeConfig.REASON_INVALID_UPGRADE)
+	-- 비노출 항목이 이제 없다 — 하나를 잠깐 숨겨서 잰다(되돌린다)
+	UpgradeConfig.Upgrades.petLuck.exposed = false
 	local ok2, r2 = UpgradeConfig.canBuy("petLuck", 0, rich)
+	UpgradeConfig.Upgrades.petLuck.exposed = true
 	check("canBuy: 비노출 항목 → invalid_upgrade", not ok2 and r2 == UpgradeConfig.REASON_INVALID_UPGRADE)
+	local ok7, r7 = UpgradeConfig.canBuy("petSlots", 1, rich)
+	check("canBuy: 펫 슬롯 최대 1레벨 → max_level", not ok7 and r7 == UpgradeConfig.REASON_MAX_LEVEL)
 	local ok3, r3 = UpgradeConfig.canBuy(nil, 0, rich)
 	check("canBuy: nil → invalid_upgrade", not ok3 and r3 == UpgradeConfig.REASON_INVALID_UPGRADE)
 	local maxLevel = UpgradeConfig.Upgrades.punchSpeed.maxLevel :: number
@@ -179,7 +189,9 @@ do
 	rejects("펀치 속도 최대 레벨 없음(S2)", function() defs.punchSpeed.maxLevel = nil end, function() defs.punchSpeed.maxLevel = m end)
 	local order = UpgradeConfig.SHOP_ORDER
 	rejects("노출 항목이 SHOP_ORDER에 없음", function() UpgradeConfig.SHOP_ORDER = { "punchDamage", "punchSpeed", "moveSpeed" } end, function() UpgradeConfig.SHOP_ORDER = order end)
-	rejects("비노출 항목을 SHOP_ORDER에 넣음", function() UpgradeConfig.SHOP_ORDER = { "punchDamage", "punchSpeed", "moveSpeed", "bloxGain", "titleLuck", "auraLuck", "petLuck" } end, function() UpgradeConfig.SHOP_ORDER = order end)
+	rejects("비노출 항목을 SHOP_ORDER에 넣음", function() defs.petLuck.exposed = false end, function() defs.petLuck.exposed = true end)
+	local sg = defs.petSlots.maxLevel
+	rejects("증가율 1인 항목의 최대 레벨이 1이 아님", function() defs.petSlots.maxLevel = 2 end, function() defs.petSlots.maxLevel = sg end)
 	local ok = pcall(UpgradeConfig.validate)
 	check("흔든 뒤 원래대로 validate 통과", ok)
 end

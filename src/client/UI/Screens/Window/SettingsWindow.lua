@@ -1,9 +1,9 @@
 --!strict
 -- 설정 창 (작은 창, Window 층). Phase 7 지시서 #11 A8. 메뉴 레일 "설정" 칸(screenName "Settings")이 연다.
 --
--- 지금 항목은 하나: "다른 사람 아우라 숨기기". 펫 숨기기는 #12에서 줄을 하나 더한다(ROWS 표).
+-- 항목 둘: "다른 사람 아우라 숨기기"(#11 A8) · "다른 사람 펫 숨기기"(#12 E10). 줄은 ROWS 표에서 나온다.
 -- 토글은 자동 도구 · 칭호 창과 같은 두 채널: 테두리 색(켜짐 = 수령 · 안전 노랑 / 꺼짐 = 검정 — 버튼 그림의 UIStroke) + 글자 밝기.
--- 요청은 SettingsRequest{key, value}(서버 화이트리스트가 다시 판정), 결과는 SettingsResult. 저장된 값은 PlayerState(Store "auras")가 돌려준다.
+-- 요청은 SettingsRequest{key, value}(서버 화이트리스트가 다시 판정), 결과는 SettingsResult. 저장된 값은 PlayerState(Store "auras" · "pets")가 돌려준다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -28,6 +28,14 @@ local ROWS = {
 		read = function(source: any): boolean
 			local a = source.get("auras")
 			return type(a) == "table" and a.hideOtherAuras == true
+		end,
+	},
+	{
+		key = "hideOtherPets",
+		label = "다른 사람 펫 숨기기",
+		read = function(source: any): boolean
+			local p = source.get("pets")
+			return type(p) == "table" and p.hideOtherPets == true
 		end,
 	},
 }
@@ -147,6 +155,7 @@ function SettingsWindow.create(deps: Deps): Handle
 		deps.onClose()
 	end)
 	source.subscribe("auras", render)
+	source.subscribe("pets", render)
 	render()
 
 	return { root = panel.root, refresh = render, onResult = onResult, _debug = { press = press, rows = rows, status = status } }

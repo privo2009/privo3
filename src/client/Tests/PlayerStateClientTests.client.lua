@@ -34,6 +34,8 @@ local function samplePayload(): any
 		upgrades = { punchDamage = 2, punchSpeed = 1, moveSpeed = 0, bloxGain = 0, auraLuck = 0, titleLuck = 0, petLuck = 0, petSlots = 0 },
 		titles = { owned = { "novice", "breaker" }, equipped = "breaker", autoRoll = true },
 		auras = { owned = { "pack1_rare" }, equipped = "pack1_rare", selectedPack = 2, hideOtherAuras = true, world = 1 },
+		pets = { owned = { { uid = "1", petId = "egg1_rare", level = 1 }, { uid = "4", petId = "egg1_epic", level = 2 } }, equipped = { "4" },
+			slots = 2, storage = 50, hideOtherPets = false, world = 1 },
 	}
 end
 
@@ -80,6 +82,15 @@ do
 	local a3 = samplePayload()
 	a3.auras.selectedPack = 0 / 0
 	check("형태: 아우라 팩 번호가 nan이면 거부", not PlayerStateClient.isValidPayload(a3))
+	local p1 = samplePayload()
+	p1.pets = nil
+	check("형태: 펫 요약이 없으면 거부(지시서 #12)", not PlayerStateClient.isValidPayload(p1))
+	local p2 = samplePayload()
+	p2.pets.owned[2].uid = 4
+	check("형태: 펫 uid가 문자열이 아니면 거부", not PlayerStateClient.isValidPayload(p2))
+	local p3 = samplePayload()
+	p3.pets.slots = 0 / 0
+	check("형태: 펫 슬롯이 nan이면 거부", not PlayerStateClient.isValidPayload(p3))
 end
 
 -- 2. Store 반영 -----------------------------------------------------------------------------
@@ -115,6 +126,11 @@ do
 	check("반영: 아우라 요약", auras.equipped == "pack1_rare" and auras.selectedPack == 2 and auras.hideOtherAuras == true and #auras.owned == 1)
 	auras.owned[1] = "pack5_legendary"
 	check("반영: 아우라 요약도 깊은 복사", store.get("auras").owned[1] == "pack1_rare")
+	local pets = store.get("pets")
+	check("반영: 펫 요약", #pets.owned == 2 and pets.owned[2].level == 2 and pets.equipped[1] == "4" and pets.slots == 2 and pets.storage == 50)
+	pets.owned[1].level = 4
+	payload.pets.equipped[1] = "1"
+	check("반영: 펫 요약도 깊은 복사", store.get("pets").owned[1].level == 1 and store.get("pets").equipped[1] == "4")
 
 	local received: any = nil
 	store.subscribe("strength", function(value)

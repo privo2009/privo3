@@ -59,6 +59,20 @@ do
 	check("켜진 뒤 누르면 false", #sends == 2 and sends[2].value == false)
 	h.onResult({ ok = false, reason = "rate_limited", key = "hideOtherAuras", value = false })
 	check("거부 → 상태 문구", h._debug.status.Text ~= "")
+
+	-- 둘째 줄: 다른 사람 펫 숨기기 (지시서 #12 E10)
+	local pets = h._debug.rows[2]
+	check("둘째 항목: 다른 사람 펫 숨기기 · 키 hideOtherPets", #SettingsWindow.ROWS == 2 and pets ~= nil and pets.label.Text == "다른 사람 펫 숨기기"
+		and SettingsWindow.ROWS[2].key == "hideOtherPets" and pets.buttonLabel.Text == SettingsWindow.OFF_TEXT)
+	h._debug.press(2)
+	check("펫 숨기기: 지금의 반대 값 1건 · 아우라 줄 대기와 따로", #sends == 3 and sends[3].key == "hideOtherPets" and sends[3].value == true)
+	h.onResult({ ok = true, reason = "", key = "hideOtherPets", value = true })
+	setter("pets", { owned = {}, equipped = {}, slots = 2, storage = 50, hideOtherPets = true, world = 1 })
+	task.wait()
+	h.refresh()
+	check("펫 숨기기 켜짐: 두 채널(테두리 노랑 · 글자 밝음) · 아우라 줄은 그대로", pets.strokes[1].Color == UiTheme.Colors.cashout.base
+		and pets.buttonLabel.Text == SettingsWindow.ON_TEXT and row.buttonLabel.Text == SettingsWindow.ON_TEXT)
+	check("줄 크기 Scale만(Offset 0)", pets.button.root.Size.Y.Offset == 0 and pets.label.Size.Y.Offset == 0)
 	h.root:Destroy()
 end
 

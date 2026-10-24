@@ -35,10 +35,18 @@ UpgradeShopWindow.SUCCESS_TEXT = "%s Lv %d (-%s)"
 -- 지시서 #10: 칭호 행운이 5번째 줄로 들어와 0.2 → 0.17, 간격 0.02 → 0.01(5줄 0.9 + 상태 문구). 폰 줄 높이에서도 글자 하한 11px.
 -- 지시서 #11: 아우라 행운이 6번째 줄 — 0.17 → 0.15, 간격 0.01 → 0.004. 폰 줄(약 22px) 안 두 칸이 각각 11px(글자 하한)이 되게
 -- 줄 안을 위아래 반씩(이름 | 효과, 버튼 | 비용)으로 나눈다.
-local ROW_H = 0.15
+-- 지시서 #12: 펫 슬롯 · 펫 행운이 7 · 8번째 줄 — 8줄 × 0.154 = 1.23으로 창에 안 들어간다. 줄을 더 줄이면 폰에서 줄 안 두 칸이
+-- 11px 아래로 내려간다(0.15일 때 22px의 반). 그래서 줄 높이는 그대로 두고 **스크롤 목록**(ScrollingFrame)으로 바꿨다.
+-- 보이는 목록 높이 LIST_H(본문 기준) 안에 VISIBLE_ROWS줄쯤 보이고 나머지는 스크롤한다. 줄 높이 · 간격은 "보이는 목록 기준"이다.
+local ROW_H = 0.15 -- 본문 기준 줄 높이(#11 값 그대로)
 local ROW_GAP = 0.004
-local STATUS_Y = (ROW_H + ROW_GAP) * #UpgradeConfig.SHOP_ORDER + 0.01
+local LIST_H = 0.9 -- 보이는 목록 높이(본문 기준). 그 아래가 상태 문구
+local STATUS_Y = LIST_H + 0.01
 local STATUS_H = 1 - STATUS_Y
+local SCROLLBAR_PX = 6 -- ScrollBarThickness는 픽셀 정수 속성이라 Scale로 줄 수 없다(docs/UI.md "지시서 #12")
+local CONTENT_H = (ROW_H + ROW_GAP) * #UpgradeConfig.SHOP_ORDER -- 줄 전체 높이(본문 기준)
+local CANVAS_K = math.max(1, CONTENT_H / LIST_H) -- 캔버스 = 보이는 목록 × 이 값. 목록 안 자식 Scale은 캔버스 기준이다
+UpgradeShopWindow.Layout = { ROW_H = ROW_H, LIST_H = LIST_H, CANVAS_K = CANVAS_K }
 -- 줄 안(줄 기준 비율)
 local LEFT_W = 0.64
 local BUTTON_X = 0.68
@@ -72,6 +80,7 @@ export type Handle = {
 	_debug: {
 		press: (name: string) -> (),
 		close: () -> (),
+		list: ScrollingFrame,
 		rows: { [string]: RowParts },
 		status: TextLabel,
 		view: () -> { UpgradeShopLogic.Row },
@@ -85,19 +94,37 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 	panel.root.Name = "UpgradeShopWindow"
 	local body = panel.body
 
+	local list = Instance.new("ScrollingFrame")
+	list.Name = "List"
+	list.Position = UDim2.fromScale(0, 0)
+	list.Size = UDim2.fromScale(1, LIST_H)
+	list.CanvasSize = UDim2.fromScale(0, CANVAS_K)
+	list.ScrollingDirection = Enum.ScrollingDirection.Y
+	list.ScrollBarThickness = SCROLLBAR_PX
+	list.BackgroundTransparency = 1
+	list.BorderSizePixel = 0
+	list.ZIndex = 3
+	list.Parent = body
+
+	-- 본문 기준 높이 h → 캔버스 기준 Scale
+	local function onCanvas(h: number): number
+		return h / LIST_H / CANVAS_K
+	end
+
 	local rows: { [string]: RowParts } = {}
 	local raise: { Instance } = { panel.closeButton.root }
 	for i, name in ipairs(UpgradeConfig.SHOP_ORDER) do
 		local frame = Instance.new("Frame")
 		frame.Name = "Row_" .. name
-		frame.Position = UDim2.fromScale(0, (i - 1) * (ROW_H + ROW_GAP))
-		frame.Size = UDim2.fromScale(1, ROW_H)
+		frame.Position = UDim2.fromScale(0, onCanvas((i - 1) * (ROW_H + ROW_GAP)))
+		-- 오른쪽 끝을 스크롤바 폭만큼 비우지 않는다 — 비우려면 Offset이 필요하다. 스크롤바는 줄 위에 얇게 겹친다
+		frame.Size = UDim2.fromScale(1, onCanvas(ROW_H))
 		-- 줄 바탕: 중립 어두운 단계 — 패널 자리표시(중립 기본)와 구분된다(워프 창 행 경계 결함과 같은 이유)
 		frame.BackgroundColor3 = UiTheme.Colors.neutral.dark
 		frame.BackgroundTransparency = 0
 		frame.BorderSizePixel = 0
 		frame.ZIndex = 3
-		frame.Parent = body
+		frame.Parent = list
 
 		local title = WindowParts.makeText("Title", frame, "medium", 0.02, 0, LEFT_W, 0.5)
 		local effect = WindowParts.makeText("Effect", frame, "small", 0.02, 0.5, LEFT_W, 0.5)
@@ -221,6 +248,7 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 		_debug = {
 			press = press,
 			close = close,
+			list = list,
 			rows = rows,
 			status = status,
 			view = function()

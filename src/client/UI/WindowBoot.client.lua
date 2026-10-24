@@ -170,4 +170,33 @@ channels.settingsResult.OnClientEvent:Connect(function(payload: Remotes.Settings
 	settingsWindow.onResult(payload)
 end)
 
+-- ===== 펫 창 (지시서 #12) =======================================================================
+-- 요청은 PetRequest{action, egg?, uid?}, 결과는 PetResult(요청한 사람에게 1건). 결과 모달 · 런 중 토스트는 OverlayBoot.
+-- 메뉴 레일 다섯째 칸 "펫 목록"이 "Pet"으로 연다.
+
+local PetWindow = require(script.Parent.Screens.Window.PetWindow)
+
+local petWindow = PetWindow.create({
+	sendRequest = function(payload)
+		local p: Remotes.PetRequestPayload = { action = payload.action, egg = payload.egg, uid = payload.uid }
+		channels.petRequest:FireServer(p)
+	end,
+	onClose = function()
+		ScreenController.close("Pet")
+	end,
+})
+
+ScreenController.register("Pet", "Window", function()
+	return petWindow.root
+end)
+petWindow.root:GetPropertyChangedSignal("Visible"):Connect(function()
+	if petWindow.root.Visible then
+		petWindow.onOpen()
+	end
+end)
+
+channels.petResult.OnClientEvent:Connect(function(payload: Remotes.PetResultPayload)
+	petWindow.onResult(payload)
+end)
+
 StateSync.request()

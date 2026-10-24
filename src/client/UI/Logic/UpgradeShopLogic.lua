@@ -24,6 +24,8 @@ UpgradeShopLogic.NAMES = {
 	bloxGain = "블럭스 획득",
 	titleLuck = "칭호 행운", -- 지시서 #10 (G13 — 칭호 뽑기 확률 배수)
 	auraLuck = "아우라 행운", -- 지시서 #11 (A11)
+	petSlots = "펫 장착 슬롯", -- 지시서 #12 (E7 — +1, 최대 1레벨)
+	petLuck = "펫 행운", -- 지시서 #12 (E7)
 } :: { [string]: string }
 
 UpgradeShopLogic.BUY_TEXT = "구매"
@@ -35,6 +37,8 @@ function UpgradeShopLogic.formatEffect(name: string, value: number): string
 		return string.format("%.2f회/초", value)
 	elseif name == "moveSpeed" then
 		return string.format("최대 속도 +%d", math.floor(value + 0.5))
+	elseif name == "petSlots" then
+		return string.format("슬롯 +%d", math.floor(value + 0.5)) -- 지시서 #12 (슬롯 수 식은 PetConfig.getSlots)
 	end
 	if UpgradeShopLogic.isLuck(name) then
 		return string.format("행운 ×%.2f", value) -- 지시서 #11 P3

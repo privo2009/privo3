@@ -19,7 +19,7 @@
 --   bloxGain     블럭스 획득 배수  1 + d × L      블럭스 계통. ChallengeService 수령 지급 한 곳에서만 곱한다 (S4)
 --
 -- 아우라 행운 · 타이틀 행운 · 펫 행운 · 펫 장착 슬롯은 **Phase 7** 항목이다. 시스템이 붙는 지시서에서 상점에 연다(G13):
---   titleLuck #10 · auraLuck #11 · petLuck · petSlots #12. 그 전까지 `exposed = false`(사도 아무 일도 일어나지 않는다).
+--   titleLuck #10 · auraLuck #11 · petSlots · petLuck #12(E7 — 상점 7 · 8번째 줄). 이제 비노출 항목은 없다.
 --   행운 효과 = 1 + 레벨당 증가량 × 레벨(더하기 — S1과 같다). 그 뽑기의 행운 체인에 곱한다(RollService.computeLuck).
 --   펫 장착 슬롯 효과 = 레벨 × 보너스 — 슬롯 수 식은 PetConfig.getSlots가 원본이다.
 --
@@ -63,15 +63,15 @@ local Upgrades: { [string]: UpgradeDef } = {
 	-- effectBase 1 = "행운 업그레이드 0레벨은 ×1"(행운 체인의 곱셈 항이라 0이면 확률이 0이 된다).
 	auraLuck = { exposed = true, maxLevel = nil, baseCost = BigNum.new(1, 2), costGrowth = 1.25, effectBase = 1, effectPerLevel = 0.01 }, -- 소폭씩만 (롤 상품 보호). #11에서 노출
 	titleLuck = { exposed = true, maxLevel = nil, baseCost = BigNum.new(1, 2), costGrowth = 1.25, effectBase = 1, effectPerLevel = 0.01 }, -- 소폭씩만. #10에서 노출
-	petLuck = { exposed = false, maxLevel = 20, baseCost = BigNum.new(1, 2), costGrowth = 1.2, effectBase = 1, effectPerLevel = 0.02 }, -- 상한 있음. #12에서 연다
-	petSlots = { exposed = false, maxLevel = 1, baseCost = BigNum.new(1, 4), costGrowth = 1, effectBase = 0, effectPerLevel = 1 }, -- 최대 +1
+	petLuck = { exposed = true, maxLevel = 20, baseCost = BigNum.new(1, 2), costGrowth = 1.2, effectBase = 1, effectPerLevel = 0.02 }, -- 상한 있음. #12에서 노출(E7)
+	petSlots = { exposed = true, maxLevel = 1, baseCost = BigNum.new(1, 4), costGrowth = 1, effectBase = 0, effectPerLevel = 1 }, -- 최대 +1. #12에서 노출(E7)
 }
 
 UpgradeConfig.Upgrades = Upgrades
 
 -- 상점 창의 줄 순서이자 노출 항목 목록(S0). validate가 Upgrades의 exposed와 같은지 본다.
--- titleLuck은 지시서 #10에서 5번째, auraLuck은 #11에서 6번째로 열었다(G13 · A11).
-UpgradeConfig.SHOP_ORDER = { "punchDamage", "punchSpeed", "moveSpeed", "bloxGain", "titleLuck", "auraLuck" }
+-- titleLuck은 지시서 #10에서 5번째, auraLuck은 #11에서 6번째, petSlots · petLuck은 #12에서 7 · 8번째로 열었다(G13 · A11 · E7).
+UpgradeConfig.SHOP_ORDER = { "punchDamage", "punchSpeed", "moveSpeed", "bloxGain", "titleLuck", "auraLuck", "petSlots", "petLuck" }
 
 -- 구매 거부 사유 코드. 문구는 UI가 매핑한다(UpgradeShopLogic.reasonText).
 UpgradeConfig.REASON_INVALID_UPGRADE = "invalid_upgrade" -- 없는 항목 · 비노출 항목
@@ -186,8 +186,8 @@ function UpgradeConfig.validate(): boolean
 			assert((def.maxLevel :: number) > 0 and (def.maxLevel :: number) % 1 == 0, "UpgradeConfig: " .. name .. "의 maxLevel은 양의 정수여야 함")
 		end
 		if def.exposed then
-			-- 비용 단조 증가: 노출 항목은 증가율 > 1. (비노출 petSlots는 최대 1레벨이라 1이어도 된다)
-			assert(def.costGrowth > 1, "UpgradeConfig: " .. name .. "의 costGrowth는 1보다 커야 함(비용 단조 증가)")
+			-- 비용 단조 증가: 노출 항목은 증가율 > 1. 단 최대 1레벨 항목(petSlots)은 살 레벨이 하나라 비용 열이 한 칸이다 — 1이어도 된다
+			assert(def.costGrowth > 1 or def.maxLevel == 1, "UpgradeConfig: " .. name .. "의 costGrowth는 1보다 커야 함(비용 단조 증가)")
 			assert(UpgradeConfig.getEffectPerLevel(name) > 0, "UpgradeConfig: " .. name .. "의 레벨당 효과는 0보다 커야 함")
 		end
 	end

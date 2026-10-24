@@ -117,7 +117,15 @@ do
 	for _ in pairs(handle._debug.rows) do
 		n += 1
 	end
-	check("창: 줄 수 = SHOP_ORDER (지시서 #10부터 칭호 행운 포함 5)", n == #UpgradeConfig.SHOP_ORDER)
+	check("창: 줄 수 = SHOP_ORDER (지시서 #12부터 펫 슬롯 · 펫 행운 포함 8)", n == #UpgradeConfig.SHOP_ORDER and n == 8)
+	local L = UpgradeShopWindow.Layout
+	check("창: 8줄은 스크롤 목록 — 줄은 목록 안 · 캔버스 > 보이는 높이", handle._debug.rows.petLuck.frame.Parent == handle._debug.list
+		and handle._debug.list.CanvasSize.Y.Scale > 1 and math.abs(handle._debug.list.CanvasSize.Y.Scale - L.CANVAS_K) < 1e-5) -- UDim Scale은 float32
+	check("창: 줄 높이는 #11 값 그대로(본문 기준 0.15 — 폰 줄 안 두 칸 11px)", math.abs(handle._debug.rows.punchDamage.frame.Size.Y.Scale * L.LIST_H * L.CANVAS_K - L.ROW_H) < 1e-5
+		and handle._debug.rows.punchDamage.frame.Size.Y.Offset == 0)
+	check("창: 펫 슬롯 줄 = '슬롯 +0 → 슬롯 +1'", handle._debug.rows.petSlots.effect.Text == "슬롯 +0 → 슬롯 +1", handle._debug.rows.petSlots.effect.Text)
+	check("창: 펫 행운 줄 = '행운 ×현재 → ×다음'(P3)", string.find(handle._debug.rows.petLuck.effect.Text, "행운 ×", 1, true) == 1
+		and string.find(handle._debug.rows.petLuck.effect.Text, "→ ×", 1, true) ~= nil)
 	local dmg = handle._debug.rows.punchDamage
 	check("창: 줄 문구 = 로직 값", dmg.title.Text == UpgradeShopLogic.row("punchDamage", 0, blox).title and dmg.effect.Text == UpgradeShopLogic.row("punchDamage", 0, blox).effectText)
 	check("창: 살 수 있는 줄은 버튼 켜짐", not dmg.button.isDisabled())

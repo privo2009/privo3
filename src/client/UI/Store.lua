@@ -54,7 +54,11 @@ export type State = {
 	upgrades: { [string]: number }, -- 업그레이드 레벨 (지시서 #7). 키 = UpgradeConfig 이름 8개
 	titles: TitleSummary, -- 칭호 요약 (지시서 #10). 서버 TitleService.summarize
 	auras: AuraSummary, -- 아우라 요약 (지시서 #11). 서버 AuraService.summarize
+	pets: PetSummary, -- 펫 요약 (지시서 #12). 서버 PetService.summarize
 }
+
+export type PetEntry = { uid: string, petId: string, level: number }
+export type PetSummary = { owned: { PetEntry }, equipped: { string }, slots: number, storage: number, hideOtherPets: boolean, world: number }
 
 export type AuraSummary = { owned: { string }, equipped: string, selectedPack: number, hideOtherAuras: boolean, world: number }
 
@@ -73,6 +77,7 @@ export type Key =
 	| "upgrades"
 	| "titles"
 	| "auras"
+	| "pets"
 
 export type Setter = (Key, any) -> ()
 export type Source = (Setter) -> ()
@@ -105,6 +110,7 @@ local DUMMY_STATE: State = {
 	upgrades = {}, -- freshState가 UpgradeConfig 이름마다 0을 채운다(이름을 여기 다시 적지 않는다)
 	titles = { owned = {}, equipped = "", autoRoll = false }, -- 첫 PlayerState 전 — 아무 칭호 없음
 	auras = { owned = {}, equipped = "", selectedPack = 1, hideOtherAuras = false, world = 1 }, -- 첫 PlayerState 전
+	pets = { owned = {}, equipped = {}, slots = 2, storage = 50, hideOtherPets = false, world = 1 }, -- 첫 PlayerState 전(값은 곧 서버 것으로 바뀐다)
 }
 
 local BIG_NUM_KEYS: { [Key]: boolean } = {
@@ -184,12 +190,64 @@ local function aurasEqual(a: any, b: any): boolean
 	return true
 end
 
+-- 펫 요약 깊은 복사 · 비교(칭호와 같은 이유 — 보유 항목 표까지 뜬다).
+local function clonePets(v: any): PetSummary
+	local t = if type(v) == "table" then v else {}
+	local owned: { PetEntry } = {}
+	if type(t.owned) == "table" then
+		for i, e in ipairs(t.owned) do
+			if type(e) == "table" then
+				owned[i] = { uid = tostring(e.uid), petId = tostring(e.petId), level = if type(e.level) == "number" then e.level else 1 }
+			end
+		end
+	end
+	local equipped: { string } = {}
+	if type(t.equipped) == "table" then
+		for i, uid in ipairs(t.equipped) do
+			equipped[i] = tostring(uid)
+		end
+	end
+	return {
+		owned = owned,
+		equipped = equipped,
+		slots = if type(t.slots) == "number" then t.slots else 2,
+		storage = if type(t.storage) == "number" then t.storage else 50,
+		hideOtherPets = t.hideOtherPets == true,
+		world = if type(t.world) == "number" then t.world else 1,
+	}
+end
+
+local function petsEqual(a: any, b: any): boolean
+	if type(a) ~= "table" or type(b) ~= "table" then
+		return a == b
+	end
+	if a.slots ~= b.slots or a.storage ~= b.storage or a.hideOtherPets ~= b.hideOtherPets or a.world ~= b.world
+		or #a.owned ~= #b.owned or #a.equipped ~= #b.equipped then
+		return false
+	end
+	for i, e in ipairs(a.owned) do
+		local f = b.owned[i]
+		if f == nil or f.uid ~= e.uid or f.petId ~= e.petId or f.level ~= e.level then
+			return false
+		end
+	end
+	for i, uid in ipairs(a.equipped) do
+		if b.equipped[i] ~= uid then
+			return false
+		end
+	end
+	return true
+end
+
 local function cloneValue(key: Key, value: any): any
 	if key == "titles" then
 		return cloneTitles(value)
 	end
 	if key == "auras" then
 		return cloneAuras(value)
+	end
+	if key == "pets" then
+		return clonePets(value)
 	end
 	if BIG_NUM_KEYS[key] then
 		local big = value :: BigNumber
@@ -211,6 +269,9 @@ local function valuesEqual(key: Key, a: any, b: any): boolean
 	end
 	if key == "auras" then
 		return aurasEqual(a, b)
+	end
+	if key == "pets" then
+		return petsEqual(a, b)
 	end
 	if BIG_NUM_KEYS[key] then
 		return BigNum.eq(a :: BigNumber, b :: BigNumber)
