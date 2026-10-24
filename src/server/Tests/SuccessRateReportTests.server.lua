@@ -589,6 +589,145 @@ do
 	check("withAuraParams: G4 위반(비율 1.01) 거부 + 되돌림", not okBad and AuraConfig.Packs[2].auras[1].mult > AuraConfig.Packs[1].auras[4].mult)
 end
 
+-- 펫 행동 모델 E11 (지시서 #12 5단계) ---------------------------------------------------------------
+do
+	local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
+	local UpgradeConfig2 = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
+	local E1, E2 = PetConfig.Eggs[1], PetConfig.Eggs[2]
+	check("결정 모델 펫 규칙 = e11 · 환생 직전 15%", MODEL.PET_POLICY == "e11" and MODEL.PET_REBIRTH_SHARE == 0.15)
+	check("펫 스윕 단독 모드는 커밋 값 false · 펫 seed는 따로", SuccessRateReport.SIM.PET_SWEEP_ONLY == false
+		and SuccessRateReport.SIM.PET_SEED ~= SuccessRateReport.SIM.AURA_SEED and SuccessRateReport.SIM.PET_SEED ~= SuccessRateReport.SIM.SEED)
+
+	local p = SuccessRateReport.newPlayer(Random.new(31))
+	check("새 플레이어: 펫 없음 · 배수 1", SuccessRateReport.petCount(p) == 0 and SuccessRateReport.petMult(p) == 1)
+	p.petRandom = function()
+		return 0.999999 -- 일반(폴백)
+	end
+	p.lifetimeBlox = E2.rollCost -- 알 1 · 2 열림
+	local slotCost = UpgradeConfig2.getCostAtLevel("petSlots", 0)
+	-- 15% = 슬롯 업그레이드 + 알 2 세 번 반
+	p.blox = BigNum.div(BigNum.add(slotCost, BigNum.mul(E2.rollCost, BigNum.fromNumber(3.5))), BigNum.fromNumber(0.15))
+	local before = p.blox
+	local n = SuccessRateReport.spendPetBeforeRebirth(p)
+	check("E11: petSlots를 먼저 산다(살 수 있으면)", (p.upgrades.petSlots or 0) == 1)
+	check("E11: 남은 예산으로 해금된 가장 높은 알(2)을 닿는 만큼 (3회)", n == 3 and p.pets[E2.pets[1].id .. ":1"] == nil)
+	check("E11: 같은 종 3마리 → 바로 크래프팅(다음 단계 1마리)", p.pets[E2.pets[1].id .. ":2"] == 1 and p.crafts == 1)
+	check("E11: 지출 = 슬롯 + 알 2 × 3 (지갑에서 뺀다)",
+		math.abs(BigNum.toRatio(BigNum.sub(before, p.blox), BigNum.add(slotCost, BigNum.mul(E2.rollCost, BigNum.fromNumber(3)))) - 1) < 1e-9)
+	check("E11: 펫 행운은 사지 않는다", (p.upgrades.petLuck or 0) == 0)
+	check("E11: 알 첫 부화 시각 기록", p.eggFirstSec[2] ~= nil and p.eggFirstSec[1] == nil)
+
+	-- 장착: 실효 증가분 큰 순으로 파생 슬롯만큼 · 배수 = 게임과 같은 PetConfig.totalMult
+	local q = SuccessRateReport.newPlayer(Random.new(32))
+	q.pets[E1.pets[1].id .. ":1"] = 2
+	q.pets[E1.pets[1].id .. ":4"] = 1 -- 알 1 일반 무지개
+	q.pets[E2.pets[4].id .. ":1"] = 1
+	q.pets[E1.pets[2].id .. ":1"] = 1
+	local eq = SuccessRateReport.equippedPets(q)
+	check("장착: 파생 슬롯(기본 2)만큼 · 실효 증가분 큰 순", #eq == PetConfig.getSlots(0, false) and eq[1].gain >= eq[2].gain
+		and eq[1].gain == math.max(PetConfig.effectiveGain(E1.pets[1].id, 4), PetConfig.effectiveGain(E2.pets[4].id, 1)))
+	check("배수 = 1 + Σ 장착 실효 증가분 (E3)", math.abs(SuccessRateReport.petMult(q) - (1 + eq[1].gain + eq[2].gain)) < 1e-12)
+
+	-- 저장 공간이 차면 장착하지 않은 것 중 가장 약한 것부터 놓아준다.
+	-- 채우기: 알 2 · 3 펫을 종 · 단계마다 2마리씩(크래프팅 안 되는 수) + 알 1 일반 1단계 2마리(가장 약함)
+	local full = SuccessRateReport.newPlayer(Random.new(33))
+	full.petRandom = function()
+		return 0 -- 전설
+	end
+	full.lifetimeBlox = E1.rollCost
+	full.pets[E1.pets[1].id .. ":1"] = 2
+	local storage = PetConfig.getStorage(false)
+	for eggId = 2, 3 do
+		for level = 1, PetConfig.MAX_LEVEL do
+			for _, pet in ipairs(PetConfig.Eggs[eggId].pets) do
+				local room = storage - SuccessRateReport.petCount(full)
+				if room > 0 then
+					full.pets[pet.id .. ":" .. level] = math.min(2, room)
+				end
+			end
+		end
+	end
+	local room = storage - SuccessRateReport.petCount(full)
+	if room > 0 then
+		full.pets[E1.pets[2].id .. ":2"] = math.min(2, room)
+		room = storage - SuccessRateReport.petCount(full)
+		if room > 0 then
+			full.pets[E1.pets[2].id .. ":3"] = math.min(2, room)
+		end
+	end
+	check("준비: 저장 공간 가득", SuccessRateReport.petCount(full) == storage)
+	full.blox = BigNum.div(E1.rollCost, BigNum.fromNumber(0.15)) -- 15% = 알 1 한 번
+	local h = SuccessRateReport.spendPetBeforeRebirth(full)
+	check("가득 → 가장 약한(장착 안 한 알 1 일반 1단계)부터 놓아주고 부화", h == 1 and full.releases == 1
+		and full.pets[E1.pets[1].id .. ":1"] == 1 and SuccessRateReport.petCount(full) == storage)
+
+	local poor = SuccessRateReport.newPlayer(Random.new(34))
+	poor.petRandom = p.petRandom
+	poor.lifetimeBlox = E1.rollCost
+	poor.blox = BigNum.mul(E1.rollCost, BigNum.fromNumber(6)) -- 15% = 0.9회분
+	check("E11: 15%가 부화 비용 미만이면 부화하지 않는다", SuccessRateReport.spendPetBeforeRebirth(poor) == 0
+		and BigNum.eq(poor.blox, BigNum.mul(E1.rollCost, BigNum.fromNumber(6))))
+	local locked = SuccessRateReport.newPlayer(Random.new(35))
+	locked.petRandom = p.petRandom
+	locked.blox = BigNum.new(1, 30)
+	check("E11: 열린 알이 없으면 부화하지 않는다", SuccessRateReport.spendPetBeforeRebirth(locked) == 0 and locked.petHatches == 0)
+	MODEL.PET_POLICY = "none"
+	local noneN = SuccessRateReport.spendPetBeforeRebirth(q)
+	local noneM = SuccessRateReport.petMult(q)
+	MODEL.PET_POLICY = "e11"
+	check("펫 없음 모델: 부화하지 않고 배수 1", noneN == 0 and noneM == 1)
+
+	-- 크래프팅 연쇄: 9마리 → 2단계 3 → 3단계 1
+	local c = SuccessRateReport.newPlayer(Random.new(36))
+	c.pets[E1.pets[1].id .. ":1"] = 9
+	check("크래프팅 연쇄: 9 → 3단계 1마리 (4회)", SuccessRateReport.craftAll(c) == 4 and c.pets[E1.pets[1].id .. ":3"] == 1 and SuccessRateReport.petCount(c) == 1)
+	local top = SuccessRateReport.newPlayer(Random.new(37))
+	top.pets[E1.pets[1].id .. ":" .. PetConfig.MAX_LEVEL] = 5
+	check("크래프팅: 최고 단계는 더 올리지 않는다", SuccessRateReport.craftAll(top) == 0 and top.pets[E1.pets[1].id .. ":" .. PetConfig.MAX_LEVEL] == 5)
+
+	-- 펫 배수가 클릭 힘에 한 번 (E3 — 게임과 같은 함수) · 1펀치 데미지에는 들어가지 않는다(S9)
+	local function walkGain(withPets: boolean): BigNum.BigNumber
+		local w = SuccessRateReport.newPlayer(Random.new(38))
+		if withPets then
+			w.pets[E2.pets[4].id .. ":2"] = 1
+		end
+		local s0 = w.strength
+		SuccessRateReport.walkToGate(w)
+		return BigNum.sub(w.strength, s0)
+	end
+	local pm = 1 + PetConfig.effectiveGain(E2.pets[4].id, 2)
+	check("클릭 힘: 펫 배수만큼 (한 번)", math.abs(BigNum.toRatio(walkGain(true), walkGain(false)) - pm) < 0.05)
+	local d = SuccessRateReport.newPlayer(Random.new(39))
+	d.pets[E2.pets[4].id .. ":4"] = 1
+	local hp = StageConfig.getTotalHp(1)
+	d.strength = BigNum.div(hp, BigNum.fromNumber(1.5)) -- 펫이 데미지에 들어가면 1펀치에 깬다
+	local outcome
+	withoutRunClicks(function()
+		outcome = SuccessRateReport.simulateStage(d, 1, 0, 0)
+	end)
+	check("1펀치 데미지: 펫 배수는 들어가지 않는다(S9) — 힘이 HP의 2/3이면 1펀치에 못 깬다", outcome.punches ~= 1)
+
+	-- 후보 갈아끼우기: 끝나면 되돌린다 · 알 간 규칙 위반 후보는 거부
+	local orig = E1.pets[4].mult
+	local origF = PetConfig.CRAFT_FACTOR
+	local seen, seenF = nil, nil
+	SuccessRateReport.withPetParams({ 1.02, 1.04, 1.06, 1.08 }, 1.5, 2, function()
+		seen, seenF = PetConfig.Eggs[1].pets[4].mult, PetConfig.CRAFT_FACTOR
+	end)
+	check("withPetParams: 안에서는 후보 · 끝나면 원래", seen == 1.08 and seenF == 2 and PetConfig.Eggs[1].pets[4].mult == orig and PetConfig.CRAFT_FACTOR == origF)
+	local okBad = pcall(SuccessRateReport.withPetParams, nil, 1.01, nil, function() end)
+	check("withPetParams: 알 간 규칙 위반(비율 1.01) 거부 + 되돌림", not okBad and PetConfig.Eggs[2].pets[1].mult > PetConfig.Eggs[1].pets[4].mult)
+	local okF = pcall(SuccessRateReport.withPetParams, nil, nil, 1, function() end)
+	check("withPetParams: CRAFT_FACTOR ≤ 1 거부 + 되돌림", not okF and PetConfig.CRAFT_FACTOR == origF)
+
+	local txt = SuccessRateReport.petSummaryText({ {
+		finalPets = { { petId = E2.pets[4].id, tier = 2, gain = 1 } }, petHatches = 4, crafts = 1, releases = 0, petSpentLog10 = 5,
+		eggFirstMin = { [2] = 12.5 }, eggFirstStage = { [2] = 14 },
+	} :: any })
+	check("요약: 알 · 종 희귀도 · 알 첫 부화 · 크래프팅", string.find(txt, "알2·전설 1", 1, true) ~= nil and string.find(txt, "알 2 첫 부화 12.5분 · 14층", 1, true) ~= nil
+		and string.find(txt, "크래프팅 중앙값 1", 1, true) ~= nil)
+end
+
 print(string.format("[SuccessRateReportTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[SuccessRateReportTests] %d test(s) failed", failed))

@@ -50,7 +50,7 @@
 --
 --   - 클리어 뒤 진행 벽까지 걷는 시간·클리어 대기 중 클릭. 클리어한 런은 만료되지 않으므로
 --     실제 유저는 클리어 후 서서 힘을 더 모을 수 있다 — 여기서는 즉시 판단한다고 본다
---   - 로벅스 상품 · 게임패스 · 드론 · 아우라 · 펫(#11 · #12). 무과금 표준 플레이어다. 블럭스로 사는 칭호 뽑기는 넣는다(S6 · S7)
+--   - 로벅스 상품 · 게임패스 · 드론. 무과금 표준 플레이어다. 블럭스로 사는 뽑기 3종(칭호 S7 · 아우라 A4 · 펫 E11)은 넣는다(S6)
 --   - 워프는 결정 모델에 없다(MODEL.WARP_POLICY = "none"). "greedy"는 비교용 상한이다 —
 --     아래 "워프 비교" 참고
 --   - 환생 시점 판단은 StandardPathReport와 같은 "정체" 규칙에 인내심(SIM.REBIRTH_PATIENCE_RUNS)을
@@ -73,6 +73,15 @@
 -- 1펀치 데미지(AttackService.combineDamageMultiplier) 두 자리에서 한 번씩 — DPS에는 m²(A1).
 -- 아우라 난수는 별도 seed(SIM.AURA_SEED) — "아우라 없음" 비교 줄과 같은 플레이어가 된다.
 --
+-- ===== 펫 행동 모델 (E11, 2026-10-24 사람 결정 — 지시서 #12) ===========================================
+--
+-- 환생 직전 순서: 아우라 20%(A4) → 펫 15% → 환생 → 남는 양으로 S5'. 펫 예산 = **아우라를 쓰고 난 뒤** 보유 블럭스의 PET_REBIRTH_SHARE(15%)
+-- (Claude 해석 — "그 시점 보유 블럭스"). 예산으로 petSlots 업그레이드를 살 수 있으면 먼저 사고, 남은 예산으로 해금된 가장 높은 알을
+-- 부화 비용이 닿는 만큼 부화한다(아우라 A4와 같은 "가장 높은 것만"). 크래프팅할 수 있으면 바로 한다(같은 petId · 같은 단계 3 → 다음 단계).
+-- 장착은 언제나 실효 증가분 큰 순으로 파생 슬롯만큼(equipBest와 같다). 저장 공간이 차면 장착하지 않은 것 중 실효 증가분이 가장 작은
+-- 것부터 놓아준다. 펫 행운은 사지 않는다(S5'와 같은 이유). 펫 배수(E3)는 클릭 힘(StrengthMultiplier.compute)에만 한 번 — 데미지 항 없음(S9).
+-- 펫 난수는 별도 seed(SIM.PET_SEED) — "펫 없음" 비교 줄(B2)과 같은 플레이어가 된다.
+--
 -- 사용: Bootstrap의 SUCCESS_RATE_REPORT_ENABLED 블록이 부른다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -90,6 +99,7 @@ local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
 local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
+local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 
 local Schema = require(script.Parent.Parent.Data.Schema)
 local RollLogic = require(script.Parent.Parent.Systems.RollLogic)
@@ -163,6 +173,11 @@ local MODEL = {
 	AURA_POLICY = "a4",
 	-- 환생 직전 아우라에 쓰는 몫 (A4 — 20%)
 	AURA_REBIRTH_SHARE = 0.20,
+
+	-- 펫 행동 규칙. "e11"이 결정 모델(2026-10-24 사람 결정 E11 — 파일 상단), "none"은 펫 없음 비교 줄(지시서 #12 이전 = B2).
+	PET_POLICY = "e11",
+	-- 환생 직전 펫에 쓰는 몫 (E11 — 15%, 아우라를 쓰고 난 뒤 보유 블럭스 기준)
+	PET_REBIRTH_SHARE = 0.15,
 }
 SuccessRateReport.MODEL = MODEL
 
@@ -194,8 +209,13 @@ local SIM = {
 
 	-- true면 run()이 결정 모델 · 칭호 없음 · 칭호 배수 후보만 돈다(지시서 #10 6단계 후보 비교). 커밋 값은 false.
 	TITLE_SWEEP_ONLY = false,
-	-- true면 run()이 결정 모델 · 아우라 없음 · 칭호 없음 · 아우라 m 후보만 돈다(지시서 #11 6단계). 커밋 값은 false.
+	-- true면 run()이 결정 모델 · 펫 없음 · 아우라 없음 · 아우라 m 후보만 돈다(지시서 #11 6단계). 커밋 값은 false.
 	AURA_SWEEP_ONLY = false,
+
+	-- 펫 부화 난수 seed(따로 — 파일 상단 "펫 행동 모델").
+	PET_SEED = 20261026,
+	-- true면 run()이 결정 모델 · 펫 없음(B2) · 펫 m · CRAFT_FACTOR 후보만 돈다(지시서 #12 5단계). 커밋 값은 false.
+	PET_SWEEP_ONLY = false,
 }
 SuccessRateReport.SIM = SIM
 
@@ -242,6 +262,15 @@ export type Player = {
 	packFirstSec: { [number]: number }, -- 그 팩을 처음 굴린 시각
 	packFirstStage: { [number]: number }, -- 그때 이번 생애 최고층
 	bestThisLife: number,
+	-- 펫(E11). pets["petId:단계"] = 마리 수. 환생해도 남는다(RebirthService가 pets를 건드리지 않는다)
+	pets: { [string]: number },
+	petRandom: (() -> number)?,
+	petHatches: number,
+	petSpent: BigNumber,
+	crafts: number,
+	releases: number,
+	eggFirstSec: { [number]: number }, -- 그 알을 처음 부화한 시각
+	eggFirstStage: { [number]: number }, -- 그때 이번 생애 최고층
 }
 
 local function copyBig(v: BigNumber): BigNumber
@@ -333,6 +362,14 @@ function SuccessRateReport.newPlayer(rng: Random): Player
 		packFirstSec = {},
 		packFirstStage = {},
 		bestThisLife = 0,
+		pets = {},
+		petRandom = nil,
+		petHatches = 0,
+		petSpent = BigNum.new(0, 0),
+		crafts = 0,
+		releases = 0,
+		eggFirstSec = {},
+		eggFirstStage = {},
 	}
 end
 
@@ -378,6 +415,156 @@ function SuccessRateReport.spendAuraBeforeRebirth(p: Player): number
 	end
 	p.auraRolls += n
 	return n
+end
+
+-- ===== 펫 (E11) =========================================================================
+
+local function petKey(petId: string, level: number): string
+	return petId .. ":" .. tostring(level)
+end
+
+local function parseKey(key: string): (string, number)
+	local id, lv = string.match(key, "^(.+):(%d+)$")
+	return id :: string, tonumber(lv) :: number
+end
+
+export type SimPet = { petId: string, tier: number, gain: number }
+
+-- 보유 펫 한 마리씩, 실효 증가분 큰 순(같으면 키 순 — 결정적).
+function SuccessRateReport.petList(p: Player): { SimPet }
+	local out: { SimPet } = {}
+	for key, n in pairs(p.pets) do
+		local id, level = parseKey(key)
+		local gain = PetConfig.effectiveGain(id, level)
+		for _ = 1, n do
+			table.insert(out, { petId = id, tier = level, gain = gain })
+		end
+	end
+	table.sort(out, function(a, b)
+		if a.gain ~= b.gain then
+			return a.gain > b.gain
+		end
+		return petKey(a.petId, a.tier) < petKey(b.petId, b.tier)
+	end)
+	return out
+end
+
+function SuccessRateReport.petCount(p: Player): number
+	local n = 0
+	for _, c in pairs(p.pets) do
+		n += c
+	end
+	return n
+end
+
+-- 장착 = 실효 증가분 큰 순으로 파생 슬롯만큼(E11 · 게임의 equipBest). 게임패스는 없다(무과금).
+function SuccessRateReport.equippedPets(p: Player): { SimPet }
+	local list = SuccessRateReport.petList(p)
+	local slots = PetConfig.getSlots(p.upgrades.petSlots or 0, false)
+	local out: { SimPet } = {}
+	for i = 1, math.min(slots, #list) do
+		out[i] = list[i]
+	end
+	return out
+end
+
+-- 펫 배수(E3) — 게임과 같은 PetConfig.totalMult. 펫 없음 모델이면 1.
+function SuccessRateReport.petMult(p: Player): number
+	if MODEL.PET_POLICY ~= "e11" then
+		return 1
+	end
+	return PetConfig.totalMult(SuccessRateReport.equippedPets(p) :: any)
+end
+
+-- 크래프팅할 수 있는 만큼 바로 한다(같은 petId · 같은 단계 CRAFT_REQUIREMENT → 다음 단계, 연쇄). 한 횟수를 돌려준다.
+function SuccessRateReport.craftAll(p: Player): number
+	local need = PetConfig.CRAFT_REQUIREMENT
+	local done = 0
+	local changed = true
+	while changed do
+		changed = false
+		for key, n in pairs(p.pets) do
+			local id, level = parseKey(key)
+			if n >= need and level < PetConfig.MAX_LEVEL then
+				local times = math.floor(n / need)
+				p.pets[key] = n - times * need
+				if p.pets[key] == 0 then
+					p.pets[key] = nil
+				end
+				local up = petKey(id, level + 1)
+				p.pets[up] = (p.pets[up] or 0) + times
+				done += times
+				changed = true
+				break -- 표를 바꿨으니 처음부터 다시 돈다
+			end
+		end
+	end
+	p.crafts += done
+	return done
+end
+
+-- 저장 공간이 찼을 때: 장착하지 않은 것 중 실효 증가분이 가장 작은 것 하나를 놓아준다. 놓을 것이 없으면 false.
+function SuccessRateReport.releaseWeakest(p: Player): boolean
+	local list = SuccessRateReport.petList(p)
+	local slots = PetConfig.getSlots(p.upgrades.petSlots or 0, false)
+	if #list <= slots then
+		return false
+	end
+	local weakest = list[#list]
+	local key = petKey(weakest.petId, weakest.tier)
+	p.pets[key] -= 1
+	if p.pets[key] <= 0 then
+		p.pets[key] = nil
+	end
+	p.releases += 1
+	return true
+end
+
+-- E11: 환생 직전(아우라 뒤), 보유 블럭스의 PET_REBIRTH_SHARE로 petSlots를 먼저 사고(살 수 있으면), 남은 예산으로
+-- 해금된 가장 높은 알을 부화 비용이 닿는 만큼 부화한다. 부화한 수를 돌려준다.
+function SuccessRateReport.spendPetBeforeRebirth(p: Player): number
+	if MODEL.PET_POLICY ~= "e11" or p.petRandom == nil then
+		return 0
+	end
+	local budget = BigNum.mul(p.blox, BigNum.fromNumber(MODEL.PET_REBIRTH_SHARE))
+	local slotOk, _r, slotCost = UpgradeConfig.canBuy("petSlots", p.upgrades.petSlots or 0, budget)
+	if slotOk and slotCost ~= nil then
+		p.blox = BigNum.sub(p.blox, slotCost)
+		budget = BigNum.sub(budget, slotCost)
+		p.petSpent = BigNum.add(p.petSpent, slotCost)
+		p.upgrades.petSlots = (p.upgrades.petSlots or 0) + 1
+	end
+	local unlocked = PetConfig.getUnlockedEggs(p.lifetimeBlox, SIM.WORLD_ID)
+	local eggId = unlocked[#unlocked]
+	if eggId == nil then
+		return 0
+	end
+	local egg = PetConfig.Eggs[eggId]
+	local n = math.floor(BigNum.toRatio(budget, egg.rollCost))
+	if n <= 0 then
+		return 0
+	end
+	if p.eggFirstSec[eggId] == nil then
+		p.eggFirstSec[eggId] = p.elapsedSec
+		p.eggFirstStage[eggId] = p.bestThisLife
+	end
+	local luck = RollService.computeLuck("pet", { upgrades = p.upgrades })
+	local storage = PetConfig.getStorage(false)
+	local hatched = 0
+	for _ = 1, n do
+		if SuccessRateReport.petCount(p) >= storage and not SuccessRateReport.releaseWeakest(p) then
+			break -- 놓아줄 것도 없으면(전부 장착) 게임처럼 storage_full
+		end
+		p.blox = BigNum.sub(p.blox, egg.rollCost)
+		p.petSpent = BigNum.add(p.petSpent, egg.rollCost)
+		local def = RollLogic.roll(egg.pets, luck, p.petRandom :: () -> number)
+		local key = petKey(def.id, 1)
+		p.pets[key] = (p.pets[key] or 0) + 1
+		hatched += 1
+		SuccessRateReport.craftAll(p)
+	end
+	p.petHatches += hatched
+	return hatched
 end
 
 -- ===== 칭호 (S7) =========================================================================
@@ -449,7 +636,12 @@ local function addClicks(p: Player, clicks: number, gymMultiplier: number?)
 		return
 	end
 	local padPower = ClickPadConfig.getPadPower(SIM.WORLD_ID, p.padIndex)
-	local multiplier = StrengthMultiplier.compute({ rebirths = p.rebirths, titleMult = SuccessRateReport.titleMult(p), auraMult = SuccessRateReport.auraMult(p) })
+	local multiplier = StrengthMultiplier.compute({
+		rebirths = p.rebirths,
+		titleMult = SuccessRateReport.titleMult(p),
+		auraMult = SuccessRateReport.auraMult(p),
+		petMult = SuccessRateReport.petMult(p), -- E3 — 클릭 힘 한 자리(데미지 항 없음)
+	})
 	local gain = BigNum.mul(BigNum.mul(padPower, BigNum.fromNumber(clicks)), multiplier)
 	if gymMultiplier ~= nil and gymMultiplier ~= 1 then
 		gain = BigNum.mul(gain, BigNum.fromNumber(gymMultiplier))
@@ -679,8 +871,9 @@ end
 
 -- RebirthService와 같은 대상: blox 0, 힘 초기값, rebirths 누적, lifeBlox 0 · 패드 1. lifetimeBlox 유지.
 local function rebirth(p: Player)
-	-- A4: 환생 직전 보유 블럭스의 20%로 아우라(가장 높은 해금 팩). 그다음 환생 → 남는 양으로 S5'.
+	-- A4: 환생 직전 보유 블럭스의 20%로 아우라(가장 높은 해금 팩). E11: 그다음 남은 보유의 15%로 펫. 그다음 환생 → 남는 양으로 S5'.
 	SuccessRateReport.spendAuraBeforeRebirth(p)
+	SuccessRateReport.spendPetBeforeRebirth(p)
 	-- S5: 환생 직전 버려질 나머지로 업그레이드(나머지만 쓰므로 얻는 배수는 그대로다).
 	if MODEL.UPGRADE_POLICY == "s5" then
 		local spent = SuccessRateReport.buyCheapestFirst(p.upgrades, RebirthConfig.getLeftover(p.blox))
@@ -716,12 +909,20 @@ export type PlayerResult = {
 	auraSpentLog10: number?,
 	packFirstMin: { [number]: number },
 	packFirstStage: { [number]: number },
+	finalPets: { SimPet }, -- 최고층 첫 진입 시점(또는 끝났을 때) 장착 펫
+	petHatches: number,
+	crafts: number,
+	releases: number,
+	petSpentLog10: number?,
+	eggFirstMin: { [number]: number },
+	eggFirstStage: { [number]: number },
 }
 
-function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTry: { [number]: Tally }, titleRandom: (() -> number)?, auraRandom: (() -> number)?): PlayerResult
+function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTry: { [number]: Tally }, titleRandom: (() -> number)?, auraRandom: (() -> number)?, petRandom: (() -> number)?): PlayerResult
 	local p = SuccessRateReport.newPlayer(rng)
 	p.titleRandom = titleRandom
 	p.auraRandom = auraRandom
+	p.petRandom = petRandom
 	local seen: { [number]: boolean } = {}
 	local bestThisLife = 0
 	local stale = 0
@@ -795,6 +996,19 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 			return t
 		end)(),
 		packFirstStage = p.packFirstStage,
+		finalPets = SuccessRateReport.equippedPets(p),
+		petHatches = p.petHatches,
+		crafts = p.crafts,
+		releases = p.releases,
+		petSpentLog10 = if p.petSpent.m > 0 then math.log10(p.petSpent.m) + p.petSpent.e else nil,
+		eggFirstMin = (function()
+			local t = {}
+			for k, v in pairs(p.eggFirstSec) do
+				t[k] = v / 60
+			end
+			return t
+		end)(),
+		eggFirstStage = p.eggFirstStage,
 	}
 end
 
@@ -833,9 +1047,10 @@ end
 -- 비교용 변형. ⚠️ 사람 결정 모델을 바꾸는 것이 아니라 "규칙이 결과를 얼마나 움직이는가"를
 -- 옆에 놓고 보는 자리다. 첫 줄(빈 덮어쓰기)이 사람 결정 모델이고 표 전체를 찍는다.
 local VARIANTS: { { label: string, override: { [string]: any } } } = {
-	{ label = "결정 모델 (남은 시간 50~90% · 업그레이드 S5 · 칭호 S7)", override = {} },
-	{ label = "아우라 없음 (비교 — 지시서 #11 이전, 칭호 S7은 있음)", override = { AURA_POLICY = "none" } },
-	{ label = "칭호 없음 (비교 — 지시서 #10 이전 가정)", override = { TITLE_POLICY = "none", AURA_POLICY = "none" } },
+	{ label = "결정 모델 (남은 시간 50~90% · 업그레이드 S5' · 칭호 S7 · 아우라 A4 · 펫 E11)", override = {} },
+	{ label = "펫 없음 (비교 — B2, 지시서 #12 이전)", override = { PET_POLICY = "none" } },
+	{ label = "아우라 없음 (비교 — B1, 지시서 #11 이전, 칭호 S7은 있음)", override = { AURA_POLICY = "none", PET_POLICY = "none" } },
+	{ label = "칭호 없음 (비교 — 지시서 #10 이전 가정)", override = { TITLE_POLICY = "none", AURA_POLICY = "none", PET_POLICY = "none" } },
 	{ label = "업그레이드 0 (비교 — 지시서 #7 이전 가정)", override = { UPGRADE_POLICY = "none" } },
 	{ label = "운동기구 안 씀 (비교)", override = { GYM_TRAIN_SEC = 0 } },
 	{ label = "공허 훈련 구역 구매자 (비교)", override = { OWNS_VOID_ZONE = true } },
@@ -866,12 +1081,13 @@ local function runModel(label: string, full: boolean, compact: boolean?)
 	local rng = Random.new(SIM.SEED)
 	local titleRandom = RollService.seededRandom(SIM.TITLE_SEED)
 	local auraRandom = RollService.seededRandom(SIM.AURA_SEED)
+	local petRandom = RollService.seededRandom(SIM.PET_SEED)
 	local firstTry: { [number]: Tally } = {}
 	local results: { PlayerResult } = {}
 
 	local startedAt = os.clock()
 	for _ = 1, SIM.PLAYERS do
-		table.insert(results, SuccessRateReport.simulatePlayer(rng, maxStage, firstTry, titleRandom, auraRandom))
+		table.insert(results, SuccessRateReport.simulatePlayer(rng, maxStage, firstTry, titleRandom, auraRandom, petRandom))
 		task.wait()
 	end
 	local tookSec = os.clock() - startedAt
@@ -981,6 +1197,10 @@ local function runModel(label: string, full: boolean, compact: boolean?)
 	end
 	if MODEL.AURA_POLICY == "a4" then
 		print("[SUCCESSRATE] " .. SuccessRateReport.auraSummaryText(results))
+	end
+	if MODEL.PET_POLICY == "e11" then
+		print("[SUCCESSRATE] " .. SuccessRateReport.petSummaryText(results))
+		print("[SUCCESSRATE] " .. SuccessRateReport.petLevelText(results))
 	end
 	if MODEL.WARP_POLICY ~= "none" then
 		print(string.format(
@@ -1118,6 +1338,127 @@ function SuccessRateReport.withAuraParams(ladder: { number }?, ratio: number?, f
 	end
 end
 
+-- 펫 요약 한 줄: 최고층 첫 진입 시점 장착 펫(알 · 종 희귀도) 분포 · 알 2 · 3 첫 부화(분 · 층) · 부화 · 크래프팅 · 놓아주기 · 지출 중앙값.
+function SuccessRateReport.petSummaryText(results: { PlayerResult }): string
+	local counts: { [string]: number } = {}
+	local none = 0
+	local hatches, crafts, releases, spent = {}, {}, {}, {}
+	local firstMin: { [number]: { number } } = {}
+	local firstStage: { [number]: { number } } = {}
+	for _, r in ipairs(results) do
+		if #r.finalPets == 0 then
+			none += 1
+		end
+		for _, pet in ipairs(r.finalPets) do
+			local _, eggId, rarity = PetConfig.get(pet.petId)
+			if eggId ~= nil and rarity ~= nil then
+				local key = string.format("알%d·%s", eggId, PetConfig.TIER_NAMES[rarity])
+				counts[key] = (counts[key] or 0) + 1
+			end
+		end
+		table.insert(hatches, r.petHatches)
+		table.insert(crafts, r.crafts)
+		table.insert(releases, r.releases)
+		if r.petSpentLog10 ~= nil then
+			table.insert(spent, r.petSpentLog10)
+		end
+		for eggId, m in pairs(r.eggFirstMin) do
+			firstMin[eggId] = firstMin[eggId] or {}
+			table.insert(firstMin[eggId], m)
+			firstStage[eggId] = firstStage[eggId] or {}
+			table.insert(firstStage[eggId], r.eggFirstStage[eggId] or 0)
+		end
+	end
+	local keys = {}
+	for k in pairs(counts) do
+		table.insert(keys, k)
+	end
+	table.sort(keys)
+	local parts = { string.format("장착 없음 %d명", none) }
+	for _, k in ipairs(keys) do
+		table.insert(parts, string.format("%s %d", k, counts[k]))
+	end
+	local eggParts = {}
+	for eggId = 2, 3 do
+		local mm, ms = firstMin[eggId], firstStage[eggId]
+		local m, st = if mm then median(mm) else nil, if ms then median(ms) else nil
+		table.insert(eggParts, string.format("알 %d 첫 부화 %s분 · %s층 (%d명)", eggId,
+			if m ~= nil then string.format("%.1f", m) else "-", if st ~= nil then tostring(st) else "-", if mm then #mm else 0))
+	end
+	local h, c, rl, sp = median(hatches), median(crafts), median(releases), median(spent)
+	return string.format("펫(E11): 최고층 첫 진입 시점 장착 펫 %s · %s · 부화 중앙값 %s · 크래프팅 중앙값 %s · 놓아주기 중앙값 %s · 지출 중앙값 %s",
+		table.concat(parts, " · "), table.concat(eggParts, " · "),
+		if h ~= nil then tostring(h) else "-", if c ~= nil then tostring(c) else "-", if rl ~= nil then tostring(rl) else "-",
+		if sp ~= nil then string.format("10^%.2f", sp) else "-")
+end
+
+-- 펫 강화 단계 분포 한 줄(장착 펫 기준) + 펫 배수 중앙값.
+function SuccessRateReport.petLevelText(results: { PlayerResult }): string
+	local byLevel: { [number]: number } = {}
+	local mults: { number } = {}
+	for _, r in ipairs(results) do
+		for _, pet in ipairs(r.finalPets) do
+			byLevel[pet.tier] = (byLevel[pet.tier] or 0) + 1
+		end
+		table.insert(mults, PetConfig.totalMult(r.finalPets :: any))
+	end
+	local parts = {}
+	for level = 1, PetConfig.MAX_LEVEL do
+		table.insert(parts, string.format("%s %d", PetConfig.LEVEL_NAMES[level], byLevel[level] or 0))
+	end
+	local m = median(mults)
+	return string.format("펫(E11): 장착 펫 강화 단계 %s · 펫 배수 중앙값 ×%s", table.concat(parts, " · "),
+		if m ~= nil then string.format("%.2f", m) else "-")
+end
+
+-- 펫 m · CRAFT_FACTOR 후보 (지시서 #12 5단계 권한 — LADDER(알 안 사다리) · EGG_RATIO(알 간 비율) · CRAFT_FACTOR만.
+-- 알 간 규칙 · 단조 · m ≥ 1은 PetConfig.validate가 잰다). ⚠️ PetConfig를 고치는 것이 아니라 메모리에서 잠깐 바꾸고 rebuild — 끝나면 되돌린다.
+-- 측정(2026-10-24, 지시서 #12 5단계 — 200명 · 같은 seed. 지킬 것: 1~8 ≥ 85% · 25층 ≥ B2 43.0분 × 0.9 = 38.7분. 9~16 · 17~25는 맞추지 않는다 — #13):
+--   B2(펫 없음)                                         97.6 / 84.7 / 64.1% · 43.0분 · 환생 4.5회 · 그때 환생 수 10^6.70
+--   시작값 사다리 1.05/1.1/1.2/1.4 · 비율 1.4 · CRAFT 2.5  97.1 / 82.6 / 66.1% · 38.4분 ✗ (−10.7%) · 환생 3.8회 · 10^5.01 · 펫 배수 ×13.49
+--   P1 CRAFT 2.2                                        96.6 / 82.1 / 65.1% · 39.0분 ✓ ← 채택(통과 후보 중 시작값에 가장 가깝다 — 한 값만 0.3 줄였다)
+--   P2 CRAFT 2.0                                        97.2 / 83.3 / 65.9% · 39.2분 ✓
+--   P3 CRAFT 1.8                                        97.2 / 83.2 / 67.9% · 39.7분 ✓
+--   P4 사다리 1.03/1.07/1.14/1.28 · 비율 1.3 · CRAFT 2.5   97.1 / 81.9 / 65.8% · 39.9분 ✓
+--   P5 사다리 1.03/1.07/1.14/1.28 · 비율 1.3 · CRAFT 2.0   96.6 / 81.2 / 65.4% · 41.1분 ✓ (여유가 가장 크다 — 대안)
+--   ⚠️ P1의 여유는 0.3분뿐이다. HP 재보정(#13)에서 다시 본다. 펫은 환생을 줄인다(4.5 → 4.0회 · 환생 수 10^6.70 → 10^6.03)
+SuccessRateReport.PET_VARIANTS = {
+	{ label = "P0  현재 PetConfig (= P1 채택)", ladder = nil, ratio = nil, craft = nil },
+	{ label = "S   시작값 CRAFT 2.5", ladder = nil, ratio = nil, craft = 2.5 },
+	{ label = "P1  CRAFT_FACTOR 2.2", ladder = nil, ratio = nil, craft = 2.2 },
+	{ label = "P2  CRAFT_FACTOR 2.0", ladder = nil, ratio = nil, craft = 2.0 },
+	{ label = "P3  CRAFT_FACTOR 1.8", ladder = nil, ratio = nil, craft = 1.8 },
+	{ label = "P4  사다리 1.03/1.07/1.14/1.28 · 비율 1.3 · CRAFT 2.5", ladder = { 1.03, 1.07, 1.14, 1.28 }, ratio = 1.3, craft = nil },
+	{ label = "P5  사다리 1.03/1.07/1.14/1.28 · 비율 1.3 · CRAFT 2.0", ladder = { 1.03, 1.07, 1.14, 1.28 }, ratio = 1.3, craft = 2.0 },
+} :: { { label: string, ladder: { number }?, ratio: number?, craft: number? } }
+
+function SuccessRateReport.withPetParams(ladder: { number }?, ratio: number?, craft: number?, fn: () -> ())
+	if ladder == nil and ratio == nil and craft == nil then
+		fn()
+		return
+	end
+	local savedLadder, savedRatio, savedCraft = table.clone(PetConfig.LADDER), PetConfig.EGG_RATIO, PetConfig.CRAFT_FACTOR
+	if ladder ~= nil then
+		PetConfig.LADDER = table.clone(ladder)
+	end
+	if ratio ~= nil then
+		PetConfig.EGG_RATIO = ratio
+	end
+	if craft ~= nil then
+		PetConfig.CRAFT_FACTOR = craft
+	end
+	local ok, err = pcall(function()
+		PetConfig.rebuild()
+		PetConfig.validate()
+		fn()
+	end)
+	PetConfig.LADDER, PetConfig.EGG_RATIO, PetConfig.CRAFT_FACTOR = savedLadder, savedRatio, savedCraft
+	PetConfig.rebuild()
+	if not ok then
+		error(err)
+	end
+end
+
 -- 칭호 배수 후보 (지시서 #10 6단계 권한 — TitleConfig mult만, 폴백 1.0 고정 · 단조 · 최고 ×3.0 이하).
 -- ⚠️ TitleConfig를 고치는 것이 아니라 메모리에서 잠깐 갈아끼운다(업그레이드 후보와 같은 패턴). 끝나면 되돌린다.
 -- mults는 Titles 순서(희귀도 낮은 순) 배열이다.
@@ -1204,10 +1545,11 @@ function SuccessRateReport.runBand(band: Band, players: number, maxStage: number
 		local rng = Random.new(SIM.SEED)
 		local titleRandom = RollService.seededRandom(SIM.TITLE_SEED)
 		local auraRandom = RollService.seededRandom(SIM.AURA_SEED)
+		local petRandom = RollService.seededRandom(SIM.PET_SEED)
 		local firstTry: { [number]: Tally } = {}
 		local finals: { number } = {}
 		for _ = 1, players do
-			local r = SuccessRateReport.simulatePlayer(rng, maxStage, firstTry, titleRandom, auraRandom)
+			local r = SuccessRateReport.simulatePlayer(rng, maxStage, firstTry, titleRandom, auraRandom, petRandom)
 			if r.reachedFinal and r.finalFirstSec ~= nil then
 				table.insert(finals, r.finalFirstSec / 60)
 			end
@@ -1308,6 +1650,31 @@ end
 
 function SuccessRateReport.run()
 	print("[SUCCESSRATE] ===== 확률적 플레이어 성공률 (4-2-f) =====")
+	if SIM.PET_SWEEP_ONLY then
+		for i = 1, 2 do -- 결정 모델 · 펫 없음(B2)
+			local variant = VARIANTS[i]
+			local saved: { [string]: any } = {}
+			for k, v in pairs(variant.override) do
+				saved[k] = (MODEL :: any)[k]
+				;(MODEL :: any)[k] = v
+			end
+			runModel(variant.label, false, true)
+			for k, v in pairs(saved) do
+				(MODEL :: any)[k] = v
+			end
+		end
+		print("[SUCCESSRATE] ===== 펫 m · CRAFT_FACTOR 후보 (결정 모델 S5' + S7 + A4 + E11) =====")
+		for _, variant in ipairs(SuccessRateReport.PET_VARIANTS) do
+			local ok, err = pcall(SuccessRateReport.withPetParams, variant.ladder, variant.ratio, variant.craft, function()
+				runModel(variant.label, false, true)
+			end)
+			if not ok then
+				print(string.format("[SUCCESSRATE] %s — 권한 · 규약 위반으로 건너뜀: %s", variant.label, tostring(err)))
+			end
+		end
+		print("[SUCCESSRATE] (PET_SWEEP_ONLY) 끝.")
+		return
+	end
 	if SIM.AURA_SWEEP_ONLY then
 		for i = 1, 3 do
 			local variant = VARIANTS[i]
@@ -1334,7 +1701,7 @@ function SuccessRateReport.run()
 		return
 	end
 	if SIM.TITLE_SWEEP_ONLY then
-		for i = 1, 3 do
+		for _, i in ipairs({ 1, 4 }) do -- 결정 모델 · 칭호 없음(VARIANTS 순서가 #12에서 바뀌었다)
 			local variant = VARIANTS[i]
 			local saved: { [string]: any } = {}
 			for k, v in pairs(variant.override) do
