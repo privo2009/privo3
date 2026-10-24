@@ -36,9 +36,12 @@ export type AuraPackDef = {
 
 local AuraConfig = {}
 
--- ===== TEMP — m 값 (지시서 #11 A2 시작값) =====
-AuraConfig.LADDER = { 1.1, 1.25, 1.5, 2.0 } -- 팩 1 common → legendary
-AuraConfig.PACK_RATIO = 2.2 -- 팩 n = 팩 1 × PACK_RATIO^(n-1)
+-- ===== TEMP — m 값 (지시서 #11 6단계 권한으로 조정, 2026-10-24) =====
+-- 시작값(사람 결정 A2) 사다리 1.1/1.25/1.5/2.0 · 비율 2.2는 결정 모델(S5' + S7 + A4)에서 17~25층 73.7% · 25층 39.1분(B1 46.1분의 −15.2%)으로
+-- 지킬 것(30~65% · −10% 이내)을 넘었다. 후보 M1~M5 중 통과한 M2 · M5 가운데 시작값에 가까운 M2를 골랐다 —
+-- 수치 원본은 SuccessRateReport.AURA_VARIANTS 주석.
+AuraConfig.LADDER = { 1.05, 1.1, 1.2, 1.4 } -- 팩 1 common → legendary (M2)
+AuraConfig.PACK_RATIO = 1.4 -- 팩 n = 팩 1 × PACK_RATIO^(n-1) (M2). G4: 1.05 × 1.4 = 1.47 > 1.4
 
 -- 등급 확률(사람 결정 G1). common은 폴백이라 nil.
 local CHANCES: { number? } = { nil, 0.3, 0.09, 0.01 }

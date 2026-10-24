@@ -138,7 +138,7 @@ end)
 
 check("AuraConfig.validate: G4 위반(팩 비율이 사다리보다 작다) 거부 · 되돌리면 통과", function()
 	local saved = AuraConfig.PACK_RATIO
-	AuraConfig.PACK_RATIO = 1.5 -- 2.0(팩 1 최고) × ... 팩 2 최저 1.1 × 1.5 = 1.65 < 2.0
+	AuraConfig.PACK_RATIO = 1.01 -- 팩 2 최저 = 팩 1 최저 × 1.01 < 팩 1 최고(사다리가 단조 증가라 언제나 위반)
 	AuraConfig.rebuild()
 	local ok = pcall(AuraConfig.validate)
 	AuraConfig.PACK_RATIO = saved

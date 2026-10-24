@@ -65,6 +65,14 @@
 -- 칭호 배수는 클릭 힘(StrengthMultiplier.compute)과 수령액(ChallengeService.combineBloxMultiplier) 두 자리에서 한 번씩 곱한다.
 -- 칭호 난수는 별도 seed(SIM.TITLE_SEED)로 굴린다 — 플레이어 모델 난수열을 바꾸지 않아 "칭호 없음" 비교 줄과 같은 플레이어가 된다.
 --
+-- ===== 아우라 행동 모델 (A4, 2026-10-24 사람 결정 — 지시서 #11) ===========================================
+--
+-- 환생 직전에 보유 블럭스의 AURA_REBIRTH_SHARE(20%)로, 해금된 팩 중 가장 높은 팩을 롤 비용이 닿는 만큼 굴린다.
+-- 더 높은 m이 나오면 바로 장착한다(게임은 자동 장착). 그다음은 기존 순서 — 환생(1000 단위) → 남는 양으로 S5'.
+-- 아우라는 환생해도 남는다(RebirthService가 cosmetics를 건드리지 않는다). m은 클릭 힘(StrengthMultiplier.compute)과
+-- 1펀치 데미지(AttackService.combineDamageMultiplier) 두 자리에서 한 번씩 — DPS에는 m²(A1).
+-- 아우라 난수는 별도 seed(SIM.AURA_SEED) — "아우라 없음" 비교 줄과 같은 플레이어가 된다.
+--
 -- 사용: Bootstrap의 SUCCESS_RATE_REPORT_ENABLED 블록이 부른다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -81,11 +89,13 @@ local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
+local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
 
 local Schema = require(script.Parent.Parent.Data.Schema)
 local RollLogic = require(script.Parent.Parent.Systems.RollLogic)
 local RollService = require(script.Parent.Parent.Systems.RollService)
 local ChallengeService = require(script.Parent.Parent.Systems.ChallengeService)
+local AttackService = require(script.Parent.Parent.Systems.AttackService)
 
 type BigNumber = BigNum.BigNumber
 
@@ -148,6 +158,11 @@ local MODEL = {
 	TITLE_POLICY = "s7",
 	-- 자동 롤을 켜는 기준: 자동 롤 비용 ≤ 블럭스 벌이 × 이 비율 (S7 — 10%)
 	TITLE_AUTO_SHARE = 0.10,
+
+	-- 아우라 행동 규칙. "a4"가 결정 모델(2026-10-24 사람 결정 A4 — 파일 상단), "none"은 아우라 없음 비교 줄(지시서 #11 이전).
+	AURA_POLICY = "a4",
+	-- 환생 직전 아우라에 쓰는 몫 (A4 — 20%)
+	AURA_REBIRTH_SHARE = 0.20,
 }
 SuccessRateReport.MODEL = MODEL
 
@@ -174,9 +189,13 @@ local SIM = {
 
 	-- 칭호 뽑기 난수 seed(플레이어 모델 난수와 따로 — 파일 상단 "칭호 행동 모델").
 	TITLE_SEED = 20261024,
+	-- 아우라 뽑기 난수 seed(따로 — 파일 상단 "아우라 행동 모델").
+	AURA_SEED = 20261025,
 
 	-- true면 run()이 결정 모델 · 칭호 없음 · 칭호 배수 후보만 돈다(지시서 #10 6단계 후보 비교). 커밋 값은 false.
 	TITLE_SWEEP_ONLY = false,
+	-- true면 run()이 결정 모델 · 아우라 없음 · 칭호 없음 · 아우라 m 후보만 돈다(지시서 #11 6단계). 커밋 값은 false.
+	AURA_SWEEP_ONLY = false,
 }
 SuccessRateReport.SIM = SIM
 
@@ -215,6 +234,14 @@ export type Player = {
 	autoOnStage: number?, -- 그때 마지막 런 최고층
 	lastBest: number, -- 마지막 런 최고층
 	titleRandom: (() -> number)?, -- 칭호 난수(simulatePlayer가 넣는다). 없으면 칭호 롤을 하지 않는다
+	-- 아우라(A4). auraId = 장착 아우라(nil = 없음). 환생해도 남는다
+	auraId: string?,
+	auraRandom: (() -> number)?,
+	auraRolls: number,
+	auraSpent: BigNumber,
+	packFirstSec: { [number]: number }, -- 그 팩을 처음 굴린 시각
+	packFirstStage: { [number]: number }, -- 그때 이번 생애 최고층
+	bestThisLife: number,
 }
 
 local function copyBig(v: BigNumber): BigNumber
@@ -299,7 +326,58 @@ function SuccessRateReport.newPlayer(rng: Random): Player
 		autoOnStage = nil,
 		lastBest = 0,
 		titleRandom = nil,
+		auraId = nil,
+		auraRandom = nil,
+		auraRolls = 0,
+		auraSpent = BigNum.new(0, 0),
+		packFirstSec = {},
+		packFirstStage = {},
+		bestThisLife = 0,
 	}
+end
+
+-- ===== 아우라 (A4) =========================================================================
+
+-- 장착 아우라 m. 아우라 없음 모델이거나 아직 없으면 1. 게임과 같은 AuraConfig.multOf.
+function SuccessRateReport.auraMult(p: Player): number
+	if MODEL.AURA_POLICY ~= "a4" or p.auraId == nil then
+		return 1
+	end
+	return AuraConfig.multOf(p.auraId)
+end
+
+-- A4: 환생 직전, 보유 블럭스의 AURA_REBIRTH_SHARE로 해금된 가장 높은 팩을 롤 비용이 닿는 만큼 굴린다. 굴린 수를 돌려준다.
+function SuccessRateReport.spendAuraBeforeRebirth(p: Player): number
+	if MODEL.AURA_POLICY ~= "a4" or p.auraRandom == nil then
+		return 0
+	end
+	local unlocked = AuraConfig.getUnlockedPacks(p.lifetimeBlox, SIM.WORLD_ID)
+	local packId = unlocked[#unlocked]
+	if packId == nil then
+		return 0
+	end
+	local pack = AuraConfig.Packs[packId]
+	local budget = BigNum.mul(p.blox, BigNum.fromNumber(MODEL.AURA_REBIRTH_SHARE))
+	local n = math.floor(BigNum.toRatio(budget, pack.rollCost))
+	if n <= 0 then
+		return 0
+	end
+	if p.packFirstSec[packId] == nil then
+		p.packFirstSec[packId] = p.elapsedSec
+		p.packFirstStage[packId] = p.bestThisLife
+	end
+	local luck = RollService.computeLuck("aura", { upgrades = p.upgrades })
+	local cost = pack.rollCost
+	for _ = 1, n do
+		p.blox = BigNum.sub(p.blox, cost)
+		p.auraSpent = BigNum.add(p.auraSpent, cost)
+		local def = RollLogic.roll(pack.auras, luck, p.auraRandom :: () -> number)
+		if AuraConfig.isHigher(def.id, p.auraId) then
+			p.auraId = def.id -- 더 높은 m이면 바로 장착(A4)
+		end
+	end
+	p.auraRolls += n
+	return n
 end
 
 -- ===== 칭호 (S7) =========================================================================
@@ -371,7 +449,7 @@ local function addClicks(p: Player, clicks: number, gymMultiplier: number?)
 		return
 	end
 	local padPower = ClickPadConfig.getPadPower(SIM.WORLD_ID, p.padIndex)
-	local multiplier = StrengthMultiplier.compute({ rebirths = p.rebirths, titleMult = SuccessRateReport.titleMult(p) })
+	local multiplier = StrengthMultiplier.compute({ rebirths = p.rebirths, titleMult = SuccessRateReport.titleMult(p), auraMult = SuccessRateReport.auraMult(p) })
 	local gain = BigNum.mul(BigNum.mul(padPower, BigNum.fromNumber(clicks)), multiplier)
 	if gymMultiplier ~= nil and gymMultiplier ~= 1 then
 		gain = BigNum.mul(gain, BigNum.fromNumber(gymMultiplier))
@@ -421,7 +499,11 @@ export type StageOutcome = { cleared: boolean, timeLeft: number, punches: number
 function SuccessRateReport.simulateStage(p: Player, stage: number, outOfRadiusSec: number, phase: number): StageOutcome
 	local timer = StageConfig.CHALLENGE_TIMER_SEC
 	local interval = 1 / SuccessRateReport.effect(p.upgrades, "punchSpeed")
-	local damageMultiplier = BigNum.fromNumber(SuccessRateReport.effect(p.upgrades, "punchDamage"))
+	-- 1펀치 데미지 배수: 게임과 같은 AttackService.combineDamageMultiplier(펀치 데미지 업그레이드 × 아우라 m — A10)
+	local damageMultiplier = BigNum.fromNumber(AttackService.combineDamageMultiplier({
+		punchDamage = SuccessRateReport.effect(p.upgrades, "punchDamage"),
+		auraMult = SuccessRateReport.auraMult(p),
+	}))
 	local runClickRate = p.clickRate * MODEL.RUN_CLICK_FACTOR
 
 	local remaining = StageConfig.getTotalHp(stage)
@@ -597,6 +679,8 @@ end
 
 -- RebirthService와 같은 대상: blox 0, 힘 초기값, rebirths 누적, lifeBlox 0 · 패드 1. lifetimeBlox 유지.
 local function rebirth(p: Player)
+	-- A4: 환생 직전 보유 블럭스의 20%로 아우라(가장 높은 해금 팩). 그다음 환생 → 남는 양으로 S5'.
+	SuccessRateReport.spendAuraBeforeRebirth(p)
 	-- S5: 환생 직전 버려질 나머지로 업그레이드(나머지만 쓰므로 얻는 배수는 그대로다).
 	if MODEL.UPGRADE_POLICY == "s5" then
 		local spent = SuccessRateReport.buyCheapestFirst(p.upgrades, RebirthConfig.getLeftover(p.blox))
@@ -627,11 +711,17 @@ export type PlayerResult = {
 	autoOnMin: number?, -- 자동 롤을 처음 켠 시각(분)
 	autoOnStage: number?,
 	titleRolls: number,
+	finalAuraId: string?, -- 최고층 첫 진입 시점(또는 끝났을 때) 장착 아우라
+	auraRolls: number,
+	auraSpentLog10: number?,
+	packFirstMin: { [number]: number },
+	packFirstStage: { [number]: number },
 }
 
-function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTry: { [number]: Tally }, titleRandom: (() -> number)?): PlayerResult
+function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTry: { [number]: Tally }, titleRandom: (() -> number)?, auraRandom: (() -> number)?): PlayerResult
 	local p = SuccessRateReport.newPlayer(rng)
 	p.titleRandom = titleRandom
+	p.auraRandom = auraRandom
 	local seen: { [number]: boolean } = {}
 	local bestThisLife = 0
 	local stale = 0
@@ -658,6 +748,7 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 
 		if reached > bestThisLife then
 			bestThisLife = reached
+			p.bestThisLife = reached -- 아우라 팩 첫 롤 시점 층(관측용)
 			stale = 0
 		else
 			stale += 1
@@ -666,6 +757,7 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 		if stale >= SIM.REBIRTH_PATIENCE_RUNS and RebirthConfig.canRebirth(p.blox) then
 			rebirth(p)
 			bestThisLife = 0
+			p.bestThisLife = 0
 			stale = 0
 		end
 
@@ -692,6 +784,17 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 		autoOnMin = if p.autoOnSec ~= nil then (p.autoOnSec :: number) / 60 else nil,
 		autoOnStage = p.autoOnStage,
 		titleRolls = p.titleRolls,
+		finalAuraId = p.auraId,
+		auraRolls = p.auraRolls,
+		auraSpentLog10 = if p.auraSpent.m > 0 then math.log10(p.auraSpent.m) + p.auraSpent.e else nil,
+		packFirstMin = (function()
+			local t = {}
+			for k, v in pairs(p.packFirstSec) do
+				t[k] = v / 60
+			end
+			return t
+		end)(),
+		packFirstStage = p.packFirstStage,
 	}
 end
 
@@ -731,7 +834,8 @@ end
 -- 옆에 놓고 보는 자리다. 첫 줄(빈 덮어쓰기)이 사람 결정 모델이고 표 전체를 찍는다.
 local VARIANTS: { { label: string, override: { [string]: any } } } = {
 	{ label = "결정 모델 (남은 시간 50~90% · 업그레이드 S5 · 칭호 S7)", override = {} },
-	{ label = "칭호 없음 (비교 — 지시서 #10 이전 가정)", override = { TITLE_POLICY = "none" } },
+	{ label = "아우라 없음 (비교 — 지시서 #11 이전, 칭호 S7은 있음)", override = { AURA_POLICY = "none" } },
+	{ label = "칭호 없음 (비교 — 지시서 #10 이전 가정)", override = { TITLE_POLICY = "none", AURA_POLICY = "none" } },
 	{ label = "업그레이드 0 (비교 — 지시서 #7 이전 가정)", override = { UPGRADE_POLICY = "none" } },
 	{ label = "운동기구 안 씀 (비교)", override = { GYM_TRAIN_SEC = 0 } },
 	{ label = "공허 훈련 구역 구매자 (비교)", override = { OWNS_VOID_ZONE = true } },
@@ -761,12 +865,13 @@ local function runModel(label: string, full: boolean, compact: boolean?)
 	local maxStage = findLastStage()
 	local rng = Random.new(SIM.SEED)
 	local titleRandom = RollService.seededRandom(SIM.TITLE_SEED)
+	local auraRandom = RollService.seededRandom(SIM.AURA_SEED)
 	local firstTry: { [number]: Tally } = {}
 	local results: { PlayerResult } = {}
 
 	local startedAt = os.clock()
 	for _ = 1, SIM.PLAYERS do
-		table.insert(results, SuccessRateReport.simulatePlayer(rng, maxStage, firstTry, titleRandom))
+		table.insert(results, SuccessRateReport.simulatePlayer(rng, maxStage, firstTry, titleRandom, auraRandom))
 		task.wait()
 	end
 	local tookSec = os.clock() - startedAt
@@ -874,6 +979,9 @@ local function runModel(label: string, full: boolean, compact: boolean?)
 	if MODEL.TITLE_POLICY == "s7" then
 		print("[SUCCESSRATE] " .. SuccessRateReport.titleSummaryText(results))
 	end
+	if MODEL.AURA_POLICY == "a4" then
+		print("[SUCCESSRATE] " .. SuccessRateReport.auraSummaryText(results))
+	end
 	if MODEL.WARP_POLICY ~= "none" then
 		print(string.format(
 			"[SUCCESSRATE] 워프: 런의 %.1f%% · 평균 목표층 %s · 가격 ×%g",
@@ -914,6 +1022,100 @@ function SuccessRateReport.titleSummaryText(results: { PlayerResult }): string
 		never,
 		if k ~= nil then tostring(k) else "-"
 	)
+end
+
+-- 아우라 요약 한 줄: 최고층 첫 진입 시점 장착(팩 · 등급) · 팩 2 · 3 첫 롤 시점(분 · 층) 중앙값 · 롤 수 · 지출 중앙값.
+function SuccessRateReport.auraSummaryText(results: { PlayerResult }): string
+	local counts: { [string]: number } = {}
+	local none = 0
+	local rolls: { number } = {}
+	local spent: { number } = {}
+	local firstMin: { [number]: { number } } = {}
+	local firstStage: { [number]: { number } } = {}
+	for _, r in ipairs(results) do
+		local _, packId, tier = AuraConfig.get(r.finalAuraId)
+		if packId ~= nil and tier ~= nil then
+			local key = string.format("팩%d·%s", packId, AuraConfig.TIER_NAMES[tier])
+			counts[key] = (counts[key] or 0) + 1
+		else
+			none += 1
+		end
+		table.insert(rolls, r.auraRolls)
+		if r.auraSpentLog10 ~= nil then
+			table.insert(spent, r.auraSpentLog10)
+		end
+		for packId, m in pairs(r.packFirstMin) do
+			firstMin[packId] = firstMin[packId] or {}
+			table.insert(firstMin[packId], m)
+			firstStage[packId] = firstStage[packId] or {}
+			table.insert(firstStage[packId], r.packFirstStage[packId] or 0)
+		end
+	end
+	local keys = {}
+	for k in pairs(counts) do
+		table.insert(keys, k)
+	end
+	table.sort(keys)
+	local parts = { string.format("없음 %d", none) }
+	for _, k in ipairs(keys) do
+		table.insert(parts, string.format("%s %d", k, counts[k]))
+	end
+	local packParts = {}
+	for packId = 2, 3 do
+		local mm = firstMin[packId]
+		local ms = firstStage[packId]
+		local m, st = if mm then median(mm) else nil, if ms then median(ms) else nil
+		table.insert(packParts, string.format("팩 %d 첫 롤 %s분 · %s층 (%d명)", packId,
+			if m ~= nil then string.format("%.1f", m) else "-", if st ~= nil then tostring(st) else "-", if mm then #mm else 0))
+	end
+	local k, sp = median(rolls), median(spent)
+	return string.format("아우라(A4): 최고층 첫 진입 시점 장착 %s · %s · 롤 수 중앙값 %s · 지출 중앙값 %s",
+		table.concat(parts, " · "), table.concat(packParts, " · "),
+		if k ~= nil then tostring(k) else "-", if sp ~= nil then string.format("10^%.2f", sp) else "-")
+end
+
+-- 아우라 m 후보 (지시서 #11 6단계 권한 — LADDER(팩 안 사다리) · PACK_RATIO(팩 간 비율)만. G4 · 단조 · m ≥ 1은 validate가 잰다).
+-- ⚠️ AuraConfig를 고치는 것이 아니라 메모리에서 잠깐 바꾸고 rebuild — 끝나면 되돌린다.
+-- 측정(2026-10-24, 지시서 #11 6단계 — 200명 · 같은 seed, 지킬 것: 1~8 ≥ 85 · 9~16 55~95 · 17~25 30~65 · 25층 ≥ B1 46.1분 × 0.9 = 41.5분):
+--   B1(아우라 없음)                                    97.4 / 82.2 / 55.2% · 46.1분
+--   시작값 1.1/1.25/1.5/2.0 · 비율 2.2                98.2 / 89.1 / 73.7% · 39.1분  ✗ (17~25 · 중앙값 −15.2%)
+--   M1 1.05/1.12/1.25/1.5 · 1.5                       97.3 / 82.8 / 65.3% · 42.6분  ✗ (17~25)
+--   M2 1.05/1.1/1.2/1.4 · 1.4                         97.6 / 84.7 / 64.1% · 43.0분  ✓ ← 채택(통과 후보 중 시작값에 가장 가깝다)
+--   M3 1.1/1.25/1.5/2.0 · 1.85                        96.4 / 80.6 / 64.4% · 41.0분  ✗ (중앙값 −11.1%)
+--   M4 1.05/1.15/1.3/1.6 · 1.6                        98.2 / 83.8 / 66.1% · 41.9분  ✗ (17~25)
+--   M5 1.03/1.08/1.15/1.3 · 1.3                       97.2 / 84.5 / 60.5% · 43.5분  ✓ (여유가 더 크지만 m이 작다 — 대안)
+--   환생 횟수(평균): 아우라 없음 4.5회 · 시작값 4.2회 · M2 4.5회 — 20% 지출이 환생을 거의 줄이지 않는다(지출 중앙값 10^9 = 팩 3 1회분)
+SuccessRateReport.AURA_VARIANTS = {
+	{ label = "M0  현재 AuraConfig (= M2 채택)", ladder = nil, ratio = nil },
+	{ label = "M1  사다리 1.05/1.12/1.25/1.5 · 비율 1.5", ladder = { 1.05, 1.12, 1.25, 1.5 }, ratio = 1.5 },
+	{ label = "M2  사다리 1.05/1.1/1.2/1.4 · 비율 1.4", ladder = { 1.05, 1.1, 1.2, 1.4 }, ratio = 1.4 },
+	{ label = "M3  사다리 1.1/1.25/1.5/2.0 · 비율 1.85", ladder = { 1.1, 1.25, 1.5, 2.0 }, ratio = 1.85 },
+	{ label = "M4  사다리 1.05/1.15/1.3/1.6 · 비율 1.6", ladder = { 1.05, 1.15, 1.3, 1.6 }, ratio = 1.6 },
+	{ label = "M5  사다리 1.03/1.08/1.15/1.3 · 비율 1.3", ladder = { 1.03, 1.08, 1.15, 1.3 }, ratio = 1.3 },
+} :: { { label: string, ladder: { number }?, ratio: number? } }
+
+function SuccessRateReport.withAuraParams(ladder: { number }?, ratio: number?, fn: () -> ())
+	if ladder == nil and ratio == nil then
+		fn()
+		return
+	end
+	local savedLadder, savedRatio = table.clone(AuraConfig.LADDER), AuraConfig.PACK_RATIO
+	if ladder ~= nil then
+		AuraConfig.LADDER = table.clone(ladder)
+	end
+	if ratio ~= nil then
+		AuraConfig.PACK_RATIO = ratio
+	end
+	local ok, err = pcall(function()
+		AuraConfig.rebuild()
+		AuraConfig.validate()
+		fn()
+	end)
+	AuraConfig.LADDER, AuraConfig.PACK_RATIO = savedLadder, savedRatio
+	AuraConfig.rebuild()
+	if not ok then
+		error(err)
+	end
 end
 
 -- 칭호 배수 후보 (지시서 #10 6단계 권한 — TitleConfig mult만, 폴백 1.0 고정 · 단조 · 최고 ×3.0 이하).
@@ -1001,10 +1203,11 @@ function SuccessRateReport.runBand(band: Band, players: number, maxStage: number
 	local ok, result = pcall(function(): BandResult
 		local rng = Random.new(SIM.SEED)
 		local titleRandom = RollService.seededRandom(SIM.TITLE_SEED)
+		local auraRandom = RollService.seededRandom(SIM.AURA_SEED)
 		local firstTry: { [number]: Tally } = {}
 		local finals: { number } = {}
 		for _ = 1, players do
-			local r = SuccessRateReport.simulatePlayer(rng, maxStage, firstTry, titleRandom)
+			local r = SuccessRateReport.simulatePlayer(rng, maxStage, firstTry, titleRandom, auraRandom)
 			if r.reachedFinal and r.finalFirstSec ~= nil then
 				table.insert(finals, r.finalFirstSec / 60)
 			end
@@ -1105,8 +1308,33 @@ end
 
 function SuccessRateReport.run()
 	print("[SUCCESSRATE] ===== 확률적 플레이어 성공률 (4-2-f) =====")
+	if SIM.AURA_SWEEP_ONLY then
+		for i = 1, 3 do
+			local variant = VARIANTS[i]
+			local saved: { [string]: any } = {}
+			for k, v in pairs(variant.override) do
+				saved[k] = (MODEL :: any)[k]
+				;(MODEL :: any)[k] = v
+			end
+			runModel(variant.label, false, true)
+			for k, v in pairs(saved) do
+				(MODEL :: any)[k] = v
+			end
+		end
+		print("[SUCCESSRATE] ===== 아우라 m 후보 (결정 모델 S5' + S7 + A4) =====")
+		for _, variant in ipairs(SuccessRateReport.AURA_VARIANTS) do
+			local ok, err = pcall(SuccessRateReport.withAuraParams, variant.ladder, variant.ratio, function()
+				runModel(variant.label, false, true)
+			end)
+			if not ok then
+				print(string.format("[SUCCESSRATE] %s — 권한 · 규약 위반으로 건너뜀: %s", variant.label, tostring(err)))
+			end
+		end
+		print("[SUCCESSRATE] (AURA_SWEEP_ONLY) 끝.")
+		return
+	end
 	if SIM.TITLE_SWEEP_ONLY then
-		for i = 1, 2 do
+		for i = 1, 3 do
 			local variant = VARIANTS[i]
 			local saved: { [string]: any } = {}
 			for k, v in pairs(variant.override) do

@@ -515,6 +515,80 @@ do
 	check("withTitleMults: 최고 ×3.0 초과 후보는 거부 + 되돌림", not okBig and T[N].mult == orig)
 end
 
+-- 아우라 행동 모델 A4 (지시서 #11 6단계) ---------------------------------------------------------------
+do
+	local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
+	local AttackService = require(ServerScriptService.Server.Systems.AttackService)
+	local P1, P2 = AuraConfig.Packs[1], AuraConfig.Packs[2]
+	check("결정 모델 아우라 규칙 = a4 · 환생 직전 20%", MODEL.AURA_POLICY == "a4" and MODEL.AURA_REBIRTH_SHARE == 0.20)
+	check("아우라 스윕 단독 모드는 커밋 값 false", SuccessRateReport.SIM.AURA_SWEEP_ONLY == false)
+
+	local p = SuccessRateReport.newPlayer(Random.new(21))
+	check("새 플레이어: 아우라 없음 · m 1", p.auraId == nil and SuccessRateReport.auraMult(p) == 1)
+	p.auraRandom = function()
+		return 0 -- 가장 높은 등급
+	end
+	p.lifetimeBlox = P2.rollCost -- 팩 1 · 2 열림
+	p.blox = BigNum.mul(P2.rollCost, BigNum.fromNumber(10)) -- 20% = 팩 2 두 번
+	local before = p.blox
+	local n = SuccessRateReport.spendAuraBeforeRebirth(p)
+	check("A4: 해금된 가장 높은 팩(2)을 20%로 닿는 만큼 (2회)", n == 2 and BigNum.eq(p.blox, BigNum.sub(before, BigNum.mul(P2.rollCost, BigNum.fromNumber(2)))))
+	check("A4: 더 높은 m → 장착", p.auraId == P2.auras[4].id and SuccessRateReport.auraMult(p) == P2.auras[4].mult)
+	check("A4: 팩 첫 롤 시각 기록", p.packFirstSec[2] ~= nil)
+	p.auraRandom = function()
+		return 0.999999 -- 일반(폴백)
+	end
+	SuccessRateReport.spendAuraBeforeRebirth(p)
+	check("A4: 낮은 결과로 장착이 내려가지 않는다", p.auraId == P2.auras[4].id)
+	local poor = SuccessRateReport.newPlayer(Random.new(22))
+	poor.auraRandom = p.auraRandom
+	poor.lifetimeBlox = P1.rollCost
+	poor.blox = BigNum.mul(P1.rollCost, BigNum.fromNumber(4.9)) -- 20%는 1회분 미만
+	check("A4: 20%가 롤 비용 미만이면 굴리지 않는다", SuccessRateReport.spendAuraBeforeRebirth(poor) == 0 and BigNum.eq(poor.blox, BigNum.mul(P1.rollCost, BigNum.fromNumber(4.9))))
+	local locked = SuccessRateReport.newPlayer(Random.new(23))
+	locked.auraRandom = p.auraRandom
+	locked.blox = BigNum.new(1, 30)
+	check("A4: 열린 팩이 없으면 굴리지 않는다", SuccessRateReport.spendAuraBeforeRebirth(locked) == 0)
+	MODEL.AURA_POLICY = "none"
+	local noneN = SuccessRateReport.spendAuraBeforeRebirth(p)
+	local noneM = SuccessRateReport.auraMult(p)
+	MODEL.AURA_POLICY = "a4"
+	check("아우라 없음 모델: 굴리지 않고 m 1", noneN == 0 and noneM == 1)
+
+	-- m이 클릭 힘과 1펀치 데미지에 한 번씩 (A10 — 게임과 같은 함수)
+	local function walkGain(auraId: string?): BigNum.BigNumber
+		local w = SuccessRateReport.newPlayer(Random.new(24))
+		w.auraId = auraId
+		local s0 = w.strength
+		SuccessRateReport.walkToGate(w)
+		return BigNum.sub(w.strength, s0)
+	end
+	local m = P2.auras[4].mult
+	check("클릭 힘: m만큼 (한 번)", math.abs(BigNum.toRatio(walkGain(P2.auras[4].id), walkGain(nil)) - m) < 0.05)
+	-- 1펀치: 힘 1에 HP가 m 펀치분인 층은 아우라 없이 실패, 있으면 1펀치(같은 시드)
+	local q = SuccessRateReport.newPlayer(Random.new(25))
+	q.auraId = P2.auras[4].id
+	q.strength = BigNum.fromNumber(1)
+	local hp = StageConfig.getTotalHp(1)
+	q.strength = BigNum.div(hp, BigNum.fromNumber(m * 0.999))
+	local outcome
+	withoutRunClicks(function()
+		outcome = SuccessRateReport.simulateStage(q, 1, 0, 0)
+	end)
+	check("1펀치 데미지: 힘 × m (한 번) — HP를 힘 × m 바로 아래로 두면 1펀치에 깬다", outcome.cleared and outcome.punches == 1)
+	check("결합 함수는 게임과 같다", AttackService.combineDamageMultiplier({ punchDamage = 1, auraMult = m }) == m)
+
+	-- 후보 갈아끼우기: 끝나면 되돌린다 · G4 위반 후보는 거부
+	local orig = P1.auras[4].mult
+	local seen: number? = nil
+	SuccessRateReport.withAuraParams({ 1.02, 1.04, 1.06, 1.08 }, 1.5, function()
+		seen = AuraConfig.Packs[1].auras[4].mult
+	end)
+	check("withAuraParams: 안에서는 후보 · 끝나면 원래", seen == 1.08 and AuraConfig.Packs[1].auras[4].mult == orig)
+	local okBad = pcall(SuccessRateReport.withAuraParams, nil, 1.01, function() end)
+	check("withAuraParams: G4 위반(비율 1.01) 거부 + 되돌림", not okBad and AuraConfig.Packs[2].auras[1].mult > AuraConfig.Packs[1].auras[4].mult)
+end
+
 print(string.format("[SuccessRateReportTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[SuccessRateReportTests] %d test(s) failed", failed))
