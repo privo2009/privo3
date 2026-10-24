@@ -1,6 +1,6 @@
 # 개발 로드맵
 
-문서 갱신: 2026-10-24
+문서 갱신: 2026-10-25
 
 ## 원칙
 - 아래에서 위로 쌓는다. BigNum이 흔들리면 전부 무너진다
@@ -20,12 +20,12 @@
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
-| `Tests/ConfigTests.server.lua` | 101 | 모든 Config의 validate + 스모크 · 파생 함수(getSlots · getStorage · getUnlockedPacks) · TitleConfig validate 거부 5종 · 블럭스 상품 금지(P1) · AuraConfig m = 사다리 × 비율 · G4 · 단조 거부(#11) · PetConfig m · 비용 100/100K/100M · 해금 · 실효 증가분 · totalMult(nil 구멍) · 강화 4단계 · validate 거부 · Attribute 직렬화(#12) |
+| `Tests/ConfigTests.server.lua` | 110 | 모든 Config의 validate + 스모크 · 파생 함수(getSlots · getStorage · getUnlockedPacks) · TitleConfig validate 거부 5종 · 블럭스 상품 금지(P1) · AuraConfig m = 사다리 × 비율 · G4 · 단조 거부(#11) · PetConfig m · 비용 100/100K/100M · 해금 · 실효 증가분 · totalMult(nil 구멍) · 강화 4단계 · validate 거부 · Attribute 직렬화(#12) · 레벨 L1 경계(1 · 2 · 3 · 4 · 2^k ± 가수 1 ulp · 10^2000대) · 진행률 0 이상 1 미만 · L2 상한(레벨 48) · 환생 뒤 0(#13) |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Tests/WarpConfigTests.server.lua` | 31 | 워프 비용 곡선(지수·단조)·순수성·거부 사유 3종 |
 | `Tests/AttackConfigTests.server.lua` | 29 | 펀치 속도·판정 반경 파생·경계(이하) |
-| `Data/SchemaTests.server.lua` | 48 | 프로필 스키마 검증 · v5(지운 4필드 · 장착/보유 상한 = 게임패스 최대 · selectedPack 범위 · LIMITS = Config) |
-| `Data/MigrationsTests.server.lua` | 37 | schemaVersion 마이그레이션·멱등성·v4 lifeBlox · v5 삭제 4필드(값 보존 · 방어 · 멱등) |
+| `Data/SchemaTests.server.lua` | 49 | 프로필 스키마 검증 · v5(지운 4필드 · 장착/보유 상한 = 게임패스 최대 · selectedPack 범위 · LIMITS = Config) · v6(upgrades.moveSpeed 없음 · 7키 — #13) |
+| `Data/MigrationsTests.server.lua` | 43 | schemaVersion 마이그레이션·멱등성·v4 lifeBlox · v5 삭제 4필드(값 보존 · 방어 · 멱등) · v5 → v6 moveSpeed 삭제(값 보존 · 방어 · 멱등 — #13) |
 | `Systems/CurrencyServiceTests.server.lua` | 59 | 재화 단일 게이트·롤백·rebirths·lifeBlox(이번 생애 누적) |
 | `Systems/BlockServiceTests.server.lua` | 51 | 배치·데미지 오버플로우·클리어 |
 | `Systems/ChallengeServiceTests.server.lua` | 85 | 타이머·보상 갱신·진입점 거부·source 식별·블럭스 획득 배수 한 함수(payableReward)·view nextReward · 앞 항이 없어도 뒤 항이 곱해진다(#12) |
@@ -51,12 +51,12 @@
 | `Tests/MenuRailTests.client.lua` | 59 | 6개 생성·좌측 레일 폭·세로 합계·BloxDisplay 비침범·AspectRatio·라벨 2~4자·격자 열 수 구성값 ※ |
 | `Tests/HudVisibilityTests.client.lua` | 31 | PlayerGui 부착·Visible·Enabled·AbsoluteSize·10프레임 지속 관찰 ※ |
 | `Tests/HudLayoutTests.client.lua` | 432 | 뷰포트 게이트 뒤 실물 HudGui — 크기 0·인셋/뷰포트 경계 침범·형제 겹침·MenuRail 격자 배치(AbsolutePosition)·칸 안 자식·컴포넌트 간 겹침·글자 하한·터치 조작부 겹침·구좌 가격이 칸 안 · 표기 통일 ※ |
-| `Tests/PowerBlockTests.client.lua` | 49 | 세 행 Y 범위·하단 띠·8자/4자 규격·진행률 경계·Store 구독 반영·다른 인스턴스 미유출 |
+| `Tests/PowerBlockTests.client.lua` | 50 | 세 행 Y 범위·하단 띠·8자/4자 규격·진행률 경계·Store 구독 반영·다른 인스턴스 미유출 · 레벨 바 L1(2^k → 레벨 k · 그 레벨 안 위치 · LevelConfig 그대로 — #13) |
 | `Tests/ShopSlotsTests.client.lua` | 36 | 상점 4구좌 배치·ShopConfig 원본 참조·가격 표기 2꼴 |
 | `Tests/AutoToolsTests.client.lua` | 28 | 자동 도구 아이콘 배치 |
 | `Systems/ArenaServiceTests.server.lua` | 130 | 스폰 좌표·경계 높이·스테이지 수에 따른 경계 확장·출입구 개방·어깨 벽·바닥 파생과 파트 상한 분할(층 수 흔들기)·전 층 바닥 위 |
 | `Systems/CashoutPadServiceTests.server.lua` | 47 | 발판 좌표·측면 오프셋·디바운스·런당 1회·플레이어별 격리·source 경로·층 불일치 무시·UiTheme 색 |
-| `Tests/SuccessRateReportTests.server.lua` | 138 | 확률 시뮬레이터 식 — 펀치 간격·속도 미곱·반경 밖 지연·런 중 클릭·걷기 시간·진행 규칙 2종·모델 범위·seed 결정성·워프 비교(판단·워프 런)·문턱 구간 비교(구간 수·순서·합산·seed 재현)·운동기구 훈련·공허 구매자·업그레이드 S5(가장 싼 것부터 · 예산 = getLeftover · 최대 레벨 건너뜀)·TEMP 후보 교체 되돌림 · 칭호 S7(자동 롤 기준 · 지출 · 장착 · 배수 한 번씩 · 후보 권한) · S5' 1차 4종 · 아우라 A4(20% · 가장 높은 팩 · 장착 · m 클릭 · 1펀치 한 번씩 · 후보 G4) · 펫 E11(15% · 슬롯 먼저 · 가장 높은 알 · 크래프팅 연쇄 · 실효 증가분 순 장착 · 가득 차면 약한 것 놓아주기 · 클릭 힘 한 번 · 데미지 없음 · 후보 되돌림) |
+| `Tests/SuccessRateReportTests.server.lua` | 151 | 확률 시뮬레이터 식 — 펀치 간격·속도 미곱·반경 밖 지연·런 중 클릭·걷기 시간·진행 규칙 2종·모델 범위·seed 결정성·워프 비교(판단·워프 런)·문턱 구간 비교(구간 수·순서·합산·seed 재현)·운동기구 훈련·공허 구매자·업그레이드 S5(가장 싼 것부터 · 예산 = getLeftover · 최대 레벨 건너뜀)·TEMP 후보 교체 되돌림 · 칭호 S7(자동 롤 기준 · 지출 · 장착 · 배수 한 번씩 · 후보 권한) · S5' 1차 4종 · 아우라 A4(20% · 가장 높은 팩 · 장착 · m 클릭 · 1펀치 한 번씩 · 후보 G4) · 펫 E11(15% · 슬롯 먼저 · 가장 높은 알 · 크래프팅 연쇄 · 실효 증가분 순 장착 · 가득 차면 약한 것 놓아주기 · 클릭 힘 한 번 · 데미지 없음 · 후보 되돌림) · S5' 3종(L3) · 걷기 L1 · L2 · 배수 세 자리 공개 함수 · rebirth 공개 · 관측 고리가 결과를 안 바꿈 · StandardPathReport cliffRatio · boundaries · TARGETS · metrics(#13) |
 | `Systems/GymServiceTests.server.lua` | 45 | 운동기구 조건·배수·가격 순증가·해금 경계·공허 훈련 구역(로벅스 전용·맨 끝·가장 비쌈·가장 셈·ShopConfig 가격)·스폰 구역 안·게이트 앞·패드와 안 겹침·발판 판정·배수 결정 |
 | `Tests/CashoutPadViewTests.server.lua` | 23 | 런 상태 → 발판 켜짐(클리어 + 같은 층)·꺼짐(미클리어·다른 층·런 없음)·켜진 발판 1개·역할 키 |
 | `Tests/AdvanceWallViewTests.server.lua` | 97 | 런 상태 → 벽 모습(숨김·닫힘·열림)·크기 파생·층별 위치·잘못된 stage·LevelConfig 깊이 소스 등록 |
@@ -72,10 +72,12 @@
 | `Tests/TouchSafeLayoutTests.client.lua` | 13 | 폰 실측 사각형으로 겹침 판정(구좌 · 자동 도구 겹침, 힘 블록 안 겹침) · 점프 버튼 위로 올림 양(간격 포함) · 올릴 필요 없으면 0 · Scale 환산 |
 | `Systems/WarpRequestServiceTests.server.lua` | 12 | 워프 요청 payload 위생(invalid_stage) · 서버 거부 사유 그대로(W1 · 블럭스 부족) · 성공 결과 형태 · 빈도 상한 · 결과 매번 송신 |
 | `Tests/WarpWindowTests.client.lua` | 36 | 표시 값(WarpConfig.cost 원본) · 잠김(블럭스 부족 · W1 런 중) · 사유 문구 · 확인 단계 · 쪽 넘김 · 창 규격 · 행 색 3단계 |
-| `Tests/UpgradeConfigTests.server.lua` | 71 | 노출 8종(칭호 #10 · 아우라 행운 #11 · 펫 슬롯 · 펫 행운 #12) · 비노출 없음 · 펫 슬롯 최대 1레벨 · 스키마 8키 · 효과 선형(S1) · 펀치 속도 증가량 유도 · 최대 레벨 = 상한(S2) · 이동속도 80 상한(S3) · 비용 단조 증가 · canBuy 사유 3종 · validate 거부 |
-| `Systems/UpgradeServiceTests.server.lua` | 35 | 구매 거부 경로(잘못된 항목 · 최대 레벨 · 블럭스 부족 · 프로필 없음) 부작용 0 · 차감 → 레벨 → 통지 순서 · 부분 실패 · 저장값 읽기 · 환생 경로가 업그레이드를 안 건드림 |
+| `Tests/UpgradeConfigTests.server.lua` | 61 | 노출 7종(칭호 #10 · 아우라 행운 #11 · 펫 슬롯 · 펫 행운 #12 · 이동 속도 삭제 L3 #13) · 비노출 없음 · 펫 슬롯 최대 1레벨 · 스키마 7키 · 효과 선형(S1) · 펀치 속도 증가량 유도 · 최대 레벨 = 상한(S2) · 최대 속도는 레벨로만(L2 · L3 — moveSpeed 구매 invalid · 되살리면 validate 거부) · 비용 단조 증가 · canBuy 사유 3종 · validate 거부 |
+| `Systems/UpgradeServiceTests.server.lua` | 34 | 구매 거부 경로(잘못된 항목 · 최대 레벨 · 블럭스 부족 · 프로필 없음) 부작용 0 · 차감 → 레벨 → 통지 순서 · 부분 실패 · 저장값 읽기 · 환생 경로가 업그레이드를 안 건드림 · moveSpeed 요청 거부(L3 — #13) |
 | `Systems/UpgradeRequestServiceTests.server.lua` | 13 | 구매 요청 payload 위생 · 서버 거부 사유 그대로 · 성공 결과 형태 · 빈도 상한(중복 요청) · 퇴장 정리 |
-| `Tests/UpgradeShopTests.client.lua` | 45 | 상점 표시 값(UpgradeConfig 원본) · 잠김(MAX · 블럭스 부족) · 사유 문구 · 요청 한 번만(결과 대기 · 시간 뒤 풀림 · 잠긴 줄) · 로벅스 자리 숨김 · 창 규격 · 행운 줄 문구(#11) · 8줄 스크롤 목록 · 줄 높이 유지 · 펫 슬롯 · 펫 행운 문구(#12) |
+| `Data/TestPresetGateTests.server.lua` | 40 | 테스트 프리셋 — 이름 = 뽑기 도구 시점 목록 · 6종 스키마 검증 · 값 = 프리셋 · id가 Config에 있다 · 장착 ≤ 슬롯 · Studio가 아니면 무시 + ERROR · 없는 이름 무시 · 켜지면 새 스토어 .Mock만(실제 스토어 호출 0) · ProfileStore Mock 실물 왕복(UserMockStore에만) · 커밋된 TEST_PRESET = nil(#13) |
+| `Tests/BalanceSummaryTests.server.lua` | 9 | 튜닝 요약 줄 — 30줄 안팎 · 측정 조건 앞머리 · 구간 · 목표 밖 층 · 25층 · 레벨 상한 · 표준 경로 · 절벽 임계 · 뽑기 분포(#13) |
+| `Tests/UpgradeShopTests.client.lua` | 44 | 상점 표시 값(UpgradeConfig 원본) · 잠김(MAX · 블럭스 부족) · 사유 문구 · 요청 한 번만(결과 대기 · 시간 뒤 풀림 · 잠긴 줄) · 로벅스 자리 숨김 · 창 규격 · 행운 줄 문구(#11) · 8줄 스크롤 목록 · 줄 높이 유지 · 펫 슬롯 · 펫 행운 문구(#12) · 7줄(이동 속도 삭제 · '최대 속도 도달' 없음 — #13) |
 | `Tests/FeedbackTests.client.lua` | 44 | 클릭 팝업 증가분 · 문구 · 진행, HUD 환생 배수(서버와 같은 함수), 환생 안내(×이전 → ×이후 · 알림층 · 상단 띠 안), 운동기구 3D 표시 역할 · 문구, 패드 · 기구 본체 색 |
 | `Systems/LogFoldTests.server.lua` | 11 | 첫 줄은 찍는다 · 창 안 반복은 접는다 · 창 뒤 'N번 더' 요약 + 새 줄 · 키(플레이어 · 사유)별 · ChallengeService 판정은 그대로 |
 | `Systems/RollLogicTests.server.lua` | 26 | 순차 판정 — 높은 등급 우선 · p 경계 · 행운 · p ≥ 1 확정 · 폴백(난수 안 씀) · 합 > 1 · 깨진 입력 · 분포 · seed 결정성 · 표본 |
@@ -120,7 +122,25 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-10-24 Studio Play 런타임 실측 (전량, 지시서 #12 — 펫 · ipairs 점검 · 리포트 끈 Play).** 74개 행 전부가
+최근 갱신: **2026-10-25 Studio Play 런타임 실측 (전량, 지시서 #13 — 레벨 L1 ~ L3 · 테스트 프리셋 · 리포트 동기화 · 튜닝 도구 · 리포트 · 프리셋 끈 Play).**
+76개 행 전부가 한 Play에 찍혔다. **3655 passed / 0 failed** — 서버 2299(49행) + 클라 1356(27행).
+
+```
+신설   TestPresetGateTests          40          (a85cc73)
+       BalanceSummaryTests           9          (bae26bd)
+갱신   ConfigTests                 101 → 110    L1 · L2 경계 (4e432a4)
+       SchemaTests                  48 →  49    v6 (4e432a4)
+       MigrationsTests              37 →  43    v5 → v6 (4e432a4)
+       UpgradeConfigTests           71 →  61    이동 속도 삭제 L3 — 노출 · 선형 · 비용 검사 한 줄씩 · S3 · 최대 속도 도달 검사 지움 (4e432a4)
+       UpgradeServiceTests          35 →  34    최대 속도 도달 서버 거부 2 → moveSpeed 거부 1 (4e432a4)
+       SuccessRateReportTests      138 → 151    걷기 L2 · 배수 공개 · 관측 고리 · cliffRatio · TARGETS · metrics (4e432a4 · 396e4b7 · da1a6ac)
+       UpgradeShopTests             45 →  44    최대 속도 도달 2 → 이동 속도 줄 없음 2 · 문구 코드 1 뺌 (4e432a4)
+       PowerBlockTests              49 →  50    레벨 바 L1 (4e432a4)
+유지   나머지 66행 (PlayerStateServiceTests 57 · UpgradeRequestServiceTests 13 · PlayerStateClientTests 36 — 내용만 7키로)
+대조   직전 3588(서버 2232 + 클라 1356) + 신설 49 + 갱신 +18 = 3655 (서버 +67 · 클라 0)
+```
+
+그 전 갱신: **2026-10-24 Studio Play 런타임 실측 (전량, 지시서 #12 — 펫 · ipairs 점검 · 리포트 끈 Play).** 74개 행 전부가
 한 Play에 찍혔다. **3588 passed / 0 failed** — 서버 2232(47행) + 클라 1356(27행).
 
 ```
@@ -1437,8 +1457,8 @@ U6        타이틀 창 · 토스트 · 머리 위 칭호(지시서 #10, e071e1a
 ✅ **사람이 처음부터 끝까지 한 판 할 수 있는 지점 도달(2026-10-23 직접 플레이 확인).** 두 번째 직접 플레이에서
 새 템포 · 환생 체감 모두 좋았고 기구 1 배수 ×1.2는 그대로 확정됐다(`docs/PENDING.md` "실플레이로 볼 것 > 직접 플레이 기록").
 
-**다음: Phase 7 #13 HP 재보정** — #10(공통 + 타이틀) · #11(아우라 + 확률 공개 + 블럭스 팩 제거) · #12(펫) 완료. 계획은 아래 Phase 7 절.
-#13부터는 D2 — 사람이 직접 플레이하고 채택한다(Claude는 측정 · 후보 보고까지).
+**다음: 사람이 HP 후보를 채택한다(D2)** — #13 완료(2026-10-25): 레벨 L1 ~ L3 · 테스트 프리셋 · 리포트 동기화 · HP 후보 H1 ~ H9 측정 ·
+튜닝 도구(`BALANCE_SUMMARY` · `docs/TUNING.md`). 채택되면 Claude가 Config에 넣고 다시 잰다(B5). 계획은 아래 Phase 7 절.
 G2 확인(에셋 도착 시)은 그와 별개로 기다린다.
 
 ⚠️ 이 단계가 전체에서 가장 오래 걸린다
@@ -1464,7 +1484,8 @@ PetService   — 크래프팅, 장착, 저장 공간
 81708d4 시뮬레이터 A4 + m 조정(M2) · 13e51d6 토스트 print 삭제. 다음 #12 펫.
 **#12 완료(2026-10-24)** — 9c75bdd ipairs 점검(남은 구멍 없음 · 회귀 테스트) · fcada7f 펫 서버 · 474cc64 펫 UI · 상점 8줄 ·
 63c715e 시뮬레이터 E11 + CRAFT_FACTOR 2.5 → 2.2(권한). 다음 #13 HP 재보정.
-**#13 진행 중(2026-10-25)** — 레벨 공식 L1 ~ L3 · 테스트 프리셋 · 리포트 동기화 · HP 후보 측정 · 튜닝 도구.
+**#13 완료(2026-10-25)** — 4e432a4 레벨 L1 · L2 · 이동 속도 삭제 L3 · 스키마 v6 · a85cc73 테스트 프리셋(Mock) ·
+396e4b7 StandardPathReport 동기화 · da1a6ac HP 후보 측정 도구(채택 안 함) · bae26bd BALANCE_SUMMARY. 다음: 사람 HP 채택(D2).
 **D2(2026-10-24 사람 결정):** Phase 7이 끝나면 세부 스탯 · 플레이 경험 조정은 사람(희준)이 직접 맡는다.
 #13부터 Claude는 측정 · 후보 보고까지만 하고 채택은 사람이 한다.
 
