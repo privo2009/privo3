@@ -172,7 +172,7 @@ type SimState = {
 	runCount: number,
 	rebirthCount: number,
 	ticks: number,
-	upgrades: { [string]: number }, -- 업그레이드 레벨(노출 4종). 환생해도 남는다(S5)
+	upgrades: { [string]: number }, -- 업그레이드 레벨(노출 항목 — S5'는 그중 3종만 산다). 환생해도 남는다(S5)
 }
 
 local function copyBig(v: BigNumber): BigNumber

@@ -20,7 +20,28 @@ end
 
 -- 1. 기본 -----------------------------------------------------------------
 
-check("Migrations.CURRENT == 5 (변환 4개: radius 제거 / selectedPadIndex 추가 / lifeBlox 추가 / 파생값 · 드론 삭제)", Migrations.CURRENT == 5)
+check("Migrations.CURRENT == 6 (변환 5개: radius 제거 / selectedPadIndex 추가 / lifeBlox 추가 / 파생값 · 드론 삭제 / moveSpeed 삭제)", Migrations.CURRENT == 6)
+
+-- v5 -> v6: upgrades.moveSpeed 삭제 (L3 — 2026-10-24 사람 결정, 구매분 환급 없음). 나머지 값은 그대로.
+do
+	local data = {
+		schemaVersion = 5,
+		blox = { m = 3.25, e = 4 },
+		upgrades = { punchDamage = 6, punchSpeed = 2, moveSpeed = 7, bloxGain = 1, titleLuck = 2, auraLuck = 0, petLuck = 0, petSlots = 1 },
+	}
+	local ok, err = Migrations.run(data)
+	check("v5->v6: 변환 성공 · schemaVersion 6", ok and data.schemaVersion == 6, err)
+	check("v5->v6: upgrades.moveSpeed 삭제", data.upgrades.moveSpeed == nil)
+	check("v5->v6: 다른 업그레이드 · 블럭스는 그대로(환급 없음)", data.upgrades.punchDamage == 6 and data.upgrades.punchSpeed == 2
+		and data.upgrades.bloxGain == 1 and data.upgrades.petSlots == 1 and data.blox.m == 3.25 and data.blox.e == 4)
+	local okBare, errBare = Migrations.run({ schemaVersion = 5 })
+	local odd: any = { schemaVersion = 5, upgrades = "broken" }
+	local okOdd = Migrations.run(odd)
+	check("v5->v6: upgrades가 없거나 테이블이 아니어도 안 죽는다", okBare and okOdd and odd.upgrades == "broken", errBare)
+	local once = (Migrations :: any)[5]({ upgrades = { moveSpeed = 3, punchDamage = 1 } })
+	local again = (Migrations :: any)[5](once)
+	check("v5->v6: 두 번 불러도 같다(멱등)", again.upgrades.moveSpeed == nil and again.upgrades.punchDamage == 1)
+end
 
 -- v4 -> v5: pets.slots · pets.storage · rolling.unlockedAuraPacks · drones 삭제. 나머지 값은 그대로.
 do
@@ -39,7 +60,7 @@ do
 	}
 	local ok, err = Migrations.run(data)
 	check("v4->v5: 변환 성공", ok, err)
-	check("v4->v5: schemaVersion 5", data.schemaVersion == 5)
+	check("v4->v5: schemaVersion은 최신(v6까지 이어서 탄다)", data.schemaVersion == Migrations.CURRENT)
 	check("v4->v5: pets.slots · storage 삭제", data.pets.slots == nil and data.pets.storage == nil)
 	check("v4->v5: rolling.unlockedAuraPacks 삭제", data.rolling.unlockedAuraPacks == nil)
 	check("v4->v5: drones 삭제", data.drones == nil)
@@ -56,7 +77,7 @@ do
 	-- 멱등 · 방어: 필드가 없거나 테이블이 아니어도 안 죽는다
 	local bare = { schemaVersion = 4 }
 	local okBare, errBare = Migrations.run(bare)
-	check("v4->v5: pets · rolling · drones가 없어도 통과", okBare and bare.schemaVersion == 5, errBare)
+	check("v4->v5: pets · rolling · drones가 없어도 통과", okBare and bare.schemaVersion == Migrations.CURRENT, errBare)
 	local odd: any = { schemaVersion = 4, pets = "broken", rolling = 7, drones = "x" }
 	local okOdd, errOdd = Migrations.run(odd)
 	check("v4->v5: pets · rolling이 테이블이 아니어도 안 죽는다", okOdd and odd.drones == nil and odd.pets == "broken", errOdd)
@@ -99,8 +120,9 @@ do
 	check("v1->v2: upgrades.radius가 제거됨", data.upgrades.radius == nil)
 	check(
 		"v1->v2: 다른 upgrades 필드는 그대로 유지됨",
-		data.upgrades.punchDamage == 3 and data.upgrades.punchSpeed == 1 and data.upgrades.moveSpeed == 0
+		data.upgrades.punchDamage == 3 and data.upgrades.punchSpeed == 1
 	)
+	check("v1->최신: moveSpeed는 v6에서 지워진다(L3)", data.upgrades.moveSpeed == nil)
 end
 
 do

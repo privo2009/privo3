@@ -532,7 +532,7 @@ end)
 -- ===== LevelConfig ===================================================================
 
 check("LevelConfig: 레벨 0이면 속도가 BASE_WALK_SPEED", function()
-	-- 힘 0({m=0,e=0})과 힘 1({m=1,e=0}) 둘 다 지수가 0이라 레벨 0이다.
+	-- 힘 0({m=0,e=0})과 힘 1({m=1,e=0}) 둘 다 2 미만이라 레벨 0이다(L1).
 	local zero = BigNum.new(0, 0)
 	local one = BigNum.new(1, 0)
 	return LevelConfig.getLevel(zero) == 0
@@ -550,19 +550,125 @@ check("LevelConfig: 힘이 0 이하면 레벨 0 (음수 지수로 새지 않는�
 		and LevelConfig.getMaxSpeed(half) == LevelConfig.BASE_WALK_SPEED
 end)
 
-check("LevelConfig: 상한 미만에서는 지수 +1이 속도 +1", function()
-	-- 상한(현재 80)에 닿기 한참 전 구간에서만 성립하는 성질이다.
-	local base = LevelConfig.BASE_WALK_SPEED
-	for exponent = 0, 10 do
-		local speed = LevelConfig.getMaxSpeed(BigNum.new(1, exponent))
-		if speed >= LevelConfig.getMaxWalkSpeed() then
-			return false -- 이 구간이 이미 상한이면 테스트 전제가 깨진 것이다
-		end
-		if speed ~= base + exponent then
-			return false
+-- ----- L1 레벨 = floor(log₂(힘)) (2026-10-24 사람 결정 — 지시서 #13) -----
+
+check("L1: 1 · 2 · 3 · 4 → 레벨 0 · 1 · 1 · 2 (힘 < 2이면 0)", function()
+	return LevelConfig.getLevel(BigNum.new(1, 0)) == 0
+		and LevelConfig.getLevel(BigNum.new(2, 0)) == 1
+		and LevelConfig.getLevel(BigNum.new(3, 0)) == 1
+		and LevelConfig.getLevel(BigNum.new(4, 0)) == 2
+		and LevelConfig.getLevel(BigNum.new(1.999999, 0)) == 0
+end)
+
+check("L1: 예시 1K → 9 · 4M → 21 · 1B → 29 · 4×10^16 → 55 (DESIGN \"레벨\")", function()
+	return LevelConfig.getLevel(BigNum.new(1, 3)) == 9
+		and LevelConfig.getLevel(BigNum.new(4, 6)) == 21
+		and LevelConfig.getLevel(BigNum.new(1, 9)) == 29
+		and LevelConfig.getLevel(BigNum.new(4, 16)) == 55
+end)
+
+-- 2^k 경계: 정확히 2^k(BigNum.pow로 만든 값)이면 k, 가수를 1 ulp 내리면 k − 1, 올리면 k.
+-- 정규화를 거치면 1 ulp가 12자리 반올림에 지워지므로 {m, e}를 직접 만든다(getLevel은 형태만 본다).
+local function ulpOf(m: number): number
+	return 2 ^ (math.floor(math.log(m, 2)) - 52)
+end
+check("L1: 2^k 정확히 → k · 가수 1 ulp 아래 → k − 1 · 위 → k (k = 1~64 · 100 · 1000 · 6000)", function()
+	local ks = {}
+	for k = 1, 64 do
+		table.insert(ks, k)
+	end
+	table.insert(ks, 100)
+	table.insert(ks, 1000)
+	table.insert(ks, 6000)
+	for _, k in ipairs(ks) do
+		local p = LevelConfig.powerOfLevel(k)
+		local below = { m = p.m - ulpOf(p.m), e = p.e }
+		local above = { m = p.m + ulpOf(p.m), e = p.e }
+		if LevelConfig.getLevel(p) ~= k or LevelConfig.getLevel(below) ~= k - 1 or LevelConfig.getLevel(above) ~= k then
+			error(string.format("k=%d: 정확히 %d · 아래 %d · 위 %d", k, LevelConfig.getLevel(p), LevelConfig.getLevel(below), LevelConfig.getLevel(above)))
 		end
 	end
 	return true
+end)
+
+-- 2^k − 1은 12자리 안(k ≤ 39)에서만 BigNum이 정확히 담는다 — 13자리부터는 반올림이 2^k로 되돌린다(BigNum 유효자리 12).
+check("L1: 정수 2^k를 fromNumber로 만들어도 k (k = 1~52) · 2^k − 1은 k − 1 (k = 1~39 — 게임 값이 숫자에서 올 때)", function()
+	for k = 1, 52 do
+		if LevelConfig.getLevel(BigNum.fromNumber(2 ^ k)) ~= k then
+			error("2^" .. k)
+		end
+		if k <= 39 and LevelConfig.getLevel(BigNum.fromNumber(2 ^ k - 1)) ~= k - 1 then
+			error("2^" .. k .. " - 1")
+		end
+	end
+	return true
+end)
+
+check("L1: 10^2000대에서도 정밀도가 깨지지 않는다 (10^2000 → 6643 · 경계에서 먼 값은 로그식과 같다)", function()
+	if LevelConfig.getLevel(BigNum.new(1, 2000)) ~= 6643 then
+		error("10^2000 → " .. LevelConfig.getLevel(BigNum.new(1, 2000)))
+	end
+	-- 경계에서 0.1칸 이상 떨어진 값만 대조한다(경계 바로 옆은 위의 ulp 테스트가 맡는다)
+	local rng = Random.new(13)
+	for _ = 1, 400 do
+		local p = BigNum.new(rng:NextNumber(1, 9.99), rng:NextInteger(0, 2500))
+		local lg = (math.log10(p.m) + p.e) / math.log10(2)
+		local frac = lg - math.floor(lg)
+		if frac > 0.1 and frac < 0.9 and LevelConfig.getLevel(p) ~= math.floor(lg) then
+			error(string.format("%s: %d vs %d", BigNum.tostring(p), LevelConfig.getLevel(p), math.floor(lg)))
+		end
+	end
+	return true
+end)
+
+check("L1: 레벨 바 진행률 = (힘 − 2^L) ÷ 2^L — 2^k에서 0 · 1.5×2^k에서 0.5 · 2^(k+1) 바로 아래는 1 미만", function()
+	for _, k in ipairs({ 0, 1, 5, 21, 48, 55, 300, 6000 }) do
+		local p = LevelConfig.powerOfLevel(k)
+		local nextBelow = LevelConfig.powerOfLevel(k + 1)
+		nextBelow = { m = nextBelow.m - ulpOf(nextBelow.m), e = nextBelow.e }
+		local atK = LevelConfig.getLevelProgress(p)
+		local mid = LevelConfig.getLevelProgress(BigNum.mul(p, BigNum.new(1.5, 0)))
+		local top = LevelConfig.getLevelProgress(nextBelow)
+		if math.abs(atK) > 1e-9 or math.abs(mid - 0.5) > 1e-9 or not (top >= 0.999 and top < 1) then
+			error(string.format("k=%d: %.12f / %.12f / %.12f", k, atK, mid, top))
+		end
+	end
+	return true
+end)
+
+check("L1: 레벨 바 진행률은 언제나 0 이상 1 미만 (0 · 0.5 · 음수 · 무작위 3000개)", function()
+	if LevelConfig.getLevelProgress(BigNum.new(0, 0)) ~= 0 or LevelConfig.getLevelProgress(BigNum.new(5, -1)) ~= 0
+		or LevelConfig.getLevelProgress(BigNum.new(-3, 5)) ~= 0 or math.abs(LevelConfig.getLevelProgress(BigNum.new(1.5, 0)) - 0.5) > 1e-9 then
+		return false
+	end
+	local rng = Random.new(1013)
+	for _ = 1, 3000 do
+		local p = BigNum.new(rng:NextNumber(1, 9.999999), rng:NextInteger(0, 2100))
+		local v = LevelConfig.getLevelProgress(p)
+		if not (v >= 0 and v < 1) then
+			error(BigNum.tostring(p) .. " → " .. tostring(v))
+		end
+	end
+	return true
+end)
+
+check("L2: 상한 아래에서는 최대 속도 = 기본 + 레벨 (레벨 0~47)", function()
+	local base = LevelConfig.BASE_WALK_SPEED
+	for level = 0, LevelConfig.getSpeedCapLevel() - 1 do
+		if LevelConfig.getMaxSpeed(LevelConfig.powerOfLevel(level)) ~= base + level then
+			error("level " .. level)
+		end
+	end
+	return true
+end)
+
+check("L2: 상한 닿는 레벨 = MAX_WALK_SPEED − 기본(지금 48 · 힘 약 2.8×10^14) · 그 전 레벨은 상한 − 1", function()
+	local capLevel = LevelConfig.getSpeedCapLevel()
+	local cap = LevelConfig.getMaxWalkSpeed()
+	return capLevel == cap - LevelConfig.BASE_WALK_SPEED
+		and LevelConfig.getMaxSpeed(LevelConfig.powerOfLevel(capLevel)) == cap
+		and LevelConfig.getMaxSpeed(LevelConfig.powerOfLevel(capLevel - 1)) == cap - 1
+		and math.abs(BigNum.toRatio(LevelConfig.powerOfLevel(48), BigNum.new(2.81474976710656, 14)) - 1) < 1e-9
 end)
 
 check("LevelConfig: 상한을 넘으면 지수를 올려도 속도가 멈춘다", function()
@@ -573,10 +679,17 @@ check("LevelConfig: 상한을 넘으면 지수를 올려도 속도가 멈춘다"
 	return a == cap and b == cap
 end)
 
-check("LevelConfig: 10^2000이면 레벨 2000, 속도는 상한", function()
+check("LevelConfig: 10^2000이면 레벨 6643(L1), 속도는 상한", function()
 	-- 레벨 자체에는 상한이 없다. 멈추는 것은 속도뿐이다 (DESIGN.md "레벨").
 	local huge = BigNum.new(1, 2000)
-	return LevelConfig.getLevel(huge) == 2000 and LevelConfig.getMaxSpeed(huge) == LevelConfig.getMaxWalkSpeed()
+	return LevelConfig.getLevel(huge) == 6643 and LevelConfig.getMaxSpeed(huge) == LevelConfig.getMaxWalkSpeed()
+end)
+
+check("L2: 환생 직후 힘(Schema 초기값 — RebirthService가 쓰는 값)이면 레벨 0 · 속도 기본", function()
+	local Schema = require(script.Parent.Parent.Data.Schema)
+	local fresh = Schema.new().strength
+	return LevelConfig.getLevel(fresh) == 0 and LevelConfig.getMaxSpeed(fresh) == LevelConfig.BASE_WALK_SPEED
+		and LevelConfig.getLevelProgress(fresh) == 0
 end)
 
 check("LevelConfig: 발판 깊이가 절반이면 상한도 절반 (유도가 실제로 돈다)", function()

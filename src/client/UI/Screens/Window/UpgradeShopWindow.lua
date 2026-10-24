@@ -1,8 +1,8 @@
 --!strict
--- 상점 창 — 업그레이드 1차 4종 (작은 창, Window 층 — 단일 오픈 · 배경 흐리게는 ScreenController). Phase 6 지시서 #7 U5.
+-- 상점 창 — 업그레이드 (작은 창, Window 층 — 단일 오픈 · 배경 흐리게는 ScreenController). Phase 6 지시서 #7 U5.
 -- 메뉴 레일 첫 칸 "상점"(screenName "Shop")이 연다.
 --
--- 본문: 항목 4줄(UpgradeConfig.SHOP_ORDER). 한 줄 = 이름 · 지금 레벨/최대 · 지금 효과 → 다음 효과 · 구매 버튼 · 버튼 아래 비용(또는 잠긴 이유).
+-- 본문: 항목 줄(UpgradeConfig.SHOP_ORDER — #13 L3 뒤 7줄, 스크롤 목록). 한 줄 = 이름 · 지금 레벨/최대 · 지금 효과 → 다음 효과 · 구매 버튼 · 버튼 아래 비용(또는 잠긴 이유).
 -- 값 · 문구 · 중복 요청 막기는 UI/Logic/UpgradeShopLogic(순수)에서 나온다. 이 파일은 그리기와 배선뿐이다.
 --
 -- 구매 버튼은 블럭스(하늘) 역할 — btn_blue, 블럭스를 쓰는 행동이라서(UI.md "5. 버튼 > 색 6종").
@@ -38,6 +38,7 @@ UpgradeShopWindow.SUCCESS_TEXT = "%s Lv %d (-%s)"
 -- 지시서 #12: 펫 슬롯 · 펫 행운이 7 · 8번째 줄 — 8줄 × 0.154 = 1.23으로 창에 안 들어간다. 줄을 더 줄이면 폰에서 줄 안 두 칸이
 -- 11px 아래로 내려간다(0.15일 때 22px의 반). 그래서 줄 높이는 그대로 두고 **스크롤 목록**(ScrollingFrame)으로 바꿨다.
 -- 보이는 목록 높이 LIST_H(본문 기준) 안에 VISIBLE_ROWS줄쯤 보이고 나머지는 스크롤한다. 줄 높이 · 간격은 "보이는 목록 기준"이다.
+-- 지시서 #13: 이동 속도 줄 삭제(L3) — 7줄 × 0.154 = 1.08 > 0.9라 스크롤 목록 그대로. 캔버스 배율은 줄 수에서 유도된다.
 local ROW_H = 0.15 -- 본문 기준 줄 높이(#11 값 그대로)
 local ROW_GAP = 0.004
 local LIST_H = 0.9 -- 보이는 목록 높이(본문 기준). 그 아래가 상태 문구
@@ -170,7 +171,7 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 	local view: { UpgradeShopLogic.Row } = {}
 
 	local function render()
-		view = UpgradeShopLogic.rows(source.get("upgrades"), source.get("blox"), source.get("strength"))
+		view = UpgradeShopLogic.rows(source.get("upgrades"), source.get("blox"))
 		local t = now()
 		for _, r in ipairs(view) do
 			local parts = rows[r.name]
@@ -237,7 +238,6 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 	closeHit.Activated:Connect(close)
 	source.subscribe("blox", render)
 	source.subscribe("upgrades", render)
-	source.subscribe("strength", render) -- 이동 속도 "최대 속도 도달"이 힘에 따라 바뀐다(지시서 #8)
 
 	render()
 

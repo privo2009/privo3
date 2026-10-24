@@ -1,7 +1,7 @@
 --!strict
 -- 캐릭터 이동속도의 서버 권위 (CLAUDE.md 절대 규칙 3).
 --
---   최대속도 = LevelConfig.getMaxSpeed(힘, 이동속도 업그레이드 효과)   — 더한 뒤 MAX_WALK_SPEED로 자른다 (지시서 #7 S3)
+--   최대속도 = LevelConfig.getMaxSpeed(힘)   — 32 + 레벨을 MAX_WALK_SPEED로 자른다 (L2 — 이동 속도 업그레이드는 L3으로 없어졌다)
 --   실제속도 = min(요청값, 최대속도)
 --
 -- 계산식과 상한의 근거는 Shared/Config/LevelConfig가 원본이다. 여기에 다시 쓰지 말 것 —
@@ -45,8 +45,8 @@
 -- 세션 값이 남아 그 창 동안 56으로 다니게 된다 — 발판 깊이 관통이 열리는 방향이다.
 --
 -- 힘 변동마다 즉시 세팅하지 않는 이유: 클릭은 초당 최대 30회(OP 자동 클리커)라 클릭당
--- 세팅을 걸면 초당 30번 WalkSpeed를 쓴다. 레벨은 지수 기반이라 자릿수가 바뀔 때만 움직이므로
--- 그중 실제로 값이 달라지는 경우는 거의 없다. 그래서 주기 검사가 "지금 있어야 할 값"을
+-- 세팅을 걸면 초당 30번 WalkSpeed를 쓴다. 레벨은 로그 기반이라(힘 2배마다 +1 — L1) 클릭 대부분에서
+-- 값이 그대로다. 그래서 주기 검사가 "지금 있어야 할 값"을
 -- 계산해 다를 때만 쓴다 — 조작 되돌리기와 레벨업 반영이 같은 비교 한 줄로 처리된다.
 -- 즉시 반영이 필요해지면 onStrengthChanged()를 호출자에서 부르면 된다.
 
@@ -57,7 +57,6 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
 local CurrencyService = require(script.Parent.CurrencyService)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
-local UpgradeService = require(script.Parent.UpgradeService) -- 이동속도 업그레이드 효과 (지시서 #7)
 
 type BigNumber = BigNum.BigNumber
 
@@ -203,10 +202,9 @@ local function readStrength(player: Player): BigNumber
 	return strength
 end
 
--- 이 플레이어의 현재 최대 이동속도. 이동속도 업그레이드 효과(UpgradeService.getEffect → UpgradeConfig)를 넘긴다 —
--- 더하기와 80 상한 자르기는 LevelConfig.getMaxSpeed 한 곳에서 한다(여기서 더하거나 자르지 않는다).
+-- 이 플레이어의 현재 최대 이동속도. 더하기와 80 상한 자르기는 LevelConfig.getMaxSpeed 한 곳에서 한다(여기서 더하거나 자르지 않는다).
 function SpeedService.getMaxSpeed(player: Player): number
-	return LevelConfig.getMaxSpeed(readStrength(player), UpgradeService.getEffect(player, "moveSpeed"))
+	return LevelConfig.getMaxSpeed(readStrength(player))
 end
 
 local function getHumanoid(player: Player): Humanoid?
@@ -400,13 +398,7 @@ function SpeedService.init()
 		SpeedService.reapply(player)
 	end)
 
-	-- 이동속도 업그레이드를 사면 최대치가 오른다. 바로 다시 얹는다 — 주기 검사(CHECK_INTERVAL_SEC)를 기다리면
-	-- 산 직후 몇 초 동안 옛 최대치로 다닌다. 최대치가 오르기만 하므로 관통 위험은 없다(80 상한은 LevelConfig가 자른다).
-	UpgradeService.onLevelChanged(function(player: Player, name: string)
-		if name == "moveSpeed" then
-			SpeedService.reapply(player)
-		end
-	end)
+	-- (이동속도 업그레이드 반응은 L3으로 업그레이드와 함께 지웠다 — 최대치는 힘(레벨)으로만 바뀌고 주기 검사가 따라간다.)
 
 	-- 나간 플레이어의 세션 값을 지운다. 안 지우면 Player 인스턴스가 이 테이블에 영구히
 	-- 붙잡혀 있게 된다 (PadService.states와 같은 이유).

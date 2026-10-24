@@ -42,7 +42,7 @@ do
 	for _, row in ipairs(rows) do
 		table.insert(order, row.name)
 	end
-	check("값: 4줄 · SHOP_ORDER 순서", table.concat(order, ",") == table.concat(UpgradeConfig.SHOP_ORDER, ","), table.concat(order, ","))
+	check("값: 7줄(L3) · SHOP_ORDER 순서", table.concat(order, ",") == table.concat(UpgradeConfig.SHOP_ORDER, ",") and #order == 7, table.concat(order, ","))
 	check("값: 레벨 표가 비면 0레벨로 본다", UpgradeShopLogic.levelOf({}, "bloxGain") == 0 and UpgradeShopLogic.levelOf(nil, "bloxGain") == 0)
 	local luckRow = UpgradeShopLogic.row("titleLuck", 2, rich)
 	local expectLuck = string.format("행운 ×%.2f → ×%.2f", UpgradeConfig.getEffect("titleLuck", 2), UpgradeConfig.getEffect("titleLuck", 3))
@@ -51,8 +51,8 @@ end
 
 -- 2. 잠김 ------------------------------------------------------------------------------------------
 do
-	local top = UpgradeConfig.Upgrades.moveSpeed.maxLevel :: number
-	local m = UpgradeShopLogic.row("moveSpeed", top, BigNum.new(1, 30))
+	local top = UpgradeConfig.Upgrades.punchSpeed.maxLevel :: number
+	local m = UpgradeShopLogic.row("punchSpeed", top, BigNum.new(1, 30))
 	check("잠김: 최대 레벨 → MAX · 못 산다 · 비용 없음", m.isMax and not m.canBuy and m.buttonText == UpgradeShopLogic.MAX_TEXT and m.cost == nil)
 	check("잠김: 최대 레벨 문구", m.footText == UpgradeShopLogic.reasonText(UpgradeConfig.REASON_MAX_LEVEL))
 	local cost = UpgradeConfig.getCostAtLevel("bloxGain", 0)
@@ -63,19 +63,27 @@ do
 	check("잠김: 딱 맞으면 산다(서버 canBuy와 같은 경계)", exact.canBuy)
 end
 
--- 2b. 이동 속도 최대 속도 도달 (지시서 #8) -------------------------------------------------------------
+-- 2b. 이동 속도 줄 삭제 (L3, 지시서 #13 — 지시서 #8 "최대 속도 도달" 잠금도 함께 없어졌다) -------------------------
 do
-	local capped = UpgradeShopLogic.row("moveSpeed", 0, BigNum.new(1, 30), BigNum.new(1, 200))
-	check("잠김: 최대 속도 도달 → 못 산다 · 문구", not capped.canBuy and capped.reason == UpgradeConfig.REASON_MAX_SPEED_REACHED
-		and string.find(capped.footText, "최대 속도 도달", 1, true) ~= nil, capped.footText)
-	local free = UpgradeShopLogic.row("moveSpeed", 0, BigNum.new(1, 30), BigNum.new(1, 0))
-	check("잠김: 힘이 작으면 이동 속도 산다", free.canBuy)
+	local names = {}
+	for _, row in ipairs(UpgradeShopLogic.rows({}, BigNum.new(1, 30))) do
+		names[row.name] = true
+	end
+	check("L3: 상점에 이동 속도 줄이 없다 · 이름 표에도 없다", names.moveSpeed == nil and UpgradeShopLogic.NAMES.moveSpeed == nil)
+	check("L3: '최대 속도 도달' 문구가 어떤 줄에도 없다(힘이 커도)", (function()
+		for _, row in ipairs(UpgradeShopLogic.rows({}, BigNum.new(1, 30))) do
+			if string.find(row.footText, "최대 속도", 1, true) ~= nil then
+				return false
+			end
+		end
+		return true
+	end)())
 end
 
 -- 3. 사유 문구 -------------------------------------------------------------------------------------
 do
 	local generic = UpgradeShopLogic.reasonText("???")
-	for _, code in ipairs({ UpgradeConfig.REASON_MAX_LEVEL, UpgradeConfig.REASON_MAX_SPEED_REACHED, UpgradeConfig.REASON_INSUFFICIENT_BLOX, UpgradeConfig.REASON_INVALID_UPGRADE, "rate_limited", "no_profile", "partial_failure" }) do
+	for _, code in ipairs({ UpgradeConfig.REASON_MAX_LEVEL, UpgradeConfig.REASON_INSUFFICIENT_BLOX, UpgradeConfig.REASON_INVALID_UPGRADE, "rate_limited", "no_profile", "partial_failure" }) do
 		check("문구: " .. code, UpgradeShopLogic.reasonText(code) ~= generic)
 	end
 end
@@ -108,7 +116,7 @@ local function makeWindow(bloxValue: BigNum.BigNumber, levels: { [string]: numbe
 end
 
 do
-	local zeros = { punchDamage = 0, punchSpeed = UpgradeConfig.Upgrades.punchSpeed.maxLevel :: number, moveSpeed = 0, bloxGain = 0, auraLuck = 0, titleLuck = 0, petLuck = 0, petSlots = 0 }
+	local zeros = { punchDamage = 0, punchSpeed = UpgradeConfig.Upgrades.punchSpeed.maxLevel :: number, bloxGain = 0, auraLuck = 0, titleLuck = 0, petLuck = 0, petSlots = 0 }
 	local blox = UpgradeConfig.getCostAtLevel("punchDamage", 0) -- 0레벨 하나는 딱 살 수 있다
 	local handle, w, advance = makeWindow(blox, zeros)
 
@@ -117,9 +125,9 @@ do
 	for _ in pairs(handle._debug.rows) do
 		n += 1
 	end
-	check("창: 줄 수 = SHOP_ORDER (지시서 #12부터 펫 슬롯 · 펫 행운 포함 8)", n == #UpgradeConfig.SHOP_ORDER and n == 8)
+	check("창: 줄 수 = SHOP_ORDER (지시서 #13 L3 뒤 7 — 펫 슬롯 · 펫 행운 포함)", n == #UpgradeConfig.SHOP_ORDER and n == 7)
 	local L = UpgradeShopWindow.Layout
-	check("창: 8줄은 스크롤 목록 — 줄은 목록 안 · 캔버스 > 보이는 높이", handle._debug.rows.petLuck.frame.Parent == handle._debug.list
+	check("창: 7줄도 스크롤 목록 — 줄은 목록 안 · 캔버스 > 보이는 높이", handle._debug.rows.petLuck.frame.Parent == handle._debug.list
 		and handle._debug.list.CanvasSize.Y.Scale > 1 and math.abs(handle._debug.list.CanvasSize.Y.Scale - L.CANVAS_K) < 1e-5) -- UDim Scale은 float32
 	check("창: 줄 높이는 #11 값 그대로(본문 기준 0.15 — 폰 줄 안 두 칸 11px)", math.abs(handle._debug.rows.punchDamage.frame.Size.Y.Scale * L.LIST_H * L.CANVAS_K - L.ROW_H) < 1e-5
 		and handle._debug.rows.punchDamage.frame.Size.Y.Offset == 0)

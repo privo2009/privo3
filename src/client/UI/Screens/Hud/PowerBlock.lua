@@ -10,10 +10,11 @@
 -- 자체를 없앴다). `Shared/Config/LevelConfig.getLevel(strength)`를 그대로 불러
 -- 쓴다 — 서버(`SpeedService`)가 최대속도를 낼 때 쓰는 것과 **같은 함수**다.
 -- U3-5에서는 이 파일이 `power.e`를 직접 읽어 레벨 공식을 클라에 한 벌 더
--- 만들었는데, 지금 N=1이라 우연히 일치했을 뿐 `LevelConfig`의 N이 바뀌면
+-- 만들었는데, 그때 N=1이라 우연히 일치했을 뿐 `LevelConfig`의 식이 바뀌면
 -- 화면과 서버 최대속도가 갈린다(CLAUDE.md "밸런싱 수치는 전부 Shared/Config로 —
--- 하드코딩 금지"). 진행률(바 채움)은 LevelConfig의 공개 계약이 아니라 순수
--- UI 보간이라 이 파일에 그대로 둔다 — 서버는 진행률을 몰라도 된다.
+-- 하드코딩 금지"). 실제로 2026-10-24 L1(힘 2배마다 +1)로 바뀌었다.
+-- 진행률(바 채움)도 지시서 #13부터 `LevelConfig.getLevelProgress`를 부른다 — 옛 log10(가수) 보간은
+-- 힘 10배 한 칸 전제라 L1에서는 틀린 값이다. 레벨과 진행률이 같은 모듈에 있어야 서로 어긋나지 않는다.
 --
 -- ⚠️ 이번 범위는 표시뿐이다. 이동 속도 편집 입력(SpeedInput.request() 왕복)은 넣지
 -- 않는다 — 서버가 실제 적용값과 최대치를 되돌려주는 계약(DESIGN "커스텀 스피드")이
@@ -120,15 +121,10 @@ export type PowerBlockHandle = {
 	},
 }
 
--- 진행률 = log10(가수). 가수는 BigNum 불변식상 [1,10)이므로 결과는 자연히 [0,1)
--- 안에 들지만, math.clamp로 한 번 더 방어한다(문서 요구사항 — 경계에서 소실되거나
--- 예측 불가능한 값을 절대 화면에 보내지 않기 위해). m<=0(힘이 정확히 0)이면 log10이
--- 정의되지 않으므로 별도로 0을 반환한다.
+-- 진행률 = 그 레벨 안에서의 위치 (힘 − 2^L) ÷ 2^L (L1 — LevelConfig.getLevelProgress가 원본, 0 이상 1 미만).
+-- math.clamp로 한 번 더 방어한다(경계에서 소실되거나 예측 불가능한 값을 절대 화면에 보내지 않기 위해).
 local function computeProgress(power: BigNumber): number
-	if power.m <= 0 then
-		return 0
-	end
-	return math.clamp(math.log(power.m, 10), 0, 1)
+	return math.clamp(LevelConfig.getLevelProgress(power), 0, 1)
 end
 
 -- store: 구독할 Store 인스턴스. 생략하면 싱글톤(BloxDisplay.create와 같은 이유).

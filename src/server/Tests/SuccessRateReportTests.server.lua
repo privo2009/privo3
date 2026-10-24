@@ -132,6 +132,11 @@ do
 	local sec = SuccessRateReport.walkToGate(p)
 	check("걷기 시간 = 거리 ÷ 최대속도", checkClose(sec, expected), string.format("%s vs %s", tostring(sec), tostring(expected)))
 	check("걷기 시간이 경과 시간에 더해진다", checkClose(p.elapsedSec - before, expected))
+	-- L1 · L2: 힘 2^20이면 레벨 20 → 최대 속도 기본 + 20 (게임 SpeedService와 같은 LevelConfig.getMaxSpeed)
+	local q = SuccessRateReport.newPlayer(Random.new(2))
+	q.strength = LevelConfig.powerOfLevel(20)
+	local secQ = SuccessRateReport.walkToGate(q)
+	check("걷기 시간: 레벨 20이면 거리 ÷ (기본 + 20) (L1 · L2)", checkClose(secQ, ArenaConfig.getSpawnToEntrance() / (LevelConfig.BASE_WALK_SPEED + 20)))
 end
 
 -- 8. 플레이어 모델 범위 ---------------------------------------------------------------
@@ -343,7 +348,7 @@ do
 
 	-- 예산이 가장 싼 것보다 작으면 아무것도 안 산다
 	local TARGETS = SuccessRateReport.S5_TARGETS
-	check("S5': 구매 대상 = 1차 4종 (행운 업그레이드 제외 — 지시서 #11)", table.concat(TARGETS, ",") == "punchDamage,punchSpeed,moveSpeed,bloxGain")
+	check("S5': 구매 대상 = 1차 3종 (행운 업그레이드 제외 — 지시서 #11 · 이동 속도 삭제 L3 — #13)", table.concat(TARGETS, ",") == "punchDamage,punchSpeed,bloxGain")
 	local cheapest = UpgradeConfig.getCostAtLevel(TARGETS[1], 0)
 	for _, name in ipairs(TARGETS) do
 		local c = UpgradeConfig.getCostAtLevel(name, 0)

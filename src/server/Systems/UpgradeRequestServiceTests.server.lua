@@ -72,11 +72,11 @@ do
 	local r2 = handler.onRequest(fakePlayer, { name = "punchSpeed" }, 10 + pure.MIN_INTERVAL_SEC / 2)
 	check("빈도: 간격 안의 두 번째(중복 요청)는 rate_limited, 구매를 부르지 않는다", r2.ok == false
 		and r2.reason == UpgradeRequestService.REASON_RATE_LIMITED and #w.calls == 1)
-	local r3 = handler.onRequest(fakePlayer, { name = "moveSpeed" }, 10 + pure.MIN_INTERVAL_SEC + 0.01)
+	local r3 = handler.onRequest(fakePlayer, { name = "bloxGain" }, 10 + pure.MIN_INTERVAL_SEC + 0.01)
 	check("빈도: 간격이 지나면 다시 받는다", r3.ok == true and #w.calls == 2)
 	check("빈도: 정상 유저의 빠른 반복 구매는 막지 않을 만큼 짧다(1초 미만)", pure.MIN_INTERVAL_SEC < 1)
 	handler.onRemoving(fakePlayer)
-	local r4 = handler.onRequest(fakePlayer, { name = "moveSpeed" }, 10 + pure.MIN_INTERVAL_SEC + 0.02)
+	local r4 = handler.onRequest(fakePlayer, { name = "bloxGain" }, 10 + pure.MIN_INTERVAL_SEC + 0.02)
 	check("퇴장 뒤 기록이 지워진다", r4.ok == true)
 end
 

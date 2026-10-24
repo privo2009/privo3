@@ -161,7 +161,7 @@ local function titlesEqual(a: any, b: any): boolean
 	return true
 end
 
--- 업그레이드 레벨 표가 같은가. 키 집합은 양쪽 다 UpgradeConfig 8키다(readLevels). JSON 왕복 뒤에도 키는 문자열 그대로다.
+-- 업그레이드 레벨 표가 같은가. 키 집합은 양쪽 다 UpgradeConfig 키다(readLevels — #13 L3 뒤 7키). JSON 왕복 뒤에도 키는 문자열 그대로다.
 local function upgradesEqual(a: any, b: any): boolean
 	if type(a) ~= "table" or type(b) ~= "table" then
 		return a == b

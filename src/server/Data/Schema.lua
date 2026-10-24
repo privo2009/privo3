@@ -6,11 +6,12 @@
 
 local Schema = {}
 
-Schema.VERSION = 5 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드, Phase 4-2-b)
+Schema.VERSION = 6 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드, Phase 4-2-b)
 -- v4: lifeBlox 추가 (이번 생애 누적 blox — 패드 해금 기준, 환생하면 0. 2026-10-21)
 -- v5: pets.slots · pets.storage · rolling.unlockedAuraPacks · drones 삭제 (2026-10-24 지시서 #10 S12 · S13).
 --     슬롯 · 저장 공간 · 열린 아우라 팩은 저장하지 않고 파생한다 — PetConfig.getSlots · getStorage, AuraConfig.getUnlockedPacks.
 --     게임패스가 들어가는 값이라 저장하면 절대 규칙 5(게임패스 소유 상태 저장 금지)를 어긴다.
+-- v6: upgrades.moveSpeed 삭제 (2026-10-24 사람 결정 L3 — 이동 속도는 레벨로만 오른다. 구매분 환급 없음 — 출시 전)
 
 -- 구조적 상한값. DESIGN.md 6장 수치와 같지만 Schema는 Config를 몰라야 하므로 별도로 둔다.
 -- 중복이 어긋나면 SchemaTests가 잡는다(PetConfig · AuraConfig 값과 대조한다).
@@ -86,7 +87,7 @@ local function buildTemplate()
 		upgrades = {
 			punchDamage = 0,
 			punchSpeed = 0, -- 상한
-			moveSpeed = 0, -- 상한
+			-- moveSpeed는 v6에서 지웠다(L3)
 			bloxGain = 0,
 			auraLuck = 0,
 			titleLuck = 0,

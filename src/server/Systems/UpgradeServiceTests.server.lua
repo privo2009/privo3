@@ -116,8 +116,8 @@ do
 	local ok2, r2 = pure.runBuy(depsFor(maxed) :: any, fakePlayer, "punchSpeed")
 	check("거부: 최대 레벨 → max_level · 블럭스가 많아도 차감 없음", not ok2 and r2 == UpgradeConfig.REASON_MAX_LEVEL and sideEffects(maxed) == 0)
 
-	local poor = newWorld(BigNum.sub(UpgradeConfig.getCostAtLevel("moveSpeed", 0), BigNum.fromNumber(1)))
-	local ok3, r3 = pure.runBuy(depsFor(poor) :: any, fakePlayer, "moveSpeed")
+	local poor = newWorld(BigNum.sub(UpgradeConfig.getCostAtLevel("punchSpeed", 0), BigNum.fromNumber(1)))
+	local ok3, r3 = pure.runBuy(depsFor(poor) :: any, fakePlayer, "punchSpeed")
 	check("거부: 블럭스 부족 → insufficient_blox · 차감 없음", not ok3 and r3 == UpgradeConfig.REASON_INSUFFICIENT_BLOX and sideEffects(poor) == 0)
 end
 
@@ -142,28 +142,19 @@ do
 
 	-- 최대 레벨 바로 아래에서 사면 최대 레벨이 되고, 그다음은 max_level
 	local nearTop = newWorld(RICH)
-	local top = UpgradeConfig.Upgrades.moveSpeed.maxLevel :: number
-	nearTop.levels.moveSpeed = top - 1
-	local okT = pure.runBuy(depsFor(nearTop) :: any, fakePlayer, "moveSpeed")
-	local okT2, rT2 = pure.runBuy(depsFor(nearTop) :: any, fakePlayer, "moveSpeed")
-	check("성공 → 최대 레벨 도달 뒤 다음 구매는 max_level", okT and nearTop.levels.moveSpeed == top and not okT2 and rT2 == UpgradeConfig.REASON_MAX_LEVEL)
+	local top = UpgradeConfig.Upgrades.punchSpeed.maxLevel :: number
+	nearTop.levels.punchSpeed = top - 1
+	local okT = pure.runBuy(depsFor(nearTop) :: any, fakePlayer, "punchSpeed")
+	local okT2, rT2 = pure.runBuy(depsFor(nearTop) :: any, fakePlayer, "punchSpeed")
+	check("성공 → 최대 레벨 도달 뒤 다음 구매는 max_level", okT and nearTop.levels.punchSpeed == top and not okT2 and rT2 == UpgradeConfig.REASON_MAX_LEVEL)
 end
 
--- 2b. 이동 속도 최대 속도 도달 — 서버도 같은 조건으로 거부 (지시서 #8) --------------------------------------
+-- 2b. 이동 속도 업그레이드 삭제 (L3, 지시서 #13) — 옛 클라가 보내도 서버가 거부한다 -----------------------------
 do
 	local w = newWorld(RICH)
-	local deps = depsFor(w) :: any
-	deps.getStrength = function()
-		return BigNum.new(1, 200)
-	end
-	local ok, reason = pure.runBuy(deps, fakePlayer, "moveSpeed")
-	check("거부: 최대 속도 도달 → max_speed_reached · 차감 없음", not ok and reason == UpgradeConfig.REASON_MAX_SPEED_REACHED and sideEffects(w) == 0)
-	local v = newWorld(RICH)
-	local deps2 = depsFor(v) :: any
-	deps2.getStrength = function()
-		return BigNum.new(1, 0)
-	end
-	check("상한 아래면 산다", (pure.runBuy(deps2, fakePlayer, "moveSpeed")) == true)
+	local ok, reason = pure.runBuy(depsFor(w) :: any, fakePlayer, "moveSpeed")
+	check("L3: moveSpeed 구매 요청 → invalid_upgrade · 부작용 0 · 프로필도 안 읽음", not ok and reason == UpgradeConfig.REASON_INVALID_UPGRADE
+		and #w.calls == 0)
 end
 
 -- 3. 부분 실패 ---------------------------------------------------------------------------------------
@@ -201,7 +192,7 @@ do
 			n = -100
 		end
 	end
-	check("readLevels: 새 프로필은 8키 전부 0", n == 8, tostring(n))
+	check("readLevels: 새 프로필은 7키 전부 0 (L3 — moveSpeed 없음)", n == 7, tostring(n))
 
 	-- 프로필 없는 플레이어: 레벨 0 · 효과 = 0레벨 효과
 	check("getLevel: 프로필 없음 → 0", UpgradeService.getLevel(fakePlayer, "punchSpeed") == 0)

@@ -17,6 +17,7 @@ local Layout = require(script.Parent.Parent.UI.Layout)
 local Store = require(script.Parent.Parent.UI.Store)
 local ValuePanel = require(script.Parent.Parent.UI.Components.ValuePanel)
 local PowerBlock = require(script.Parent.Parent.UI.Screens.Hud.PowerBlock)
+local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
 local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local checkClose = TestHelpers.checkClose
 
@@ -154,30 +155,30 @@ do
 		check("힘 0 -> 다음 레벨 1", nextLabel.Text == "1", nextLabel.Text)
 		check("힘 0 -> 진행률 0", checkClose(fill.Size.X.Scale, 0))
 
-		-- 가수가 정확히 1이면 진행률 0. 레벨은 지수와 일치해야 한다(임의로 5로 골랐다).
-		handle._debug.applyPower(BigNum.new(1, 5))
-		check("가수 1 -> 레벨이 힘의 지수(5)와 일치", currentLabel.Text == "5", currentLabel.Text)
-		check("가수 1 -> 다음 레벨 6", nextLabel.Text == "6", nextLabel.Text)
-		check("가수 1 -> 진행률 0", checkClose(fill.Size.X.Scale, 0))
+		-- L1(지시서 #13): 레벨 = floor(log₂(힘)). 힘이 정확히 2^20이면 레벨 20 · 진행률 0.
+		-- 값은 LevelConfig에서 만든다 — 서버 최대 속도와 같은 모듈이다.
+		handle._debug.applyPower(LevelConfig.powerOfLevel(20))
+		check("힘 2^20 -> 레벨 20 (L1)", currentLabel.Text == "20", currentLabel.Text)
+		check("힘 2^20 -> 다음 레벨 21", nextLabel.Text == "21", nextLabel.Text)
+		check("힘 2^20 -> 진행률 0", checkClose(fill.Size.X.Scale, 0))
 
-		-- 가수가 10 근처면 진행률이 1 미만이다.
-		handle._debug.applyPower(BigNum.new(9.99, 12))
-		check("가수 9.99 -> 레벨이 힘의 지수(12)와 일치", currentLabel.Text == "12", currentLabel.Text)
-		check(
-			"가수 9.99 -> 진행률이 1 미만이다",
-			fill.Size.X.Scale < 1,
-			string.format("progress=%.6f", fill.Size.X.Scale)
-		)
-		check(
-			"가수 9.99 -> 진행률이 log10(9.99)에 가깝다",
-			checkClose(fill.Size.X.Scale, math.log(9.99, 10))
-		)
+		-- 그 레벨 안에서의 위치 (힘 − 2^L) ÷ 2^L: 1.5 × 2^20이면 0.5
+		handle._debug.applyPower(BigNum.mul(LevelConfig.powerOfLevel(20), BigNum.new(1.5, 0)))
+		check("힘 1.5×2^20 -> 레벨 20 그대로", currentLabel.Text == "20", currentLabel.Text)
+		check("힘 1.5×2^20 -> 진행률 0.5 (그 레벨 안의 위치)", checkClose(fill.Size.X.Scale, 0.5), string.format("progress=%.6f", fill.Size.X.Scale))
+		check("진행률 = LevelConfig.getLevelProgress 그대로(클라가 다시 계산하지 않는다)",
+			checkClose(fill.Size.X.Scale, LevelConfig.getLevelProgress(BigNum.mul(LevelConfig.powerOfLevel(20), BigNum.new(1.5, 0)))))
+
+		-- 4M → 21 (DESIGN "레벨" 예시) · 진행률 1 미만
+		handle._debug.applyPower(BigNum.new(4, 6))
+		check("힘 4M -> 레벨 21 · 진행률 0 이상 1 미만", currentLabel.Text == "21" and fill.Size.X.Scale >= 0 and fill.Size.X.Scale < 1,
+			string.format("%s / %.6f", currentLabel.Text, fill.Size.X.Scale))
 
 		-- 클램프: 정규화를 거치지 않은(비정상) BigNum이 들어와도 [0,1] 밖으로 나가지 않는다.
 		handle._debug.applyPower({ m = 15, e = 3 } :: BigNumber)
 		check(
-			"가수가 10을 넘는 비정상 입력도 진행률이 1로 클램프된다",
-			checkClose(fill.Size.X.Scale, 1),
+			"가수가 10을 넘는 비정상 입력도 진행률이 [0,1] 안",
+			fill.Size.X.Scale >= 0 and fill.Size.X.Scale <= 1,
 			string.format("progress=%.6f", fill.Size.X.Scale)
 		)
 	end

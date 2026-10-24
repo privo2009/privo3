@@ -31,7 +31,7 @@
 --   펀치 간격   1 / 펀치 속도               (UpgradeConfig.getEffect("punchSpeed", 레벨) — 0레벨 = PUNCH_SPEED_BASE)
 --   수령액      층 보상 × 블럭스 계통 배수  (ChallengeService.combineBloxMultiplier — 블럭스 획득 업그레이드 × 칭호)
 --   칭호        RollLogic.roll(TitleConfig.Titles, RollService.computeLuck("title", …), 칭호 전용 seed RNG) — 서버와 같은 판정
---   걷기        스폰 → 입장 게이트 거리(ArenaConfig.getSpawnToEntrance) ÷ LevelConfig.getMaxSpeed(힘, 이동속도 효과)
+--   걷기        스폰 → 입장 게이트 거리(ArenaConfig.getSpawnToEntrance) ÷ LevelConfig.getMaxSpeed(힘) — 32 + 레벨(L1 · L2)
 --               런은 게이트에서 서므로(DESIGN.md "런 시작") 걷는 시간은 20초 밖이고, 그동안은
 --               평소 속도로 클릭한다. 수령·실패 뒤에는 스폰으로 돌아오므로 런마다 한 번 걷는다
 --
@@ -39,7 +39,7 @@
 --
 -- ===== 업그레이드 구매 규칙 (S5, 2026-10-22 사람 결정 — 지시서 #7 · S5' 2026-10-24 — 지시서 #11) =====
 --
--- S5': 구매 대상은 1차 4종(S5_TARGETS)으로 고정한다. 행운 업그레이드는 표준 플레이어가 사지 않는다 — 상점에 열릴 때마다
+-- S5': 구매 대상은 1차 3종(S5_TARGETS — #13 L3으로 이동 속도가 빠졌다)으로 고정한다. 행운 업그레이드는 표준 플레이어가 사지 않는다 — 상점에 열릴 때마다
 -- 예산을 나눠 가져 펀치 데미지 레벨이 줄어드는 착시가 쌓인다(#10 "칭호 없음" 비교 17~25층 60.8 → 57.2%).
 --
 -- 환생 직전, 어차피 버려질 나머지(RebirthConfig.getLeftover — BLOX_PER_REBIRTH 미만)로 가장 싼 업그레이드부터
@@ -279,8 +279,9 @@ end
 
 -- ===== 업그레이드 (S5) =====================================================================
 
--- S5' 구매 대상(1차 4종). 상점 노출 목록(UpgradeConfig.SHOP_ORDER)과 다르다 — 행운 줄은 상점에 있지만 표준 플레이어는 안 산다.
-SuccessRateReport.S5_TARGETS = { "punchDamage", "punchSpeed", "moveSpeed", "bloxGain" }
+-- S5' 구매 대상(1차 3종 — L3으로 이동 속도 삭제). 상점 노출 목록(UpgradeConfig.SHOP_ORDER)과 다르다 — 행운 · 슬롯 줄은 상점에 있지만
+-- 표준 플레이어는 안 산다(petSlots는 E11이 펫 예산으로 따로 산다).
+SuccessRateReport.S5_TARGETS = { "punchDamage", "punchSpeed", "bloxGain" }
 
 -- 노출 항목 레벨 0(행운 줄 포함 — 레벨은 0으로 남는다).
 function SuccessRateReport.newUpgradeLevels(): { [string]: number }
@@ -670,7 +671,7 @@ end
 
 -- 스폰 → 입장 게이트. 걷는 동안 평소 속도로 클릭한다. 걸린 초를 돌려준다.
 function SuccessRateReport.walkToGate(p: Player): number
-	local speed = LevelConfig.getMaxSpeed(p.strength, SuccessRateReport.effect(p.upgrades, "moveSpeed"))
+	local speed = LevelConfig.getMaxSpeed(p.strength) -- L2: 32 + 레벨(게임 SpeedService와 같은 함수)
 	local sec = ArenaConfig.getSpawnToEntrance() / speed
 	if MODEL.CLICK_WHILE_WALKING then
 		addClicks(p, math.floor(p.clickRate * sec))
@@ -1606,6 +1607,8 @@ local WARP_VARIANTS: { { label: string, override: { [string]: any } } } = {
 -- (HP 곡선 후보와 같은 패턴). 끝나면 원래 값을 되돌린다. 후보는 결정 모델(S5)로만 돈다.
 -- 지시서 #7 "추가 권한": 최대 레벨 · 기준 비용 · 비용 증가율 · 펀치 데미지/블럭스 획득 증가량만 만진다.
 -- 펀치 속도 증가량은 S2 유도값이라 후보에 넣지 않는다(최대 레벨을 바꾸면 따라 바뀐다).
+-- ⚠️ 2026-10-24 L3으로 moveSpeed가 없어져 비교 후보 두 줄에서 moveSpeed 항을 뺐다(그 항이 있으면 없는 항목을 갈아끼우다 에러가 난다).
+--    그래서 이 두 줄은 지시서 #7 때 숫자와 그대로 비교할 수 없다.
 export type UpgradeOverride = { [string]: { [string]: any } }
 SuccessRateReport.UPGRADE_VARIANTS = {
 	{ label = "U0  현재 UpgradeConfig", override = {} },
@@ -1617,9 +1620,9 @@ SuccessRateReport.UPGRADE_VARIANTS = {
 	--   3차: 데미지 0.03 · 블럭스 0.05 + 기준 100 → 57.4 · 0.05 + 기준 200 → 49.8 · 블럭스 0.1 → 61.2 · 무한 증가율 1.2 → 54.2
 	--   기준 200은 가운데에 더 가깝지만 25층까지 각 2레벨뿐이라 상점이 월드 1에서 거의 의미가 없다 → 기준 100(각 4레벨)을 골랐다(Claude 판단)
 	{ label = "첫 TEMP  기준 10 · 데미지/블럭스 0.1 (비교)", override = {
-		punchDamage = { baseCost = 10, effectPerLevel = 0.1 }, punchSpeed = { baseCost = 10 }, moveSpeed = { baseCost = 10 }, bloxGain = { baseCost = 10, effectPerLevel = 0.1 } } },
+		punchDamage = { baseCost = 10, effectPerLevel = 0.1 }, punchSpeed = { baseCost = 10 }, bloxGain = { baseCost = 10, effectPerLevel = 0.1 } } },
 	{ label = "기준 200 (비교)", override = {
-		punchDamage = { baseCost = 200 }, punchSpeed = { baseCost = 200 }, moveSpeed = { baseCost = 200 }, bloxGain = { baseCost = 200 } } },
+		punchDamage = { baseCost = 200 }, punchSpeed = { baseCost = 200 }, bloxGain = { baseCost = 200 } } },
 } :: { { label: string, override: UpgradeOverride } }
 
 -- override를 적용한 채 fn을 돈다. 에러가 나도 되돌린다. baseCost는 숫자로 적는다(BigNum.fromNumber로 바꾼다).

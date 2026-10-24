@@ -1,6 +1,6 @@
 --!strict
--- UpgradeConfig 검증 (지시서 #7 2단계): 노출 4종 · 비노출 4종(S0), 효과는 레벨에 선형(S1),
--- 펀치 속도 증가량 유도 · 최대 레벨 = 상한(S2), 이동속도 효과가 있어도 MAX_WALK_SPEED 이하(S3),
+-- UpgradeConfig 검증 (지시서 #7 2단계): 노출 항목 = SHOP_ORDER(S0 — #13 L3 뒤 7종), 효과는 레벨에 선형(S1),
+-- 펀치 속도 증가량 유도 · 최대 레벨 = 상한(S2), 이동 속도 업그레이드 삭제(L3 — 최대 속도는 레벨로만),
 -- 비용 단조 증가, 구매 판정(canBuy) 사유 3종, validate가 규약 위반을 잡는가.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -26,13 +26,15 @@ local function close(a: number, b: number): boolean
 	return math.abs(a - b) < 1e-9
 end
 
-local EXPOSED = { "punchDamage", "punchSpeed", "moveSpeed", "bloxGain", "titleLuck", "auraLuck", "petSlots", "petLuck" } -- titleLuck #10 · auraLuck #11 · petSlots · petLuck #12
+-- titleLuck #10 · auraLuck #11 · petSlots · petLuck #12 · moveSpeed는 #13에서 삭제(L3)
+local EXPOSED = { "punchDamage", "punchSpeed", "bloxGain", "titleLuck", "auraLuck", "petSlots", "petLuck" }
 
 -- 1. validate · 노출 구분 ---------------------------------------------------------------------
 do
 	local ok, err = pcall(UpgradeConfig.validate)
 	check("validate 통과", ok, tostring(err))
-	check("SHOP_ORDER = 1차 4종 + 칭호 행운 + 아우라 행운 + 펫 슬롯 + 펫 행운 순서 (E7)", table.concat(UpgradeConfig.SHOP_ORDER, ",") == table.concat(EXPOSED, ","))
+	check("SHOP_ORDER = 1차 3종 + 칭호 행운 + 아우라 행운 + 펫 슬롯 + 펫 행운 순서 (E7 · L3 — 7줄)", table.concat(UpgradeConfig.SHOP_ORDER, ",") == table.concat(EXPOSED, ",")
+		and #UpgradeConfig.SHOP_ORDER == 7)
 	for _, name in ipairs(EXPOSED) do
 		check("노출: " .. name, UpgradeConfig.isExposed(name))
 	end
@@ -47,7 +49,7 @@ do
 		and close(UpgradeConfig.getEffect("petSlots", 1), 1))
 	check("없는 이름 · nil · 숫자는 노출 아님", not UpgradeConfig.isExposed("radius") and not UpgradeConfig.isExposed(nil) and not UpgradeConfig.isExposed(1))
 
-	-- 프로필 스키마의 upgrades 키가 Config 8키와 1:1이다(비노출 4종을 지우지 않았다)
+	-- 프로필 스키마의 upgrades 키가 Config 7키와 1:1이다(v6에서 moveSpeed를 함께 지웠다 — L3)
 	local template = Schema.new()
 	local schemaKeys, configKeys = 0, 0
 	local allIn = true
@@ -60,7 +62,7 @@ do
 	for _ in pairs(UpgradeConfig.Upgrades) do
 		configKeys += 1
 	end
-	check("스키마 upgrades 키 = Config 키 (8)", allIn and schemaKeys == configKeys and configKeys == 8, string.format("%d/%d", schemaKeys, configKeys))
+	check("스키마 upgrades 키 = Config 키 (7 — L3)", allIn and schemaKeys == configKeys and configKeys == 7, string.format("%d/%d", schemaKeys, configKeys))
 end
 
 -- 2. 효과는 레벨에 선형 (S1) -------------------------------------------------------------------
@@ -80,7 +82,8 @@ for _, name in ipairs(EXPOSED) do
 	check("S1: " .. name .. " 0레벨 효과 = 기본값", close(UpgradeConfig.getEffect(name, 0), UpgradeConfig.getEffectBase(name)))
 end
 check("펀치 데미지 · 블럭스 획득 0레벨은 ×1", close(UpgradeConfig.getEffect("punchDamage", 0), 1) and close(UpgradeConfig.getEffect("bloxGain", 0), 1))
-check("이동속도 0레벨 보너스는 0", close(UpgradeConfig.getEffect("moveSpeed", 0), 0))
+check("L3: 이동 속도 업그레이드 항목이 없다 (Config · 스키마 · 상점)", UpgradeConfig.Upgrades.moveSpeed == nil
+	and Schema.new().upgrades.moveSpeed == nil and table.find(UpgradeConfig.SHOP_ORDER, "moveSpeed") == nil)
 
 -- 3. 펀치 속도 (S2) ----------------------------------------------------------------------------
 do
@@ -100,20 +103,14 @@ do
 	check("S2: PUNCH_SPEED_MAX를 바꾸면 최대 레벨 효과가 따라온다", ok and close(top :: number, saved + 1), tostring(top))
 end
 
--- 4. 이동속도 (S3) -----------------------------------------------------------------------------
+-- 4. 이동속도 — 레벨로만 (L2 · L3, 지시서 #13) ------------------------------------------------------
 do
 	local cap = LevelConfig.getMaxWalkSpeed()
-	local maxLevel = UpgradeConfig.Upgrades.moveSpeed.maxLevel :: number
-	local topBonus = UpgradeConfig.getEffect("moveSpeed", maxLevel)
-	local zero = BigNum.new(0, 0)
-	check("S3: 업그레이드 0이면 기존 식 그대로", LevelConfig.getMaxSpeed(zero, 0) == LevelConfig.getMaxSpeed(zero)
-		and LevelConfig.getMaxSpeed(zero) == LevelConfig.BASE_WALK_SPEED)
-	check("S3: 16 + 레벨 + 업그레이드", close(LevelConfig.getMaxSpeed(BigNum.new(1, 5), UpgradeConfig.getEffect("moveSpeed", 3)),
-		math.min(LevelConfig.BASE_WALK_SPEED + 5 + UpgradeConfig.getEffect("moveSpeed", 3), cap)))
-	check("S3: 힘이 아주 커도 · 업그레이드를 다 사도 MAX_WALK_SPEED를 넘지 않는다", LevelConfig.getMaxSpeed(BigNum.new(1, 2000), topBonus) == cap)
-	check("S3: 터무니없는 보너스(1e9)도 MAX_WALK_SPEED에서 잘린다", LevelConfig.getMaxSpeed(zero, 1e9) == cap)
-	check("S3: 음수 · NaN 보너스는 0으로 본다", LevelConfig.getMaxSpeed(zero, -50) == LevelConfig.BASE_WALK_SPEED
-		and LevelConfig.getMaxSpeed(zero, 0 / 0) == LevelConfig.BASE_WALK_SPEED)
+	local p = LevelConfig.powerOfLevel(5)
+	check("L2: 최대 속도 = 기본 + 레벨 (업그레이드 항 없음)", LevelConfig.getMaxSpeed(p) == LevelConfig.BASE_WALK_SPEED + 5)
+	-- 옛 호출부가 두 번째 인자(업그레이드 보너스)를 넘겨도 무시된다 — 더해지면 L3 위반
+	check("L3: 두 번째 인자를 넘겨도 더하지 않는다", (LevelConfig.getMaxSpeed :: any)(p, 20) == LevelConfig.BASE_WALK_SPEED + 5)
+	check("L2: 힘이 아주 커도 MAX_WALK_SPEED를 넘지 않는다", LevelConfig.getMaxSpeed(BigNum.new(1, 2000)) == cap)
 end
 
 -- 5. 비용 단조 증가 ----------------------------------------------------------------------------
@@ -153,24 +150,13 @@ do
 	check("canBuy: 딱 맞으면 가능 + 비용은 getCostAtLevel", ok6 and r6 == nil and c6 ~= nil and BigNum.eq(c6 :: any, cost))
 end
 
--- 6b. 이동 속도 최대 속도 도달 (지시서 #8) -----------------------------------------------------------
+-- 6b. 이동 속도 업그레이드 삭제 (L3, 지시서 #13 — 지시서 #8 "최대 속도 도달" 경로도 함께 없어졌다) -----------------
 do
 	local rich = BigNum.new(1, 100)
-	local strong = BigNum.new(1, 200) -- 레벨 200 — 업그레이드 0이어도 최대 속도가 상한
-	local weak = BigNum.new(1, 0)
-	check("이동 속도: 힘이 아주 크면 이미 상한 — capped", UpgradeConfig.isMoveSpeedCapped(0, strong))
-	check("이동 속도: 힘이 작으면 상한 아님", not UpgradeConfig.isMoveSpeedCapped(0, weak))
-	local ok1, r1 = UpgradeConfig.canBuy("moveSpeed", 0, rich, { strength = strong })
-	check("canBuy: 최대 속도 도달 → max_speed_reached (블럭스가 많아도)", not ok1 and r1 == UpgradeConfig.REASON_MAX_SPEED_REACHED)
-	local ok2 = UpgradeConfig.canBuy("moveSpeed", 0, rich, { strength = weak })
-	check("canBuy: 상한 아래면 산다", ok2)
-	local ok3 = UpgradeConfig.canBuy("moveSpeed", 0, rich)
-	check("canBuy: 힘을 안 주면 그 판정을 건너뛴다(시뮬레이터 · 옛 호출부)", ok3)
-	local ok4 = UpgradeConfig.canBuy("punchDamage", 0, rich, { strength = strong })
-	check("canBuy: 다른 항목은 힘과 무관", ok4)
-	local top = UpgradeConfig.Upgrades.moveSpeed.maxLevel :: number
-	local _, r5 = UpgradeConfig.canBuy("moveSpeed", top, rich, { strength = strong })
-	check("canBuy: 최대 레벨이 최대 속도 도달보다 먼저", r5 == UpgradeConfig.REASON_MAX_LEVEL)
+	local ok1, r1 = UpgradeConfig.canBuy("moveSpeed", 0, rich)
+	check("L3: moveSpeed 구매 → invalid_upgrade (블럭스가 많아도)", not ok1 and r1 == UpgradeConfig.REASON_INVALID_UPGRADE)
+	check("L3: max_speed_reached 사유 · isMoveSpeedCapped가 없다", (UpgradeConfig :: any).REASON_MAX_SPEED_REACHED == nil
+		and (UpgradeConfig :: any).isMoveSpeedCapped == nil)
 end
 
 -- 7. validate가 규약 위반을 잡는다 ---------------------------------------------------------------
@@ -188,7 +174,10 @@ do
 	local m = defs.punchSpeed.maxLevel
 	rejects("펀치 속도 최대 레벨 없음(S2)", function() defs.punchSpeed.maxLevel = nil end, function() defs.punchSpeed.maxLevel = m end)
 	local order = UpgradeConfig.SHOP_ORDER
-	rejects("노출 항목이 SHOP_ORDER에 없음", function() UpgradeConfig.SHOP_ORDER = { "punchDamage", "punchSpeed", "moveSpeed" } end, function() UpgradeConfig.SHOP_ORDER = order end)
+	rejects("노출 항목이 SHOP_ORDER에 없음", function() UpgradeConfig.SHOP_ORDER = { "punchDamage", "punchSpeed" } end, function() UpgradeConfig.SHOP_ORDER = order end)
+	rejects("moveSpeed를 되살림(L3 — 사람 결정 없이)", function()
+		(defs :: any).moveSpeed = { exposed = false, maxLevel = 20, baseCost = BigNum.new(1, 2), costGrowth = 1.2, effectBase = 0, effectPerLevel = 1 }
+	end, function() (defs :: any).moveSpeed = nil end)
 	rejects("비노출 항목을 SHOP_ORDER에 넣음", function() defs.petLuck.exposed = false end, function() defs.petLuck.exposed = true end)
 	local sg = defs.petSlots.maxLevel
 	rejects("증가율 1인 항목의 최대 레벨이 1이 아님", function() defs.petSlots.maxLevel = 2 end, function() defs.petSlots.maxLevel = sg end)

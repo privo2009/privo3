@@ -1,12 +1,16 @@
 --!strict
 -- 레벨과 캐릭터 최대 이동속도 계산.
 --
--- 레벨 = 힘의 지수, 효과 = 레벨 1당 최대 이동속도 +1.
--- 확정값과 근거(N=1을 고른 이유, 월드별 도달 범위)는 DESIGN.md "레벨"이 원본이다.
+-- 레벨 = floor(log₂(힘)) — 힘 2배마다 +1, 효과 = 레벨 1당 최대 이동속도 +1.
+-- 확정값과 근거(L1 · L2 — 2026-10-24 사람 결정, 도달 범위)는 DESIGN.md "레벨"이 원본이다.
 -- ⚠️ 근거를 여기로 복사하지 말 것. 수치가 두 곳에 있으면 반드시 어긋난다.
 --
---   레벨      = 힘의 지수 (N=1)
---   최대속도  = min(BASE_WALK_SPEED + 레벨 + 이동속도 업그레이드, MAX_WALK_SPEED)
+--   레벨      = floor(log₂(힘)), 힘 < 2이면 0                       (L1)
+--   레벨 바   = (힘 − 2^레벨) ÷ 2^레벨 — 그 레벨 안에서의 위치, 0 이상 1 미만
+--   최대속도  = min(BASE_WALK_SPEED + 레벨, MAX_WALK_SPEED)          (L2 — 이동 속도 업그레이드는 L3으로 없어졌다)
+--
+-- ⚠️ 레벨을 쓰는 곳(SpeedService 최대 속도 · HUD PowerBlock 레벨 바 · 시뮬레이터 걷기 시간)은 전부 이 파일의
+--    getLevel · getLevelProgress · getMaxSpeed를 부른다. 자기 식으로 다시 계산하는 곳을 두지 않는다.
 --
 -- ===== 상한은 상수가 아니라 유도값이다 ================================================
 --
@@ -47,7 +51,7 @@ local LevelConfig = {}
 -- 2026-10-23 지시서 #8(M2 · M3): 로블록스 기본값 16 → 32. 첫 직접 플레이에서 로비 · 층 사이 걷기가 지루했다.
 -- 목표 이동 시간(스폰 → 게이트 4초, 층 → 진행 벽 5초)은 거리 축소와 이 값을 함께 써서 맞췄다(ArenaConfig "템포").
 -- ⚠️ 기본값이 오르면 최대 속도 상한(MAX_WALK_SPEED, 발판 깊이 유도 — 지금 80)에 닿는 레벨이 앞당겨진다:
---    16일 때 레벨 64 → 32일 때 레벨 48. 그 레벨부터는 레벨 · 이동속도 업그레이드가 최대 속도를 더 올리지 못한다.
+--    16일 때 레벨 64 → 32일 때 레벨 48(getSpeedCapLevel). 그 레벨부터는 레벨이 최대 속도를 더 올리지 못한다.
 LevelConfig.BASE_WALK_SPEED = 32
 
 -- 상한 유도에 쓰는 기준 프레임레이트. 저사양 기기 기준이다 —
@@ -140,44 +144,86 @@ function LevelConfig.getMaxWalkSpeed(): number
 	return LevelConfig.deriveMaxWalkSpeed(LevelConfig.getMinPartDepth())
 end
 
--- 힘 → 레벨. 힘의 지수를 그대로 쓴다(N=1).
+-- ===== 레벨 (L1) =====================================================================
 --
--- ⚠️ raw number로 변환하지 않는다 (CLAUDE.md 절대 규칙 1). 힘은 10^2000까지 커지므로
--- m * 10^e를 계산하는 순간 inf가 된다. 지수는 e 필드에 이미 있으니 그것만 읽으면 된다.
+-- ⚠️ raw number로 변환하지 않는다 (CLAUDE.md 절대 규칙 1). 힘은 10^2000까지 커지므로 m * 10^e를 계산하는
+--    순간 inf가 된다. log₂(힘) = (log10(가수) + 지수) ÷ log10(2) — 가수와 지수를 따로 더하므로 지수가 커도 안전하다.
 --
--- 0과 음수: BigNum은 0을 {m = 0, e = 0}으로 고정하므로 e만 봐서는 0과 1을 구분할 수 없다
--- (1도 {m = 1, e = 0}이다). 그래서 m을 먼저 본다. 부호도 m에 있다(정규화가 |m|을 쓴다).
--- 0 < 힘 < 1 구간은 e가 음수로 들어오므로 math.max로 접는다 — 레벨이 음수면 속도가
--- 기본값 아래로 내려간다.
-function LevelConfig.getLevel(power: BigNumber): number
+-- ⚠️ 부동소수점 추정만으로 floor를 하지 않는다. 힘이 정확히 2^k이면 (log10(m) + e) ÷ log10(2)가 k − 1e-15로
+--    떨어져 floor가 한 칸 아래로 갈 수 있다. 그래서 추정값을 낸 뒤 **BigNum 비교로 확정한다** —
+--    레벨 L의 정의는 "2^L ≤ 힘 < 2^(L+1)인 L"이고, 2^L은 BigNum.pow(2, L)(BigNum이 다른 모든 값과 같은
+--    12자리 정규화로 만든 값)이다. 경계 테스트(2^k ± 가수 1 ulp)가 이 정의를 잰다(ConfigTests).
+--
+-- 0과 음수: BigNum은 0을 {m = 0, e = 0}으로 고정하고 부호는 m에 있다. m ≤ 0이면 레벨 0.
+-- 0 < 힘 < 2 구간도 0이다(L1 "힘 < 2이면 0") — 레벨이 음수면 속도가 기본값 아래로 내려간다.
+
+local TWO = BigNum.new(2, 0)
+local LOG10_2 = math.log10(2)
+
+-- 2^level (BigNum). level은 0 이상의 정수.
+function LevelConfig.powerOfLevel(level: number): BigNumber
+	return BigNum.pow(TWO, level)
+end
+
+local function assertBig(power: any, fn: string)
 	assert(
 		type(power) == "table" and type(power.m) == "number" and type(power.e) == "number",
-		"LevelConfig.getLevel: power는 BigNum {m, e}여야 함"
+		"LevelConfig." .. fn .. ": power는 BigNum {m, e}여야 함"
 	)
+end
 
-	if power.m <= 0 then
+-- 힘 → 레벨. floor(log₂(힘)), 힘 < 2이면 0.
+function LevelConfig.getLevel(power: BigNumber): number
+	assertBig(power, "getLevel")
+	if power.m <= 0 or BigNum.lt(power, TWO) then
 		return 0
 	end
 
-	return math.max(0, power.e)
+	local level = math.max(1, math.floor((math.log10(power.m) + power.e) / LOG10_2))
+	-- 경계 확정(위 ⚠️). 추정은 많아야 한 칸 어긋나지만 루프로 둔다 — 횟수에 기대지 않는다.
+	while level > 1 and BigNum.lt(power, LevelConfig.powerOfLevel(level)) do
+		level -= 1
+	end
+	while BigNum.gte(power, LevelConfig.powerOfLevel(level + 1)) do
+		level += 1
+	end
+	return level
 end
 
--- 힘 → 최대 이동속도.
+-- 레벨 바에 1을 그대로 넣지 않는다 — "0 이상 1 미만" 계약(꽉 찬 바는 다음 레벨이다).
+-- BigNum 나눗셈이 12자리로 반올림해 2^(L+1) 바로 아래 힘의 비가 정확히 2가 되는 경우를 여기서 접는다.
+LevelConfig.PROGRESS_MAX = 1 - 1e-9
+
+-- 힘 → 레벨 바 진행률 = (힘 − 2^L) ÷ 2^L. 그 레벨 안에서의 위치, 0 이상 1 미만.
+-- 레벨 0은 2^0 = 1 기준이다 — 힘 1 → 0, 힘 1.5 → 0.5, 힘 1 미만 → 0.
+function LevelConfig.getLevelProgress(power: BigNumber): number
+	assertBig(power, "getLevelProgress")
+	if power.m <= 0 then
+		return 0
+	end
+	local base = LevelConfig.powerOfLevel(LevelConfig.getLevel(power))
+	local progress = BigNum.toRatio(power, base) - 1
+	if progress ~= progress or progress < 0 then
+		return 0
+	end
+	return math.min(progress, LevelConfig.PROGRESS_MAX)
+end
+
+-- 최대 속도가 MAX_WALK_SPEED에 처음 닿는 레벨(L2 — 지금 80 − 32 = 48). 시뮬레이터 요약(BALANCE_SUMMARY)이 쓴다.
+function LevelConfig.getSpeedCapLevel(): number
+	return math.max(0, math.ceil(LevelConfig.getMaxWalkSpeed() - LevelConfig.BASE_WALK_SPEED))
+end
+
+-- 힘 → 최대 이동속도 = min(BASE_WALK_SPEED + 레벨, MAX_WALK_SPEED) (L2).
 --
 -- ⚠️ 이 값은 "지금 세팅해야 할 속도"가 아니라 "넘으면 안 되는 천장"이다. 유저가 고른
 -- 커스텀 스피드는 서버가 min(요청값, 이 값)으로 잘라서 쓴다 (DESIGN.md "커스텀 스피드").
 -- 그리고 min()은 다시 호출될 때만 클램프다 — 환생으로 천장이 내려가면 반드시 속도
 -- 재적용 경로를 다시 태워야 한다. 접속 시·환생 시 두 지점이 그 자리다.
 --
--- upgradeBonus: 이동속도 업그레이드 효과(UpgradeConfig.getEffect("moveSpeed", 레벨)). "16 + 레벨"에 더한 뒤
--- MAX_WALK_SPEED로 자른다 — 업그레이드가 있어도 상한은 어떤 경우에도 넘지 않는다(지시서 #7 S3).
--- ⚠️ 이 파일은 UpgradeConfig를 require하지 않는다(그쪽이 이 파일을 읽는다 — 순환 방지). 호출자가 효과를 넘긴다.
-function LevelConfig.getMaxSpeed(power: BigNumber, upgradeBonus: number?): number
-	local bonus = upgradeBonus or 0
-	if type(bonus) ~= "number" or bonus ~= bonus or bonus < 0 then
-		bonus = 0
-	end
-	return math.min(LevelConfig.BASE_WALK_SPEED + LevelConfig.getLevel(power) + bonus, LevelConfig.getMaxWalkSpeed())
+-- 이동 속도 업그레이드 항은 없다(L3 — 2026-10-24 사람 결정으로 상점에서 지웠다). 이동 속도는 레벨로만 오른다.
+function LevelConfig.getMaxSpeed(power: BigNumber): number
+	return math.min(LevelConfig.BASE_WALK_SPEED + LevelConfig.getLevel(power), LevelConfig.getMaxWalkSpeed())
 end
 
 function LevelConfig.validate(): boolean
@@ -211,8 +257,8 @@ function LevelConfig.validate(): boolean
 		"LevelConfig: 힘 0의 속도가 BASE_WALK_SPEED가 아님"
 	)
 
-	-- 레벨에 대해 단조 비감소. 상한 부근에서 꺾이거나 되돌아가면 여기서 걸린다.
-	-- 상한(현재 80)을 확실히 넘기도록 지수 범위를 넉넉히 잡는다.
+	-- 힘에 대해 단조 비감소. 상한 부근에서 꺾이거나 되돌아가면 여기서 걸린다.
+	-- 상한(현재 80 — 레벨 48 · 힘 약 2.8e14)을 확실히 넘기도록 지수 범위를 넉넉히 잡는다.
 	local prev = LevelConfig.getMaxSpeed(BigNum.new(0, 0))
 	for exponent = 0, 200 do
 		local speed = LevelConfig.getMaxSpeed(BigNum.new(1, exponent))
@@ -222,6 +268,7 @@ function LevelConfig.validate(): boolean
 		)
 		prev = speed
 	end
+	assert(prev == maxWalkSpeed, "LevelConfig: 힘 1e200에서도 최대 속도가 상한에 닿지 않음")
 
 	return true
 end

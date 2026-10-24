@@ -31,7 +31,7 @@ local function samplePayload(): any
 		maxWalkSpeed = 36,
 		maxStage = 6,
 		padIndex = 3,
-		upgrades = { punchDamage = 2, punchSpeed = 1, moveSpeed = 0, bloxGain = 0, auraLuck = 0, titleLuck = 0, petLuck = 0, petSlots = 0 },
+		upgrades = { punchDamage = 2, punchSpeed = 1, bloxGain = 0, auraLuck = 0, titleLuck = 0, petLuck = 0, petSlots = 0 },
 		titles = { owned = { "novice", "breaker" }, equipped = "breaker", autoRoll = true },
 		auras = { owned = { "pack1_rare" }, equipped = "pack1_rare", selectedPack = 2, hideOtherAuras = true, world = 1 },
 		pets = { owned = { { uid = "1", petId = "egg1_rare", level = 1 }, { uid = "4", petId = "egg1_epic", level = 2 } }, equipped = { "4" },

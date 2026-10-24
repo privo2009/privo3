@@ -130,7 +130,7 @@ local WarpRequestService = require(script.Parent.Systems.WarpRequestService)
 WarpRequestService.init()
 
 -- 상점 업그레이드 구매 채널 (Phase 6 지시서 #7). UpgradeService는 init이 없다(요청 때 프로필을 읽는다).
--- ⚠️ 순서: SpeedService.init() 뒤 — 이동속도 업그레이드 반응(onLevelChanged)을 SpeedService.init이 등록한다.
+-- (이동속도 업그레이드 반응은 L3으로 지웠다 — 순서 제약이 없어졌다. 자리는 그대로 둔다.)
 local UpgradeRequestService = require(script.Parent.Systems.UpgradeRequestService)
 UpgradeRequestService.init()
 

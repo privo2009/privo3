@@ -50,7 +50,14 @@ do
 	check("new()는 매번 독립된 깊은 복사본을 반환함", b.blox.m == 0)
 end
 
-check("Schema.VERSION == 5 (v5: 파생값 · 드론 필드 삭제)", Schema.VERSION == 5)
+check("Schema.VERSION == 6 (v6: upgrades.moveSpeed 삭제 — L3)", Schema.VERSION == 6)
+check("v6 템플릿: upgrades.moveSpeed 없음 · 나머지 7키", (Schema.getTemplate() :: any).upgrades.moveSpeed == nil and (function()
+	local n = 0
+	for _ in pairs(Schema.getTemplate().upgrades) do
+		n += 1
+	end
+	return n == 7
+end)())
 check("LIMITS.MAX_PET_SLOTS == PetConfig.MaxSlots", Schema.LIMITS.MAX_PET_SLOTS == PetConfig.MaxSlots)
 check("LIMITS.MAX_PET_STORAGE == PetConfig.getStorage(게임패스 있음)", Schema.LIMITS.MAX_PET_STORAGE == PetConfig.getStorage(true))
 do

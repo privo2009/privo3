@@ -20,7 +20,6 @@ local UpgradeShopLogic = {}
 UpgradeShopLogic.NAMES = {
 	punchDamage = "펀치 데미지",
 	punchSpeed = "펀치 속도",
-	moveSpeed = "이동 속도",
 	bloxGain = "블럭스 획득",
 	titleLuck = "칭호 행운", -- 지시서 #10 (G13 — 칭호 뽑기 확률 배수)
 	auraLuck = "아우라 행운", -- 지시서 #11 (A11)
@@ -35,8 +34,6 @@ UpgradeShopLogic.MAX_TEXT = "MAX"
 function UpgradeShopLogic.formatEffect(name: string, value: number): string
 	if name == "punchSpeed" then
 		return string.format("%.2f회/초", value)
-	elseif name == "moveSpeed" then
-		return string.format("최대 속도 +%d", math.floor(value + 0.5))
 	elseif name == "petSlots" then
 		return string.format("슬롯 +%d", math.floor(value + 0.5)) -- 지시서 #12 (슬롯 수 식은 PetConfig.getSlots)
 	end
@@ -71,8 +68,7 @@ function UpgradeShopLogic.levelOf(levels: any, name: string): number
 	return math.floor(v)
 end
 
--- strength: 서버 PlayerState 힘(이동 속도 "최대 속도 도달" 판정 — 서버 UpgradeService가 같은 canBuy로 거부한다).
-function UpgradeShopLogic.row(name: string, level: number, blox: BigNumber, strength: BigNumber?): Row
+function UpgradeShopLogic.row(name: string, level: number, blox: BigNumber): Row
 	local def = UpgradeConfig.Upgrades[name]
 	local maxLevel = def.maxLevel
 	local title = UpgradeShopLogic.NAMES[name] or name
@@ -94,10 +90,7 @@ function UpgradeShopLogic.row(name: string, level: number, blox: BigNumber, stre
 		}
 	end
 
-	local ok, reason, cost = UpgradeConfig.canBuy(name, level, blox, { strength = strength })
-	if reason == UpgradeConfig.REASON_MAX_SPEED_REACHED then
-		cost = UpgradeConfig.getCostAtLevel(name, level)
-	end
+	local ok, reason, cost = UpgradeConfig.canBuy(name, level, blox)
 	local nextText = if UpgradeShopLogic.isLuck(name)
 		then string.format("×%.2f", UpgradeConfig.getEffect(name, level + 1)) -- "행운 ×현재 → ×다음"
 		else UpgradeShopLogic.formatEffect(name, UpgradeConfig.getEffect(name, level + 1))
@@ -115,11 +108,11 @@ function UpgradeShopLogic.row(name: string, level: number, blox: BigNumber, stre
 	}
 end
 
--- 상점 줄. 순서는 UpgradeConfig.SHOP_ORDER(노출 항목 — 지시서 #10부터 5종).
-function UpgradeShopLogic.rows(levels: any, blox: BigNumber, strength: BigNumber?): { Row }
+-- 상점 줄. 순서는 UpgradeConfig.SHOP_ORDER(노출 항목 — 지시서 #13 L3 뒤 7종).
+function UpgradeShopLogic.rows(levels: any, blox: BigNumber): { Row }
 	local out = {}
 	for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
-		table.insert(out, UpgradeShopLogic.row(name, UpgradeShopLogic.levelOf(levels, name), blox, strength))
+		table.insert(out, UpgradeShopLogic.row(name, UpgradeShopLogic.levelOf(levels, name), blox))
 	end
 	return out
 end
@@ -128,8 +121,6 @@ end
 function UpgradeShopLogic.reasonText(code: string): string
 	if code == UpgradeConfig.REASON_MAX_LEVEL then
 		return "최대 레벨"
-	elseif code == UpgradeConfig.REASON_MAX_SPEED_REACHED then
-		return "최대 속도 도달"
 	elseif code == UpgradeConfig.REASON_INSUFFICIENT_BLOX then
 		return "블럭스가 모자라요"
 	elseif code == UpgradeConfig.REASON_INVALID_UPGRADE then

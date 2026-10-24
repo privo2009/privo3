@@ -11,15 +11,17 @@
 --
 -- ⚠️ 효과를 곱하기(증가율^레벨)로 바꾸지 말 것. HP 곡선이 지수라 둘이 맞물리면 성공률이 무너진다.
 --
--- ===== 1차 상점 4종 (S0) ==============================================================
+-- ===== 1차 상점 3종 (S0 · L3) ==========================================================
 --
 --   punchDamage  펀치 데미지 배수  1 + a × L      힘 계통. AttackService.computePunchDamage 한 곳에서만 곱한다 (S4)
 --   punchSpeed   펀치 속도(회/초) BASE + b × L    b = (MAX − BASE) ÷ 최대 레벨 — 유도값, 따로 적지 않는다 (S2)
---   moveSpeed    최대 이동속도 +   c × L          LevelConfig.getMaxSpeed가 "16 + 레벨"에 더한 뒤 MAX_WALK_SPEED로 자른다 (S3)
 --   bloxGain     블럭스 획득 배수  1 + d × L      블럭스 계통. ChallengeService 수령 지급 한 곳에서만 곱한다 (S4)
 --
+-- 이동 속도(moveSpeed)는 2026-10-24 사람 결정 L3으로 지웠다 — 이동 속도는 레벨로만 오른다(LevelConfig.getMaxSpeed).
+-- 그 항목에만 쓰이던 거부 사유 max_speed_reached · "최대 속도 도달" 잠금도 함께 지웠다. 스키마 v6이 프로필 키를 지운다.
+--
 -- 아우라 행운 · 타이틀 행운 · 펫 행운 · 펫 장착 슬롯은 **Phase 7** 항목이다. 시스템이 붙는 지시서에서 상점에 연다(G13):
---   titleLuck #10 · auraLuck #11 · petSlots · petLuck #12(E7 — 상점 7 · 8번째 줄). 이제 비노출 항목은 없다.
+--   titleLuck #10 · auraLuck #11 · petSlots · petLuck #12(E7 — 상점 6 · 7번째 줄, L3 뒤). 이제 비노출 항목은 없다.
 --   행운 효과 = 1 + 레벨당 증가량 × 레벨(더하기 — S1과 같다). 그 뽑기의 행운 체인에 곱한다(RollService.computeLuck).
 --   펫 장착 슬롯 효과 = 레벨 × 보너스 — 슬롯 수 식은 PetConfig.getSlots가 원본이다.
 --
@@ -27,11 +29,9 @@
 --
 -- 최대 레벨 · 기준 비용 · 비용 증가율 · 펀치 데미지/블럭스 획득 증가량은 TEMP다. 지시서 #7 4단계
 -- 시뮬레이션으로 목표 성공률을 지키는지 잰 값이고, 조정 이력은 DESIGN.md "7. 업그레이드 상점".
--- 이동속도 증가량 c = 1은 레벨 효과("레벨 1당 +1", DESIGN.md "레벨")와 같은 단위로 맞춘 값이다(Claude 판단).
 
 local BigNum = require(script.Parent.Parent.BigNum)
 local AttackConfig = require(script.Parent.AttackConfig)
-local LevelConfig = require(script.Parent.LevelConfig)
 
 type BigNumber = BigNum.BigNumber
 
@@ -54,7 +54,7 @@ local Upgrades: { [string]: UpgradeDef } = {
 	-- 목표(40~55%)를 넘었다 → 기준 비용 100 · 데미지/블럭스 0.05로 53.8%. 이력 표는 DESIGN.md "7. 업그레이드 상점".
 	punchDamage = { exposed = true, maxLevel = nil, baseCost = BigNum.new(1, 2), costGrowth = 1.15, effectBase = 1, effectPerLevel = 0.05 }, -- TEMP
 	punchSpeed = { exposed = true, maxLevel = 20, baseCost = BigNum.new(1, 2), costGrowth = 1.2 }, -- TEMP(레벨·비용). 효과는 S2 유도
-	moveSpeed = { exposed = true, maxLevel = 20, baseCost = BigNum.new(1, 2), costGrowth = 1.2, effectBase = 0, effectPerLevel = 1 }, -- TEMP(레벨·비용)
+	-- moveSpeed(이동 속도) 삭제됨: L3(2026-10-24 사람 결정) — 이동 속도는 레벨로만 오른다(DESIGN.md "레벨" · 7장 L3)
 	bloxGain = { exposed = true, maxLevel = nil, baseCost = BigNum.new(1, 2), costGrowth = 1.15, effectBase = 1, effectPerLevel = 0.05 }, -- TEMP
 	-- radius(파괴 반경) 삭제됨: 데미지 오버플로우 도입으로 반경 개념 자체가 없어짐
 	-- (DESIGN.md 2장 "데미지 오버플로우" / 7장 업그레이드 상점). 펀치 데미지와 중복이었다.
@@ -70,15 +70,14 @@ local Upgrades: { [string]: UpgradeDef } = {
 UpgradeConfig.Upgrades = Upgrades
 
 -- 상점 창의 줄 순서이자 노출 항목 목록(S0). validate가 Upgrades의 exposed와 같은지 본다.
--- titleLuck은 지시서 #10에서 5번째, auraLuck은 #11에서 6번째, petSlots · petLuck은 #12에서 7 · 8번째로 열었다(G13 · A11 · E7).
-UpgradeConfig.SHOP_ORDER = { "punchDamage", "punchSpeed", "moveSpeed", "bloxGain", "titleLuck", "auraLuck", "petSlots", "petLuck" }
+-- titleLuck은 지시서 #10, auraLuck은 #11, petSlots · petLuck은 #12에서 열었다(G13 · A11 · E7). moveSpeed는 #13에서 지웠다(L3) — 7줄.
+UpgradeConfig.SHOP_ORDER = { "punchDamage", "punchSpeed", "bloxGain", "titleLuck", "auraLuck", "petSlots", "petLuck" }
 
 -- 구매 거부 사유 코드. 문구는 UI가 매핑한다(UpgradeShopLogic.reasonText).
 UpgradeConfig.REASON_INVALID_UPGRADE = "invalid_upgrade" -- 없는 항목 · 비노출 항목
 UpgradeConfig.REASON_MAX_LEVEL = "max_level"
 UpgradeConfig.REASON_INSUFFICIENT_BLOX = "insufficient_blox"
--- 이동 속도: 최대 속도가 이미 MAX_WALK_SPEED라 한 레벨 더 사도 아무것도 안 오른다(지시서 #8 3단계)
-UpgradeConfig.REASON_MAX_SPEED_REACHED = "max_speed_reached"
+-- (max_speed_reached는 이동 속도 업그레이드와 함께 지웠다 — L3)
 
 local function getDef(name: string): UpgradeDef
 	local def = Upgrades[name]
@@ -143,29 +142,15 @@ function UpgradeConfig.getCostAtLevel(name: string, level: number): BigNumber
 	return BigNum.mul(def.baseCost, BigNum.pow(BigNum.fromNumber(def.costGrowth), level))
 end
 
--- 이동 속도 업그레이드가 지금 아무것도 더하지 못하는가 — 지금 레벨에서 이미 최대 속도가 MAX_WALK_SPEED다(LevelConfig가 자른다).
--- 힘(레벨)이 높으면 업그레이드 0이어도 상한에 닿는다. 환생으로 힘이 처음으로 돌아가면 다시 풀린다.
-function UpgradeConfig.isMoveSpeedCapped(level: number, strength: BigNumber): boolean
-	return LevelConfig.getMaxSpeed(strength, UpgradeConfig.getEffect("moveSpeed", level)) >= LevelConfig.getMaxWalkSpeed()
-end
-
-export type BuyContext = {
-	strength: BigNumber?, -- 이동 속도 상한 판정용. 없으면 그 판정을 건너뛴다
-}
-
 -- 지금 레벨에서 다음 레벨을 살 수 있는가. 서버(UpgradeService)가 매 요청마다 다시 부르고,
 -- 상점 창은 잠김 표시에 같은 함수를 쓴다. 돌려주는 값: (가능, 거부 사유 코드?, 비용?)
--- 사유 판정 순서: 잘못된 항목 → 최대 레벨 → 최대 속도 도달(이동 속도, context.strength가 있을 때) → 블럭스 부족.
-function UpgradeConfig.canBuy(name: any, level: number, blox: BigNumber, context: BuyContext?): (boolean, string?, BigNumber?)
+-- 사유 판정 순서: 잘못된 항목 → 최대 레벨 → 블럭스 부족.
+function UpgradeConfig.canBuy(name: any, level: number, blox: BigNumber): (boolean, string?, BigNumber?)
 	if not UpgradeConfig.isExposed(name) then
 		return false, UpgradeConfig.REASON_INVALID_UPGRADE, nil
 	end
 	if UpgradeConfig.isMaxLevel(name, level) then
 		return false, UpgradeConfig.REASON_MAX_LEVEL, nil
-	end
-	local strength = if context ~= nil then context.strength else nil
-	if name == "moveSpeed" and strength ~= nil and UpgradeConfig.isMoveSpeedCapped(level, strength) then
-		return false, UpgradeConfig.REASON_MAX_SPEED_REACHED, nil
 	end
 	local cost = UpgradeConfig.getCostAtLevel(name, level)
 	if BigNum.lt(blox, cost) then
@@ -173,9 +158,6 @@ function UpgradeConfig.canBuy(name: any, level: number, blox: BigNumber, context
 	end
 	return true, nil, cost
 end
-
--- 아주 큰 힘(레벨 상한을 넘기는 값). validate가 "업그레이드를 다 사도 MAX_WALK_SPEED를 못 넘는다"를 잴 때 쓴다.
-local HUGE_POWER = BigNum.new(1, 2000)
 
 function UpgradeConfig.validate(): boolean
 	for name, def in pairs(Upgrades) do
@@ -213,15 +195,8 @@ function UpgradeConfig.validate(): boolean
 		string.format("UpgradeConfig: 최대 레벨 펀치 속도(%s)가 PUNCH_SPEED_MAX(%s)와 다름", tostring(topSpeed), tostring(AttackConfig.PUNCH_SPEED_MAX))
 	)
 
-	-- S3: 이동속도 업그레이드를 다 사도 최대 속도 ≤ MAX_WALK_SPEED
-	local moveDef = getDef("moveSpeed")
-	assert(moveDef.maxLevel ~= nil, "UpgradeConfig: moveSpeed는 최대 레벨이 있어야 함")
-	local topBonus = UpgradeConfig.getEffect("moveSpeed", moveDef.maxLevel :: number)
-	local cap = LevelConfig.getMaxWalkSpeed()
-	assert(
-		LevelConfig.getMaxSpeed(HUGE_POWER, topBonus) <= cap and LevelConfig.getMaxSpeed(BigNum.new(0, 0), topBonus) <= cap,
-		"UpgradeConfig: 이동속도 업그레이드가 MAX_WALK_SPEED를 넘긴다(S3)"
-	)
+	-- L3: 이동 속도 업그레이드는 없다(이동 속도는 레벨로만 — LevelConfig.getMaxSpeed). 되살아나면 여기서 걸린다
+	assert(Upgrades.moveSpeed == nil, "UpgradeConfig: moveSpeed는 L3(2026-10-24 사람 결정)으로 지웠다 — 되살리려면 사람 결정")
 
 	return true
 end

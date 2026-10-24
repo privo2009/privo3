@@ -80,6 +80,16 @@ Migrations[4] = function(data)
 	return data
 end
 
+-- v5 -> v6: upgrades.moveSpeed 삭제 (2026-10-24 사람 결정 L3 — 상점 이동 속도 업그레이드 삭제, 이동 속도는 레벨로만).
+-- 출시 전이라 개발 계정 구매분은 환급하지 않는다(사람 결정). ProfileStore Reconcile은 템플릿에 없는 키를 지우지 않으므로
+-- 여기서 지운다. 멱등: 키가 없거나 upgrades가 테이블이 아니어도 그대로 지나간다.
+Migrations[5] = function(data)
+	if type(data.upgrades) == "table" then
+		data.upgrades.moveSpeed = nil
+	end
+	return data
+end
+
 -- data.schemaVersion부터 Migrations.CURRENT까지 등록된 변환 함수를 순서대로 적용하고
 -- data.schemaVersion을 최종 버전으로 갱신한다. data는 in-place로 수정된다.
 --

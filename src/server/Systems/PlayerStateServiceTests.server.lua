@@ -108,8 +108,8 @@ do
 	for _ in pairs(snap.upgrades) do
 		count += 1
 	end
-	check("업그레이드: 8키 전부 실린다(비노출 포함)", count == 8, tostring(count))
-	check("업그레이드: 레벨 값", snap.upgrades.punchDamage == 4 and snap.upgrades.bloxGain == 1 and snap.upgrades.moveSpeed == 0)
+	check("업그레이드: Config 7키 전부 실린다(L3 — moveSpeed 없음)", count == 7 and snap.upgrades.moveSpeed == nil, tostring(count))
+	check("업그레이드: 레벨 값", snap.upgrades.punchDamage == 4 and snap.upgrades.bloxGain == 1 and snap.upgrades.punchSpeed == 0)
 	data.upgrades.punchDamage = 9
 	check("업그레이드: 표는 복사본 (프로필을 고쳐도 안 바뀐다)", snap.upgrades.punchDamage == 4)
 	local broken = Schema.new()
