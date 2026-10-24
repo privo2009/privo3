@@ -13,27 +13,16 @@
 --    시뮬레이터(SuccessRateReport)도 이 함수를 부른다 — 판정이 두 곳에 있으면 어긋난다.
 -- 난수는 받는다(randomFn). RNG를 소유하는 것은 RollService다.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+-- 판정 확률 · 결과 분포 식은 Shared/RollOdds 하나다(클라 표시와 같은 식 — 지시서 #11 P3). 판정(roll)만 여기 있다.
+local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
+
 local RollLogic = {}
 
-export type Tier = { baseChance: number? }
+export type Tier = RollOdds.Tier
 
--- luck를 판정에 쓸 수 있는 수로 접는다. 깨진 값(nan · 음수 · 숫자 아님)은 0 — 폴백만 나온다.
--- inf는 그대로 둔다(모든 p가 inf → 가장 높은 등급 확정). 행운이 터무니없이 커지는 것은 RollService가 막을 일이다.
-local function sanitizeLuck(luck: any): number
-	if type(luck) ~= "number" or luck ~= luck or luck < 0 then
-		return 0
-	end
-	return luck
-end
-
--- 그 등급 하나의 판정 확률(행운 반영, 0~1로 자르지 않는다). 시뮬레이터 · 창 표시가 같은 식을 쓰도록 둔다.
-function RollLogic.chance(tier: Tier, luck: number): number
-	local base = tier.baseChance
-	if type(base) ~= "number" or base ~= base or base <= 0 then
-		return 0
-	end
-	return base * sanitizeLuck(luck)
-end
+-- 그 등급 하나의 판정 확률(기본 × 행운, 0~1로 자르지 않는다). 깨진 행운(nan · 음수 · 숫자 아님)은 0 — 폴백만 나온다.
+RollLogic.chance = RollOdds.chance
 
 -- 순차 판정. 반환: (뽑힌 등급, 그 인덱스). tiers가 비면 error — 호출자 버그다(Config validate가 막는다).
 function RollLogic.roll<T>(tiers: { T }, luck: number, randomFn: () -> number): (T, number)
@@ -47,18 +36,7 @@ function RollLogic.roll<T>(tiers: { T }, luck: number, randomFn: () -> number): 
 	return tiers[1], 1
 end
 
--- 실제 등급별 확률(판정 순서까지 반영 — 높은 등급에서 빗나간 몫만 아래로 내려간다). 표시 · 시뮬레이터 대조용.
--- out[i] = P(tiers[i]가 뽑힌다). 합은 1이다.
-function RollLogic.distribution(tiers: { Tier }, luck: number): { number }
-	local out: { number } = {}
-	local remaining = 1
-	for i = #tiers, 2, -1 do
-		local p = math.min(1, RollLogic.chance(tiers[i], luck))
-		out[i] = remaining * p
-		remaining -= out[i]
-	end
-	out[1] = remaining
-	return out
-end
+-- 실제 등장 확률(순차 판정 결과 분포, 합 1). 식은 RollOdds.distribution — 표시 · 시뮬레이터 대조용.
+RollLogic.distribution = RollOdds.distribution
 
 return RollLogic

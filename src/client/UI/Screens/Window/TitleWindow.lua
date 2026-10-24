@@ -23,9 +23,13 @@ local TitleWindowLogic = require(script.Parent.Parent.Parent.Logic.TitleWindowLo
 local TitleWindow = {}
 
 -- 본문 안 배치(본문 기준 비율). Claude가 정한 배치값(docs/UI.md "지시서 #10" 절).
-local ROW_H = 0.095
-local ROW_GAP = 0.008
-local ROWS_H = 6 * ROW_H + 5 * ROW_GAP -- 0.61
+-- 지시서 #11: 맨 위에 "행운 ×N 적용" 한 줄(LUCK_H)을 넣고 줄을 0.095 → 0.085로 줄였다.
+-- LUCK_H 0.06은 폰 본문(약 150px)에서 9px라 글자 하한 11px이 넘쳤다(2026-10-24 실측) → 0.08.
+local LUCK_H = 0.08
+local ROW_TOP = LUCK_H + 0.005
+local ROW_H = 0.085
+local ROW_GAP = 0.005
+local ROWS_H = ROW_TOP + 6 * ROW_H + 5 * ROW_GAP -- 0.62
 local CONTROL_Y = ROWS_H + 0.02
 local CONTROL_H = 0.15
 local NOTE_Y = CONTROL_Y + CONTROL_H + 0.01
@@ -85,6 +89,7 @@ export type Handle = {
 		autoStroke: UIStroke,
 		note: TextLabel,
 		status: TextLabel,
+		luckLine: TextLabel,
 	},
 }
 
@@ -100,7 +105,7 @@ function TitleWindow.create(deps: Deps): Handle
 	for i = 1, 6 do
 		local frame = Instance.new("Frame")
 		frame.Name = "Row" .. i
-		frame.Position = UDim2.fromScale(0, (i - 1) * (ROW_H + ROW_GAP))
+		frame.Position = UDim2.fromScale(0, ROW_TOP + (i - 1) * (ROW_H + ROW_GAP))
 		frame.Size = UDim2.fromScale(1, ROW_H)
 		frame.BackgroundColor3 = UiTheme.Colors.neutral.dark -- 상점 줄과 같은 이유(패널 자리표시와 경계)
 		frame.BorderSizePixel = 0
@@ -108,9 +113,10 @@ function TitleWindow.create(deps: Deps): Handle
 		frame.Parent = body
 
 		local name = WindowParts.makeText("Name", frame, "medium", COL.name.x, 0.05, COL.name.w, 0.9)
-		local mult = WindowParts.makeText("Mult", frame, "small", COL.mult.x, 0.1, COL.mult.w, 0.8)
-		local chance = WindowParts.makeText("Chance", frame, "small", COL.chance.x, 0.1, COL.chance.w, 0.8, Enum.TextXAlignment.Right)
-		local status = WindowParts.makeText("Status", frame, "small", COL.status.x, 0.1, COL.status.w, 0.8, Enum.TextXAlignment.Center)
+		-- 소 칸은 줄 높이의 90% — 폰 줄 높이(약 13px)에서 글자 하한 11px이 칸 안에 든다
+		local mult = WindowParts.makeText("Mult", frame, "small", COL.mult.x, 0.05, COL.mult.w, 0.9)
+		local chance = WindowParts.makeText("Chance", frame, "small", COL.chance.x, 0.05, COL.chance.w, 0.9, Enum.TextXAlignment.Right)
+		local status = WindowParts.makeText("Status", frame, "small", COL.status.x, 0.05, COL.status.w, 0.9, Enum.TextXAlignment.Center)
 
 		local button = Button.create({ size = "Small", color = "blue", widthScale = COL.button.w, heightScale = 0.86 })
 		button.root.Name = "EquipButton"
@@ -122,6 +128,9 @@ function TitleWindow.create(deps: Deps): Handle
 
 		rows[i] = { frame = frame, name = name, mult = mult, chance = chance, status = status, button = button, buttonLabel = buttonLabel, hit = hit }
 	end
+
+	-- 확률 표 위 "행운 ×N 적용"(P3) — 확률 칸 오른쪽 끝에 맞춘다
+	local luckLine = WindowParts.makeText("LuckLine", body, "small", 0, 0, COL.chance.x + COL.chance.w, LUCK_H, Enum.TextXAlignment.Right)
 
 	-- 1회 뽑기
 	local rollButton = Button.create({ size = "Small", color = "blue", widthScale = ROLL_W, heightScale = CONTROL_H })
@@ -173,6 +182,7 @@ function TitleWindow.create(deps: Deps): Handle
 	local function render()
 		local t = now()
 		view = TitleWindowLogic.rows(source.get("titles"), source.get("upgrades"))
+		luckLine.Text = TitleWindowLogic.luckText(source.get("upgrades"))
 		for i, r in ipairs(view) do
 			local parts = rows[i]
 			parts.name.Text = r.name
@@ -287,6 +297,7 @@ function TitleWindow.create(deps: Deps): Handle
 			autoStroke = autoStroke,
 			note = note,
 			status = status,
+			luckLine = luckLine,
 		},
 	}
 end

@@ -35,7 +35,15 @@ function UpgradeShopLogic.formatEffect(name: string, value: number): string
 	elseif name == "moveSpeed" then
 		return string.format("최대 속도 +%d", math.floor(value + 0.5))
 	end
-	return string.format("×%.2f", value) -- punchDamage · bloxGain · titleLuck (배수)
+	if UpgradeShopLogic.isLuck(name) then
+		return string.format("행운 ×%.2f", value) -- 지시서 #11 P3
+	end
+	return string.format("×%.2f", value) -- punchDamage · bloxGain (배수)
+end
+
+-- 행운 줄(titleLuck · auraLuck · petLuck). 효과 문구가 "행운 ×현재 → ×다음"이다(P3).
+function UpgradeShopLogic.isLuck(name: string): boolean
+	return name == "titleLuck" or name == "auraLuck" or name == "petLuck"
 end
 
 export type Row = {
@@ -85,7 +93,9 @@ function UpgradeShopLogic.row(name: string, level: number, blox: BigNumber, stre
 	if reason == UpgradeConfig.REASON_MAX_SPEED_REACHED then
 		cost = UpgradeConfig.getCostAtLevel(name, level)
 	end
-	local nextText = UpgradeShopLogic.formatEffect(name, UpgradeConfig.getEffect(name, level + 1))
+	local nextText = if UpgradeShopLogic.isLuck(name)
+		then string.format("×%.2f", UpgradeConfig.getEffect(name, level + 1)) -- "행운 ×현재 → ×다음"
+		else UpgradeShopLogic.formatEffect(name, UpgradeConfig.getEffect(name, level + 1))
 	local costText = (if cost ~= nil then Formatter.format(cost) else "-") .. " 블럭스"
 	return {
 		name = name,

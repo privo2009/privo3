@@ -44,6 +44,9 @@ do
 	end
 	check("값: 4줄 · SHOP_ORDER 순서", table.concat(order, ",") == table.concat(UpgradeConfig.SHOP_ORDER, ","), table.concat(order, ","))
 	check("값: 레벨 표가 비면 0레벨로 본다", UpgradeShopLogic.levelOf({}, "bloxGain") == 0 and UpgradeShopLogic.levelOf(nil, "bloxGain") == 0)
+	local luckRow = UpgradeShopLogic.row("titleLuck", 2, rich)
+	local expectLuck = string.format("행운 ×%.2f → ×%.2f", UpgradeConfig.getEffect("titleLuck", 2), UpgradeConfig.getEffect("titleLuck", 3))
+	check("값: 행운 줄 효과 = '행운 ×현재 → ×다음' (지시서 #11 P3)", luckRow.effectText == expectLuck, luckRow.effectText)
 end
 
 -- 2. 잠김 ------------------------------------------------------------------------------------------

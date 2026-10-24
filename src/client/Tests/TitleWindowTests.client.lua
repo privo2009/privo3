@@ -16,6 +16,7 @@ local ToastLogic = require(script.Parent.Parent.UI.Logic.ToastLogic)
 local TitleWindow = require(script.Parent.Parent.UI.Screens.Window.TitleWindow)
 local ToastStack = require(script.Parent.Parent.UI.Screens.Overlay.ToastStack)
 local RebirthNotice = require(script.Parent.Parent.UI.Screens.Overlay.RebirthNotice)
+local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
 
 local passed = 0
 local failed = 0
@@ -39,19 +40,23 @@ do
 	check("값: 위가 가장 귀한 등급 (희귀도 높은 순)", rows[1].id == T[N].id and rows[1].tier == N and rows[N].id == T[1].id and rows[N].tier == 1)
 	check("값: 배수 문구 = TitleConfig mult", rows[1].multText == TitleWindowLogic.multText(T[N].mult)
 		and string.find(rows[1].multText, string.format("%.2f", T[N].mult), 1, true) ~= nil, rows[1].multText)
-	check("값: 폴백은 확률 대신 '나머지'", rows[N].chanceText == TitleWindowLogic.FALLBACK_CHANCE_TEXT)
-	check("값: 행운 0레벨 확률 = 기본 확률", rows[1].chanceText == TitleWindowLogic.chanceText(T[N].baseChance :: number))
+	local texts, dec = RollOdds.percentages(RollOdds.distribution(T, 1))
+	check("값: 확률 칸 = 실제 등장 확률(RollOdds 분포 · 표시) — 폴백도 %", rows[N].chanceText == texts[1] and rows[1].chanceText == texts[N],
+		rows[N].chanceText .. " / " .. rows[1].chanceText)
+	local units = 0
+	for _, r in ipairs(rows) do
+		units += math.floor((tonumber((string.gsub(r.chanceText, "%%", ""))) :: number) * 10 ^ dec + 0.5)
+	end
+	check("값: 6줄 확률 합 = 정확히 100% (P3)", units == 100 * 10 ^ dec)
 
 	local L = 9
 	local luck = UpgradeConfig.getEffect("titleLuck", L)
 	local lucky = TitleWindowLogic.rows({ owned = {}, equipped = "", autoRoll = false }, { titleLuck = L })
-	check("값: 현재 확률 = 기본 × titleLuck 효과", lucky[1].chanceText == TitleWindowLogic.chanceText((T[N].baseChance :: number) * luck), lucky[1].chanceText)
+	local luckyTexts = RollOdds.percentages(RollOdds.distribution(T, luck))
+	check("값: 현재 확률 = titleLuck 효과가 반영된 실제 확률", lucky[1].chanceText == luckyTexts[N], lucky[1].chanceText)
+	check("값: 행운 문구 = '행운 ×N 적용'", TitleWindowLogic.luckText({ titleLuck = L }) == RollOdds.luckText(luck))
 	check("값: 행운 표가 깨져도 0레벨", TitleWindowLogic.luckOf(nil) == UpgradeConfig.getEffect("titleLuck", 0) and TitleWindowLogic.luckOf({ titleLuck = -2 }) == UpgradeConfig.getEffect("titleLuck", 0))
 
-	check("확률 문구: 20% · 2% · 0.2% · 0.02% · 0.002%",
-		TitleWindowLogic.chanceText(0.2) == "20.0%" and TitleWindowLogic.chanceText(0.02) == "2.0%" and TitleWindowLogic.chanceText(0.002) == "0.20%"
-			and TitleWindowLogic.chanceText(0.0002) == "0.020%" and TitleWindowLogic.chanceText(0.00002) == "0.0020%")
-	check("확률 문구: 1 이상은 100% · 깨진 값은 0%", TitleWindowLogic.chanceText(3) == "100.0%" and TitleWindowLogic.chanceText(0 / 0) == "0%")
 	check("버튼 문구: 비용 = TitleConfig.ROLL_COST", string.find(TitleWindowLogic.rollButtonText(), Formatter.format(TitleConfig.ROLL_COST), 1, true) ~= nil)
 	local perSec = BigNum.div(TitleConfig.ROLL_COST, BigNum.fromNumber(TitleConfig.ROLL_INTERVAL_SEC))
 	check("안내: 초당 비용 = 비용 ÷ 간격", string.find(TitleWindowLogic.autoNoteText(), Formatter.format(perSec), 1, true) ~= nil, TitleWindowLogic.autoNoteText())
@@ -194,6 +199,7 @@ do
 		end
 	end
 	check("이름 글자 = 희귀도 색", colorsOk)
+	check("확률 표 위 '행운 ×N 적용' 줄", d.luckLine.Text == TitleWindowLogic.luckText(nil))
 	check("창 크기 Offset 0 (Scale만)", handle.root.Size.X.Offset == 0 and handle.root.Size.Y.Offset == 0)
 	handle.root:Destroy()
 end

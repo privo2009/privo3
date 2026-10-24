@@ -6,6 +6,7 @@
 -- TitleConfig, 행운은 UpgradeConfig.getEffect("titleLuck", 레벨) — 서버 RollService.computeLuck에서 지금 1이 아닌 유일한 항이다
 -- (롤 상품은 아우라 전용, 행운 게임패스 · 부스트는 Phase 8 전까지 1 — DESIGN.md "6. 뽑기 3종 > 공통").
 -- ⚠️ 판정은 서버다(절대 규칙 3). 여기 확률은 **표시**다. 롤 가능 여부도 안내일 뿐이고 서버가 다시 판정한다.
+-- 확률 칸은 **실제 등장 확률**(순차 판정 결과 분포, 합 100% — 지시서 #11 P3)이다. 식은 Shared/RollOdds(서버 RollLogic과 같은 함수).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -13,6 +14,7 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
+local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
 
 type BigNumber = BigNum.BigNumber
 
@@ -24,7 +26,6 @@ TitleWindowLogic.EQUIPPED_TEXT = "장착 중"
 TitleWindowLogic.LOCKED_TEXT = "-"
 TitleWindowLogic.OWNED_TEXT = "보유"
 TitleWindowLogic.NOT_OWNED_TEXT = "미보유"
-TitleWindowLogic.FALLBACK_CHANCE_TEXT = "나머지"
 TitleWindowLogic.AUTO_ON_TEXT = "자동 뽑기 켜짐"
 TitleWindowLogic.AUTO_OFF_TEXT = "자동 뽑기 꺼짐"
 
@@ -57,22 +58,6 @@ function TitleWindowLogic.multText(mult: number): string
 	return string.format("힘·블럭스 ×%.2f", mult)
 end
 
--- 확률 → 문구. 유효 숫자 두 자리 근처로 접는다(20.0% · 2.0% · 0.20% · 0.020% · 0.0020%). 1 이상이면 100%.
-function TitleWindowLogic.chanceText(p: number): string
-	if type(p) ~= "number" or p ~= p or p <= 0 then
-		return "0%"
-	end
-	local pct = math.min(p, 1) * 100
-	if pct >= 1 then
-		return string.format("%.1f%%", pct)
-	elseif pct >= 0.1 then
-		return string.format("%.2f%%", pct)
-	elseif pct >= 0.01 then
-		return string.format("%.3f%%", pct)
-	end
-	return string.format("%.4f%%", pct)
-end
-
 -- 지금 행운(표시용). levels = Store "upgrades".
 function TitleWindowLogic.luckOf(levels: any): number
 	local v = if type(levels) == "table" then levels.titleLuck else nil
@@ -85,7 +70,7 @@ export type Row = {
 	name: string,
 	tier: number, -- 희귀도 단계(TitleConfig.Titles 인덱스 = UiTheme.Rarity tier)
 	multText: string,
-	chanceText: string,
+	chanceText: string, -- 실제 등장 확률 % (RollOdds.percentages — 표 전체 합 100)
 	owned: boolean,
 	equipped: boolean,
 	statusText: string,
@@ -110,12 +95,13 @@ function TitleWindowLogic.rows(summary: any, levels: any): { Row }
 	local owned = ownedSet(summary)
 	local equippedId = if type(summary) == "table" and type(summary.equipped) == "string" then summary.equipped else ""
 	local luck = TitleWindowLogic.luckOf(levels)
+	local texts = RollOdds.percentages(RollOdds.distribution(TitleConfig.Titles, luck))
 	local out: { Row } = {}
 	for tier = #TitleConfig.Titles, 1, -1 do
 		local def = TitleConfig.Titles[tier]
 		local isOwned = owned[def.id] == true
 		local isEquipped = isOwned and equippedId == def.id
-		local chance = if def.baseChance == nil then TitleWindowLogic.FALLBACK_CHANCE_TEXT else TitleWindowLogic.chanceText((def.baseChance :: number) * luck)
+		local chance = texts[tier]
 		table.insert(out, {
 			id = def.id,
 			name = def.name,
@@ -130,6 +116,11 @@ function TitleWindowLogic.rows(summary: any, levels: any): { Row }
 		})
 	end
 	return out
+end
+
+-- 확률 표 위 "행운 ×N 적용"(P3).
+function TitleWindowLogic.luckText(levels: any): string
+	return RollOdds.luckText(TitleWindowLogic.luckOf(levels))
 end
 
 export type RollState = { canRoll: boolean, footText: string }
