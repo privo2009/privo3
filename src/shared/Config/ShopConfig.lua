@@ -86,8 +86,8 @@ local DeveloperProducts: { [string]: DeveloperProductDef } = {
 	strengthPotion = { id = 0, name = "힘 포션", priceRobux = 19, effect = { type = "potion", potion = "strength", durationSec = 900, multiplier = 2 } },
 	victoryPotion = { id = 0, name = "승리 포션", priceRobux = 29, effect = { type = "potion", potion = "victory", durationSec = 900, multiplier = 2 } },
 	potionBundle = { id = 0, name = "포션 번들", priceRobux = 999, effect = { type = "potionBundle", potions = { "strength", "victory" } } },
-	bloxPackSmall = { id = 0, name = "블럭스 팩 소량", priceRobux = 99, effect = { type = "blox", amount = BigNum.new(1, 3) } }, -- 1K (임시)
-	bloxPackLarge = { id = 0, name = "블럭스 팩 대량", priceRobux = 499, effect = { type = "blox", amount = BigNum.new(1, 5) } }, -- 100K (임시)
+	-- 블럭스 팩(소량 · 대량)은 2026-10-24 삭제했다(사람 결정 P1). 블럭스를 로벅스로 팔면 칭호 · 아우라 · 펫 뽑기가
+	-- 유료 랜덤 아이템이 된다(DESIGN.md "6. 뽑기 3종 > 유료 랜덤 아이템 정책"). validate가 다시 들어오는 것을 막는다.
 	warpPack = { id = 0, name = "워프 팩", priceRobux = 199, effect = { type = "warp", stages = 10 } },
 }
 ShopConfig.DeveloperProducts = DeveloperProducts
@@ -107,6 +107,11 @@ function ShopConfig.validate(): boolean
 	for name, def in pairs(DeveloperProducts) do
 		assert(def.priceRobux > 0, "ShopConfig: 개발자 상품 " .. name .. "의 가격은 0보다 커야 함")
 		assert(type(def.effect) == "table" and type(def.effect.type) == "string", "ShopConfig: 개발자 상품 " .. name .. "의 effect.type이 없음")
+		-- P1: 블럭스를 로벅스로 파는 상품 금지(CLAUDE.md 금지 사항)
+		assert(def.effect.type ~= "blox", "ShopConfig: 개발자 상품 " .. name .. "이 블럭스를 판다 — 금지(P1, 뽑기가 유료 랜덤 아이템이 된다)")
+	end
+	for name, def in pairs(Gamepasses) do
+		assert((def :: any).effect == nil or (def :: any).effect.type ~= "blox", "ShopConfig: 게임패스 " .. name .. "이 블럭스를 준다 — 금지(P1)")
 	end
 
 	return true

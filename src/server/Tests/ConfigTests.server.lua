@@ -83,6 +83,23 @@ check("ShopSlotConfig: 4개 구좌가 전부 ShopConfig 원본값을 그대로 �
 		and slots[4].name == damage2x.name
 end)
 
+check("ShopConfig: 블럭스를 로벅스로 파는 상품이 없다 (P1 — 지시서 #11)", function()
+	for _, def in pairs(ShopConfig.DeveloperProducts) do
+		if def.effect.type == "blox" then
+			return false
+		end
+	end
+	return (ShopConfig.DeveloperProducts :: any).bloxPackSmall == nil and (ShopConfig.DeveloperProducts :: any).bloxPackLarge == nil
+end)
+
+check("ShopConfig.validate: 블럭스 상품이 다시 들어오면 거부", function()
+	local products = ShopConfig.DeveloperProducts :: any
+	products._probe = { id = 0, name = "probe", priceRobux = 99, effect = { type = "blox" } }
+	local ok = pcall(ShopConfig.validate)
+	products._probe = nil
+	return not ok and ShopConfig.validate()
+end)
+
 check("AuraConfig.validate", function()
 	return AuraConfig.validate()
 end)

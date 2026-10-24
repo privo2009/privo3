@@ -342,8 +342,10 @@ do
 	check("효과는 UpgradeConfig.getEffect 그대로", SuccessRateReport.effect({ punchSpeed = 5 }, "punchSpeed") == UpgradeConfig.getEffect("punchSpeed", 5))
 
 	-- 예산이 가장 싼 것보다 작으면 아무것도 안 산다
-	local cheapest = UpgradeConfig.getCostAtLevel(UpgradeConfig.SHOP_ORDER[1], 0)
-	for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+	local TARGETS = SuccessRateReport.S5_TARGETS
+	check("S5': 구매 대상 = 1차 4종 (행운 업그레이드 제외 — 지시서 #11)", table.concat(TARGETS, ",") == "punchDamage,punchSpeed,moveSpeed,bloxGain")
+	local cheapest = UpgradeConfig.getCostAtLevel(TARGETS[1], 0)
+	for _, name in ipairs(TARGETS) do
 		local c = UpgradeConfig.getCostAtLevel(name, 0)
 		if BigNum.lt(c, cheapest) then
 			cheapest = c
@@ -360,17 +362,18 @@ do
 	check("S5: 쓴 양 ≤ 예산", BigNum.lte(spent, budget), BigNum.tostring(spent))
 	local left = BigNum.sub(budget, spent)
 	local canMore = false
-	for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+	for _, name in ipairs(TARGETS) do
 		if UpgradeConfig.canBuy(name, levels[name], left) then
 			canMore = true
 		end
 	end
 	check("S5: 남은 예산으로 더 살 수 있는 것이 없다", not canMore and count > 0, string.format("count=%d left=%s", count, BigNum.tostring(left)))
 	local sumLevels = 0
-	for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+	for _, name in ipairs(TARGETS) do
 		sumLevels += levels[name]
 	end
 	check("S5: 산 횟수 = 레벨 합", sumLevels == count)
+	check("S5': 행운 업그레이드는 사지 않는다", (levels.titleLuck or 0) == 0 and (levels.auraLuck or 0) == 0)
 
 	-- 최대 레벨 항목은 건너뛴다
 	local maxed = SuccessRateReport.newUpgradeLevels()

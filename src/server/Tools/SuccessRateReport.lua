@@ -37,7 +37,10 @@
 --
 -- ⚠️ 펀치 속도를 1회 데미지에 곱하지 않는다 (CLAUDE.md 금지 사항). 속도는 간격으로만 들어간다.
 --
--- ===== 업그레이드 구매 규칙 (S5, 2026-10-22 사람 결정 — 지시서 #7) ==========================
+-- ===== 업그레이드 구매 규칙 (S5, 2026-10-22 사람 결정 — 지시서 #7 · S5' 2026-10-24 — 지시서 #11) =====
+--
+-- S5': 구매 대상은 1차 4종(S5_TARGETS)으로 고정한다. 행운 업그레이드는 표준 플레이어가 사지 않는다 — 상점에 열릴 때마다
+-- 예산을 나눠 가져 펀치 데미지 레벨이 줄어드는 착시가 쌓인다(#10 "칭호 없음" 비교 17~25층 60.8 → 57.2%).
 --
 -- 환생 직전, 어차피 버려질 나머지(RebirthConfig.getLeftover — BLOX_PER_REBIRTH 미만)로 가장 싼 업그레이드부터
 -- 살 수 있는 만큼 산다(buyCheapestFirst). 업그레이드는 환생해도 남는다. 결정 모델 = MODEL.UPGRADE_POLICY "s5".
@@ -220,7 +223,10 @@ end
 
 -- ===== 업그레이드 (S5) =====================================================================
 
--- 노출 4종 레벨 0. 비노출 4종은 시스템이 없어 넣지 않는다(상점 비노출).
+-- S5' 구매 대상(1차 4종). 상점 노출 목록(UpgradeConfig.SHOP_ORDER)과 다르다 — 행운 줄은 상점에 있지만 표준 플레이어는 안 산다.
+SuccessRateReport.S5_TARGETS = { "punchDamage", "punchSpeed", "moveSpeed", "bloxGain" }
+
+-- 노출 항목 레벨 0(행운 줄 포함 — 레벨은 0으로 남는다).
 function SuccessRateReport.newUpgradeLevels(): { [string]: number }
 	local levels: { [string]: number } = {}
 	for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
@@ -229,7 +235,7 @@ function SuccessRateReport.newUpgradeLevels(): { [string]: number }
 	return levels
 end
 
--- S5: 예산 안에서 가장 싼 업그레이드부터 하나씩 산다(살 수 있는 것이 없을 때까지). 값이 같으면 SHOP_ORDER 앞쪽.
+-- S5': 예산 안에서 S5_TARGETS 중 가장 싼 업그레이드부터 하나씩 산다(살 수 있는 것이 없을 때까지). 값이 같으면 목록 앞쪽.
 -- 판정은 게임과 같은 UpgradeConfig.canBuy(최대 레벨 · 잔액). levels를 제자리에서 올린다. 쓴 양 · 산 횟수를 돌려준다.
 -- StandardPathReport도 이 함수를 부른다(규칙을 두 곳에 두지 않는다).
 function SuccessRateReport.buyCheapestFirst(levels: { [string]: number }, budget: BigNumber): (BigNumber, number)
@@ -239,7 +245,7 @@ function SuccessRateReport.buyCheapestFirst(levels: { [string]: number }, budget
 	while true do
 		local bestName: string? = nil
 		local bestCost: BigNumber? = nil
-		for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+		for _, name in ipairs(SuccessRateReport.S5_TARGETS) do
 			local ok, _reason, cost = UpgradeConfig.canBuy(name, levels[name] or 0, remaining)
 			if ok and cost ~= nil and (bestCost == nil or BigNum.lt(cost, bestCost :: BigNumber)) then
 				bestName, bestCost = name, cost
