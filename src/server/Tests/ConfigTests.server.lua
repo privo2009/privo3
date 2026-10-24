@@ -354,8 +354,109 @@ check("WorldConfig: 월드 1 아우라 팩에 팩 4 · 5가 없다 (G3/S8 — �
 	return true
 end)
 
-check("PetConfig.getNextTier: 최고 등급은 nil", function()
-	return PetConfig.getNextTier(4) == nil and PetConfig.getNextTier(1) == 2
+-- 펫 (지시서 #12 E1 · E2 · E3 · E4) ---------------------------------------------------------------
+check("PetConfig: m = LADDER × EGG_RATIO^(알-1) (E2) · 펫 하나에 m 하나", function()
+	for eggId, egg in pairs(PetConfig.Eggs) do
+		for tier, pet in ipairs(egg.pets) do
+			local expect = PetConfig.LADDER[tier] * PetConfig.EGG_RATIO ^ (eggId - 1)
+			if math.abs(pet.mult - expect) > 1e-4 or (pet :: any).strengthMult ~= nil then
+				return false
+			end
+		end
+	end
+	return true
+end)
+
+check("PetConfig: 부화 비용 100 / 100K / 100M (E1 확정) · 일반은 폴백 · 0.3 / 0.09 / 0.01", function()
+	local e = PetConfig.Eggs
+	local p = e[1].pets
+	return BigNum.eq(e[1].rollCost, BigNum.new(1, 2)) and BigNum.eq(e[2].rollCost, BigNum.new(1, 5)) and BigNum.eq(e[3].rollCost, BigNum.new(1, 8))
+		and p[1].baseChance == nil and p[2].baseChance == 0.3 and p[3].baseChance == 0.09 and p[4].baseChance == 0.01
+end)
+
+check("PetConfig: 해금 = lifetimeBlox ≥ 부화 비용 (G8) · 월드 1 알 1~3", function()
+	local e = PetConfig.Eggs
+	local none = PetConfig.getUnlockedEggs(BigNum.sub(e[1].rollCost, BigNum.fromNumber(1)), 1)
+	local one = PetConfig.getUnlockedEggs(e[1].rollCost, 1)
+	local two = PetConfig.getUnlockedEggs(e[2].rollCost, 1)
+	local all = PetConfig.getUnlockedEggs(BigNum.new(1, 300), 1)
+	return #none == 0 and #one == 1 and #two == 2 and #all == 3 and PetConfig.isInWorld(3, 1) and not PetConfig.isInWorld(4, 1)
+		and #PetConfig.getUnlockedEggs(BigNum.new(1, 300), 999) == 0
+end)
+
+check("PetConfig: 실효 증가분 = (m − 1) × CRAFT_FACTOR^(단계 − 1) (E3) · 깨진 값은 0", function()
+	local pet = PetConfig.Eggs[2].pets[3]
+	local f = PetConfig.CRAFT_FACTOR
+	local ok = true
+	for level = 1, PetConfig.MAX_LEVEL do
+		ok = ok and math.abs(PetConfig.effectiveGain(pet.id, level) - (pet.mult - 1) * f ^ (level - 1)) < 1e-12
+	end
+	return ok and PetConfig.effectiveGain(pet.id, 0) == 0 and PetConfig.effectiveGain(pet.id, PetConfig.MAX_LEVEL + 1) == 0
+		and PetConfig.effectiveGain(pet.id, 1.5) == 0 and PetConfig.effectiveGain("ghost", 1) == 0
+end)
+
+check("PetConfig.totalMult: 1 + Σ 실효 증가분 · 빈 목록 1 · 빈 슬롯은 0 (G9)", function()
+	local a, b = PetConfig.Eggs[1].pets[2], PetConfig.Eggs[3].pets[4]
+	local list = { { petId = a.id, tier = 1 }, { petId = b.id, tier = 3 } }
+	local expect = 1 + PetConfig.effectiveGain(a.id, 1) + PetConfig.effectiveGain(b.id, 3)
+	local holey: any = { { petId = a.id, tier = 1 } }
+	holey[3] = { petId = b.id, tier = 3 } -- 가운데 nil 구멍
+	return math.abs(PetConfig.totalMult(list) - expect) < 1e-12 and PetConfig.totalMult({}) == 1 and PetConfig.totalMult(nil) == 1
+		and math.abs(PetConfig.totalMult(holey) - expect) < 1e-12
+end)
+
+check("PetConfig: 강화 단계 4 · 이름 기본 · 황금 · 다이아 · 무지개 (종 희귀도 이름과 겹치지 않는다)", function()
+	local n = PetConfig.LEVEL_NAMES
+	local clash = false
+	for _, a in ipairs(n) do
+		for _, b in ipairs(PetConfig.TIER_NAMES) do
+			clash = clash or a == b
+		end
+	end
+	return PetConfig.MAX_LEVEL == 4 and n[1] == "기본" and n[2] == "황금" and n[3] == "다이아" and n[4] == "무지개" and not clash
+		and PetConfig.CRAFT_REQUIREMENT == 3 and PetConfig.isLevel(4) and not PetConfig.isLevel(5) and not PetConfig.isLevel(0)
+end)
+
+check("PetConfig.validate: 알 간 규칙 위반(비율이 사다리보다 작다) 거부 · 되돌리면 통과", function()
+	local saved = PetConfig.EGG_RATIO
+	PetConfig.EGG_RATIO = 1.01
+	PetConfig.rebuild()
+	local ok = pcall(PetConfig.validate)
+	PetConfig.EGG_RATIO = saved
+	PetConfig.rebuild()
+	return not ok and PetConfig.validate()
+end)
+
+check("PetConfig.validate: 알 안 m 단조 · m ≥ 1 · CRAFT_FACTOR > 1 · 비용 순증가 위반 거부", function()
+	local savedL = table.clone(PetConfig.LADDER)
+	PetConfig.LADDER[3] = PetConfig.LADDER[2]
+	PetConfig.rebuild()
+	local okMono = pcall(PetConfig.validate)
+	PetConfig.LADDER = { 0.9, 1.1, 1.2, 1.4 }
+	PetConfig.rebuild()
+	local okLow = pcall(PetConfig.validate)
+	PetConfig.LADDER = savedL
+	PetConfig.rebuild()
+	local savedF = PetConfig.CRAFT_FACTOR
+	PetConfig.CRAFT_FACTOR = 1
+	local okF = pcall(PetConfig.validate)
+	PetConfig.CRAFT_FACTOR = savedF
+	local savedE = table.clone(PetConfig.EGG_COST_EXPONENTS)
+	PetConfig.EGG_COST_EXPONENTS[3] = PetConfig.EGG_COST_EXPONENTS[2]
+	PetConfig.rebuild()
+	local okC = pcall(PetConfig.validate)
+	PetConfig.EGG_COST_EXPONENTS = savedE
+	PetConfig.rebuild()
+	return not okMono and not okLow and not okF and not okC and PetConfig.validate()
+end)
+
+check("PetConfig: 장착 Attribute 직렬화 왕복 · 깨진 조각은 건너뛴다", function()
+	local a, b = PetConfig.Eggs[1].pets[1], PetConfig.Eggs[2].pets[4]
+	local s = PetConfig.serializeEquipped({ { petId = a.id, tier = 1 }, { petId = b.id, tier = 4 } })
+	local back = PetConfig.parseEquipped(s)
+	local junk = PetConfig.parseEquipped(s .. ",ghost:1," .. a.id .. ":9,,garbage")
+	return s == a.id .. ":1," .. b.id .. ":4" and #back == 2 and back[2].petId == b.id and back[2].tier == 4
+		and #junk == 2 and #PetConfig.parseEquipped("") == 0 and #PetConfig.parseEquipped(nil) == 0
 end)
 
 check("AssetConfig: btn_yellow의 9-slice 여백이 사방 24px로 균일", function()

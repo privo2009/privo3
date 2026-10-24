@@ -38,6 +38,9 @@ local UpgradeService = require(script.Parent.UpgradeService)
 local TitleService = require(script.Parent.TitleService)
 -- 아우라 요약(지시서 #11). 읽기 규칙은 AuraService.summarize가 원본이다.
 local AuraService = require(script.Parent.AuraService)
+-- 펫 요약(지시서 #12). 읽기 규칙은 PetService.summarize가 원본이다. 보유 150마리(최대 저장 공간)도 한 번에 보낸다 —
+-- 크기는 PlayerStateServiceTests가 잰다. 바뀔 때만 보내므로(아래 "보내는 시점") 차분 방식은 두지 않는다.
+local PetService = require(script.Parent.PetService)
 
 type BigNumber = BigNum.BigNumber
 type PlayerStateView = Remotes.PlayerStateView
@@ -72,7 +75,7 @@ end
 
 -- 프로필 Data와 서비스 값으로 스냅샷을 만든다. 항상 모든 필드를 채운다(선택 필드 금지 —
 -- nil인 키는 직렬화에서 사라진다). BigNum은 복사본이고 숫자는 유한하다(inf·nan이면 0).
-local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number?, padIndex: number?): PlayerStateView
+local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number?, padIndex: number?, pets: any?): PlayerStateView
 	local progress = if type(data.progress) == "table" then data.progress else {}
 	return {
 		blox = copyBig(data.blox),
@@ -87,7 +90,37 @@ local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number
 		upgrades = UpgradeService.readLevels(data),
 		titles = TitleService.summarize(data),
 		auras = AuraService.summarize(data),
+		-- pets는 호출자가 게임패스(세션 값)를 넣어 만든 요약을 넘긴다(readSnapshot). 없으면 게임패스 없음으로 만든다
+		pets = pets or PetService.summarize(data),
 	}
+end
+
+-- 펫 요약이 같은가. owned는 uid 번호 순, equipped는 장착 순서라 순서까지 같으면 같다.
+local function petsEqual(a: any, b: any): boolean
+	if type(a) ~= "table" or type(b) ~= "table" then
+		return a == b
+	end
+	if a.slots ~= b.slots or a.storage ~= b.storage or a.hideOtherPets ~= b.hideOtherPets or a.world ~= b.world then
+		return false
+	end
+	if type(a.owned) ~= "table" or type(b.owned) ~= "table" or #a.owned ~= #b.owned then
+		return false
+	end
+	if type(a.equipped) ~= "table" or type(b.equipped) ~= "table" or #a.equipped ~= #b.equipped then
+		return false
+	end
+	for i, e in ipairs(a.owned) do
+		local f = b.owned[i]
+		if type(f) ~= "table" or f.uid ~= e.uid or f.petId ~= e.petId or f.level ~= e.level then
+			return false
+		end
+	end
+	for i, uid in ipairs(a.equipped) do
+		if b.equipped[i] ~= uid then
+			return false
+		end
+	end
+	return true
 end
 
 -- 아우라 요약이 같은가.
@@ -161,7 +194,7 @@ local function snapshotsEqual(a: PlayerStateView?, b: PlayerStateView?): boolean
 		end
 	end
 	return upgradesEqual((a :: any).upgrades, (b :: any).upgrades) and titlesEqual((a :: any).titles, (b :: any).titles)
-		and aurasEqual((a :: any).auras, (b :: any).auras)
+		and aurasEqual((a :: any).auras, (b :: any).auras) and petsEqual((a :: any).pets, (b :: any).pets)
 end
 
 export type Deps = {
@@ -291,7 +324,8 @@ local function readSnapshot(player: Player): PlayerStateView?
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local walkSpeed = if humanoid ~= nil then humanoid.WalkSpeed else 0
-	return buildSnapshot(profile.Data, walkSpeed, SpeedService.getMaxSpeed(player), PadService.getSelectedIndex(player))
+	return buildSnapshot(profile.Data, walkSpeed, SpeedService.getMaxSpeed(player), PadService.getSelectedIndex(player),
+		PetService.summarizeFor(player, profile.Data))
 end
 
 function PlayerStateService.init()

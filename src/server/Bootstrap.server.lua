@@ -149,6 +149,12 @@ AuraRequestService.init()
 local SettingsRequestService = require(script.Parent.Systems.SettingsRequestService)
 SettingsRequestService.init()
 
+-- 펫 + 요청 채널 (Phase 7 지시서 #12). ⚠️ 순서: ProfileManager.init() 뒤(접속 시 장착 펫 Attribute를 onLoaded로 세운다).
+local PetService = require(script.Parent.Systems.PetService)
+PetService.init()
+local PetRequestService = require(script.Parent.Systems.PetRequestService)
+PetRequestService.init()
+
 -- 플레이어 상태 채널을 연다 (Phase 6 지시서 #5 — HUD가 서버 값을 보인다).
 -- ⚠️ 순서: ProfileManager · PadService · SpeedService · ChallengeService가 준비된 뒤여야 한다.
 -- 스냅샷은 그 넷에서 읽고, 접속 직후 런 상태 sync는 ChallengeService.syncRunState가 보낸다.
@@ -264,6 +270,7 @@ Players.PlayerAdded:Connect(function(player: Player)
 					rebirths = CurrencyService.get(player, "rebirths"),
 					titleMult = TitleService.getMult(player),
 					auraMult = AuraService.getMult(player),
+					petMult = PetService.getMult(player),
 				})
 
 				print(string.format(

@@ -31,6 +31,7 @@ local GymService = require(script.Parent.GymService)
 local TitleService = require(script.Parent.TitleService)
 -- 장착 아우라 m (지시서 #11 A10).
 local AuraService = require(script.Parent.AuraService)
+local PetService = require(script.Parent.PetService)
 
 type BigNumber = BigNum.BigNumber
 
@@ -284,6 +285,7 @@ function ClickService.processClicks(player: Player, count: number, source: strin
 			rebirths = CurrencyService.get(player, "rebirths"),
 			titleMult = TitleService.getMult(player), -- 장착 칭호 (지시서 #10 S3)
 			auraMult = AuraService.getMult(player), -- 장착 아우라 m (지시서 #11 A10)
+			petMult = PetService.getMult(player), -- 장착 펫 배수 1 + Σ 실효 증가분 (지시서 #12 E3) — 힘 자리 하나뿐
 		})
 		-- 운동기구 배수. 기구 위에 서 있을 때만 1보다 크다(GymService — 그 순간의 위치로 판정).
 		-- 패드 파워에 곱해서 넘긴다 — 둘 다 "클릭 1회가 얼마짜리인가"를 정하는 자리값이고, 힘 배수

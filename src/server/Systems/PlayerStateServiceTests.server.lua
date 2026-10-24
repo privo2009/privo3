@@ -164,6 +164,41 @@ do
 	check("아우라: JSON 왕복 뒤에도 같다", ok and pure.snapshotsEqual(snap, HttpService:JSONDecode(encoded)))
 end
 
+-- 3e. 펫 요약 (지시서 #12) ---------------------------------------------------------------
+do
+	local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
+	local E = PetConfig.Eggs[1].pets
+	local data = sampleData()
+	data.pets.owned["1"] = { petId = E[2].id, tier = 1 }
+	data.pets.owned["2"] = { petId = E[3].id, tier = 2 }
+	data.pets.equipped = { "2" }
+	data.pets.nextUid = 3
+	local snap = pure.buildSnapshot(data, 20, 36, 3)
+	check("펫: 요약이 실린다 (owned · equipped · 파생 슬롯 · 저장 공간 · 숨기기)", type(snap.pets) == "table" and #snap.pets.owned == 2
+		and snap.pets.owned[2].level == 2 and snap.pets.equipped[1] == "2" and snap.pets.slots == PetConfig.getSlots(0, false)
+		and snap.pets.storage == PetConfig.getStorage(false) and snap.pets.hideOtherPets == false)
+	local base = pure.buildSnapshot(sampleData(), 20, 36, 3)
+	check("비교: 펫 보유가 다르면 다르다", not pure.snapshotsEqual(base, snap))
+	local crafted = sampleData()
+	crafted.pets.owned["1"] = { petId = E[2].id, tier = 1 }
+	crafted.pets.owned["2"] = { petId = E[3].id, tier = 3 }
+	crafted.pets.equipped = { "2" }
+	check("비교: 강화 단계가 다르면 다르다", not pure.snapshotsEqual(snap, pure.buildSnapshot(crafted, 20, 36, 3)))
+	local unequipped = sampleData()
+	unequipped.pets.owned = data.pets.owned
+	check("비교: 장착이 다르면 다르다", not pure.snapshotsEqual(snap, pure.buildSnapshot(unequipped, 20, 36, 3)))
+	local slotUp = sampleData()
+	slotUp.upgrades.petSlots = 1
+	check("비교: 파생 슬롯이 다르면 다르다", not pure.snapshotsEqual(base, pure.buildSnapshot(slotUp, 20, 36, 3)))
+	local hide = sampleData()
+	hide.cosmetics.hideOtherPets = true
+	check("비교: 펫 숨기기 설정이 다르면 다르다", not pure.snapshotsEqual(base, pure.buildSnapshot(hide, 20, 36, 3)))
+	local ok, encoded = pcall(HttpService.JSONEncode, HttpService, snap)
+	check("펫: JSON 왕복 뒤에도 같다", ok and pure.snapshotsEqual(snap, HttpService:JSONDecode(encoded)))
+	local okE, encE = pcall(HttpService.JSONEncode, HttpService, base)
+	check("펫: 빈 보유 · 빈 장착도 JSON 왕복 뒤 같다", okE and pure.snapshotsEqual(base, HttpService:JSONDecode(encE)))
+end
+
 -- 4. 런타임 — 로드 시 1회 · 바뀔 때만 · 빈도 상한 -----------------------------------------
 local fakePlayer: any = { Name = "PlayerStateTest", UserId = 1 }
 

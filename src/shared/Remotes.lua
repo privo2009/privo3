@@ -24,6 +24,8 @@
 --   AuraResult      서버→클라. 그 요청의 결과 1건(결과 연출용). 브로드캐스트하지 않는다
 --   SettingsRequest 클라→서버. 설정 창의 값 변경(허용 키 화이트리스트) (지시서 #11)
 --   SettingsResult  서버→클라. 그 요청의 결과
+--   PetRequest      클라→서버. 펫 창의 요청(hatch · equip · unequip · equipBest · craft · release) (Phase 7 지시서 #12)
+--   PetResult       서버→클라. 그 요청의 결과 1건(결과 연출용). 브로드캐스트하지 않는다
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --
@@ -94,6 +96,8 @@ Remotes.AURA_REQUEST = "AuraRequest"
 Remotes.AURA_RESULT = "AuraResult"
 Remotes.SETTINGS_REQUEST = "SettingsRequest"
 Remotes.SETTINGS_RESULT = "SettingsResult"
+Remotes.PET_REQUEST = "PetRequest"
+Remotes.PET_RESULT = "PetResult"
 
 -- ===== payload 타입 ====================================================================
 --
@@ -357,6 +361,30 @@ export type SettingsResultPayload = {
 	value: boolean,
 }
 
+-- PetRequest: 펫 창 요청 (클라 → 서버). 결과 · 비용 · 확률을 싣지 않는다(규약 2).
+--   action  "hatch" | "equip" | "unequip" | "equipBest" | "craft" | "release" / egg hatch일 때 알 번호 / uid 그 밖(equipBest 제외)
+export type PetRequestPayload = {
+	action: string,
+	egg: number?,
+	uid: string?,
+}
+
+-- PetResult: 요청 결과 1건 (서버 → 클라). 바뀐 블럭스 · 보유 목록은 PlayerState가 따로 보낸다. 선택 필드 금지.
+--   reason 사유 코드(성공이면 "") / uid 결과 펫(부화 · 크래프팅) 또는 대상 펫 / petId · eggId · rarity(종 희귀도) · level(강화 단계)
+--   결과 펫의 값(없으면 "" · 0) / isNew 지금 보유에 없던 종인가 / equipped 이 요청으로 결과 펫이 장착됐는가
+export type PetResultPayload = {
+	action: string,
+	ok: boolean,
+	reason: string,
+	uid: string,
+	petId: string,
+	eggId: number,
+	rarity: number,
+	level: number,
+	isNew: boolean,
+	equipped: boolean,
+}
+
 export type Channels = {
 	blockDamaged: RemoteEvent,
 	runStateChanged: RemoteEvent,
@@ -378,6 +406,8 @@ export type Channels = {
 	auraResult: RemoteEvent,
 	settingsRequest: RemoteEvent,
 	settingsResult: RemoteEvent,
+	petRequest: RemoteEvent,
+	petResult: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -446,6 +476,8 @@ function Remotes.getServer(): Channels
 		auraResult = ensureEvent(folder, Remotes.AURA_RESULT),
 		settingsRequest = ensureEvent(folder, Remotes.SETTINGS_REQUEST),
 		settingsResult = ensureEvent(folder, Remotes.SETTINGS_RESULT),
+		petRequest = ensureEvent(folder, Remotes.PET_REQUEST),
+		petResult = ensureEvent(folder, Remotes.PET_RESULT),
 	}
 	cached = channels
 	return channels
@@ -500,6 +532,8 @@ function Remotes.getClient(): Channels
 		auraResult = waitFor(folder, Remotes.AURA_RESULT) :: RemoteEvent,
 		settingsRequest = waitFor(folder, Remotes.SETTINGS_REQUEST) :: RemoteEvent,
 		settingsResult = waitFor(folder, Remotes.SETTINGS_RESULT) :: RemoteEvent,
+		petRequest = waitFor(folder, Remotes.PET_REQUEST) :: RemoteEvent,
+		petResult = waitFor(folder, Remotes.PET_RESULT) :: RemoteEvent,
 	}
 	cached = channels
 	return channels

@@ -68,6 +68,24 @@ export type PlayerStateView = {
 	titles: TitleSummary,
 	-- 아우라 요약 (지시서 #11). owned = 보유 id(팩 · 등급 순), equipped = 장착 id(없으면 ""), selectedPack · hideOtherAuras
 	auras: AuraSummary,
+	-- 펫 요약 (지시서 #12). owned = 보유 전부(uid 번호 순), equipped = 장착 uid(장착 순서), slots · storage = 파생값
+	pets: PetSummary,
+}
+
+-- 보유 펫 한 마리. level = 강화 단계 1~4(프로필에는 tier라는 이름으로 저장된다 — DESIGN 10장). 종 희귀도는 petId로 Config에서 읽는다.
+export type PetEntryView = {
+	uid: string,
+	petId: string,
+	level: number,
+}
+
+export type PetSummary = {
+	owned: { PetEntryView },
+	equipped: { string },
+	slots: number, -- PetConfig.getSlots(petSlots 레벨, 슬롯 게임패스)
+	storage: number, -- PetConfig.getStorage(저장 공간 게임패스)
+	hideOtherPets: boolean,
+	world: number,
 }
 
 export type AuraSummary = {

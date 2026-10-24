@@ -2,7 +2,7 @@
 -- 설정 창의 요청 채널 (SettingsRequest → SettingsResult, Phase 7 지시서 #11 A8).
 --
 -- 범용 채널이다 — 키 하나 · 값 하나. **허용 키 화이트리스트(ALLOWED)**에 있는 키만, 그 키의 타입인 값만 받는다.
--- 지금 허용 키는 hideOtherAuras(boolean) 하나다. 펫 숨기기는 #12에서 이 표에 한 줄 더한다.
+-- 지금 허용 키는 hideOtherAuras(#11) · hideOtherPets(#12 E10) 둘이다. 둘 다 boolean.
 -- 저장 자리는 profile.Data.cosmetics[key]. 설정은 표시 취향이라 게임 판정에 쓰지 않는다(절대 규칙 3과 충돌 없음).
 -- 이 파일이 cosmetics.hideOther* 를 쓰는 유일한 곳이다.
 
@@ -23,6 +23,7 @@ SettingsRequestService.REASON_NO_PROFILE = "no_profile"
 -- 허용 키 → 값 타입.
 local ALLOWED: { [string]: string } = {
 	hideOtherAuras = "boolean",
+	hideOtherPets = "boolean",
 }
 SettingsRequestService.ALLOWED = ALLOWED
 
@@ -100,7 +101,7 @@ function SettingsRequestService.init()
 	Players.PlayerRemoving:Connect(function(player: Player)
 		handler.onRemoving(player)
 	end)
-	print("[SettingsRequestService] 설정 채널 준비 완료 (허용 키: hideOtherAuras)")
+	print("[SettingsRequestService] 설정 채널 준비 완료 (허용 키: hideOtherAuras · hideOtherPets)")
 end
 
 return SettingsRequestService

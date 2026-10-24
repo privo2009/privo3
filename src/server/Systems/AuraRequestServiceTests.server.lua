@@ -116,7 +116,12 @@ do
 	check("설정: payload가 표가 아니면 not_allowed", not junk.ok and junk.reason == SettingsRequestService.REASON_NOT_ALLOWED and junk.key == "")
 	local fast = handler.onRequest(P, { key = "hideOtherAuras", value = false }, t + SettingsRequestService._pure.MIN_INTERVAL_SEC * 0.5)
 	check("설정: 빈도 상한 → rate_limited · 그대로", not fast.ok and fast.reason == SettingsRequestService.REASON_RATE_LIMITED and cosmetics.hideOtherAuras == true)
-	check("설정: 허용 키는 hideOtherAuras 하나 (펫은 #12)", SettingsRequestService.ALLOWED.hideOtherAuras == "boolean" and SettingsRequestService.ALLOWED.hideOtherPets == nil)
+	local keys = 0
+	for _ in pairs(SettingsRequestService.ALLOWED) do
+		keys += 1
+	end
+	check("설정: 허용 키는 hideOtherAuras · hideOtherPets 둘 (#12 E10)", SettingsRequestService.ALLOWED.hideOtherAuras == "boolean"
+		and SettingsRequestService.ALLOWED.hideOtherPets == "boolean" and keys == 2)
 	local handler2 = SettingsRequestService._pure.createHandler({
 		getCosmetics = function(_p)
 			return nil
