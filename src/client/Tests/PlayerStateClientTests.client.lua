@@ -33,6 +33,7 @@ local function samplePayload(): any
 		padIndex = 3,
 		upgrades = { punchDamage = 2, punchSpeed = 1, moveSpeed = 0, bloxGain = 0, auraLuck = 0, titleLuck = 0, petLuck = 0, petSlots = 0 },
 		titles = { owned = { "novice", "breaker" }, equipped = "breaker", autoRoll = true },
+		auras = { owned = { "pack1_rare" }, equipped = "pack1_rare", selectedPack = 2, hideOtherAuras = true, world = 1 },
 	}
 end
 
@@ -70,6 +71,15 @@ do
 	local t4 = samplePayload()
 	t4.titles = { owned = {}, equipped = "", autoRoll = false }
 	check("형태: 빈 칭호 요약은 통과", PlayerStateClient.isValidPayload(t4))
+	local a1 = samplePayload()
+	a1.auras = nil
+	check("형태: 아우라 요약이 없으면 거부(지시서 #11)", not PlayerStateClient.isValidPayload(a1))
+	local a2 = samplePayload()
+	a2.auras.hideOtherAuras = "no"
+	check("형태: 아우라 숨기기가 boolean이 아니면 거부", not PlayerStateClient.isValidPayload(a2))
+	local a3 = samplePayload()
+	a3.auras.selectedPack = 0 / 0
+	check("형태: 아우라 팩 번호가 nan이면 거부", not PlayerStateClient.isValidPayload(a3))
 end
 
 -- 2. Store 반영 -----------------------------------------------------------------------------
@@ -101,6 +111,10 @@ do
 	payload.titles.owned[1] = "mythic"
 	titles.owned[2] = "legend"
 	check("반영: 칭호 요약도 깊은 복사", store.get("titles").owned[1] == "novice" and store.get("titles").owned[2] == "breaker")
+	local auras = store.get("auras")
+	check("반영: 아우라 요약", auras.equipped == "pack1_rare" and auras.selectedPack == 2 and auras.hideOtherAuras == true and #auras.owned == 1)
+	auras.owned[1] = "pack5_legendary"
+	check("반영: 아우라 요약도 깊은 복사", store.get("auras").owned[1] == "pack1_rare")
 
 	local received: any = nil
 	store.subscribe("strength", function(value)

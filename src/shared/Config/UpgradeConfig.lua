@@ -61,7 +61,7 @@ local Upgrades: { [string]: UpgradeDef } = {
 
 	-- ===== Phase 7 — 행운 · 슬롯 (G13: 행운 = 1 + 증가량 × 레벨, 2026-10-24 사람 결정) =====
 	-- effectBase 1 = "행운 업그레이드 0레벨은 ×1"(행운 체인의 곱셈 항이라 0이면 확률이 0이 된다).
-	auraLuck = { exposed = false, maxLevel = nil, baseCost = BigNum.new(1, 2), costGrowth = 1.25, effectBase = 1, effectPerLevel = 0.01 }, -- 소폭씩만 (롤 상품 보호). #11에서 연다
+	auraLuck = { exposed = true, maxLevel = nil, baseCost = BigNum.new(1, 2), costGrowth = 1.25, effectBase = 1, effectPerLevel = 0.01 }, -- 소폭씩만 (롤 상품 보호). #11에서 노출
 	titleLuck = { exposed = true, maxLevel = nil, baseCost = BigNum.new(1, 2), costGrowth = 1.25, effectBase = 1, effectPerLevel = 0.01 }, -- 소폭씩만. #10에서 노출
 	petLuck = { exposed = false, maxLevel = 20, baseCost = BigNum.new(1, 2), costGrowth = 1.2, effectBase = 1, effectPerLevel = 0.02 }, -- 상한 있음. #12에서 연다
 	petSlots = { exposed = false, maxLevel = 1, baseCost = BigNum.new(1, 4), costGrowth = 1, effectBase = 0, effectPerLevel = 1 }, -- 최대 +1
@@ -70,8 +70,8 @@ local Upgrades: { [string]: UpgradeDef } = {
 UpgradeConfig.Upgrades = Upgrades
 
 -- 상점 창의 줄 순서이자 노출 항목 목록(S0). validate가 Upgrades의 exposed와 같은지 본다.
--- titleLuck은 지시서 #10에서 5번째로 열었다(G13).
-UpgradeConfig.SHOP_ORDER = { "punchDamage", "punchSpeed", "moveSpeed", "bloxGain", "titleLuck" }
+-- titleLuck은 지시서 #10에서 5번째, auraLuck은 #11에서 6번째로 열었다(G13 · A11).
+UpgradeConfig.SHOP_ORDER = { "punchDamage", "punchSpeed", "moveSpeed", "bloxGain", "titleLuck", "auraLuck" }
 
 -- 구매 거부 사유 코드. 문구는 UI가 매핑한다(UpgradeShopLogic.reasonText).
 UpgradeConfig.REASON_INVALID_UPGRADE = "invalid_upgrade" -- 없는 항목 · 비노출 항목

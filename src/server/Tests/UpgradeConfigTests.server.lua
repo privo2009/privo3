@@ -26,14 +26,14 @@ local function close(a: number, b: number): boolean
 	return math.abs(a - b) < 1e-9
 end
 
-local EXPOSED = { "punchDamage", "punchSpeed", "moveSpeed", "bloxGain", "titleLuck" } -- titleLuck: 지시서 #10 G13
-local HIDDEN = { "auraLuck", "petLuck", "petSlots" }
+local EXPOSED = { "punchDamage", "punchSpeed", "moveSpeed", "bloxGain", "titleLuck", "auraLuck" } -- titleLuck #10 · auraLuck #11
+local HIDDEN = { "petLuck", "petSlots" }
 
 -- 1. validate · 노출 구분 ---------------------------------------------------------------------
 do
 	local ok, err = pcall(UpgradeConfig.validate)
 	check("validate 통과", ok, tostring(err))
-	check("SHOP_ORDER = 1차 4종 + 칭호 행운 순서", table.concat(UpgradeConfig.SHOP_ORDER, ",") == table.concat(EXPOSED, ","))
+	check("SHOP_ORDER = 1차 4종 + 칭호 행운 + 아우라 행운 순서", table.concat(UpgradeConfig.SHOP_ORDER, ",") == table.concat(EXPOSED, ","))
 	for _, name in ipairs(EXPOSED) do
 		check("노출: " .. name, UpgradeConfig.isExposed(name))
 	end
@@ -129,7 +129,7 @@ do
 	local rich = BigNum.new(1, 100)
 	local ok1, r1 = UpgradeConfig.canBuy("radius", 0, rich)
 	check("canBuy: 없는 항목 → invalid_upgrade", not ok1 and r1 == UpgradeConfig.REASON_INVALID_UPGRADE)
-	local ok2, r2 = UpgradeConfig.canBuy("auraLuck", 0, rich)
+	local ok2, r2 = UpgradeConfig.canBuy("petLuck", 0, rich)
 	check("canBuy: 비노출 항목 → invalid_upgrade", not ok2 and r2 == UpgradeConfig.REASON_INVALID_UPGRADE)
 	local ok3, r3 = UpgradeConfig.canBuy(nil, 0, rich)
 	check("canBuy: nil → invalid_upgrade", not ok3 and r3 == UpgradeConfig.REASON_INVALID_UPGRADE)
@@ -179,7 +179,7 @@ do
 	rejects("펀치 속도 최대 레벨 없음(S2)", function() defs.punchSpeed.maxLevel = nil end, function() defs.punchSpeed.maxLevel = m end)
 	local order = UpgradeConfig.SHOP_ORDER
 	rejects("노출 항목이 SHOP_ORDER에 없음", function() UpgradeConfig.SHOP_ORDER = { "punchDamage", "punchSpeed", "moveSpeed" } end, function() UpgradeConfig.SHOP_ORDER = order end)
-	rejects("비노출 항목을 SHOP_ORDER에 넣음", function() UpgradeConfig.SHOP_ORDER = { "punchDamage", "punchSpeed", "moveSpeed", "bloxGain", "titleLuck", "petLuck" } end, function() UpgradeConfig.SHOP_ORDER = order end)
+	rejects("비노출 항목을 SHOP_ORDER에 넣음", function() UpgradeConfig.SHOP_ORDER = { "punchDamage", "punchSpeed", "moveSpeed", "bloxGain", "titleLuck", "auraLuck", "petLuck" } end, function() UpgradeConfig.SHOP_ORDER = order end)
 	local ok = pcall(UpgradeConfig.validate)
 	check("흔든 뒤 원래대로 validate 통과", ok)
 end

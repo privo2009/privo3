@@ -6,6 +6,7 @@
 --   런 안내    RunStateChanged를 RunNoticeLogic에 넣어 나온 대로 띄운다(비차단)
 --   환생 안내  RebirthResult가 성공이면 "×이전 → ×이후"를 잠깐 띄운다(알림층, 지시서 #8)
 --   토스트     TitleResult가 새 칭호면 "새 칭호! 이름 (힘·블럭스 ×N)"(알림층, 최대 3개 · 큐, 지시서 #10)
+--   결과 모달  AuraResult가 새 아우라이거나 epic 이상이면 차단층 큐(한 번에 하나). 런 중이면 모달 대신 토스트(지시서 #11 A6)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
@@ -77,6 +78,12 @@ end)
 ScreenController.open("RunNotice") -- 화면은 열어 두고, 보일지는 RunNotice.show가 root.Visible로 정한다
 
 local channels = Remotes.getClient()
+-- 런 진행 중인가(클리어 대기 포함 — active가 true인 동안). 결과 모달 대신 토스트를 고르는 데 쓴다(A6).
+local runActive = false
+channels.runStateChanged.OnClientEvent:Connect(function(payload: Remotes.RunStateChangedPayload)
+	runActive = payload.active == true
+end)
+
 channels.runStateChanged.OnClientEvent:Connect(function(payload: Remotes.RunStateChangedPayload)
 	local kind = RunNoticeLogic.decide({
 		active = payload.active,
@@ -112,4 +119,49 @@ channels.titleResult.OnClientEvent:Connect(function(payload: Remotes.TitleResult
 		print(string.format("[OverlayBoot] 토스트: %s (%s)", toast.text, payload.action)) -- 실물 관측용(토스트는 몇 초 뒤 사라진다)
 	end
 end)
+-- ===== 차단층 큐 — 뽑기 결과 모달 (지시서 #11 A6) ===================================================
+-- 큐는 범용이다(BlockingQueueLogic — 펫 · 일일 보상이 같은 큐를 쓴다). 한 번에 하나, "확인"으로 닫으면 다음이 올라온다.
+
+local ResultModal = require(script.Parent.Screens.Overlay.ResultModal)
+local BlockingQueueLogic = require(script.Parent.Logic.BlockingQueueLogic)
+local AuraWindowLogic = require(script.Parent.Logic.AuraWindowLogic)
+
+local resultModal = ResultModal.create()
+ScreenController.register("ResultModal", "Overlay", function()
+	return resultModal.root
+end)
+ScreenController.open("ResultModal") -- 열어 두고, 보일지는 show / hide가 정한다
+local blockingQueue = BlockingQueueLogic.new() :: BlockingQueueLogic.Queue<ResultModal.View>
+
+local function renderQueue()
+	local v = blockingQueue.current()
+	if v ~= nil then
+		resultModal.show(v)
+	else
+		resultModal.hide()
+	end
+end
+resultModal.onConfirm(function()
+	blockingQueue.dismiss()
+	renderQueue()
+end)
+
+channels.auraResult.OnClientEvent:Connect(function(payload: Remotes.AuraResultPayload)
+	if not AuraWindowLogic.shouldModal(payload) then
+		return -- 중복 하위 등급 · 거부는 창 안 상태 문구로만
+	end
+	if runActive then
+		local toast = AuraWindowLogic.toastFor(payload)
+		if toast ~= nil then
+			toastStack.push(toast)
+			print(string.format("[OverlayBoot] 토스트: %s (aura, 런 중)", toast.text))
+		end
+		return
+	end
+	local view = AuraWindowLogic.resultView(payload)
+	if view ~= nil and blockingQueue.push(BlockingQueueLogic.PRIORITY.rollResult, view) then
+		renderQueue()
+	end
+end)
+
 StateSync.request()

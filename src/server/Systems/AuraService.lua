@@ -212,7 +212,7 @@ function AuraService.getMult(player: Player): number
 end
 
 -- 상태 채널 요약. owned는 팩 · 등급 순, equipped는 없으면 "".
-export type AuraSummary = { owned: { string }, equipped: string, selectedPack: number, hideOtherAuras: boolean }
+export type AuraSummary = { owned: { string }, equipped: string, selectedPack: number, hideOtherAuras: boolean, world: number }
 function AuraService.summarize(data: any): AuraSummary
 	local cosmetics, rolling = tables(data)
 	local owned: { string } = {}
@@ -231,6 +231,7 @@ function AuraService.summarize(data: any): AuraSummary
 		equipped = equippedId(data) or "",
 		selectedPack = pack,
 		hideOtherAuras = cosmetics ~= nil and cosmetics.hideOtherAuras == true,
+		world = worldOf(data), -- 아우라 창이 그 월드의 팩(AuraConfig.isInWorld)을 그린다
 	}
 end
 

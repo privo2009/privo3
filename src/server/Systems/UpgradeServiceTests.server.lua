@@ -95,7 +95,7 @@ local RICH = BigNum.new(1, 50)
 -- 1. 거부 경로 — 전부 부작용 0 -------------------------------------------------------------------
 do
 	-- nil이 끼어 있어 ipairs를 쓰지 않는다(nil에서 멈춘다)
-	local bads: { any } = { "radius", "auraLuck", "petSlots", "", 5, false, { name = "punchDamage" } }
+	local bads: { any } = { "radius", "petLuck", "petSlots", "", 5, false, { name = "punchDamage" } }
 	bads[8] = nil
 	for i = 1, 8 do
 		local bad = bads[i]

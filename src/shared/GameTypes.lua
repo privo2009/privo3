@@ -75,6 +75,7 @@ export type AuraSummary = {
 	equipped: string,
 	selectedPack: number,
 	hideOtherAuras: boolean,
+	world: number, -- progress.currentWorld (그 월드의 팩만 창에 보인다)
 }
 
 export type TitleSummary = {

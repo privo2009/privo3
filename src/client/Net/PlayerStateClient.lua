@@ -58,6 +58,21 @@ local function isValidTitles(v: any): boolean
 end
 PlayerStateClient.isValidTitles = isValidTitles
 
+-- 아우라 요약(지시서 #11).
+local function isValidAuras(v: any): boolean
+	if type(v) ~= "table" or type(v.owned) ~= "table" or type(v.equipped) ~= "string" or type(v.hideOtherAuras) ~= "boolean"
+		or not isFinite(v.selectedPack) or not isFinite(v.world) then
+		return false
+	end
+	for _, id in ipairs(v.owned) do
+		if type(id) ~= "string" then
+			return false
+		end
+	end
+	return true
+end
+PlayerStateClient.isValidAuras = isValidAuras
+
 -- payload 형태 검사. 하나라도 틀리면 false.
 function PlayerStateClient.isValidPayload(payload: any): boolean
 	if type(payload) ~= "table" then
@@ -73,7 +88,7 @@ function PlayerStateClient.isValidPayload(payload: any): boolean
 			return false
 		end
 	end
-	return isValidUpgrades(payload.upgrades) and isValidTitles(payload.titles)
+	return isValidUpgrades(payload.upgrades) and isValidTitles(payload.titles) and isValidAuras(payload.auras)
 end
 
 -- payload를 setter에 반영한다. 형태가 틀리면 아무것도 반영하지 않고 false.
@@ -94,6 +109,7 @@ function PlayerStateClient.apply(setter: (string, any) -> (), payload: any): boo
 	end
 	setter("upgrades", levels)
 	setter("titles", payload.titles) -- Store가 깊게 복사한다
+	setter("auras", payload.auras)
 	return true
 end
 

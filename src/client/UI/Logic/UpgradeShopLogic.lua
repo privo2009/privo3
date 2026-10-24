@@ -23,6 +23,7 @@ UpgradeShopLogic.NAMES = {
 	moveSpeed = "이동 속도",
 	bloxGain = "블럭스 획득",
 	titleLuck = "칭호 행운", -- 지시서 #10 (G13 — 칭호 뽑기 확률 배수)
+	auraLuck = "아우라 행운", -- 지시서 #11 (A11)
 } :: { [string]: string }
 
 UpgradeShopLogic.BUY_TEXT = "구매"

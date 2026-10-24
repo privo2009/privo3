@@ -33,17 +33,19 @@ UpgradeShopWindow.SUCCESS_TEXT = "%s Lv %d (-%s)"
 
 -- 본문 안 배치(본문 기준 비율). Claude가 정한 배치값(세션 로그).
 -- 지시서 #10: 칭호 행운이 5번째 줄로 들어와 0.2 → 0.17, 간격 0.02 → 0.01(5줄 0.9 + 상태 문구). 폰 줄 높이에서도 글자 하한 11px.
-local ROW_H = 0.17
-local ROW_GAP = 0.01
+-- 지시서 #11: 아우라 행운이 6번째 줄 — 0.17 → 0.15, 간격 0.01 → 0.004. 폰 줄(약 22px) 안 두 칸이 각각 11px(글자 하한)이 되게
+-- 줄 안을 위아래 반씩(이름 | 효과, 버튼 | 비용)으로 나눈다.
+local ROW_H = 0.15
+local ROW_GAP = 0.004
 local STATUS_Y = (ROW_H + ROW_GAP) * #UpgradeConfig.SHOP_ORDER + 0.01
 local STATUS_H = 1 - STATUS_Y
 -- 줄 안(줄 기준 비율)
 local LEFT_W = 0.64
 local BUTTON_X = 0.68
 local BUTTON_W = 0.32
-local BUTTON_H = 0.58
-local FOOT_Y = 0.6
-local FOOT_H = 0.4
+local BUTTON_H = 0.5
+local FOOT_Y = 0.5
+local FOOT_H = 0.5
 
 export type Deps = {
 	store: any?, -- Store 인스턴스. 생략하면 싱글톤
@@ -97,12 +99,12 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 		frame.ZIndex = 3
 		frame.Parent = body
 
-		local title = WindowParts.makeText("Title", frame, "medium", 0.02, 0.03, LEFT_W, 0.5)
-		local effect = WindowParts.makeText("Effect", frame, "small", 0.02, 0.54, LEFT_W, 0.44)
+		local title = WindowParts.makeText("Title", frame, "medium", 0.02, 0, LEFT_W, 0.5)
+		local effect = WindowParts.makeText("Effect", frame, "small", 0.02, 0.5, LEFT_W, 0.5)
 
 		local button = Button.create({ size = "Small", color = "blue", widthScale = BUTTON_W, heightScale = BUTTON_H })
 		button.root.Name = "BuyButton"
-		button.root.Position = UDim2.fromScale(BUTTON_X, 0.02)
+		button.root.Position = UDim2.fromScale(BUTTON_X, 0)
 		button.root.ZIndex = WindowParts.Z_BUTTON
 		button.root.Parent = frame
 		local buttonLabel, hit = WindowParts.decorateButton(button, UpgradeShopLogic.BUY_TEXT)

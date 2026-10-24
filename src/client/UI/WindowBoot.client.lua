@@ -98,7 +98,7 @@ end)
 -- ===== 타이틀(칭호) 창 (지시서 #10) ==============================================================
 -- 요청은 TitleRequest{action, titleId?, on?}(결과 · 비용 · 확률을 싣지 않는다), 결과는 TitleResult.
 -- 바뀐 블럭스 · 칭호 목록은 PlayerState → Store. 새 칭호 토스트는 OverlayBoot가 같은 TitleResult로 띄운다.
--- 메뉴 레일 넷째 칸(임시 "칭호")이 "Title"로 연다 — #11에서 아우라 창으로 되돌린다.
+-- 아우라 창의 "칭호" 버튼이 "Title"로 연다(지시서 #11 — Window 단일 오픈이라 아우라 창이 닫힌다).
 
 local TitleWindow = require(script.Parent.Screens.Window.TitleWindow)
 
@@ -118,6 +118,56 @@ end)
 
 channels.titleResult.OnClientEvent:Connect(function(payload: Remotes.TitleResultPayload)
 	titleWindow.onResult(payload)
+end)
+
+-- ===== 아우라 창 (지시서 #11 A5) ================================================================
+-- 요청은 AuraRequest{action, pack?, auraId?}, 결과는 AuraResult(요청한 사람에게 1건). 결과 모달 · 런 중 토스트는 OverlayBoot.
+-- 메뉴 레일 넷째 칸 "아우라"가 "Aura"로 연다.
+
+local AuraWindow = require(script.Parent.Screens.Window.AuraWindow)
+
+local auraWindow = AuraWindow.create({
+	sendRequest = function(payload)
+		local p: Remotes.AuraRequestPayload = { action = payload.action, pack = payload.pack, auraId = payload.auraId }
+		channels.auraRequest:FireServer(p)
+	end,
+	onClose = function()
+		ScreenController.close("Aura")
+	end,
+	openTitles = function()
+		ScreenController.open("Title")
+	end,
+})
+
+ScreenController.register("Aura", "Window", function()
+	return auraWindow.root
+end)
+
+channels.auraResult.OnClientEvent:Connect(function(payload: Remotes.AuraResultPayload)
+	auraWindow.onResult(payload)
+end)
+
+-- ===== 설정 창 (지시서 #11 A8) ==================================================================
+-- 요청은 SettingsRequest{key, value}(서버 화이트리스트), 결과는 SettingsResult. 메뉴 레일 "설정" 칸이 "Settings"로 연다.
+
+local SettingsWindow = require(script.Parent.Screens.Window.SettingsWindow)
+
+local settingsWindow = SettingsWindow.create({
+	sendRequest = function(payload)
+		local p: Remotes.SettingsRequestPayload = { key = payload.key, value = payload.value }
+		channels.settingsRequest:FireServer(p)
+	end,
+	onClose = function()
+		ScreenController.close("Settings")
+	end,
+})
+
+ScreenController.register("Settings", "Window", function()
+	return settingsWindow.root
+end)
+
+channels.settingsResult.OnClientEvent:Connect(function(payload: Remotes.SettingsResultPayload)
+	settingsWindow.onResult(payload)
 end)
 
 StateSync.request()

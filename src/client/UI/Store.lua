@@ -53,7 +53,10 @@ export type State = {
 	padIndex: number,
 	upgrades: { [string]: number }, -- 업그레이드 레벨 (지시서 #7). 키 = UpgradeConfig 이름 8개
 	titles: TitleSummary, -- 칭호 요약 (지시서 #10). 서버 TitleService.summarize
+	auras: AuraSummary, -- 아우라 요약 (지시서 #11). 서버 AuraService.summarize
 }
+
+export type AuraSummary = { owned: { string }, equipped: string, selectedPack: number, hideOtherAuras: boolean, world: number }
 
 export type TitleSummary = { owned: { string }, equipped: string, autoRoll: boolean }
 
@@ -69,6 +72,7 @@ export type Key =
 	| "padIndex"
 	| "upgrades"
 	| "titles"
+	| "auras"
 
 export type Setter = (Key, any) -> ()
 export type Source = (Setter) -> ()
@@ -100,6 +104,7 @@ local DUMMY_STATE: State = {
 	padIndex = 24,
 	upgrades = {}, -- freshState가 UpgradeConfig 이름마다 0을 채운다(이름을 여기 다시 적지 않는다)
 	titles = { owned = {}, equipped = "", autoRoll = false }, -- 첫 PlayerState 전 — 아무 칭호 없음
+	auras = { owned = {}, equipped = "", selectedPack = 1, hideOtherAuras = false, world = 1 }, -- 첫 PlayerState 전
 }
 
 local BIG_NUM_KEYS: { [Key]: boolean } = {
@@ -145,9 +150,46 @@ local function titlesEqual(a: any, b: any): boolean
 	return true
 end
 
+-- 아우라 요약 깊은 복사 · 비교(칭호와 같은 이유).
+local function cloneAuras(v: any): AuraSummary
+	local owned: { string } = {}
+	if type(v) == "table" and type(v.owned) == "table" then
+		for i, id in ipairs(v.owned) do
+			owned[i] = id
+		end
+	end
+	local t = if type(v) == "table" then v else {}
+	return {
+		owned = owned,
+		equipped = if type(t.equipped) == "string" then t.equipped else "",
+		selectedPack = if type(t.selectedPack) == "number" then t.selectedPack else 1,
+		hideOtherAuras = t.hideOtherAuras == true,
+		world = if type(t.world) == "number" then t.world else 1,
+	}
+end
+
+local function aurasEqual(a: any, b: any): boolean
+	if type(a) ~= "table" or type(b) ~= "table" then
+		return a == b
+	end
+	if a.equipped ~= b.equipped or a.selectedPack ~= b.selectedPack or a.hideOtherAuras ~= b.hideOtherAuras or a.world ~= b.world
+		or #a.owned ~= #b.owned then
+		return false
+	end
+	for i, id in ipairs(a.owned) do
+		if b.owned[i] ~= id then
+			return false
+		end
+	end
+	return true
+end
+
 local function cloneValue(key: Key, value: any): any
 	if key == "titles" then
 		return cloneTitles(value)
+	end
+	if key == "auras" then
+		return cloneAuras(value)
 	end
 	if BIG_NUM_KEYS[key] then
 		local big = value :: BigNumber
@@ -166,6 +208,9 @@ end
 local function valuesEqual(key: Key, a: any, b: any): boolean
 	if key == "titles" then
 		return titlesEqual(a, b)
+	end
+	if key == "auras" then
+		return aurasEqual(a, b)
 	end
 	if BIG_NUM_KEYS[key] then
 		return BigNum.eq(a :: BigNumber, b :: BigNumber)

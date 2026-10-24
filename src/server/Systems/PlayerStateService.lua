@@ -95,7 +95,7 @@ local function aurasEqual(a: any, b: any): boolean
 	if type(a) ~= "table" or type(b) ~= "table" then
 		return a == b
 	end
-	if a.equipped ~= b.equipped or a.selectedPack ~= b.selectedPack or a.hideOtherAuras ~= b.hideOtherAuras then
+	if a.equipped ~= b.equipped or a.selectedPack ~= b.selectedPack or a.hideOtherAuras ~= b.hideOtherAuras or a.world ~= b.world then
 		return false
 	end
 	if type(a.owned) ~= "table" or type(b.owned) ~= "table" or #a.owned ~= #b.owned then
