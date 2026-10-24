@@ -1436,6 +1436,8 @@ PetService   — 크래프팅, 장착, 저장 공간
 473352d 시뮬레이터 S7(칭호 배수 시작값 그대로).
 **#11 완료(2026-10-24)** — 1771224 블럭스 팩 삭제 · S5' · 49c7f7a 확률 공개(RollOdds) · b2a6788 아우라 서버 · 40ac9a7 아우라 UI ·
 81708d4 시뮬레이터 A4 + m 조정(M2) · 13e51d6 토스트 print 삭제. 다음 #12 펫.
+**D2(2026-10-24 사람 결정):** Phase 7이 끝나면 세부 스탯 · 플레이 경험 조정은 사람(희준)이 직접 맡는다.
+#13부터 Claude는 측정 · 후보 보고까지만 하고 채택은 사람이 한다.
 
 계획 (2026-10-24 사람 결정 S1 — 규칙은 `DESIGN.md` 3 · 6 · 10장)
 ```
@@ -1451,8 +1453,16 @@ PetService   — 크래프팅, 장착, 저장 공간
      4 AuraConfig 재작성(m 하나 A1 · G4 · 롤 시계) · AuraService · AuraRequest · SettingsRequest · 배수 두 자리 · PlayerState auras
      5 아우라 큰 창 · 범용 차단층 큐 + 결과 모달(런 중 토스트) · 설정 창 · 파티클 · 상점 auraLuck · 레일 "아우라" 복귀
      6 시뮬레이터 A4(환생 직전 20%) · m 조정 권한 · 7 실물 검증
-#12  펫 — 알 · 크래프팅 · 장착 · 놓아주기 · 슬롯 · 펫 인벤토리 큰 창 · 추적 · 자동 공격 연출 · petLuck · petSlots 노출
-     #12 뒤 HP 재확인 한 번(S6)
+#12  펫 (2026-10-24 사람 결정 E1~E11 · D1 · D2)
+     2 배수 결합 코드 ipairs nil 구멍 전수 점검 (펫 항보다 먼저)
+     3 PetConfig 재작성(E1 비용 100 / 100K / 100M · E2 m 하나 · E4 강화 4단계 · CRAFT_FACTOR · 롤 시계 · G4 같은 규칙 validate)
+       PetService(hatch · equip · unequip · equipBest · craft · release) · PetRequest · 배수 E3(StrengthMultiplier 한 자리)
+       SettingsRequest hideOtherPets · PlayerState pets · 프로필 크기(펫 150 + 칭호 · 아우라 전부)
+     4 펫 큰 창 · 결과 연출(차단층 큐 재사용) · 펫 추적 렌더러(E9) · 설정 둘째 토글 · 상점 8줄(petSlots · petLuck)
+     5 시뮬레이터 E11(아우라 20% → 펫 15% → 환생 → S5') · 권한: 펫 m · CRAFT_FACTOR만
+     6 실물 검증 · "사람 직접 플레이 점검 목록"
+#13  HP 재보정 (S6 "펫 뒤 한 번") — D2: 사람 직접 플레이 → Claude 측정 · 후보 보고 → **사람 채택**
+     (`docs/PENDING.md` "Phase 7 뒤 — 세부 스탯 · 플레이 경험 조정은 사람이 직접 맡는다")
 Phase 8  롤 상품(아우라 전용) · 행운 게임패스 · 3x 부화 · 슬롯 · 저장 공간 게임패스
 ```
 
