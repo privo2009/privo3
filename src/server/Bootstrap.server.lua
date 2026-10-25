@@ -180,6 +180,9 @@ local ProductService = require(script.Parent.Systems.ProductService)
 ProductService.init()
 local PurchaseRequestService = require(script.Parent.Systems.PurchaseRequestService)
 PurchaseRequestService.init()
+-- 자동 클리커(지시서 #16 4단계 S8). ⚠️ 순서: ClickService.init() 뒤(수동 차단 훅을 단다).
+local AutoClickService = require(script.Parent.Systems.AutoClickService)
+AutoClickService.init()
 
 -- 플레이어 상태 채널을 연다 (Phase 6 지시서 #5 — HUD가 서버 값을 보인다).
 -- ⚠️ 순서: ProfileManager · PadService · SpeedService · ChallengeService가 준비된 뒤여야 한다.

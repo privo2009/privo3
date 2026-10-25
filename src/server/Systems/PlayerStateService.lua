@@ -44,6 +44,10 @@ local PetService = require(script.Parent.PetService)
 -- 상점 요약(지시서 #16). 보유 게임패스는 GamepassService, 행운 상품 제한은 PolicyGate가 원본이다(세션 값 — 프로필에 없다).
 local GamepassService = require(script.Parent.GamepassService)
 local PolicyGate = require(script.Parent.PolicyGate)
+-- 활성 부스트 · 자동 클리커 토글(지시서 #16 4단계). 세션 · 프로필 값을 읽기만 한다.
+local BoostService = require(script.Parent.BoostService)
+local AutoClickService = require(script.Parent.AutoClickService)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 
 type BigNumber = BigNum.BigNumber
 type PlayerStateView = Remotes.PlayerStateView
@@ -55,6 +59,9 @@ local LOOP_PERIOD = 0.1 -- 초. 루프 한 틱. SEND_PERIOD보다 짧아야 주�
 local SYNC_COALESCE_SEC = 0.5 -- 초. 이 창 안의 SyncRequest를 하나로 모은다 (수신부 넷이 다 붙을 시간)
 local SYNC_WINDOW_SEC = 10 -- 초. 요청 횟수를 세는 창
 local SYNC_MAX_PER_WINDOW = 10 -- 그 창 안에서 받아 줄 최대 요청 수. 넘으면 버린다
+-- 부스트 남은 초가 마지막으로 보낸 값과 이보다 많이 어긋날 때만 다시 보낸다(클라가 받은 뒤로 센다 — 매초 보내지 않는다).
+-- 켜기 · 연장(+900초) · 만료(목록에서 빠짐)는 바로 다르게 보이므로 즉시 간다.
+local BOOST_RESYNC_SEC = 30
 
 local BIG_FIELDS = { "blox", "strength", "lifetimeBlox", "lifeBlox", "rebirths" }
 local NUMBER_FIELDS = { "walkSpeed", "maxWalkSpeed", "maxStage", "padIndex" }
@@ -95,8 +102,8 @@ local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number
 		auras = AuraService.summarize(data),
 		-- pets는 호출자가 게임패스(세션 값)를 넣어 만든 요약을 넘긴다(readSnapshot). 없으면 게임패스 없음으로 만든다
 		pets = pets or PetService.summarize(data),
-		-- shop도 호출자가 세션 값으로 만들어 넘긴다. 없으면 보유 없음 · 제한(확인 전과 같다)
-		shop = shop or { gamepasses = {}, paidRandomRestricted = true },
+		-- shop도 호출자가 세션 값으로 만들어 넘긴다. 없으면 보유 없음 · 제한(확인 전과 같다) · 부스트 없음 · 자동 꺼짐
+		shop = shop or { gamepasses = {}, paidRandomRestricted = true, boosts = {}, autoClick = false },
 	}
 end
 
@@ -105,8 +112,17 @@ local function shopEqual(a: any, b: any): boolean
 	if type(a) ~= "table" or type(b) ~= "table" then
 		return a == b
 	end
-	if a.paidRandomRestricted ~= b.paidRandomRestricted then
+	if a.paidRandomRestricted ~= b.paidRandomRestricted or a.autoClick ~= b.autoClick then
 		return false
+	end
+	if type(a.boosts) ~= "table" or type(b.boosts) ~= "table" or #a.boosts ~= #b.boosts then
+		return false
+	end
+	for i, x in ipairs(a.boosts) do
+		local y = b.boosts[i]
+		if type(y) ~= "table" or x.type ~= y.type or x.mult ~= y.mult or math.abs(x.remainingSec - y.remainingSec) > BOOST_RESYNC_SEC then
+			return false
+		end
 	end
 	if type(a.gamepasses) ~= "table" or type(b.gamepasses) ~= "table" or #a.gamepasses ~= #b.gamepasses then
 		return false
@@ -334,12 +350,27 @@ PlayerStateService._pure = {
 	SYNC_COALESCE_SEC = SYNC_COALESCE_SEC,
 	SYNC_MAX_PER_WINDOW = SYNC_MAX_PER_WINDOW,
 	BIG_FIELDS = BIG_FIELDS,
+	BOOST_RESYNC_SEC = BOOST_RESYNC_SEC,
 	NUMBER_FIELDS = NUMBER_FIELDS,
 }
 
 -- ===== 런타임 =============================================================================
 
 local initialized = false
+
+local function shopSummaryOf(player: Player): any
+	local restricted = PolicyGate.isPaidRandomRestricted(player)
+	return {
+		gamepasses = GamepassService.ownedKeys(player),
+		paidRandomRestricted = restricted,
+		-- 제한 유저면 로벅스 행운 상품인 부스트(행운 포션)를 숨긴다(S13 — 효과도 ShopEffects가 끈다)
+		boosts = BoostService.summarize(player, function(boostType: string): boolean
+			local def = ShopConfig.BOOSTS[boostType]
+			return restricted and def ~= nil and def.paidRandom
+		end),
+		autoClick = AutoClickService.isOn(player),
+	}
+end
 
 local function readSnapshot(player: Player): PlayerStateView?
 	local profile = ProfileManager.get(player)
@@ -351,7 +382,7 @@ local function readSnapshot(player: Player): PlayerStateView?
 	local walkSpeed = if humanoid ~= nil then humanoid.WalkSpeed else 0
 	return buildSnapshot(profile.Data, walkSpeed, SpeedService.getMaxSpeed(player), PadService.getSelectedIndex(player),
 		PetService.summarizeFor(player, profile.Data),
-		{ gamepasses = GamepassService.ownedKeys(player), paidRandomRestricted = PolicyGate.isPaidRandomRestricted(player) })
+		shopSummaryOf(player))
 end
 
 function PlayerStateService.init()

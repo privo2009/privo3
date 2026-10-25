@@ -76,9 +76,20 @@ export type PlayerStateView = {
 
 -- gamepasses = 보유 게임패스 키(이름순 — GamepassService 세션 값 · 가짜 소유 포함)
 -- paidRandomRestricted = 로벅스 행운 상품을 숨기고 효과를 끄는가(S13 — PolicyGate. 판정 실패 · 확인 전도 true)
+-- boosts = 활성 부스트(BoostService — ShopConfig.BOOST_ORDER 순서, 남은 초 올림). 제한 유저의 행운 포션은 뺀다. 없으면 빈 목록
+--   ⚠️ 남은 초는 매초 바뀌지만 매초 보내지 않는다 — 서버는 BOOST_RESYNC_SEC 넘게 어긋날 때만 다시 보내고 클라가 받은 뒤로 센다
+-- autoClick = 자동 클리커가 켜져 있는가(세션 값 — 접속하면 false)
 export type ShopSummary = {
 	gamepasses: { string },
 	paidRandomRestricted: boolean,
+	boosts: { BoostView },
+	autoClick: boolean,
+}
+
+export type BoostView = {
+	type: string,
+	mult: number,
+	remainingSec: number,
 }
 
 -- 보유 펫 한 마리. level = 강화 단계 1~4(프로필에는 tier라는 이름으로 저장된다 — DESIGN 10장). 종 희귀도는 petId로 Config에서 읽는다.

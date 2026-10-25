@@ -28,6 +28,8 @@
 --   PetResult       서버→클라. 그 요청의 결과 1건(결과 연출용). 브로드캐스트하지 않는다
 --   PurchaseRequest 클라→서버. 로벅스 상품 구매 요청(상품 키) (Phase 8 지시서 #16). 서버가 검증한 뒤에만 프롬프트를 띄운다
 --   PurchaseResult  서버→클라. 그 요청의 판정(프롬프트를 띄웠나 · 거부 사유) + 게임패스 프롬프트가 닫힌 결과
+--   AutoClickRequest 클라→서버. 자동 클리커 켜기 · 끄기(지시서 #16 S8). 세션 값 — 저장하지 않는다
+--   AutoClickResult  서버→클라. 그 요청의 결과 + 보유가 사라져 서버가 끈 알림
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --
@@ -102,6 +104,8 @@ Remotes.PET_REQUEST = "PetRequest"
 Remotes.PET_RESULT = "PetResult"
 Remotes.PURCHASE_REQUEST = "PurchaseRequest"
 Remotes.PURCHASE_RESULT = "PurchaseResult"
+Remotes.AUTO_CLICK_REQUEST = "AutoClickRequest"
+Remotes.AUTO_CLICK_RESULT = "AutoClickResult"
 
 -- ===== payload 타입 ====================================================================
 --
@@ -420,6 +424,21 @@ export type PurchaseResultPayload = {
 	reason: string,
 }
 
+-- AutoClickRequest: 자동 클리커를 켜거나 꺼 달라 (클라 → 서버). 초당 횟수를 싣지 않는다(규약 2) — 서버가 보유에서 정한다.
+export type AutoClickRequestPayload = {
+	on: boolean,
+}
+
+-- AutoClickResult: 결과 (서버 → 클라). 선택 필드 금지.
+--   reason rate_limited · invalid_request · not_owned(미보유 — 클라는 잠김) · 성공이면 ""
+--   on     지금 켜져 있는가(거부면 바뀌기 전 값) / rate 초당 횟수(미보유 0)
+export type AutoClickResultPayload = {
+	ok: boolean,
+	reason: string,
+	on: boolean,
+	rate: number,
+}
+
 export type Channels = {
 	blockDamaged: RemoteEvent,
 	runStateChanged: RemoteEvent,
@@ -445,6 +464,8 @@ export type Channels = {
 	petResult: RemoteEvent,
 	purchaseRequest: RemoteEvent,
 	purchaseResult: RemoteEvent,
+	autoClickRequest: RemoteEvent,
+	autoClickResult: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -517,6 +538,8 @@ function Remotes.getServer(): Channels
 		petResult = ensureEvent(folder, Remotes.PET_RESULT),
 		purchaseRequest = ensureEvent(folder, Remotes.PURCHASE_REQUEST),
 		purchaseResult = ensureEvent(folder, Remotes.PURCHASE_RESULT),
+		autoClickRequest = ensureEvent(folder, Remotes.AUTO_CLICK_REQUEST),
+		autoClickResult = ensureEvent(folder, Remotes.AUTO_CLICK_RESULT),
 	}
 	cached = channels
 	return channels
@@ -575,6 +598,8 @@ function Remotes.getClient(): Channels
 		petResult = waitFor(folder, Remotes.PET_RESULT) :: RemoteEvent,
 		purchaseRequest = waitFor(folder, Remotes.PURCHASE_REQUEST) :: RemoteEvent,
 		purchaseResult = waitFor(folder, Remotes.PURCHASE_RESULT) :: RemoteEvent,
+		autoClickRequest = waitFor(folder, Remotes.AUTO_CLICK_REQUEST) :: RemoteEvent,
+		autoClickResult = waitFor(folder, Remotes.AUTO_CLICK_RESULT) :: RemoteEvent,
 	}
 	cached = channels
 	return channels

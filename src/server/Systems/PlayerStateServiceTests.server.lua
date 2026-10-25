@@ -319,18 +319,31 @@ end
 -- 3z. 상점 요약 (지시서 #16 — 세션 값: 보유 게임패스 · 행운 상품 제한) -------------------------------------
 do
 	local base = pure.buildSnapshot(sampleData(), 20, 36, 3)
-	check("상점: 없으면 보유 없음 · 제한(확인 전과 같다)", type(base.shop) == "table" and #base.shop.gamepasses == 0
-		and base.shop.paidRandomRestricted == true)
-	local owned = pure.buildSnapshot(sampleData(), 20, 36, 3, nil, { gamepasses = { "damage2x", "strength8x" }, paidRandomRestricted = false })
+	check("상점: 없으면 보유 없음 · 제한(확인 전과 같다) · 부스트 없음 · 자동 꺼짐", type(base.shop) == "table" and #base.shop.gamepasses == 0
+		and base.shop.paidRandomRestricted == true and #base.shop.boosts == 0 and base.shop.autoClick == false)
+	local owned = pure.buildSnapshot(sampleData(), 20, 36, 3, nil, { gamepasses = { "damage2x", "strength8x" }, paidRandomRestricted = false, boosts = {}, autoClick = false })
 	check("상점: 넘긴 요약이 그대로 실린다", #owned.shop.gamepasses == 2 and owned.shop.gamepasses[2] == "strength8x"
 		and owned.shop.paidRandomRestricted == false)
 	check("비교: 보유 게임패스가 다르면 다르다", not pure.snapshotsEqual(base, owned))
-	local open = pure.buildSnapshot(sampleData(), 20, 36, 3, nil, { gamepasses = {}, paidRandomRestricted = false })
+	local open = pure.buildSnapshot(sampleData(), 20, 36, 3, nil, { gamepasses = {}, paidRandomRestricted = false, boosts = {}, autoClick = false })
 	check("비교: 제한 여부만 달라도 다르다", not pure.snapshotsEqual(base, open))
-	local same = pure.buildSnapshot(sampleData(), 20, 36, 3, nil, { gamepasses = { "damage2x", "strength8x" }, paidRandomRestricted = false })
+	local same = pure.buildSnapshot(sampleData(), 20, 36, 3, nil, { gamepasses = { "damage2x", "strength8x" }, paidRandomRestricted = false, boosts = {}, autoClick = false })
 	check("비교: 같은 상점 요약이면 같다", pure.snapshotsEqual(owned, same))
 	local ok, encoded = pcall(HttpService.JSONEncode, HttpService, owned)
 	check("상점: JSON 왕복 뒤에도 같다", ok and pure.snapshotsEqual(owned, HttpService:JSONDecode(encoded)))
+	-- 부스트 남은 초: BOOST_RESYNC_SEC 안의 차이는 같다고 본다(매초 보내지 않는다) · 넘거나 켜기 · 만료는 다르다
+	local function withBoost(sec: number?, auto: boolean?)
+		local list = if sec ~= nil then { { type = "strength", mult = 2, remainingSec = sec } } else {}
+		return pure.buildSnapshot(sampleData(), 20, 36, 3, nil, { gamepasses = {}, paidRandomRestricted = false, boosts = list, autoClick = auto == true })
+	end
+	local R = pure.BOOST_RESYNC_SEC
+	check("부스트: 남은 초가 BOOST_RESYNC_SEC 안에서만 다르면 같다(다시 보내지 않는다)", pure.snapshotsEqual(withBoost(900), withBoost(900 - R)))
+	check("부스트: BOOST_RESYNC_SEC를 넘게 어긋나면 다르다", not pure.snapshotsEqual(withBoost(900), withBoost(900 - R - 1)))
+	check("부스트: 켜기 · 만료(목록 길이)는 바로 다르다", not pure.snapshotsEqual(withBoost(nil), withBoost(900)))
+	check("부스트: 연장(+900초)은 바로 다르다", not pure.snapshotsEqual(withBoost(100), withBoost(1000)))
+	check("자동 클리커: 토글이 다르면 다르다", not pure.snapshotsEqual(withBoost(nil, false), withBoost(nil, true)))
+	local okB, encB = pcall(HttpService.JSONEncode, HttpService, withBoost(321, true))
+	check("부스트: JSON 왕복 뒤에도 같다", okB and pure.snapshotsEqual(withBoost(321, true), HttpService:JSONDecode(encB)))
 end
 
 print(string.format("[PlayerStateServiceTests] %d passed, %d failed", passed, failed))
