@@ -20,6 +20,7 @@ local ClickPadConfig = require(ReplicatedStorage.Shared.Config.ClickPadConfig)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 
 -- 작은 배수(1.2 · 2 · 100)는 Formatter의 소수 2자리 대신 짧게 적는다.
 local function formatSmall(value: number): string
@@ -61,8 +62,8 @@ function WorldLabelLogic.cashout(run: RunInput?, padStage: number): Label
 	end
 	return {
 		visible = true,
-		title = "수령",
-		detail = "+" .. Formatter.format(run.reward),
+		title = Locale.t("world.cashout.title"),
+		detail = Locale.t("world.cashout.reward", { amount = Formatter.format(run.reward) }),
 		role = "cashout",
 	}
 end
@@ -74,12 +75,12 @@ function WorldLabelLogic.wall(run: RunInput?): Label
 		return HIDDEN
 	end
 	if not run.canAdvance then
-		return { visible = true, title = "다음 월드", detail = "준비 중", role = "neutral" }
+		return { visible = true, title = Locale.t("world.wall.nextWorld"), detail = Locale.t("world.wall.comingSoon"), role = "neutral" }
 	end
 	return {
 		visible = true,
-		title = "진행",
-		detail = "다음 층 +" .. Formatter.format(run.nextReward or StageConfig.getBloxReward(run.stage + 1)),
+		title = Locale.t("world.wall.title"),
+		detail = Locale.t("world.wall.nextReward", { amount = Formatter.format(run.nextReward or StageConfig.getBloxReward(run.stage + 1)) }),
 		role = "advance",
 	}
 end
@@ -89,12 +90,12 @@ function WorldLabelLogic.pad(index: number, lifeBlox: BigNumber): Label
 	local power = ClickPadConfig.getPadPower(WORLD_ID, index)
 	local unlocked = ClickPadConfig.isUnlocked(WORLD_ID, index, lifeBlox)
 	if unlocked then
-		return { visible = true, title = "클릭 " .. Formatter.format(power), detail = "", role = "power" }
+		return { visible = true, title = Locale.t("world.pad.power", { power = Formatter.format(power) }), detail = "", role = "power" }
 	end
 	return {
 		visible = true,
-		title = "클릭 " .. Formatter.format(power),
-		detail = "필요 " .. Formatter.format(ClickPadConfig.getPadUnlock(WORLD_ID, index)),
+		title = Locale.t("world.pad.power", { power = Formatter.format(power) }),
+		detail = Locale.t("world.pad.need", { amount = Formatter.format(ClickPadConfig.getPadUnlock(WORLD_ID, index)) }),
 		role = "neutral",
 	}
 end
@@ -170,24 +171,24 @@ WorldLabelLogic.GYM_HEIGHT = 10
 
 -- 기구 위 표시. standing = 지금 이 기구 위에 서 있는가. shopUnlocked = 로벅스로 열렸는가(지시서 #16 — GymLayout.shopUnlocked).
 function WorldLabelLogic.gym(index: number, rebirths: BigNumber, standing: boolean, shopUnlocked: ((number) -> boolean)?): Label
-	local multiplierText = "기구 ×" .. formatSmall(GymConfig.getMultiplier(index))
+	local multiplierText = Locale.t("world.gym.mult", { mult = formatSmall(GymConfig.getMultiplier(index)) })
 	local bought = shopUnlocked ~= nil and shopUnlocked(index)
 	if GymConfig.isRobuxOnly(index) then
 		local registered = ShopConfig.isRegistered(GymConfig.getShopKey(index))
 		return {
 			visible = true,
-			title = "공허 ×" .. formatSmall(GymConfig.getMultiplier(index)),
-			detail = if bought then (if standing then "사용 중" else "") elseif registered then "로벅스 전용" else "로벅스 전용(준비 중)",
+			title = Locale.t("world.gym.voidMult", { mult = formatSmall(GymConfig.getMultiplier(index)) }),
+			detail = if bought then (if standing then Locale.t("world.gym.inUse") else "") elseif registered then Locale.t("world.gym.robuxOnly") else Locale.t("world.gym.robuxOnlySoon"),
 			role = "premium",
 		}
 	end
 	if GymConfig.isUnlockedByRebirths(index, rebirths) or bought then
-		return { visible = true, title = multiplierText, detail = if standing then "사용 중" else "", role = "power" }
+		return { visible = true, title = multiplierText, detail = if standing then Locale.t("world.gym.inUse") else "", role = "power" }
 	end
 	return {
 		visible = true,
 		title = multiplierText,
-		detail = (if standing then "잠김 · " else "") .. "필요 환생 " .. Formatter.format(GymConfig.getUnlockRebirths(index)),
+		detail = Locale.t(if standing then "world.gym.lockedNeed" else "world.gym.need", { amount = Formatter.format(GymConfig.getUnlockRebirths(index)) }),
 		role = "neutral",
 	}
 end
@@ -214,7 +215,7 @@ function WorldLabelLogic.gate(runActive: boolean): Label
 	if runActive then
 		return HIDDEN
 	end
-	return { visible = true, title = "입장", detail = "지나가면 시작", role = "neutral" }
+	return { visible = true, title = Locale.t("world.gate.title"), detail = Locale.t("world.gate.detail"), role = "neutral" }
 end
 
 WorldLabelLogic.HIDDEN = HIDDEN

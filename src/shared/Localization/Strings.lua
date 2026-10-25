@@ -172,6 +172,24 @@ Strings.Entries = {
 	["hud.power.maxSpeed"] = { en = "/ Max {n}", ko = "/ 최대 {n}" },
 	["hud.slot.owned"] = { en = "Owned", ko = "보유" },
 	["hud.boost.line"] = { en = "{name} {mult} {time}", ko = "{name} {mult} {time}" },
+	-- ===== 3D 안내 (World/WorldLabelLogic — BillboardGui) ================================================
+	["world.cashout.title"] = { en = "Claim", ko = "수령" },
+	["world.cashout.reward"] = { en = "+{amount}", ko = "+{amount}" },
+	["world.wall.title"] = { en = "Advance", ko = "진행" },
+	["world.wall.nextReward"] = { en = "Next floor +{amount}", ko = "다음 층 +{amount}" },
+	["world.wall.nextWorld"] = { en = "Next World", ko = "다음 월드" },
+	["world.wall.comingSoon"] = { en = "Coming soon", ko = "준비 중" },
+	["world.pad.power"] = { en = "Click {power}", ko = "클릭 {power}" },
+	["world.pad.need"] = { en = "Need {amount}", ko = "필요 {amount}" },
+	["world.gym.mult"] = { en = "Gym ×{mult}", ko = "기구 ×{mult}" },
+	["world.gym.voidMult"] = { en = "Void ×{mult}", ko = "공허 ×{mult}" },
+	["world.gym.inUse"] = { en = "In use", ko = "사용 중" },
+	["world.gym.robuxOnly"] = { en = "Robux only", ko = "로벅스 전용" },
+	["world.gym.robuxOnlySoon"] = { en = "Robux only (coming soon)", ko = "로벅스 전용(준비 중)" },
+	["world.gym.need"] = { en = "Need {amount} Rebirths", ko = "필요 환생 {amount}" },
+	["world.gym.lockedNeed"] = { en = "Locked · Need {amount} Rebirths", ko = "잠김 · 필요 환생 {amount}" },
+	["world.gate.title"] = { en = "Entry Gate", ko = "입장" },
+	["world.gate.detail"] = { en = "Walk through to start", ko = "지나가면 시작" },
 } :: { [string]: Entry }
 
 return Strings

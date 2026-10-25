@@ -339,11 +339,11 @@ do
 	local notOwned = WorldLabelLogic.gym(voidIndex, zero, false, GymLayout.shopUnlocked(nil, function()
 		return false
 	end))
-	check("공허 표시: 미보유 · ID 0 → '로벅스 전용(준비 중)'", notOwned.detail == "로벅스 전용(준비 중)")
+	check("공허 표시: 미보유 · ID 0 → '로벅스 전용(준비 중)'", notOwned.detail == Locale.t("world.gym.robuxOnlySoon"))
 	local owned = WorldLabelLogic.gym(voidIndex, zero, true, GymLayout.shopUnlocked(nil, function(k: string)
 		return k == "voidTrainingZone"
 	end))
-	check("공허 표시: 보유 · 서 있음 → '사용 중'", owned.detail == "사용 중" and owned.role == "premium")
+	check("공허 표시: 보유 · 서 있음 → '사용 중'", owned.detail == Locale.t("world.gym.inUse") and owned.role == "premium")
 end
 
 -- 10. 폰 크기(Galaxy A06 뷰포트 705×338) 틀 안에서 그린다 — 상점 두 탭 · 부스트 표시: 글자 하한 11px · 넘침 0 -------------

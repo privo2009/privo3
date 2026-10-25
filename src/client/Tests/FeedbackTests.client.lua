@@ -9,6 +9,7 @@ local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local GymLayout = require(ReplicatedStorage.Shared.GymLayout)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Layout = require(script.Parent.Parent.UI.Layout)
 local Store = require(script.Parent.Parent.UI.Store)
 local FeedbackLogic = require(script.Parent.Parent.UI.Logic.FeedbackLogic)
@@ -103,15 +104,15 @@ do
 	check("기구 역할: 하나도 안 열렸으면 다음 = 1", WorldLabelLogic.gymRole(1, nil, 0) == "next")
 
 	local on = WorldLabelLogic.gym(1, rebirths, true)
-	check("기구 표시: 열린 기구 위면 사용 중 · 주황", on.detail == "사용 중" and on.role == "power" and string.find(on.title, "×1.2", 1, true) ~= nil, on.title)
+	check("기구 표시: 열린 기구 위면 사용 중 · 주황", on.detail == Locale.t("world.gym.inUse") and on.role == "power" and string.find(on.title, "×1.2", 1, true) ~= nil, on.title)
 	local off = WorldLabelLogic.gym(1, rebirths, false)
 	check("기구 표시: 열렸지만 안 서 있으면 한 줄", off.detail == "" and off.role == "power")
 	local locked = WorldLabelLogic.gym(4, zero, false)
 	check("기구 표시: 잠김은 필요 환생 수 · 회색", locked.role == "neutral"
 		and string.find(locked.detail, Formatter.format(GymConfig.getUnlockRebirths(4)), 1, true) ~= nil, locked.detail)
-	check("기구 표시: 잠긴 기구 위면 잠김", string.find(WorldLabelLogic.gym(4, zero, true).detail, "잠김", 1, true) ~= nil)
+	check("기구 표시: 잠긴 기구 위면 잠김", WorldLabelLogic.gym(4, zero, true).detail == Locale.t("world.gym.lockedNeed", { amount = Formatter.format(GymConfig.getUnlockRebirths(4)) }))
 	local void = WorldLabelLogic.gym(count, BigNum.new(1, 30), true)
-	check("기구 표시: 공허는 로벅스 전용(준비 중) · 프리미엄", void.role == "premium" and void.detail == "로벅스 전용(준비 중)")
+	check("기구 표시: 공허는 로벅스 전용(준비 중) · 프리미엄", void.role == "premium" and void.detail == Locale.t("world.gym.robuxOnlySoon"))
 
 	-- 서 있는 기구 판정은 서버와 같은 함수(GymLayout.resolve)
 	local c = GymLayout.computeLayout(count)[1]
