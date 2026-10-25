@@ -11,34 +11,31 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
 
 type BigNumber = BigNum.BigNumber
 
 local UpgradeShopLogic = {}
 
--- 항목 이름 (화면 문구). 키는 UpgradeConfig.SHOP_ORDER.
-UpgradeShopLogic.NAMES = {
-	punchDamage = "펀치 데미지",
-	punchSpeed = "펀치 속도",
-	bloxGain = "블럭스 획득",
-	titleLuck = "칭호 행운", -- 지시서 #10 (G13 — 칭호 뽑기 확률 배수)
-	auraLuck = "아우라 행운", -- 지시서 #11 (A11)
-	petSlots = "펫 장착 슬롯", -- 지시서 #12 (E7 — +1, 최대 1레벨)
-	petLuck = "펫 행운", -- 지시서 #12 (E7)
-} :: { [string]: string }
+-- 항목 이름 (화면 문구 — Strings "upgrade.name.<키>", 지시서 #L1 K6). 키는 UpgradeConfig.SHOP_ORDER.
+-- 표에 없는 키는 키 그대로(예전 NAMES[name] or name과 같다).
+function UpgradeShopLogic.nameOf(name: string): string
+	return if Locale.has("upgrade.name." .. name) then Names.upgrade(name) else name
+end
 
-UpgradeShopLogic.BUY_TEXT = "구매"
-UpgradeShopLogic.MAX_TEXT = "MAX"
+UpgradeShopLogic.BUY_TEXT = Locale.t("common.buy")
+UpgradeShopLogic.MAX_TEXT = Locale.t("shop.max")
 
 -- 효과 값 → 문구. 단위만 붙인다(값은 UpgradeConfig.getEffect가 준다).
 function UpgradeShopLogic.formatEffect(name: string, value: number): string
 	if name == "punchSpeed" then
-		return string.format("%.2f회/초", value)
+		return Locale.t("upgrade.effect.perSec", { value = string.format("%.2f", value) })
 	elseif name == "petSlots" then
-		return string.format("슬롯 +%d", math.floor(value + 0.5)) -- 지시서 #12 (슬롯 수 식은 PetConfig.getSlots)
+		return Locale.t("upgrade.effect.slots", { n = math.floor(value + 0.5) }) -- 지시서 #12 (슬롯 수 식은 PetConfig.getSlots)
 	end
 	if UpgradeShopLogic.isLuck(name) then
-		return string.format("행운 ×%.2f", value) -- 지시서 #11 P3
+		return Locale.t("upgrade.effect.luck", { value = string.format("%.2f", value) }) -- 지시서 #11 P3
 	end
 	return string.format("×%.2f", value) -- punchDamage · bloxGain (배수)
 end
@@ -71,8 +68,8 @@ end
 function UpgradeShopLogic.row(name: string, level: number, blox: BigNumber): Row
 	local def = UpgradeConfig.Upgrades[name]
 	local maxLevel = def.maxLevel
-	local title = UpgradeShopLogic.NAMES[name] or name
-	local levelText = if maxLevel ~= nil then string.format("Lv %d/%d", level, maxLevel) else string.format("Lv %d", level)
+	local title = UpgradeShopLogic.nameOf(name)
+	local levelText = if maxLevel ~= nil then Locale.t("upgrade.levelMax", { n = level, max = maxLevel }) else Locale.t("upgrade.level", { n = level })
 	local isMax = UpgradeConfig.isMaxLevel(name, level)
 	local now = UpgradeShopLogic.formatEffect(name, UpgradeConfig.getEffect(name, level))
 
@@ -80,7 +77,7 @@ function UpgradeShopLogic.row(name: string, level: number, blox: BigNumber): Row
 		return {
 			name = name,
 			title = title .. "  " .. levelText,
-			effectText = now .. " (최대)",
+			effectText = Locale.t("upgrade.effect.max", { effect = now }),
 			isMax = true,
 			canBuy = false,
 			reason = UpgradeConfig.REASON_MAX_LEVEL,
@@ -94,7 +91,7 @@ function UpgradeShopLogic.row(name: string, level: number, blox: BigNumber): Row
 	local nextText = if UpgradeShopLogic.isLuck(name)
 		then string.format("×%.2f", UpgradeConfig.getEffect(name, level + 1)) -- "행운 ×현재 → ×다음"
 		else UpgradeShopLogic.formatEffect(name, UpgradeConfig.getEffect(name, level + 1))
-	local costText = (if cost ~= nil then Formatter.format(cost) else "-") .. " 블럭스"
+	local costText = Locale.t("upgrade.cost", { cost = if cost ~= nil then Formatter.format(cost) else "-" })
 	return {
 		name = name,
 		title = title .. "  " .. levelText,
@@ -120,20 +117,20 @@ end
 -- 사유 코드 → 화면 문구. 코드는 UpgradeConfig.REASON_* · 서버 UpgradeService.REASON_* · "rate_limited".
 function UpgradeShopLogic.reasonText(code: string): string
 	if code == UpgradeConfig.REASON_MAX_LEVEL then
-		return "최대 레벨"
+		return Locale.t("upgrade.reason.max_level")
 	elseif code == UpgradeConfig.REASON_INSUFFICIENT_BLOX then
-		return "블럭스가 모자라요"
+		return Locale.t("common.reason.insufficient_blox")
 	elseif code == UpgradeConfig.REASON_INVALID_UPGRADE then
-		return "살 수 없는 항목이에요"
+		return Locale.t("upgrade.reason.invalid_upgrade")
 	elseif code == "no_profile" then
-		return "데이터를 불러오는 중이에요"
+		return Locale.t("common.reason.no_profile")
 	elseif code == "rate_limited" then
-		return "잠시 뒤에 다시 눌러 주세요"
+		return Locale.t("common.reason.rate_limited")
 	elseif code == "partial_failure" then
 		-- 블럭스가 빠진 뒤의 사고다. "사지 못했다"로 안내하면 거짓말이 된다(UpgradeService 상단).
-		return "문제가 생겼어요. 관리자에게 알려 주세요"
+		return Locale.t("common.reason.partial_failure")
 	end
-	return "사지 못했어요"
+	return Locale.t("upgrade.reason.failed")
 end
 
 -- ===== 중복 요청 막기 (S8 — 확인 단계 없이 한 번 눌러 바로 산다) ==================================

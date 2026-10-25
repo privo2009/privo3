@@ -98,10 +98,10 @@ end
 -- 2. 계단 "지금 단계" ---------------------------------------------------------------------------------
 do
 	local none = RobuxShopLogic.rows(shop())[1]
-	check("계단: 보유 없음 → '지금 ×1' · 다음 2배 힘 · 가격 3 R$", string.find(none.title, "지금 ×1", 1, true) ~= nil
+	check("계단: 보유 없음 → '지금 ×1' · 다음 2배 힘 · 가격 3 R$", none.title == Locale.t("shop.ladder.title", { mult = 1 })
 		and string.find(none.detail, Names.product("strength2x"), 1, true) ~= nil and none.footText == "3 R$")
 	local mid = RobuxShopLogic.rows(shop({ "strength2x", "strength8x" }))[1]
-	check("계단: 2 · 8 보유 → '지금 ×8'(최고 하나) · 다음 16배", string.find(mid.title, "지금 ×8", 1, true) ~= nil
+	check("계단: 2 · 8 보유 → '지금 ×8'(최고 하나) · 다음 16배", mid.title == Locale.t("shop.ladder.title", { mult = 8 })
 		and string.find(mid.detail, Names.product("strength16x"), 1, true) ~= nil)
 	withIds({ strength16x = 888 }, function()
 		local r = RobuxShopLogic.rows(shop({ "strength8x" }))[1]
@@ -136,10 +136,10 @@ end
 -- 4. 결과 문구 ---------------------------------------------------------------------------------------
 do
 	check("문구: ID 0 → '준비 중이에요'", RobuxShopLogic.resultText({ key = "damage2x", kind = "gamepass", phase = "prompt", ok = false, reason = "not_registered" })
-		== "준비 중이에요")
+		== Locale.t("shop.reason.not_registered"))
 	check("문구: 프롬프트를 띄웠으면 없음 · 닫았으면 없음", RobuxShopLogic.resultText({ key = "damage2x", phase = "prompt", ok = true, reason = "" }) == nil
 		and RobuxShopLogic.resultText({ key = "damage2x", phase = "finished", ok = false, reason = "cancelled" }) == nil)
-	check("문구: 구매 완료 = 이름 + 완료", RobuxShopLogic.resultText({ key = "damage2x", phase = "finished", ok = true, reason = "" }) == Names.product("damage2x") .. " 구매 완료!")
+	check("문구: 구매 완료 = 이름 + 완료", RobuxShopLogic.resultText({ key = "damage2x", phase = "finished", ok = true, reason = "" }) == Locale.t("shop.purchased", { name = Names.product("damage2x") }))
 	local generic = RobuxShopLogic.reasonText("???")
 	local distinct = true
 	for _, code in ipairs({ "already_owned", "restricted", "rate_limited", "invalid_key", "prompt_failed", "not_registered" }) do
