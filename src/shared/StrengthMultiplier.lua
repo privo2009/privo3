@@ -17,8 +17,12 @@
 --                      m은 1펀치 데미지(AttackService.combineDamageMultiplier)에도 한 번 들어간다 — DPS에는 m²(A1, 의도)
 --   sources.petMult    장착 펫 배수 (number, PetConfig.totalMult — 1 + Σ 실효 증가분, E3). 장착 없음 = 1  (지시서 #12)
 --                      **여기 한 자리에서만** 곱한다. 펫은 데미지 항이 없다(S9) — combineDamageMultiplier에 넣지 말 것
+--   sources.tierMult   힘 배수 계단 — **보유한 단계 중 최고 하나**(ShopConfig.strengthTierMult, 세션 값). 없음 = 1  (지시서 #16 S4)
+--                      ⚠️ 단계끼리 곱하지 않는다(CLAUDE.md 금지 사항). 최고 하나를 고르는 일은 ShopConfig가 한다
+--   sources.potionMult 힘 포션(BoostService — 접속 중에만 흐른다). 없음 = 1  (지시서 #16 S5 · S7)
 --
---   결과 = (1 + rebirths) × titleMult × auraMult × petMult
+--   결과 = (1 + rebirths) × titleMult × auraMult × petMult × tierMult × potionMult
+--   공허 훈련 구역 · 운동기구 배수는 여기 없다(클릭 1회 값 — ClickService). 계단과는 다른 자리라 곱해진다(S4)
 --
 -- ===== 결합 규칙 (S3, 2026-10-24 사람 결정 — DESIGN.md "3. 화폐와 배수 > 배수 계통") =================
 --
@@ -46,6 +50,8 @@ export type Sources = {
 	titleMult: number?,
 	auraMult: number?,
 	petMult: number?,
+	tierMult: number?,
+	potionMult: number?,
 }
 
 -- ⚠️ 상수 테이블을 만들어 재사용하지 않는다. BigNum 값은 평범한 테이블이라 호출자가
@@ -100,6 +106,8 @@ function StrengthMultiplier.compute(sources: Sources?): BigNumber
 	apply(sources.titleMult)
 	apply(sources.auraMult)
 	apply(sources.petMult) -- 지시서 #12 E3. 앞 둘이 없어도 곱해진다(PetServiceTests)
+	apply(sources.tierMult) -- 지시서 #16 S4. 최고 단계 하나(ShopConfig.strengthTierMult가 고른 값)
+	apply(sources.potionMult) -- 지시서 #16 S5 · S7
 
 	return total
 end

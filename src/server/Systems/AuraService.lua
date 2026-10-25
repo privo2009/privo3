@@ -31,6 +31,8 @@ local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 local CurrencyService = require(script.Parent.CurrencyService)
 local RollService = require(script.Parent.RollService)
+-- 로벅스 행운(지시서 #16 S5 · S13): 행운 패스 · 행운 포션. 제한 유저면 1 — ShopEffects 한 곳에서 판정한다.
+local ShopEffects = require(script.Parent.ShopEffects)
 
 type BigNumber = BigNum.BigNumber
 
@@ -55,6 +57,8 @@ export type Deps = {
 	getBlox: (Player) -> BigNumber?,
 	subtractBlox: (Player, BigNumber, string) -> boolean,
 	roll: (tiers: { AuraConfig.AuraDef }, luck: number) -> (AuraConfig.AuraDef, number),
+	-- computeLuck 옵션(행운 패스 · 행운 포션). 없으면 둘 다 1 — 테스트 deps는 생략한다
+	luckOptions: ((Player) -> RollService.LuckOptions)?,
 	save: (Player) -> (),
 	setAttribute: (Player, string?) -> (),
 }
@@ -135,7 +139,7 @@ local function createRuntime(deps: Deps)
 
 		-- 6. 판정
 		lastRollAt[player] = now
-		local luck = RollService.computeLuck("aura", data)
+		local luck = RollService.computeLuck("aura", data, if deps.luckOptions ~= nil then deps.luckOptions(player) else nil)
 		local def, tier = deps.roll(pack.auras, luck)
 
 		-- 7. 반영
@@ -255,6 +259,9 @@ local REAL: Deps = {
 	end,
 	roll = function(tiers, luck)
 		return RollService.roll(tiers, luck)
+	end,
+	luckOptions = function(player: Player)
+		return ShopEffects.luckOptions(player, "aura")
 	end,
 	save = function(player: Player)
 		ProfileManager.save(player) -- S11: 새 id를 처음 얻었을 때만

@@ -46,6 +46,10 @@ local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 local CurrencyService = require(script.Parent.CurrencyService)
 local RollService = require(script.Parent.RollService)
+-- 로벅스 효과(지시서 #16): 펫 행운 패스 · 행운 포션(제한이면 1) · 펫 슬롯 · 저장 공간 패스 · 3배 부화.
+local ShopEffects = require(script.Parent.ShopEffects)
+local GamepassService = require(script.Parent.GamepassService)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 
 type BigNumber = BigNum.BigNumber
 
@@ -60,6 +64,7 @@ PetService.REASON_NOT_EQUIPPED = "not_equipped"
 PetService.REASON_EQUIPPED = "pet_equipped" -- 장착 중인 펫은 놓아줄 수 없다(E5)
 PetService.REASON_MAX_LEVEL = "max_level"
 PetService.REASON_NOT_ENOUGH = "not_enough" -- 크래프팅 재료(같은 petId · 같은 단계)가 모자란다
+PetService.REASON_HATCH_PASS_REQUIRED = "hatch_pass_required" -- 3배 부화 게임패스가 없다(S18)
 local CLOCK_EPSILON_SEC = 0.02 -- 롤 시계 부동소수 여유(AuraService와 같은 이유)
 
 export type HatchResult = {
@@ -83,6 +88,12 @@ export type Deps = {
 	-- 게임패스는 세션 값(절대 규칙 5). Phase 8 전까지 false를 돌려준다
 	hasSlotPass: (Player) -> boolean,
 	hasStoragePass: (Player) -> boolean,
+	-- 슬롯 게임패스 소유가 확정됐는가(조회 성공 · 미등록 · 구매 완료). 확정 전에는 장착을 자르지 않는다(S17 · E6). 없으면 확정 안 됨
+	isSlotPassResolved: ((Player) -> boolean)?,
+	-- computeLuck 옵션(펫 행운 패스 · 행운 포션). 없으면 1
+	luckOptions: ((Player) -> RollService.LuckOptions)?,
+	-- 3배 부화 게임패스(S18). 없으면 미보유
+	hasHatchPass: ((Player) -> boolean)?,
 }
 
 -- pets 표. 깨졌으면 nil.
@@ -191,7 +202,9 @@ local function createRuntime(deps: Deps)
 		deps.setAttribute(player, serialize(equippedPets(data)))
 	end
 
-	function runtime.hatch(player: Player, eggId: any, source: string): (boolean, any)
+	-- count마리를 한 번에 부화한다(1 = 보통 부화 · 3배 부화 = ShopConfig hatch3x count — S18). 성공이면 (true, { HatchResult }).
+	-- 비용 = 알 비용 × count(한 번에 차감), 저장 공간이 count칸 미만이면 거부(storage_full), 롤 시계는 한 번만 쓴다.
+	function runtime.hatchMany(player: Player, eggId: any, count: number, source: string): (boolean, any)
 		-- 1. 프로필
 		local data = deps.getData(player)
 		local pets = petsOf(data)
@@ -215,56 +228,101 @@ local function createRuntime(deps: Deps)
 			return false, PetService.REASON_EGG_LOCKED
 		end
 
-		-- 4. 저장 공간(E6 — 파생)
-		if ownedCount(pets.owned) >= PetConfig.getStorage(deps.hasStoragePass(player)) then
+		-- 3b. 여러 마리면 3배 부화 게임패스(S18)
+		if count ~= 1 and not (deps.hasHatchPass ~= nil and deps.hasHatchPass(player)) then
+			return false, PetService.REASON_HATCH_PASS_REQUIRED
+		end
+
+		-- 4. 저장 공간(E6 — 파생). count칸이 다 비어 있어야 한다
+		if ownedCount(pets.owned) + count > PetConfig.getStorage(deps.hasStoragePass(player)) then
 			return false, PetService.REASON_STORAGE_FULL
 		end
 
 		-- 5. 잔액 미리 보기
+		local cost = if count == 1 then egg.rollCost else BigNum.mul(egg.rollCost, BigNum.fromNumber(count))
 		local blox = deps.getBlox(player)
-		if blox == nil or BigNum.lt(blox, egg.rollCost) then
+		if blox == nil or BigNum.lt(blox, cost) then
 			return false, RollService.REASON_INSUFFICIENT_BLOX
 		end
 
 		-- ===== 여기부터 부작용 =====
 
-		-- 6. 차감
-		if not deps.subtractBlox(player, egg.rollCost, string.format("pet_hatch_egg%d_%s", eggId, source)) then
+		-- 6. 차감(한 번에)
+		local tag = if count == 1 then "" else string.format("_x%d", count)
+		if not deps.subtractBlox(player, cost, string.format("pet_hatch_egg%d%s_%s", eggId, tag, source)) then
 			return false, RollService.REASON_INSUFFICIENT_BLOX
 		end
 
-		-- 7. 판정
+		-- 7 · 8. 판정 · 반영 — count번. 같은 배치 안의 두 번째 같은 종은 중복이다
 		lastHatchAt[player] = now
-		local luck = RollService.computeLuck("pet", data)
-		local def, rarity = deps.roll(egg.pets, luck)
-
-		-- 8. 반영
-		local isNew = true
-		for _, entry in pairs(pets.owned) do
-			if type(entry) == "table" and entry.petId == def.id then
-				isNew = false
-				break
+		local luck = RollService.computeLuck("pet", data, if deps.luckOptions ~= nil then deps.luckOptions(player) else nil)
+		local results: { HatchResult } = {}
+		local anyNew = false
+		local anyEquipped = false
+		for _ = 1, count do
+			local def, rarity = deps.roll(egg.pets, luck)
+			local isNew = true
+			for _, entry in pairs(pets.owned) do
+				if type(entry) == "table" and entry.petId == def.id then
+					isNew = false
+					break
+				end
 			end
+			local nextUid = if type(pets.nextUid) == "number" and pets.nextUid >= 1 then math.floor(pets.nextUid) else 1
+			local uid = tostring(nextUid)
+			while pets.owned[uid] ~= nil do -- 깨진 nextUid로 기존 펫을 덮어쓰지 않게
+				nextUid += 1
+				uid = tostring(nextUid)
+			end
+			pets.nextUid = nextUid + 1
+			pets.owned[uid] = { petId = def.id, tier = 1 }
+			local equipped = false
+			if #pets.equipped < slotsFor(player, data) then
+				table.insert(pets.equipped, uid)
+				equipped = true
+				anyEquipped = true
+			end
+			anyNew = anyNew or isNew
+			table.insert(results, { uid = uid, petId = def.id, eggId = eggId, rarity = rarity, level = 1, isNew = isNew, equipped = equipped })
 		end
-		local nextUid = if type(pets.nextUid) == "number" and pets.nextUid >= 1 then math.floor(pets.nextUid) else 1
-		local uid = tostring(nextUid)
-		while pets.owned[uid] ~= nil do -- 깨진 nextUid로 기존 펫을 덮어쓰지 않게
-			nextUid += 1
-			uid = tostring(nextUid)
-		end
-		pets.nextUid = nextUid + 1
-		pets.owned[uid] = { petId = def.id, tier = 1 }
-		local equipped = false
-		if #pets.equipped < slotsFor(player, data) then
-			table.insert(pets.equipped, uid)
-			equipped = true
+		if anyEquipped then
 			publish(player, data)
 		end
-		if isNew then
-			deps.save(player)
+		if anyNew then
+			deps.save(player) -- S11: 새 petId가 하나라도 있을 때만 · 한 번만
 		end
-		local result: HatchResult = { uid = uid, petId = def.id, eggId = eggId, rarity = rarity, level = 1, isNew = isNew, equipped = equipped }
-		return true, result
+		return true, results
+	end
+
+	function runtime.hatch(player: Player, eggId: any, source: string): (boolean, any)
+		local ok, value = runtime.hatchMany(player, eggId, 1, source)
+		if ok then
+			return true, value[1]
+		end
+		return false, value
+	end
+
+	-- 장착이 슬롯보다 많으면 앞에서부터 남긴다(E6 · S17). **슬롯 게임패스 소유가 확정된 뒤에만** — 확정 전에 자르면
+	-- 조회가 늦은 보유자의 장착이 날아간다. 자른 수를 돌려준다(확정 전 · 프로필 없음이면 0).
+	function runtime.trimToSlots(player: Player): number
+		if deps.isSlotPassResolved == nil or not deps.isSlotPassResolved(player) then
+			return 0
+		end
+		local data = deps.getData(player)
+		local pets = petsOf(data)
+		if pets == nil then
+			return 0
+		end
+		local slots = slotsFor(player, data)
+		local removed = 0
+		while #pets.equipped > slots do
+			table.remove(pets.equipped)
+			removed += 1
+		end
+		if removed > 0 then
+			publish(player, data)
+		end
+		return removed
 	end
 
 	function runtime.equip(player: Player, uid: any): (boolean, string?)
@@ -437,7 +495,8 @@ local function createRuntime(deps: Deps)
 		return true, nil
 	end
 
-	-- 로드 직후: 장착 목록의 깨진 uid · 중복을 걸러 Attribute를 세팅한다. 슬롯보다 많은 장착은 자르지 않는다(E6 — Phase 8).
+	-- 로드 직후: 장착 목록의 깨진 uid · 중복을 걸러 Attribute를 세팅한다. 슬롯보다 많은 장착은 소유가 확정됐을 때만 자른다
+	-- (trimToSlots — 확정 전이면 GamepassService.onChanged가 확정 순간에 다시 부른다).
 	function runtime.onLoaded(player: Player, data: any)
 		local pets = petsOf(data)
 		if pets ~= nil then
@@ -457,6 +516,7 @@ local function createRuntime(deps: Deps)
 			end
 		end
 		publish(player, data)
+		runtime.trimToSlots(player)
 	end
 
 	function runtime.onRemoving(player: Player)
@@ -474,12 +534,13 @@ PetService._pure = {
 
 -- ===== 공개 API =========================================================================
 
-local function hasSlotPass(_player: Player): boolean
-	return false -- Phase 8 전까지 게임패스 없음(E6). 붙일 때 MarketplaceService 세션 캐시(절대 규칙 5)
+-- 게임패스는 세션 값이다(절대 규칙 5 — GamepassService). 확정 전에는 미보유로 본다.
+local function hasSlotPass(player: Player): boolean
+	return GamepassService.owns(player, "petSlots3")
 end
 
-local function hasStoragePass(_player: Player): boolean
-	return false
+local function hasStoragePass(player: Player): boolean
+	return GamepassService.owns(player, "petStorage100")
 end
 
 -- 장착 펫 배수(E3). 프로필이 없거나 장착이 없으면 1. ClickService가 부른다.
@@ -554,6 +615,15 @@ local REAL: Deps = {
 	setAttribute = setAttribute,
 	hasSlotPass = hasSlotPass,
 	hasStoragePass = hasStoragePass,
+	isSlotPassResolved = function(player: Player)
+		return GamepassService.isResolved(player, "petSlots3")
+	end,
+	luckOptions = function(player: Player)
+		return ShopEffects.luckOptions(player, "pet")
+	end,
+	hasHatchPass = function(player: Player)
+		return GamepassService.owns(player, "hatch3x")
+	end,
 }
 
 local runtime = createRuntime(REAL)
@@ -571,6 +641,20 @@ function PetService.hatch(player: Player, eggId: any, source: string): (boolean,
 			player.Name, player.UserId, value.eggId, value.petId, value.rarity, value.uid,
 			if value.isNew then " 새 펫" else " 중복", if value.equipped then " → 빈 슬롯 장착" else ""
 		))
+	end
+	return ok, value
+end
+
+-- 3배 부화(S18). 마리 수는 ShopConfig hatch3x의 count. 성공이면 (true, { HatchResult }).
+function PetService.hatchMulti(player: Player, eggId: any, source: string): (boolean, any)
+	local def = ShopConfig.get("hatch3x") :: ShopConfig.ProductDef
+	local ok, value = runtime.hatchMany(player, eggId, def.effect.count, source)
+	if ok then
+		local names = {}
+		for _, r in ipairs(value) do
+			table.insert(names, string.format("%s(uid=%s%s)", r.petId, r.uid, if r.isNew then " 새" else ""))
+		end
+		print(string.format("[PetService] %s(%d) 알 %d × %d → %s", player.Name, player.UserId, eggId, #value, table.concat(names, ", ")))
 	end
 	return ok, value
 end
@@ -616,6 +700,13 @@ function PetService.init()
 		runtime.onLoaded(player, profile.Data)
 	end
 	ProfileManager.onLoaded(onLoaded)
+	-- 슬롯 게임패스 소유가 확정되면(접속 조회 끝 · 재조회 성공 · 구매) 장착을 슬롯에 맞춘다(E6 · S17)
+	GamepassService.onChanged(function(player: Player)
+		local removed = runtime.trimToSlots(player)
+		if removed > 0 then
+			print(string.format("[PetService] %s(%d) 장착이 슬롯보다 많아 %d마리 해제(소유 확인 뒤)", player.Name, player.UserId, removed))
+		end
+	end)
 	for _, player in ipairs(Players:GetPlayers()) do
 		local profile = ProfileManager.get(player)
 		if profile ~= nil then

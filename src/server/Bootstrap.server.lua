@@ -15,7 +15,6 @@ local ProfileManager = require(script.Parent.Data.ProfileManager)
 local CurrencyService = require(script.Parent.Systems.CurrencyService)
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
-local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 
 -- ── 테스트 프리셋: TEST_PRESET (Studio 전용, 지시서 #13 3단계) ──────────────────────────
@@ -174,6 +173,9 @@ local GamepassService = require(script.Parent.Systems.GamepassService)
 GamepassService.init(TEST_GAMEPASSES)
 local PolicyGate = require(script.Parent.Systems.PolicyGate)
 PolicyGate.init()
+-- 부스트(포션) 엔진 — 접속 중에만 남은 시간을 깎는 서버 단일 루프(지시서 #16 4단계 S7).
+local BoostService = require(script.Parent.Systems.BoostService)
+BoostService.init()
 local ProductService = require(script.Parent.Systems.ProductService)
 ProductService.init()
 local PurchaseRequestService = require(script.Parent.Systems.PurchaseRequestService)
@@ -290,12 +292,7 @@ Players.PlayerAdded:Connect(function(player: Player)
 
 				-- 배수는 AttackService가 모른다(힘 트랙이다). 여기서 직접 만든다 —
 				-- 클릭 지급이 쓰는 것과 **같은 compute**를 태워야 값이 갈리지 않는다.
-				local mult = StrengthMultiplier.compute({
-					rebirths = CurrencyService.get(player, "rebirths"),
-					titleMult = TitleService.getMult(player),
-					auraMult = AuraService.getMult(player),
-					petMult = PetService.getMult(player),
-				})
+				local mult = ClickService.strengthMultiplierOf(player)
 
 				print(string.format(
 					"[Bootstrap][ATTACK] %s result=%s dist=%s/%.1f (%s) dmg=%s mult=%s str=%s",

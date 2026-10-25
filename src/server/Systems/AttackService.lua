@@ -66,6 +66,8 @@ local ChallengeService = require(script.Parent.ChallengeService)
 local UpgradeService = require(script.Parent.UpgradeService)
 -- 장착 아우라 m (지시서 #11 A10). AuraService는 이 파일을 require하지 않는다(순환 없음).
 local AuraService = require(script.Parent.AuraService)
+-- 로벅스 효과(지시서 #16 S5): 2배 데미지 게임패스 · 데미지 포션.
+local ShopEffects = require(script.Parent.ShopEffects)
 
 type BigNumber = BigNum.BigNumber
 
@@ -130,7 +132,8 @@ end
 -- 펀치 데미지 업그레이드 × 장착 아우라 m — **이 함수 한 곳에서** 하나의 배수로 합치고 computePunchDamage가 한 번 곱한다.
 -- 각 출처는 여기서 한 번만 곱한다(AuraServiceTests "한 번만"). 깨진 값(nil · nan · 1 미만 · inf)은 1.
 -- ⚠️ 펀치 속도는 여기 들어오지 않는다(CLAUDE.md 금지 사항) — 속도는 주기만 정한다.
-export type DamageSources = { punchDamage: number?, auraMult: number? }
+-- passMult = 2배 데미지 게임패스 · potionMult = 데미지 포션 (지시서 #16 S5 — 각각 여기서 한 번만)
+export type DamageSources = { punchDamage: number?, auraMult: number?, passMult: number?, potionMult: number? }
 
 local function factorOr1(v: any): number
 	if type(v) ~= "number" or v ~= v or v < 1 or v == math.huge then
@@ -140,7 +143,7 @@ local function factorOr1(v: any): number
 end
 
 local function combineDamageMultiplier(sources: DamageSources): number
-	return factorOr1(sources.punchDamage) * factorOr1(sources.auraMult)
+	return factorOr1(sources.punchDamage) * factorOr1(sources.auraMult) * factorOr1(sources.passMult) * factorOr1(sources.potionMult)
 end
 -- 시뮬레이터(SuccessRateReport)도 이 함수를 부른다 — 결합 식을 두 곳에 두지 않는다.
 AttackService.combineDamageMultiplier = combineDamageMultiplier
@@ -308,9 +311,12 @@ local REAL: Deps = {
 		return ChallengeService.applyDamage(player, position, damage)
 	end,
 	getDamageMultiplier = function(player: Player)
+		local passMult, potionMult = ShopEffects.damage(player)
 		return combineDamageMultiplier({
 			punchDamage = UpgradeService.getEffect(player, "punchDamage"),
 			auraMult = AuraService.getMult(player),
+			passMult = passMult,
+			potionMult = potionMult,
 		})
 	end,
 }

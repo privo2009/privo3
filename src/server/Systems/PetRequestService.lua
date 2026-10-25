@@ -23,6 +23,7 @@ local MAX_EGG = 99
 -- action → 필요한 필드
 local ACTIONS: { [string]: string } = {
 	hatch = "egg",
+	hatch3 = "egg", -- 3배 부화(S18 — 게임패스는 PetService가 다시 판정한다). 창 버튼은 #17
 	equip = "uid",
 	unequip = "uid",
 	equipBest = "none",
@@ -61,7 +62,23 @@ local function readRequest(payload: any): Request?
 	return { action = action }
 end
 
-local function result(action: string, ok: boolean, reason: string?, r: any?): Remotes.PetResultPayload
+local function entryOf(r: any): Remotes.PetResultEntry
+	return {
+		uid = if type(r.uid) == "string" then r.uid else "",
+		petId = if type(r.petId) == "string" then r.petId else "",
+		rarity = if type(r.rarity) == "number" then r.rarity else 0,
+		level = if type(r.level) == "number" then r.level else 0,
+		isNew = r.isNew == true,
+		equipped = r.equipped == true,
+	}
+end
+
+-- r = 결과 펫 하나(앞의 필드들), list = 부화한 펫 전부(3배 부화 — 결과 1건에 3마리. 보통 부화는 1마리, 그 밖은 빈 목록)
+local function result(action: string, ok: boolean, reason: string?, r: any?, list: { any }?): Remotes.PetResultPayload
+	local pets: { Remotes.PetResultEntry } = {}
+	for _, e in ipairs(list or {}) do
+		table.insert(pets, entryOf(e))
+	end
 	return {
 		action = action,
 		ok = ok,
@@ -73,11 +90,13 @@ local function result(action: string, ok: boolean, reason: string?, r: any?): Re
 		level = if r ~= nil and type(r.level) == "number" then r.level else 0,
 		isNew = r ~= nil and r.isNew == true,
 		equipped = r ~= nil and r.equipped == true,
+		pets = pets,
 	}
 end
 
 export type Deps = {
 	hatch: (Player, number) -> (boolean, any),
+	hatchMulti: ((Player, number) -> (boolean, any))?,
 	equip: (Player, string) -> (boolean, string?),
 	unequip: (Player, string) -> (boolean, string?),
 	equipBest: (Player) -> (boolean, string?),
@@ -105,7 +124,19 @@ local function createHandler(deps: Deps)
 		else
 			lastAt[player] = now
 			local a = req.action
-			if a == "hatch" or a == "craft" then
+			if a == "hatch3" then
+				local ok, value
+				if deps.hatchMulti ~= nil then
+					ok, value = deps.hatchMulti(player, req.egg :: number)
+				else
+					ok, value = false, "unknown"
+				end
+				if ok and type(value) == "table" and type(value[1]) == "table" then
+					out = result(a, true, nil, value[1], value)
+				else
+					out = result(a, false, if type(value) == "string" then value else "unknown")
+				end
+			elseif a == "hatch" or a == "craft" then
 				local ok, value
 				if a == "hatch" then
 					ok, value = deps.hatch(player, req.egg :: number)
@@ -113,7 +144,7 @@ local function createHandler(deps: Deps)
 					ok, value = deps.craft(player, req.uid :: string)
 				end
 				if ok and type(value) == "table" then
-					out = result(a, true, nil, value)
+					out = result(a, true, nil, value, if a == "hatch" then { value } else nil)
 				else
 					out = result(a, false, if type(value) == "string" then value else "unknown")
 				end
@@ -160,6 +191,9 @@ function PetRequestService.init()
 	local handler = createHandler({
 		hatch = function(player: Player, egg: number)
 			return PetService.hatch(player, egg, "manual")
+		end,
+		hatchMulti = function(player: Player, egg: number)
+			return PetService.hatchMulti(player, egg, "manual")
 		end,
 		equip = PetService.equip,
 		unequip = PetService.unequip,

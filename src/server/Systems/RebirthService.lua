@@ -45,6 +45,8 @@ local CurrencyService = require(script.Parent.CurrencyService)
 local ChallengeService = require(script.Parent.ChallengeService)
 local SpeedService = require(script.Parent.SpeedService)
 local PadService = require(script.Parent.PadService)
+-- 2배 환생(지시서 #16 S6). 소유는 세션 값 — ShopEffects.
+local ShopEffects = require(script.Parent.ShopEffects)
 
 type BigNumber = BigNum.BigNumber
 
@@ -135,6 +137,8 @@ export type Deps = {
 	onRebirth: (Player) -> number,
 	resetLifeBlox: (Player, string) -> boolean,
 	resetPad: (Player) -> boolean,
+	-- 얻는 환생 수 배수(2배 환생). 없으면 1 — 테스트 deps는 생략할 수 있다
+	getRebirthMult: ((Player) -> number)?,
 }
 
 -- 환생 한 번. 순서는 아래 주석의 번호가 곧 계약이다.
@@ -157,7 +161,7 @@ local function runRebirth(deps: Deps, player: Player, source: string?): (boolean
 	if not RebirthConfig.canRebirth(blox) then
 		return false, REASON_NOT_ENOUGH_BLOX
 	end
-	local gained = RebirthConfig.getGainedRebirths(blox)
+	local gained = RebirthConfig.getGainedRebirths(blox, if deps.getRebirthMult ~= nil then deps.getRebirthMult(player) else nil)
 
 	-- ===== 여기부터 되돌릴 수 없다 =====================================================
 
@@ -265,6 +269,9 @@ local REAL: Deps = {
 	resetPad = function(player: Player)
 		return PadService.resetForRebirth(player)
 	end,
+	getRebirthMult = function(player: Player)
+		return ShopEffects.rebirth(player)
+	end,
 }
 
 -- 환생을 실행한다.
@@ -312,7 +319,7 @@ function RebirthService.previewGain(player: Player): BigNumber?
 	if blox == nil then
 		return nil
 	end
-	return RebirthConfig.getGainedRebirths(blox)
+	return RebirthConfig.getGainedRebirths(blox, ShopEffects.rebirth(player))
 end
 
 return RebirthService

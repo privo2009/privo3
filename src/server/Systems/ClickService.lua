@@ -32,6 +32,8 @@ local TitleService = require(script.Parent.TitleService)
 -- 장착 아우라 m (지시서 #11 A10).
 local AuraService = require(script.Parent.AuraService)
 local PetService = require(script.Parent.PetService)
+-- 로벅스 효과(지시서 #16): 힘 배수 계단 · 힘 포션. 소유 · 부스트를 합치는 일은 ShopEffects 한 곳.
+local ShopEffects = require(script.Parent.ShopEffects)
 
 type BigNumber = BigNum.BigNumber
 
@@ -251,6 +253,27 @@ local function getState(player: Player): ClickState
 	return state
 end
 
+-- 이 플레이어의 힘 배수(클릭 지급이 곱하는 그 값). Bootstrap VERIFY print도 이것을 부른다 — 출처 목록을 두 곳에 쓰지 않는다.
+function ClickService.strengthMultiplierOf(player: Player): BigNumber
+	local tierMult, potionMult = ShopEffects.strength(player)
+	return StrengthMultiplier.compute({
+		rebirths = CurrencyService.get(player, "rebirths"),
+		titleMult = TitleService.getMult(player), -- 장착 칭호 (지시서 #10 S3)
+		auraMult = AuraService.getMult(player), -- 장착 아우라 m (지시서 #11 A10)
+		petMult = PetService.getMult(player), -- 장착 펫 배수 1 + Σ 실효 증가분 (지시서 #12 E3) — 힘 자리 하나뿐
+		tierMult = tierMult, -- 힘 배수 계단 최고 단계 하나 (지시서 #16 S4)
+		potionMult = potionMult, -- 힘 포션 (지시서 #16 S7)
+	})
+end
+
+-- 수동 클릭을 지금 버려야 하는가(자동 클리커가 켜져 있다 — S8). AutoClickService가 setManualBlocked로 단다(순환 방지).
+local manualBlocked: (Player) -> boolean = function()
+	return false
+end
+function ClickService.setManualBlocked(fn: (Player) -> boolean)
+	manualBlocked = fn
+end
+
 -- 클릭 count회를 처리한다. (통과 수, 버린 수)를 돌려준다.
 --
 -- source == SOURCE_MANUAL이면 상한 검사를 받고, 그 외(자동 클리커 등)는 전부 통과한다.
@@ -259,6 +282,12 @@ function ClickService.processClicks(player: Player, count: number, source: strin
 	local src = if type(source) == "string" and #source > 0 then source else "unknown"
 
 	if count <= 0 then
+		return 0, 0
+	end
+
+	-- S8: 자동 클리커가 켜져 있는 동안 수동 클릭은 힘에 들어가지 않는다. 버린 것으로 세지 않는다(상한 안내를 띄우지 않는다).
+	-- 윈도우도 건드리지 않는다 — 끄면 수동 상한(초당 MANUAL_CLICK_LIMIT)은 그대로다.
+	if src == SOURCE_MANUAL and manualBlocked(player) then
 		return 0, 0
 	end
 
@@ -281,12 +310,7 @@ function ClickService.processClicks(player: Player, count: number, source: strin
 		-- ⚠️ 이 줄은 수동·자동 분기가 **합류한 뒤**에 있다. 위 if/else는 상한 검사만
 		-- 가르고 지급은 한 갈래로 모이므로, 자동 클리커(Phase 8)도 같은 배수를 받는다.
 		-- 분기 안으로 옮기지 말 것 — 그 순간 두 경로의 배수가 갈릴 수 있다.
-		local multiplier = StrengthMultiplier.compute({
-			rebirths = CurrencyService.get(player, "rebirths"),
-			titleMult = TitleService.getMult(player), -- 장착 칭호 (지시서 #10 S3)
-			auraMult = AuraService.getMult(player), -- 장착 아우라 m (지시서 #11 A10)
-			petMult = PetService.getMult(player), -- 장착 펫 배수 1 + Σ 실효 증가분 (지시서 #12 E3) — 힘 자리 하나뿐
-		})
+		local multiplier = ClickService.strengthMultiplierOf(player)
 		-- 운동기구 배수. 기구 위에 서 있을 때만 1보다 크다(GymService — 그 순간의 위치로 판정).
 		-- 패드 파워에 곱해서 넘긴다 — 둘 다 "클릭 1회가 얼마짜리인가"를 정하는 자리값이고, 힘 배수
 		-- (StrengthMultiplier)와는 다른 축이다. 런 안에는 기구가 없어 런 중 클릭은 1이다.

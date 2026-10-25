@@ -230,7 +230,10 @@ do
 	local upgradeTouched = false
 	local names = {}
 	for key in pairs(touched) do
-		table.insert(names, key)
+		-- getRebirthMult는 2배 환생 배수를 읽기만 한다(지시서 #16 S6) — 초기화 대상이 아니라 따로 센다
+		if key ~= "getRebirthMult" then
+			table.insert(names, key)
+		end
 		if string.find(string.lower(key), "upgrade", 1, true) then
 			upgradeTouched = true
 		end
@@ -239,6 +242,7 @@ do
 	check("환생: 성공 경로를 끝까지 탔다", ok == true)
 	check("환생: 업그레이드를 바꾸는 통로를 하나도 부르지 않는다(유지)", not upgradeTouched, table.concat(names, ","))
 	check("환생 화면 문구와 맞출 원본: 초기화 대상 deps가 10개 그대로", #names == 10, table.concat(names, ","))
+	check("환생: 2배 환생 배수를 읽는다(읽기만 — 지시서 #16 S6)", touched.getRebirthMult == true)
 end
 
 print(string.format("[UpgradeServiceTests] %d passed, %d failed", passed, failed))

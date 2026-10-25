@@ -18,9 +18,8 @@
 --
 -- ===== 해금 =============================================================================
 --
--- 환생 수(rebirths)로만 본다. 로벅스 선해금은 Phase 8이다 — 그때 게임패스 소유를 매 세션
--- MarketplaceService로 확인해 메모리에만 두고(CLAUDE.md 절대 규칙 5) 여기 판정에 OR로 합친다.
--- 로벅스 전용 기구(공허 훈련 구역)는 그때까지 누구에게도 열리지 않는다 — 올라서도 배수 1이다.
+-- 환생 수 해금 **OR** 로벅스(지시서 #16): 선해금 기록(profile.Data.gymUnlocks — 개발자 상품, 기록은 #17이 쓴다) ·
+-- 게임패스 소유(공허 훈련 구역 — GamepassService 세션 값, 절대 규칙 5). 판정 식은 GymLayout.resolve 하나다.
 
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -28,7 +27,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local GymLayout = require(ReplicatedStorage.Shared.GymLayout)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local CurrencyService = require(script.Parent.CurrencyService)
+local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
+local GamepassService = require(script.Parent.GamepassService)
 
 type BigNumber = BigNum.BigNumber
 
@@ -42,9 +44,22 @@ local CONTAINER_NAME = "Gyms"
 export type Resolution = GymLayout.Resolution
 local resolve = GymLayout.resolve
 
+-- 로벅스로 열렸는가: 선해금 기록(gymUnlocks["번호"] == true) 또는 그 기구의 게임패스 소유.
+local function shopUnlockedWith(gymUnlocks: any, owns: (string) -> boolean): (number) -> boolean
+	return function(index: number): boolean
+		if type(gymUnlocks) == "table" and gymUnlocks[tostring(index)] == true then
+			return true
+		end
+		local key = GymConfig.getShopKey(index)
+		local def = ShopConfig.get(key)
+		return def ~= nil and def.kind == "gamepass" and owns(key)
+	end
+end
+
 -- 테스트 전용 통로. 공개 API 계약이 아니므로 이 밖에서는 쓰지 말 것.
 GymService._pure = {
 	resolve = resolve,
+	shopUnlockedWith = shopUnlockedWith,
 }
 
 -- ===== 런타임 =============================================================================
@@ -105,7 +120,9 @@ function GymService.getClickMultiplier(player: Player): number
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	local position = if root ~= nil and root:IsA("BasePart") then root.Position else nil
-	return resolve(position, CurrencyService.get(player, "rebirths")).multiplier
+	local profile = ProfileManager.get(player)
+	local gymUnlocks = if profile ~= nil and type(profile.Data) == "table" then profile.Data.gymUnlocks else nil
+	return resolve(position, CurrencyService.get(player, "rebirths"), shopUnlockedWith(gymUnlocks, GamepassService.ownsFn(player))).multiplier
 end
 
 -- 플레이어별 상태가 없다 — PlayerRemoving 정리가 필요 없다.

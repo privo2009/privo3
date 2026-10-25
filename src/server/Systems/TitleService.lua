@@ -39,6 +39,8 @@ local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 local CurrencyService = require(script.Parent.CurrencyService)
 local RollService = require(script.Parent.RollService)
+-- 로벅스 행운(지시서 #16 S5 · S13): 행운 패스 · 행운 포션. 제한 유저면 1 — ShopEffects 한 곳에서 판정한다.
+local ShopEffects = require(script.Parent.ShopEffects)
 
 type BigNumber = BigNum.BigNumber
 
@@ -66,6 +68,8 @@ export type Deps = {
 	getBlox: (Player) -> BigNumber?, -- 잔액 미리 보기(없으면 부족으로 본다)
 	subtractBlox: (Player, BigNumber, string) -> boolean,
 	roll: (tiers: { TitleConfig.TitleDef }, luck: number) -> (TitleConfig.TitleDef, number),
+	-- computeLuck 옵션(행운 패스 · 행운 포션). 없으면 둘 다 1 — 테스트 deps는 생략한다
+	luckOptions: ((Player) -> RollService.LuckOptions)?,
 	save: (Player) -> (),
 	notifyAutoNew: (Player, RollResult) -> (), -- 자동 롤로 새 칭호를 얻었을 때만
 	setAttribute: (Player, string?) -> (),
@@ -126,7 +130,7 @@ local function createRuntime(deps: Deps)
 
 		-- 4. 판정
 		lastRollAt[player] = now
-		local luck = RollService.computeLuck("title", data)
+		local luck = RollService.computeLuck("title", data, if deps.luckOptions ~= nil then deps.luckOptions(player) else nil)
 		local def, index = deps.roll(TitleConfig.Titles, luck)
 
 		-- 5. 반영
@@ -266,6 +270,9 @@ local REAL: Deps = {
 	end,
 	roll = function(tiers, luck)
 		return RollService.roll(tiers, luck)
+	end,
+	luckOptions = function(player: Player)
+		return ShopEffects.luckOptions(player, "title")
 	end,
 	save = function(player: Player)
 		-- S11: 새 id를 처음 얻었을 때만. 고정 주기 저장 루프는 없다(ProfileStore 자동 저장).

@@ -83,9 +83,15 @@ local function floorBig(value: BigNumber): BigNumber
 end
 
 -- 지금 보유한 블럭스로 얻을 배수. 1000 미만 나머지는 버린다.
-function RebirthConfig.getGainedRebirths(blox: BigNumber): BigNumber
+-- mult = 얻는 환생 수 배수(2배 환생 게임패스 — 지시서 #16 S6). 없거나 1 이하 · 깨진 값이면 1.
+-- ⚠️ 환생할 수 있는가(canRebirth)와 버려지는 양(getLeftover)은 배수와 상관없다 — 둘은 mult 없이 부른다.
+function RebirthConfig.getGainedRebirths(blox: BigNumber, mult: number?): BigNumber
 	local quotient = BigNum.div(blox, BigNum.fromNumber(RebirthConfig.BLOX_PER_REBIRTH))
-	return floorBig(quotient)
+	local gained = floorBig(quotient)
+	if type(mult) == "number" and mult == mult and mult > 1 and mult < math.huge then
+		return BigNum.mul(gained, BigNum.fromNumber(mult))
+	end
+	return gained
 end
 
 -- 환생이 가능한가. 얻을 배수가 1 이상이어야 한다.

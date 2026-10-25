@@ -40,6 +40,8 @@ end
 local UpgradeService = require(script.Parent.UpgradeService)
 -- 장착 칭호 블럭스 배수 (지시서 #10 S4). TitleService는 이 파일을 require하지 않는다(순환 없음).
 local TitleService = require(script.Parent.TitleService)
+-- 로벅스 효과(지시서 #16 S5 · S14): 2배 블럭스 게임패스.
+local ShopEffects = require(script.Parent.ShopEffects)
 local BlockService = require(script.Parent.BlockService)
 -- 스폰 복귀. 좌표도 파트도 ArenaService가 소유한다 — 여기서 SPAWN_X를 다시 읽지 않는다.
 local ArenaService = require(script.Parent.ArenaService)
@@ -128,10 +130,10 @@ end
 -- ===== 블럭스 계통 결합 (S4, 2026-10-24 사람 결정 — 지시서 #10) ===================================
 --
 -- 블럭스 계통 배수는 **이 함수 한 곳에서** 곱한다: 블럭스 획득 업그레이드 × 칭호 블럭스 배수
--- (× 2x 블럭스 게임패스 × 승리 포션 — Phase 8에 필드로 붙는다). 그 결과 하나를 payableReward가 보상에 곱한다.
+-- × 2배 블럭스 게임패스(passMult — 지시서 #16. 승리 포션은 폐기). 그 결과 하나를 payableReward가 보상에 곱한다.
 -- 각 출처는 여기서 **한 번만** 곱한다 — 두 자리에서 곱하면 그 출처만 제곱이 된다(ChallengeServiceTests "한 번만").
 -- 깨진 값(nil · nan · 1 미만 · inf)은 1 — 배수가 보상을 깎지 않는다.
-export type BloxSources = { bloxGain: number?, titleMult: number? }
+export type BloxSources = { bloxGain: number?, titleMult: number?, passMult: number? }
 
 local function factorOr1(v: any): number
 	if type(v) ~= "number" or v ~= v or v < 1 or v == math.huge then
@@ -141,7 +143,7 @@ local function factorOr1(v: any): number
 end
 
 local function combineBloxMultiplier(sources: BloxSources): number
-	return factorOr1(sources.bloxGain) * factorOr1(sources.titleMult)
+	return factorOr1(sources.bloxGain) * factorOr1(sources.titleMult) * factorOr1(sources.passMult)
 end
 -- 시뮬레이터(SuccessRateReport)도 이 함수를 부른다 — 결합 식을 두 곳에 두지 않는다.
 ChallengeService.combineBloxMultiplier = combineBloxMultiplier
@@ -246,6 +248,7 @@ local function bloxMultiplierOf(player: Player): number
 	return combineBloxMultiplier({
 		bloxGain = UpgradeService.getEffect(player, "bloxGain"),
 		titleMult = TitleService.getMult(player),
+		passMult = ShopEffects.blox(player),
 	})
 end
 

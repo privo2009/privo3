@@ -30,7 +30,7 @@ local STEP = pure.MIN_INTERVAL_SEC + 0.01 -- 간격보다 조금 길게(10.2 −
 local function complete(p: any): boolean
 	return type(p.action) == "string" and type(p.ok) == "boolean" and type(p.reason) == "string" and type(p.uid) == "string"
 		and type(p.petId) == "string" and type(p.eggId) == "number" and type(p.rarity) == "number" and type(p.level) == "number"
-		and type(p.isNew) == "boolean" and type(p.equipped) == "boolean"
+		and type(p.isNew) == "boolean" and type(p.equipped) == "boolean" and type(p.pets) == "table"
 end
 
 -- 1. readRequest -----------------------------------------------------------------------------------
@@ -134,6 +134,55 @@ do
 	check("설정: hideOtherPets 저장 · 아우라 숨기기는 그대로", on.ok and cosmetics.hideOtherPets == true and cosmetics.hideOtherAuras == false)
 	local bad = handler.onRequest(P, { key = "hideOtherPets", value = 1 }, 2)
 	check("설정: hideOtherPets도 boolean만", not bad.ok and bad.reason == SettingsRequestService.REASON_BAD_VALUE and cosmetics.hideOtherPets == true)
+end
+
+-- 3. 3배 부화(지시서 #16 S18) — 결과 1건에 3마리 ---------------------------------------------------------------------
+do
+	check("hatch3: 알 번호를 받는다", (pure.readRequest({ action = "hatch3", egg = 2 }) :: any).egg == 2 and pure.readRequest({ action = "hatch3" }) == nil)
+	local sent = {}
+	local three = {
+		{ uid = "7", petId = PET.id, eggId = 1, rarity = 3, level = 1, isNew = true, equipped = true },
+		{ uid = "8", petId = PET.id, eggId = 1, rarity = 3, level = 1, isNew = false, equipped = false },
+		{ uid = "9", petId = PET.id, eggId = 1, rarity = 3, level = 1, isNew = false, equipped = false },
+	}
+	local answer: { any } = { true, three }
+	local handler = pure.createHandler({
+		hatch = function(_p, _egg)
+			return true, three[1]
+		end,
+		hatchMulti = function(_p, _egg)
+			return answer[1], answer[2]
+		end,
+		equip = function()
+			return true, nil
+		end,
+		unequip = function()
+			return true, nil
+		end,
+		release = function()
+			return true, nil
+		end,
+		equipBest = function()
+			return true, nil
+		end,
+		craft = function()
+			return false, PetService.REASON_NOT_ENOUGH
+		end,
+		send = function(_p, payload)
+			table.insert(sent, payload)
+		end,
+	})
+	local out = handler.onRequest(P, { action = "hatch3", egg = 1 }, 10)
+	check("hatch3 성공: 결과 1건 · pets 3마리 · 앞 필드는 첫 펫", out.ok and #sent == 1 and #out.pets == 3 and out.uid == "7"
+		and out.pets[3].uid == "9" and out.pets[2].isNew == false and complete(out))
+	answer = { false, PetService.REASON_HATCH_PASS_REQUIRED }
+	local denied = handler.onRequest(P, { action = "hatch3", egg = 1 }, 10 + STEP)
+	check("hatch3 거부: 사유 그대로(hatch_pass_required) · pets 빈 목록", not denied.ok and denied.reason == PetService.REASON_HATCH_PASS_REQUIRED
+		and #denied.pets == 0 and complete(denied))
+	local one = handler.onRequest(P, { action = "hatch", egg = 1 }, 10 + STEP * 2)
+	check("보통 hatch: pets에 1마리(앞 필드와 같은 펫)", one.ok and #one.pets == 1 and one.pets[1].uid == one.uid)
+	local eq = handler.onRequest(P, { action = "equip", uid = "7" }, 10 + STEP * 3)
+	check("hatch 아닌 action: pets 빈 목록", eq.ok and #eq.pets == 0)
 end
 
 print(string.format("[PetRequestServiceTests] %d passed, %d failed", passed, failed))

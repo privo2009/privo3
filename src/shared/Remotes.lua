@@ -387,6 +387,17 @@ export type PetResultPayload = {
 	level: number,
 	isNew: boolean,
 	equipped: boolean,
+	-- 부화한 펫 전부(지시서 #16 S18 — 3배 부화는 결과 1건에 3마리). 보통 부화는 1마리(앞 필드와 같은 펫), 그 밖의 action은 빈 목록
+	pets: { PetResultEntry },
+}
+
+export type PetResultEntry = {
+	uid: string,
+	petId: string,
+	rarity: number,
+	level: number,
+	isNew: boolean,
+	equipped: boolean,
 }
 
 -- PurchaseRequest: 이 상품을 사고 싶다 (클라 → 서버). 상품 키만 싣는다 — 가격 · ID를 싣지 않는다(규약 2).

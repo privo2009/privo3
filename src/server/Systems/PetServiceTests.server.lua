@@ -54,6 +54,8 @@ local function world(opts: { blox: BigNum.BigNumber?, lifetime: BigNum.BigNumber
 		subtractFails = false,
 		slotPass = false,
 		storagePass = false,
+		slotResolved = false, -- 슬롯 게임패스 소유 확정(지시서 #16 S17)
+		hatchPass = false, -- 3배 부화(S18)
 	}
 	local deps: PetService.Deps = {
 		now = function()
@@ -91,6 +93,12 @@ local function world(opts: { blox: BigNum.BigNumber?, lifetime: BigNum.BigNumber
 		end,
 		hasStoragePass = function(_p)
 			return w.storagePass
+		end,
+		isSlotPassResolved = function(_p)
+			return w.slotResolved
+		end,
+		hasHatchPass = function(_p)
+			return w.hatchPass
 		end,
 	}
 	return w, PetService._pure.createRuntime(deps)
@@ -333,7 +341,89 @@ do
 	local many = give(w, E1.pets[1].id, 1, PetConfig.MaxSlots)
 	w.data.pets.equipped = many
 	rt.onLoaded(P, w.data)
-	check("로드: 슬롯보다 많은 장착은 자르지 않는다(E6 — Phase 8)", #w.data.pets.equipped == PetConfig.MaxSlots)
+	check("로드: 소유 확인 전에는 슬롯보다 많은 장착을 자르지 않는다(E6 · S17)", #w.data.pets.equipped == PetConfig.MaxSlots)
+end
+
+-- 8b. 펫 게임패스(지시서 #16 S17) — 슬롯 · 저장 공간 · 잘라내기는 소유 확인 뒤에만 ---------------------------------
+do
+	local w, rt = world()
+	local many = give(w, E1.pets[1].id, 1, PetConfig.MaxSlots)
+	w.data.pets.equipped = table.clone(many)
+	check("잘라내기: 확인 전이면 0(그대로)", rt.trimToSlots(P) == 0 and #w.data.pets.equipped == PetConfig.MaxSlots)
+	w.slotPass = true
+	w.slotResolved = true
+	check("잘라내기: 확인 · 보유면 기본 + 3까지 남긴다", rt.trimToSlots(P) == PetConfig.MaxSlots - (BASE_SLOTS + PetConfig.GamepassSlotBonus)
+		and #w.data.pets.equipped == BASE_SLOTS + PetConfig.GamepassSlotBonus)
+	w.slotPass = false
+	local attrBefore = w.attrSets
+	local removed = rt.trimToSlots(P)
+	check("잘라내기: 확인 · 미보유면 기본 슬롯까지 · 앞에서부터 남긴다 · Attribute 갱신", removed == PetConfig.GamepassSlotBonus
+		and #w.data.pets.equipped == BASE_SLOTS and w.data.pets.equipped[1] == many[1] and w.attrSets == attrBefore + 1)
+	check("잘라내기: 이미 맞으면 0", rt.trimToSlots(P) == 0)
+	w.data.pets.equipped = table.clone(many)
+	w.slotResolved = false
+	rt.onLoaded(P, w.data)
+	w.slotResolved = true
+	rt.onLoaded(P, w.data)
+	check("로드: 확인 뒤에 다시 오면 그때 자른다", #w.data.pets.equipped == BASE_SLOTS)
+end
+do
+	local w, rt = world()
+	give(w, E1.pets[1].id, 1, STORAGE)
+	local ok1, r1 = rt.hatch(P, 1, "manual")
+	check("저장 공간: 기본이 가득이면 storage_full", not ok1 and r1 == PetService.REASON_STORAGE_FULL)
+	w.storagePass = true
+	check("저장 공간 패스: +GamepassStorageBonus — 같은 보유로 부화된다", (rt.hatch(P, 1, "manual"))
+		and PetConfig.getStorage(true) == STORAGE + PetConfig.GamepassStorageBonus)
+	local w2, rt2 = world()
+	w2.slotPass = true
+	check("슬롯 패스: 장착 슬롯 = 기본 + 3(요약 · 장착 상한)", PetService.summarize(w2.data, true, false).slots == BASE_SLOTS + PetConfig.GamepassSlotBonus)
+	local u = give(w2, E1.pets[1].id, 1, BASE_SLOTS + PetConfig.GamepassSlotBonus)
+	local allOk = true
+	for _, uid in ipairs(u) do
+		allOk = allOk and (rt2.equip(P, uid))
+	end
+	check("슬롯 패스: 기본 + 3마리까지 장착된다", allOk and #w2.data.pets.equipped == BASE_SLOTS + PetConfig.GamepassSlotBonus)
+end
+
+-- 8c. 3배 부화(지시서 #16 S18) — 거부 경로 부작용 0 · 비용 3배 한 번 차감 · 결과 3마리 ------------------------------------
+do
+	local w, rt = world()
+	local before = w.blox
+	local ok, r = rt.hatchMany(P, 1, 3, "manual")
+	check("3배 부화: 게임패스 없으면 hatch_pass_required · 차감 0", not ok and r == PetService.REASON_HATCH_PASS_REQUIRED and #w.log == 0
+		and BigNum.eq(w.blox, before))
+	w.hatchPass = true
+	give(w, E1.pets[1].id, 1, STORAGE - 2)
+	local ok2, r2 = rt.hatchMany(P, 1, 3, "manual")
+	check("3배 부화: 저장 공간 3칸 미만이면 storage_full · 차감 0", not ok2 and r2 == PetService.REASON_STORAGE_FULL and #w.log == 0)
+	local w3, rt3 = world({ blox = BigNum.mul(E1.rollCost, BigNum.fromNumber(2)) })
+	w3.hatchPass = true
+	local ok3, r3 = rt3.hatchMany(P, 1, 3, "manual")
+	check("3배 부화: 블럭스가 비용 × 3 미만이면 insufficient_blox · 차감 0", not ok3 and r3 == RollService.REASON_INSUFFICIENT_BLOX and #w3.log == 0)
+end
+do
+	-- 잔액 = 정확히 비용 × 3 → 성공하면 0. (큰 잔액에서 뺀 차이로 재면 BigNum 소거 오차에 걸린다 — CLAUDE.md 정밀도 계약)
+	local w, rt = world({ blox = BigNum.mul(E1.rollCost, BigNum.fromNumber(3)) })
+	w.hatchPass = true
+	w.rolls = { 1, 1, 2 }
+	local ok, list = rt.hatchMany(P, 1, 3, "manual")
+	local subtracts = 0
+	local tagged = false
+	for _, line in ipairs(w.log) do
+		if string.sub(line, 1, 9) == "subtract:" then
+			subtracts += 1
+			tagged = string.find(line, "_x3_", 1, true) ~= nil
+		end
+	end
+	check("3배 부화: 성공 · 결과 3마리 · uid가 서로 다르다", ok and type(list) == "table" and #list == 3 and list[1].uid ~= list[2].uid
+		and list[2].uid ~= list[3].uid)
+	check("3배 부화: 비용 × 3을 한 번에 차감(잔액 비용 × 3 → 0 · 사유에 _x3)", subtracts == 1 and tagged and BigNum.eq(w.blox, BigNum.new(0, 0)),
+		BigNum.tostring(w.blox))
+	check("3배 부화: 같은 배치의 두 번째 같은 종은 중복 · 새 종이 있으면 저장 1회", ok and list[1].isNew and not list[2].isNew and list[3].isNew
+		and w.saves == 1)
+	check("3배 부화: 보유 3마리 늘어남", count(w.data.pets.owned) == 3)
+	check("3배 부화: 롤 시계를 한 번 쓴다(바로 다음 부화는 rate_limited)", select(2, rt.hatch(P, 1, "manual")) == RollService.REASON_RATE_LIMITED)
 end
 
 -- 9. 배수 E3 — 힘 자리 한 번만 · 데미지 항 없음 (S9) -------------------------------------------------------------
