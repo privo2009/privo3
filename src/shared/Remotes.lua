@@ -26,6 +26,8 @@
 --   SettingsResult  서버→클라. 그 요청의 결과
 --   PetRequest      클라→서버. 펫 창의 요청(hatch · equip · unequip · equipBest · craft · release) (Phase 7 지시서 #12)
 --   PetResult       서버→클라. 그 요청의 결과 1건(결과 연출용). 브로드캐스트하지 않는다
+--   PurchaseRequest 클라→서버. 로벅스 상품 구매 요청(상품 키) (Phase 8 지시서 #16). 서버가 검증한 뒤에만 프롬프트를 띄운다
+--   PurchaseResult  서버→클라. 그 요청의 판정(프롬프트를 띄웠나 · 거부 사유) + 게임패스 프롬프트가 닫힌 결과
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --
@@ -98,6 +100,8 @@ Remotes.SETTINGS_REQUEST = "SettingsRequest"
 Remotes.SETTINGS_RESULT = "SettingsResult"
 Remotes.PET_REQUEST = "PetRequest"
 Remotes.PET_RESULT = "PetResult"
+Remotes.PURCHASE_REQUEST = "PurchaseRequest"
+Remotes.PURCHASE_RESULT = "PurchaseResult"
 
 -- ===== payload 타입 ====================================================================
 --
@@ -385,6 +389,26 @@ export type PetResultPayload = {
 	equipped: boolean,
 }
 
+-- PurchaseRequest: 이 상품을 사고 싶다 (클라 → 서버). 상품 키만 싣는다 — 가격 · ID를 싣지 않는다(규약 2).
+-- 서버(PurchaseRequestService)가 키 · 보유 · 제한(S13) · 등록(ID 0) · 지급 함수를 다시 재고 빈도도 자른다(규약 3).
+export type PurchaseRequestPayload = {
+	key: string,
+}
+
+-- PurchaseResult: 구매 요청의 결과 (서버 → 클라). 선택 필드 금지.
+--   key    요청한 상품 키(형태가 틀렸으면 "") / kind "gamepass" | "product"(키가 틀렸거나 빈도 초과면 "")
+--   phase  "prompt" = 요청 판정(ok면 프롬프트를 띄웠다) · "finished" = 게임패스 프롬프트가 닫혔다(ok면 샀다)
+--   reason 사유 코드(PurchaseRequestService.REASON_* — rate_limited · invalid_key · already_owned · restricted ·
+--          not_registered · not_available · prompt_failed · cancelled). 성공이면 ""
+-- 산 게임패스의 소유는 PlayerState(shop.gamepasses)가 따로 보낸다.
+export type PurchaseResultPayload = {
+	key: string,
+	kind: string,
+	phase: string,
+	ok: boolean,
+	reason: string,
+}
+
 export type Channels = {
 	blockDamaged: RemoteEvent,
 	runStateChanged: RemoteEvent,
@@ -408,6 +432,8 @@ export type Channels = {
 	settingsResult: RemoteEvent,
 	petRequest: RemoteEvent,
 	petResult: RemoteEvent,
+	purchaseRequest: RemoteEvent,
+	purchaseResult: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -478,6 +504,8 @@ function Remotes.getServer(): Channels
 		settingsResult = ensureEvent(folder, Remotes.SETTINGS_RESULT),
 		petRequest = ensureEvent(folder, Remotes.PET_REQUEST),
 		petResult = ensureEvent(folder, Remotes.PET_RESULT),
+		purchaseRequest = ensureEvent(folder, Remotes.PURCHASE_REQUEST),
+		purchaseResult = ensureEvent(folder, Remotes.PURCHASE_RESULT),
 	}
 	cached = channels
 	return channels
@@ -534,6 +562,8 @@ function Remotes.getClient(): Channels
 		settingsResult = waitFor(folder, Remotes.SETTINGS_RESULT) :: RemoteEvent,
 		petRequest = waitFor(folder, Remotes.PET_REQUEST) :: RemoteEvent,
 		petResult = waitFor(folder, Remotes.PET_RESULT) :: RemoteEvent,
+		purchaseRequest = waitFor(folder, Remotes.PURCHASE_REQUEST) :: RemoteEvent,
+		purchaseResult = waitFor(folder, Remotes.PURCHASE_RESULT) :: RemoteEvent,
 	}
 	cached = channels
 	return channels

@@ -70,6 +70,15 @@ export type PlayerStateView = {
 	auras: AuraSummary,
 	-- 펫 요약 (지시서 #12). owned = 보유 전부(uid 번호 순), equipped = 장착 uid(장착 순서), slots · storage = 파생값
 	pets: PetSummary,
+	-- 상점 요약 (Phase 8 지시서 #16). 세션 값이다 — 프로필에 없다(절대 규칙 5)
+	shop: ShopSummary,
+}
+
+-- gamepasses = 보유 게임패스 키(이름순 — GamepassService 세션 값 · 가짜 소유 포함)
+-- paidRandomRestricted = 로벅스 행운 상품을 숨기고 효과를 끄는가(S13 — PolicyGate. 판정 실패 · 확인 전도 true)
+export type ShopSummary = {
+	gamepasses: { string },
+	paidRandomRestricted: boolean,
 }
 
 -- 보유 펫 한 마리. level = 강화 단계 1~4(프로필에는 tier라는 이름으로 저장된다 — DESIGN 10장). 종 희귀도는 petId로 Config에서 읽는다.

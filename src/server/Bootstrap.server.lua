@@ -24,6 +24,12 @@ local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 -- Studio가 아니면 무시하고 ERROR 로그를 남긴다. ⚠️ 커밋 값은 언제나 nil이다(TestPresetGateTests가 잰다 — 켠 Play에서는 그 줄이 실패한다).
 local TEST_PRESET: string? = nil
 
+-- ── 가짜 게임패스 소유: TEST_GAMEPASSES (Studio 전용, 지시서 #16 3단계) ────────────────────
+-- 패스 키 목록을 적고 Play하면 Studio에서만 그 패스를 가진 것으로 친다(세션 메모리 — 저장하지 않는다. GamepassService).
+-- 예: { "strength8x", "damage2x" } — 키는 Shared/Config/ShopConfig. Studio가 아니면 무시하고 ERROR 로그를 남긴다.
+-- ⚠️ 커밋 값은 언제나 nil이다(GamepassServiceTests가 잰다 — 켠 Play에서는 그 줄이 실패한다. 그 Play로 테스트 개수를 세지 않는다).
+local TEST_GAMEPASSES: { string }? = nil
+
 print("[Bootstrap] ProfileManager.init() 호출 시작")
 ProfileManager.init(TEST_PRESET)
 print("[Bootstrap] ProfileManager.init() 호출 완료")
@@ -160,6 +166,18 @@ local PetService = require(script.Parent.Systems.PetService)
 PetService.init()
 local PetRequestService = require(script.Parent.Systems.PetRequestService)
 PetRequestService.init()
+
+-- 로벅스 구매 기반 (Phase 8 지시서 #16 3단계). 게임패스 소유(세션 메모리) · 행운 상품 제한 판정 · 영수증 처리 · 구매 요청 채널.
+-- ⚠️ 순서: ProfileManager.init() 뒤(영수증이 프로필을 쓴다). PlayerStateService 앞(스냅샷이 소유 · 제한을 읽는다 — 모듈만 있으면 되지만
+-- 접속 조회를 먼저 걸어 둔다). 요청 채널은 셋 뒤.
+local GamepassService = require(script.Parent.Systems.GamepassService)
+GamepassService.init(TEST_GAMEPASSES)
+local PolicyGate = require(script.Parent.Systems.PolicyGate)
+PolicyGate.init()
+local ProductService = require(script.Parent.Systems.ProductService)
+ProductService.init()
+local PurchaseRequestService = require(script.Parent.Systems.PurchaseRequestService)
+PurchaseRequestService.init()
 
 -- 플레이어 상태 채널을 연다 (Phase 6 지시서 #5 — HUD가 서버 값을 보인다).
 -- ⚠️ 순서: ProfileManager · PadService · SpeedService · ChallengeService가 준비된 뒤여야 한다.

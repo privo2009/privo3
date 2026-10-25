@@ -316,6 +316,23 @@ do
 	check("퇴장: 나간 플레이어에게는 더 보내지 않는다", w.sends == 1)
 end
 
+-- 3z. 상점 요약 (지시서 #16 — 세션 값: 보유 게임패스 · 행운 상품 제한) -------------------------------------
+do
+	local base = pure.buildSnapshot(sampleData(), 20, 36, 3)
+	check("상점: 없으면 보유 없음 · 제한(확인 전과 같다)", type(base.shop) == "table" and #base.shop.gamepasses == 0
+		and base.shop.paidRandomRestricted == true)
+	local owned = pure.buildSnapshot(sampleData(), 20, 36, 3, nil, { gamepasses = { "damage2x", "strength8x" }, paidRandomRestricted = false })
+	check("상점: 넘긴 요약이 그대로 실린다", #owned.shop.gamepasses == 2 and owned.shop.gamepasses[2] == "strength8x"
+		and owned.shop.paidRandomRestricted == false)
+	check("비교: 보유 게임패스가 다르면 다르다", not pure.snapshotsEqual(base, owned))
+	local open = pure.buildSnapshot(sampleData(), 20, 36, 3, nil, { gamepasses = {}, paidRandomRestricted = false })
+	check("비교: 제한 여부만 달라도 다르다", not pure.snapshotsEqual(base, open))
+	local same = pure.buildSnapshot(sampleData(), 20, 36, 3, nil, { gamepasses = { "damage2x", "strength8x" }, paidRandomRestricted = false })
+	check("비교: 같은 상점 요약이면 같다", pure.snapshotsEqual(owned, same))
+	local ok, encoded = pcall(HttpService.JSONEncode, HttpService, owned)
+	check("상점: JSON 왕복 뒤에도 같다", ok and pure.snapshotsEqual(owned, HttpService:JSONDecode(encoded)))
+end
+
 print(string.format("[PlayerStateServiceTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[PlayerStateServiceTests] %d test(s) failed", failed))
