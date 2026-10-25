@@ -4,9 +4,10 @@
 --
 --   해금   환생 수(rebirths) ≥ 그 기구의 조건. 환생 수는 줄지 않으므로 한 번 열리면 계속 열려 있다
 --          (패드와 반대 — 패드는 lifeBlox 기준이라 환생하면 다시 잠긴다)
---          로벅스 선해금은 가격만 여기 둔다. 실제 구매(게임패스 소유 확인)는 Phase 8이다
+--          로벅스 선해금은 개발자 상품 8종(ShopConfig "gymUnlock1" ~ "gymUnlock8" — 지시서 #16). 가격의 원본은 ShopConfig다.
+--          지급(선해금 기록 gymUnlocks)은 #17. 판정은 GymService가 환생 수 OR 선해금 기록 OR 공허 게임패스로 한다
 --   유료   맨 끝 기구는 "공허 훈련 구역"이다 — 환생으로는 열리지 않고 로벅스로만 산다. 배수와 가격이
---          모든 기구 중 가장 높다(2026-10-21 사람 결정). 가격의 원본은 ShopConfig.Gamepasses다
+--          모든 기구 중 가장 높다(2026-10-21 사람 결정). 가격의 원본은 ShopConfig(게임패스 voidTrainingZone)다
 --   효과   그 기구 위에 서 있는 동안의 클릭 1회 힘 = 패드 파워 × 기구 배수 × 환생 배수 × 클릭 수
 --          런 안(챌린지 구역)에는 기구가 없으므로 런 중 클릭에는 붙지 않는다 —
 --          docs/PENDING.md "지켜야 할 조건"(운동기구 효율 > 런 중 클릭 효율)이 이 구조로 지켜진다
@@ -27,13 +28,12 @@ local GymConfig = {}
 --   unlockRebirths  그 기구를 여는 환생 수. 첫 환생에 바로 첫 기구가 열리고, 뒤로 갈수록 기구 사이 간격이
 --                   길어진다(아래 근거). nil이면 로벅스 전용 기구다(환생으로 안 열림)
 --   multiplier      클릭 힘 배수
---   robuxPrice      선해금 가격(R$). Phase 8에서 게임패스로 판다. 지금은 숫자만.
---                   로벅스 전용 기구는 ShopConfig.Gamepasses[gamepassKey]에서 읽는다(숫자를 두 곳에 두지 않는다)
---   gamepassKey     로벅스 전용 기구의 ShopConfig.Gamepasses 키. 환생 기구는 nil
+--   productKey      환생 기구의 선해금 개발자 상품 키(ShopConfig). 가격은 그 상품에서 읽는다(숫자를 두 곳에 두지 않는다 — 지시서 #16)
+--   gamepassKey     로벅스 전용 기구의 ShopConfig 게임패스 키. 환생 기구는 nil
 export type Tier = {
 	unlockRebirths: BigNumber?,
 	multiplier: number,
-	robuxPrice: number,
+	productKey: string?,
 	gamepassKey: string?,
 }
 
@@ -66,7 +66,7 @@ export type Tier = {
 --   실제 유저가 기구에서 더 오래 있으면 배수를 낮춰야 한다 — 실플레이로 재확인.
 --   ⚠️ 패드 리셋 전(패드 유지)에는 46.7분이었다. 기구로는 이 속도를 되찾지 못한다(docs/PENDING.md).
 --
---   robuxPrice는 29 → 449 R$ 자리값이다. 공허 훈련 구역(799 R$, DESIGN.md "수익화" 표의 기존 값)이
+--   선해금 가격은 29 → 449 R$ 자리값이다(지금 원본은 ShopConfig gymUnlock1 ~ 8 — 지시서 #16). 공허 훈련 구역(799 R$, DESIGN.md "수익화" 표의 기존 값)이
 --   가장 비싸야 하므로 그 아래에 펼쳤다. 기존 게임패스 가격 단위(29·49·79·99·149·199·299·449)를 따른다.
 --   Phase 8 수익화 때 다시 본다.
 --
@@ -76,18 +76,17 @@ export type Tier = {
 --   구매자 비교는 SuccessRateReport "공허 훈련 구역 구매자 (비교)" 줄. 성공률 목표는 무과금 기준이라
 --   구매자는 목표 밖이다.
 local TIERS: { Tier } = {
-	{ unlockRebirths = BigNum.new(1, 0), multiplier = 1.2, robuxPrice = 29 },
-	{ unlockRebirths = BigNum.new(3, 0), multiplier = 1.5, robuxPrice = 49 },
-	{ unlockRebirths = BigNum.new(5, 0), multiplier = 2, robuxPrice = 79 },
-	{ unlockRebirths = BigNum.new(1, 1), multiplier = 2.5, robuxPrice = 99 },
-	{ unlockRebirths = BigNum.new(5, 1), multiplier = 3, robuxPrice = 149 },
-	{ unlockRebirths = BigNum.new(5, 2), multiplier = 4, robuxPrice = 199 },
-	{ unlockRebirths = BigNum.new(1, 4), multiplier = 5, robuxPrice = 299 },
-	{ unlockRebirths = BigNum.new(1, 6), multiplier = 8, robuxPrice = 449 },
+	{ unlockRebirths = BigNum.new(1, 0), multiplier = 1.2, productKey = "gymUnlock1" },
+	{ unlockRebirths = BigNum.new(3, 0), multiplier = 1.5, productKey = "gymUnlock2" },
+	{ unlockRebirths = BigNum.new(5, 0), multiplier = 2, productKey = "gymUnlock3" },
+	{ unlockRebirths = BigNum.new(1, 1), multiplier = 2.5, productKey = "gymUnlock4" },
+	{ unlockRebirths = BigNum.new(5, 1), multiplier = 3, productKey = "gymUnlock5" },
+	{ unlockRebirths = BigNum.new(5, 2), multiplier = 4, productKey = "gymUnlock6" },
+	{ unlockRebirths = BigNum.new(1, 4), multiplier = 5, productKey = "gymUnlock7" },
+	{ unlockRebirths = BigNum.new(1, 6), multiplier = 8, productKey = "gymUnlock8" },
 	{
 		unlockRebirths = nil,
 		multiplier = 100,
-		robuxPrice = ShopConfig.Gamepasses.voidTrainingZone.priceRobux,
 		gamepassKey = "voidTrainingZone",
 	},
 }
@@ -146,9 +145,18 @@ function GymConfig.getMultiplier(index: number): number
 	return TIERS[index].multiplier
 end
 
-function GymConfig.getRobuxPrice(index: number): number
+-- 그 기구를 로벅스로 여는 상품 키(환생 기구 = 선해금 개발자 상품, 로벅스 전용 = 게임패스).
+function GymConfig.getShopKey(index: number): string
 	assertIndex(index)
-	return TIERS[index].robuxPrice
+	local tier = TIERS[index]
+	return (tier.productKey or tier.gamepassKey) :: string
+end
+
+-- 로벅스 가격 — ShopConfig 원본(지시서 #16).
+function GymConfig.getRobuxPrice(index: number): number
+	local def = ShopConfig.get(GymConfig.getShopKey(index))
+	assert(def ~= nil, string.format("GymConfig: 기구 %d의 상품이 ShopConfig에 없음", index))
+	return def.priceRobux
 end
 
 -- 환생 수로 열렸는가. 로벅스 선해금(Phase 8)은 여기서 보지 않는다 — 소유 확인은 서버가
@@ -181,22 +189,22 @@ function GymConfig.validate(): boolean
 	for index, tier in ipairs(TIERS) do
 		local need = tier.unlockRebirths
 		if need == nil then
-			-- 로벅스 전용: 게임패스가 ShopConfig에 있고 가격이 그 값과 같아야 한다.
+			-- 로벅스 전용: 게임패스가 ShopConfig에 있어야 한다(가격은 그 게임패스 값).
 			local key = tier.gamepassKey
 			assert(key ~= nil, string.format("GymConfig: 기구 %d은 환생 조건도 gamepassKey도 없음", index))
-			local pass = ShopConfig.Gamepasses[key]
-			assert(pass ~= nil, string.format("GymConfig: 기구 %d의 gamepassKey(%s)가 ShopConfig.Gamepasses에 없음", index, key))
-			assert(tier.robuxPrice == pass.priceRobux, string.format("GymConfig: 기구 %d의 가격이 ShopConfig와 다름", index))
+			local def = ShopConfig.get(key)
+			assert(def ~= nil and def.kind == "gamepass" and def.effect.type == "gymPass",
+				string.format("GymConfig: 기구 %d의 gamepassKey(%s)가 ShopConfig 게임패스(gymPass)가 아님", index, key))
+			assert(tier.productKey == nil, string.format("GymConfig: 기구 %d은 로벅스 전용인데 productKey가 있음", index))
 		else
 			assert(tier.gamepassKey == nil, string.format("GymConfig: 기구 %d은 환생 기구인데 gamepassKey가 있음", index))
+			local def = ShopConfig.get(tier.productKey)
+			assert(def ~= nil and def.kind == "product" and def.effect.type == "gymUnlock" and def.effect.gymIndex == index,
+				string.format("GymConfig: 기구 %d의 productKey(%s)가 그 기구의 선해금 상품이 아님", index, tostring(tier.productKey)))
 			assert(BigNum.gt(need, BigNum.new(0, 0)), string.format("GymConfig: 기구 %d의 조건이 0 이하", index))
 			assert(index <= rebirthTiers, string.format("GymConfig: 환생 기구 %d이 로벅스 전용 기구 뒤에 있음", index))
 		end
 		assert(tier.multiplier > 1, string.format("GymConfig: 기구 %d의 배수(%s)는 1보다 커야 함", index, tostring(tier.multiplier)))
-		assert(
-			type(tier.robuxPrice) == "number" and tier.robuxPrice > 0 and tier.robuxPrice % 1 == 0,
-			string.format("GymConfig: 기구 %d의 로벅스 가격(%s)은 양의 정수여야 함", index, tostring(tier.robuxPrice))
-		)
 		if prev ~= nil then
 			local prevNeed = prev.unlockRebirths
 			if need ~= nil and prevNeed ~= nil then
@@ -204,7 +212,7 @@ function GymConfig.validate(): boolean
 			end
 			-- 배수·가격은 로벅스 전용까지 이어서 순증가 — 로벅스 전용이 가장 비싸고 가장 세다.
 			assert(tier.multiplier > prev.multiplier, string.format("GymConfig: 기구 %d의 배수가 앞 기구보다 크지 않음", index))
-			assert(tier.robuxPrice > prev.robuxPrice, string.format("GymConfig: 기구 %d의 가격이 앞 기구보다 크지 않음", index))
+			assert(GymConfig.getRobuxPrice(index) > GymConfig.getRobuxPrice(index - 1), string.format("GymConfig: 기구 %d의 가격이 앞 기구보다 크지 않음", index))
 		end
 		prev = tier
 	end

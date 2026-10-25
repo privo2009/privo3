@@ -63,7 +63,16 @@ if VOID ~= nil then
 	check("환생 기구는 로벅스 전용이 아님", not GymConfig.isRobuxOnly(1) and not GymConfig.isRobuxOnly(REBIRTH_COUNT))
 	check("환생 기구 수 = 공허 앞 기구 수", REBIRTH_COUNT == VOID - 1)
 	check("공허 가격 = ShopConfig 게임패스 가격",
-		GymConfig.getRobuxPrice(VOID) == ShopConfig.Gamepasses.voidTrainingZone.priceRobux)
+		GymConfig.getRobuxPrice(VOID) == (ShopConfig.get("voidTrainingZone") :: any).priceRobux)
+	check("환생 기구 선해금 가격 = ShopConfig gymUnlock1 ~ 8(29 ~ 449, 지시서 #16 — 원본 한 곳)", (function()
+		for i = 1, REBIRTH_COUNT do
+			local def = ShopConfig.get("gymUnlock" .. i) :: any
+			if GymConfig.getShopKey(i) ~= "gymUnlock" .. i or GymConfig.getRobuxPrice(i) ~= def.priceRobux then
+				return false
+			end
+		end
+		return GymConfig.getRobuxPrice(1) == 29 and GymConfig.getRobuxPrice(REBIRTH_COUNT) == 449 and GymConfig.getShopKey(VOID) == "voidTrainingZone"
+	end)())
 	local mostExpensive = true
 	local strongest = true
 	for i = 1, COUNT do

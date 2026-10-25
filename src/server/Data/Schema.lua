@@ -6,12 +6,14 @@
 
 local Schema = {}
 
-Schema.VERSION = 6 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드, Phase 4-2-b)
+Schema.VERSION = 7 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드, Phase 4-2-b)
 -- v4: lifeBlox 추가 (이번 생애 누적 blox — 패드 해금 기준, 환생하면 0. 2026-10-21)
 -- v5: pets.slots · pets.storage · rolling.unlockedAuraPacks · drones 삭제 (2026-10-24 지시서 #10 S12 · S13).
 --     슬롯 · 저장 공간 · 열린 아우라 팩은 저장하지 않고 파생한다 — PetConfig.getSlots · getStorage, AuraConfig.getUnlockedPacks.
 --     게임패스가 들어가는 값이라 저장하면 절대 규칙 5(게임패스 소유 상태 저장 금지)를 어긴다.
 -- v6: upgrades.moveSpeed 삭제 (2026-10-24 사람 결정 L3 — 이동 속도는 레벨로만 오른다. 구매분 환급 없음 — 출시 전)
+-- v7: purchases · potions · rollCredits · gymUnlocks 추가, boosts {type, mult, expiresAt} → {type, mult, remainingSec}
+--     (2026-10-25 지시서 #16 — DESIGN 9장 S2 · S7). 게임패스 소유는 여기 없다(절대 규칙 5 — 세션 값)
 
 -- 구조적 상한값. DESIGN.md 6장 수치와 같지만 Schema는 Config를 몰라야 하므로 별도로 둔다.
 -- 중복이 어긋나면 SchemaTests가 잡는다(PetConfig · AuraConfig 값과 대조한다).
@@ -21,6 +23,8 @@ Schema.LIMITS = {
 	MAX_PET_SLOTS = 6, -- 기본 2 + 업그레이드 최대 +1 + 게임패스 +3 (= PetConfig.MaxSlots)
 	MAX_PET_STORAGE = 150, -- 기본 50 + 게임패스 +100 (= PetConfig.getStorage(true))
 	MAX_AURA_PACKS = 5, -- AuraConfig.Packs 개수
+	-- 처리한 영수증 PurchaseId를 남기는 최대 개수(DESIGN 9장 S2 — 최근 100개, 오래된 것부터 버린다). ProductService가 이 값을 쓴다
+	MAX_PURCHASES = 100,
 }
 
 local function isFiniteNumber(n: any): boolean
@@ -124,7 +128,16 @@ local function buildTemplate()
 			autoRollTitle = false,
 		},
 
-		boosts = {}, -- {type, mult, expiresAt} 서버에서만 만료 판정
+		-- 활성 부스트(포션). {type, mult, remainingSec} — 접속 중에만 줄어든다(BoostService 단일 루프, DESIGN 9장 S7). v6까지는 expiresAt
+		boosts = {},
+		-- 처리한 영수증 PurchaseId 문자열 배열(오래된 것이 앞). 최근 LIMITS.MAX_PURCHASES개 — ProcessReceipt 멱등(절대 규칙 6, S2)
+		purchases = {},
+		-- 포션 보관 개수(지급 · 켜기는 #17)
+		potions = { strength = 0, damage = 0, luck = 0 },
+		-- 럭키 · 슈퍼 롤 남은 횟수(#17)
+		rollCredits = { lucky = 0, super = 0 },
+		-- 운동기구 선해금 기록 {["기구 번호"] = true}(#17). 키는 문자열 — JSON이 숫자 키를 문자열로 바꾸는 어긋남을 피한다(pets uid와 같은 이유)
+		gymUnlocks = {},
 
 		daily = {
 			streak = 0,
@@ -292,16 +305,67 @@ function Schema.validate(data: any): (boolean, { string })
 		addError(errors, "rolling 테이블이 없음")
 	end
 
-	-- boosts -----------------------------------------------------------------------------
+	-- boosts (v7) ------------------------------------------------------------------------
 
 	if type(data.boosts) == "table" then
 		for i, boost in ipairs(data.boosts) do
-			if type(boost) ~= "table" or type(boost.type) ~= "string" or type(boost.mult) ~= "number" or type(boost.expiresAt) ~= "number" then
-				addError(errors, string.format("boosts[%d]가 {type,mult,expiresAt} 형태가 아님", i))
+			if type(boost) ~= "table" or type(boost.type) ~= "string" or not isFiniteNumber(boost.mult) or boost.mult < 1
+				or not isFiniteNumber(boost.remainingSec) or boost.remainingSec < 0 then
+				addError(errors, string.format("boosts[%d]가 {type,mult≥1,remainingSec≥0} 형태가 아님", i))
 			end
 		end
 	else
 		addError(errors, "boosts 테이블이 없음")
+	end
+
+	-- purchases (v7) ---------------------------------------------------------------------
+
+	if type(data.purchases) == "table" then
+		local n = 0
+		for _ in pairs(data.purchases) do
+			n += 1
+		end
+		if n > Schema.LIMITS.MAX_PURCHASES then
+			addError(errors, string.format("purchases가 %d개를 넘음(%d)", Schema.LIMITS.MAX_PURCHASES, n))
+		end
+		for i = 1, n do
+			if type(data.purchases[i]) ~= "string" then
+				addError(errors, string.format("purchases[%d]가 문자열이 아님", i))
+				break
+			end
+		end
+	else
+		addError(errors, "purchases 테이블이 없음")
+	end
+
+	-- potions · rollCredits (v7) — 0 이상 정수 ----------------------------------------------
+
+	local function checkCounts(field: string, keys: { string })
+		local t = data[field]
+		if type(t) ~= "table" then
+			addError(errors, field .. " 테이블이 없음")
+			return
+		end
+		for _, key in ipairs(keys) do
+			local v = t[key]
+			if type(v) ~= "number" or v ~= v or v < 0 or v % 1 ~= 0 or v == math.huge then
+				addError(errors, string.format("%s.%s는 0 이상의 정수여야 함", field, key))
+			end
+		end
+	end
+	checkCounts("potions", { "strength", "damage", "luck" })
+	checkCounts("rollCredits", { "lucky", "super" })
+
+	-- gymUnlocks (v7) — {["숫자 문자열"] = true} ----------------------------------------------
+
+	if type(data.gymUnlocks) == "table" then
+		for key, value in pairs(data.gymUnlocks) do
+			if type(key) ~= "string" or tonumber(key) == nil or value ~= true then
+				addError(errors, string.format("gymUnlocks[%s]가 {[\"번호\"] = true} 형태가 아님", tostring(key)))
+			end
+		end
+	else
+		addError(errors, "gymUnlocks 테이블이 없음")
 	end
 
 	return #errors == 0, errors

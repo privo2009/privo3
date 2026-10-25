@@ -18,7 +18,7 @@
 local ShopConfig = require(script.Parent.ShopConfig)
 
 export type Slot = {
-	key: string, -- 화면 코드·테스트가 항목을 가리키는 식별자. 표시 문구 아님
+	key: string, -- ShopConfig 상품 키(구매 요청에 그대로 쓴다). 표시 문구 아님
 	track: string, -- 문서/테스트용 트랙 이름(힘/클릭 입력/재화/데미지). 표시 안 함
 	name: string, -- ShopConfig에서 그대로 가져온 표시 이름
 	priceRobux: number, -- ShopConfig에서 그대로 가져온 가격
@@ -32,38 +32,21 @@ local ShopSlotConfig = {}
 -- 프로필에 저장하지 않고 매 세션 MarketplaceService로 확인해야 한다(CLAUDE.md
 -- 절대 규칙 5). 그 조회 배선이 이번 Phase에 없으므로 보유 단계를 알 방법이
 -- 없다 — 보유 조회는 Phase 8.
-local strengthTier = ShopConfig.StrengthMultTiers[1]
-local autoClickerGamepass = ShopConfig.Gamepasses.autoClicker
-local bloxGamepass = ShopConfig.Gamepasses.blox2x
-local damageGamepass = ShopConfig.Gamepasses.damage2x
-
 -- 순서 = 화면 표시 순서(2행 2열, 좌->우 위->아래). U3-6 결정 — 접근 빈도가 아니라
 -- "서로 다른 소비 트랙 하나씩"으로 골랐다(힘 성장 / 조작 편의 / 재화 배수 / 데미지).
+-- 2026-10-25 사람 결정(지시서 #16): 2배 힘(3) · 자동 클리커(49) · 2배 블럭스(199) · 2배 데미지(149). key = ShopConfig 상품 키 —
+-- 누르면 그 키로 구매 요청이 간다(PurchaseRequest).
+local function slot(key: string, track: string): Slot
+	local def = ShopConfig.get(key)
+	assert(def ~= nil, "ShopSlotConfig: ShopConfig에 없는 상품 - " .. key)
+	return { key = key, track = track, name = def.name, priceRobux = def.priceRobux }
+end
+
 ShopSlotConfig.TEMP_SLOTS = {
-	{
-		key = "strengthTier1",
-		track = "힘",
-		name = string.format("%dx 힘", strengthTier.multiplier),
-		priceRobux = strengthTier.priceRobux,
-	},
-	{
-		key = "autoClicker",
-		track = "클릭 입력",
-		name = autoClickerGamepass.name,
-		priceRobux = autoClickerGamepass.priceRobux,
-	},
-	{
-		key = "blox2x",
-		track = "재화",
-		name = bloxGamepass.name,
-		priceRobux = bloxGamepass.priceRobux,
-	},
-	{
-		key = "damage2x",
-		track = "데미지",
-		name = damageGamepass.name,
-		priceRobux = damageGamepass.priceRobux,
-	},
+	slot("strength2x", "힘"),
+	slot("autoClicker", "클릭 입력"),
+	slot("blox2x", "재화"),
+	slot("damage2x", "데미지"),
 } :: { Slot }
 
 function ShopSlotConfig.validate(): boolean
@@ -72,6 +55,8 @@ function ShopSlotConfig.validate(): boolean
 	local seenKeys: { [string]: boolean } = {}
 	for _, slot in ipairs(ShopSlotConfig.TEMP_SLOTS) do
 		assert(type(slot.key) == "string" and #slot.key > 0, "ShopSlotConfig: key가 비어 있음")
+		local def = ShopConfig.get(slot.key)
+		assert(def ~= nil and def.name == slot.name and def.priceRobux == slot.priceRobux, "ShopSlotConfig: ShopConfig 원본과 다름 - " .. slot.key)
 		assert(not seenKeys[slot.key], "ShopSlotConfig: key가 중복됨: " .. slot.key)
 		seenKeys[slot.key] = true
 

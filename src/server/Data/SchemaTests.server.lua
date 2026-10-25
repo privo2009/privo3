@@ -50,7 +50,50 @@ do
 	check("new()는 매번 독립된 깊은 복사본을 반환함", b.blox.m == 0)
 end
 
-check("Schema.VERSION == 6 (v6: upgrades.moveSpeed 삭제 — L3)", Schema.VERSION == 6)
+check("Schema.VERSION == 7 (v7: purchases · potions · rollCredits · gymUnlocks · boosts remainingSec — 지시서 #16)", Schema.VERSION == 7)
+do
+	local t = Schema.getTemplate() :: any
+	check("v7 템플릿: purchases · boosts 빈 표 · potions 3종 0 · rollCredits 2종 0 · gymUnlocks 빈 표 · MAX_PURCHASES 100",
+		type(t.purchases) == "table" and next(t.purchases) == nil and type(t.boosts) == "table" and next(t.boosts) == nil
+			and t.potions.strength == 0 and t.potions.damage == 0 and t.potions.luck == 0 and t.rollCredits.lucky == 0 and t.rollCredits.super == 0
+			and type(t.gymUnlocks) == "table" and next(t.gymUnlocks) == nil and Schema.LIMITS.MAX_PURCHASES == 100)
+	local function rejects(mutate: (any) -> ()): boolean
+		local d = Schema.new() :: any
+		mutate(d)
+		return not (Schema.validate(d))
+	end
+	local okBoost = Schema.new() :: any
+	okBoost.boosts = { { type = "strength", mult = 2, remainingSec = 600 } }
+	okBoost.purchases = { "abc", "def" }
+	okBoost.gymUnlocks = { ["3"] = true }
+	okBoost.potions.luck = 5
+	check("v7 검증: 정상 boosts · purchases · gymUnlocks · potions 통과", (Schema.validate(okBoost)))
+	check("v7 검증 거부: 옛 boosts(expiresAt만) · remainingSec 음수 · mult < 1", rejects(function(d)
+		d.boosts = { { type = "strength", mult = 2, expiresAt = 100 } }
+	end) and rejects(function(d)
+		d.boosts = { { type = "strength", mult = 2, remainingSec = -1 } }
+	end) and rejects(function(d)
+		d.boosts = { { type = "strength", mult = 0.5, remainingSec = 10 } }
+	end))
+	check("v7 검증 거부: purchases 101개 · 문자열 아님", rejects(function(d)
+		for i = 1, 101 do
+			d.purchases[i] = tostring(i)
+		end
+	end) and rejects(function(d)
+		d.purchases = { 123 }
+	end))
+	check("v7 검증 거부: potions 음수 · 소수 · rollCredits 없음 · gymUnlocks 숫자 키 · 값 true 아님", rejects(function(d)
+		d.potions.strength = -1
+	end) and rejects(function(d)
+		d.potions.damage = 1.5
+	end) and rejects(function(d)
+		d.rollCredits = nil
+	end) and rejects(function(d)
+		d.gymUnlocks = { [3] = true }
+	end) and rejects(function(d)
+		d.gymUnlocks = { ["3"] = 1 }
+	end))
+end
 check("v6 템플릿: upgrades.moveSpeed 없음 · 나머지 7키", (Schema.getTemplate() :: any).upgrades.moveSpeed == nil and (function()
 	local n = 0
 	for _ in pairs(Schema.getTemplate().upgrades) do

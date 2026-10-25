@@ -20,7 +20,38 @@ end
 
 -- 1. 기본 -----------------------------------------------------------------
 
-check("Migrations.CURRENT == 6 (변환 5개: radius 제거 / selectedPadIndex 추가 / lifeBlox 추가 / 파생값 · 드론 삭제 / moveSpeed 삭제)", Migrations.CURRENT == 6)
+check("Migrations.CURRENT == 7 (변환 6개: radius 제거 / selectedPadIndex 추가 / lifeBlox 추가 / 파생값 · 드론 삭제 / moveSpeed 삭제 / 수익화 v7)", Migrations.CURRENT == 7)
+
+-- v6 -> v7: purchases · potions · rollCredits · gymUnlocks 추가, boosts {expiresAt} → {remainingSec} (지시서 #16)
+do
+	local now = os.time()
+	local data: any = {
+		schemaVersion = 6,
+		blox = { m = 1.5, e = 3 },
+		boosts = {
+			{ type = "strength", mult = 2, expiresAt = now + 600 }, -- 남은 600초 → remainingSec
+			{ type = "luck", mult = 2, expiresAt = now - 5 }, -- 이미 끝남 → 버린다
+			{ type = "damage", mult = 2, remainingSec = 120 }, -- 이미 v7 모양 → 그대로
+			"broken",
+		},
+	}
+	local ok, err = Migrations.run(data)
+	check("v6->v7: 변환 성공 · schemaVersion 7", ok and data.schemaVersion == 7, err)
+	local b = data.boosts
+	check("v6->v7: boosts expiresAt → remainingSec(남은 시간) · 끝난 것 · 깨진 것 버림 · v7 모양은 그대로",
+		#b == 2 and b[1].type == "strength" and b[1].remainingSec >= 598 and b[1].remainingSec <= 600 and b[1].expiresAt == nil
+			and b[2].type == "damage" and b[2].remainingSec == 120)
+	check("v6->v7: purchases · potions · rollCredits · gymUnlocks 생김 · 블럭스 그대로", type(data.purchases) == "table" and next(data.purchases) == nil
+		and data.potions.strength == 0 and data.potions.luck == 0 and data.rollCredits.super == 0 and type(data.gymUnlocks) == "table" and data.blox.m == 1.5)
+	local kept: any = { schemaVersion = 6, purchases = { "p1" }, potions = { strength = 3, damage = 0, luck = 1 } }
+	Migrations.run(kept)
+	check("v6->v7: 이미 있는 purchases · potions는 덮지 않는다", kept.purchases[1] == "p1" and kept.potions.strength == 3)
+	local once = (Migrations :: any)[6]({ boosts = { { type = "strength", mult = 2, expiresAt = now + 60 } } })
+	local again = (Migrations :: any)[6](once)
+	check("v6->v7: 두 번 불러도 같다(멱등)", #again.boosts == 1 and again.boosts[1].remainingSec == once.boosts[1].remainingSec)
+	local bare = Migrations.run({ schemaVersion = 6 })
+	check("v6->v7: boosts가 없어도 안 죽는다", bare)
+end
 
 -- v5 -> v6: upgrades.moveSpeed 삭제 (L3 — 2026-10-24 사람 결정, 구매분 환급 없음). 나머지 값은 그대로.
 do
@@ -30,7 +61,7 @@ do
 		upgrades = { punchDamage = 6, punchSpeed = 2, moveSpeed = 7, bloxGain = 1, titleLuck = 2, auraLuck = 0, petLuck = 0, petSlots = 1 },
 	}
 	local ok, err = Migrations.run(data)
-	check("v5->v6: 변환 성공 · schemaVersion 6", ok and data.schemaVersion == 6, err)
+	check("v5->v6: 변환 성공 · schemaVersion은 최신(v7까지 이어서 탄다)", ok and data.schemaVersion == Migrations.CURRENT, err)
 	check("v5->v6: upgrades.moveSpeed 삭제", data.upgrades.moveSpeed == nil)
 	check("v5->v6: 다른 업그레이드 · 블럭스는 그대로(환급 없음)", data.upgrades.punchDamage == 6 and data.upgrades.punchSpeed == 2
 		and data.upgrades.bloxGain == 1 and data.upgrades.petSlots == 1 and data.blox.m == 3.25 and data.blox.e == 4)

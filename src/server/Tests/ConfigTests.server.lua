@@ -65,39 +65,129 @@ check("ShopSlotConfig.validate", function()
 	return ShopSlotConfig.validate()
 end)
 
-check("ShopSlotConfig: 4개 구좌가 전부 ShopConfig 원본값을 그대로 참조한다(복사 아님)", function()
-	-- 값을 여기 다시 적었다면 ShopConfig를 바꿔도 이 테스트가 안 걸린다 — 원본을
-	-- 다시 조회해서 대조해야 "복사됐다"를 실제로 잡는다.
+check("ShopSlotConfig: HUD 구좌 4개 = 2배 힘 · 자동 클리커 · 2배 블럭스 · 2배 데미지 · ShopConfig 원본값 그대로(지시서 #16)", function()
+	-- 값을 여기 다시 적었다면 ShopConfig를 바꿔도 이 테스트가 안 걸린다 — 원본을 다시 조회해서 대조해야 "복사됐다"를 잡는다.
 	local slots = ShopSlotConfig.TEMP_SLOTS
-	local strengthTier = ShopConfig.StrengthMultTiers[1]
-	local autoClicker = ShopConfig.Gamepasses.autoClicker
-	local blox2x = ShopConfig.Gamepasses.blox2x
-	local damage2x = ShopConfig.Gamepasses.damage2x
-
-	return slots[1].priceRobux == strengthTier.priceRobux
-		and slots[2].priceRobux == autoClicker.priceRobux
-		and slots[2].name == autoClicker.name
-		and slots[3].priceRobux == blox2x.priceRobux
-		and slots[3].name == blox2x.name
-		and slots[4].priceRobux == damage2x.priceRobux
-		and slots[4].name == damage2x.name
+	local keys = { "strength2x", "autoClicker", "blox2x", "damage2x" }
+	for i, key in ipairs(keys) do
+		local def = ShopConfig.get(key) :: any
+		if slots[i].key ~= key or slots[i].priceRobux ~= def.priceRobux or slots[i].name ~= def.name then
+			return false
+		end
+	end
+	return slots[1].priceRobux == 3 and slots[2].priceRobux == 49 and slots[3].priceRobux == 199 and slots[4].priceRobux == 149
 end)
 
 check("ShopConfig: 블럭스를 로벅스로 파는 상품이 없다 (P1 — 지시서 #11)", function()
-	for _, def in pairs(ShopConfig.DeveloperProducts) do
+	for _, def in pairs(ShopConfig.Products) do
 		if def.effect.type == "blox" then
 			return false
 		end
 	end
-	return (ShopConfig.DeveloperProducts :: any).bloxPackSmall == nil and (ShopConfig.DeveloperProducts :: any).bloxPackLarge == nil
+	return ShopConfig.get("bloxPackSmall") == nil and ShopConfig.get("bloxPackLarge") == nil
 end)
 
 check("ShopConfig.validate: 블럭스 상품이 다시 들어오면 거부", function()
-	local products = ShopConfig.DeveloperProducts :: any
-	products._probe = { id = 0, name = "probe", priceRobux = 99, effect = { type = "blox" } }
+	local products = ShopConfig.Products :: any
+	products._probe = { key = "_probe", kind = "product", id = 0, name = "probe", priceRobux = 99, description = "x", effect = { type = "blox" }, paidRandom = false }
 	local ok = pcall(ShopConfig.validate)
 	products._probe = nil
 	return not ok and ShopConfig.validate()
+end)
+
+-- ShopConfig 상품 목록 (지시서 #16 — 2026-10-25 사람 결정) ------------------------------------------
+local function count(kind: string): number
+	local n = 0
+	for _, def in pairs(ShopConfig.Products) do
+		if def.kind == kind then
+			n += 1
+		end
+	end
+	return n
+end
+check("ShopConfig: 게임패스 13 + 계단 10 · 개발자 상품 8 + 운동기구 선해금 8 · id 전부 0(준비 중)", function()
+	for _, def in pairs(ShopConfig.Products) do
+		if def.id ~= 0 or ShopConfig.isRegistered(def.key) then
+			return false
+		end
+	end
+	return count("gamepass") == 23 and count("product") == 16 and #ShopConfig.STRENGTH_TIERS == 10 and #ShopConfig.GYM_UNLOCKS == 8
+		and #ShopConfig.GAMEPASS_ORDER == 13
+end)
+check("ShopConfig: 가격이 사람 결정 목록과 같다", function()
+	local expect = { autoClicker = 49, autoClickerOP = 89, rebirth2x = 99, hatch3x = 99, petLuck2x = 99, petStorage100 = 49, damage2x = 149,
+		petSlots3 = 199, blox2x = 199, auraLuck10x = 299, titleLuck10x = 299, voidTrainingZone = 799, autoAdvance = 199,
+		strength2x = 3, strength4x = 9, strength8x = 29, strength16x = 79, strength32x = 249, strength64x = 799, strength128x = 1499,
+		strength256x = 2499, strength512x = 3999, strength1024x = 5999, luckyRoll5 = 49, luckyRoll15 = 149, superRoll5 = 99, superRoll15 = 249,
+		strengthPotion = 19, damagePotion = 19, luckPotion = 29, potionBundle = 999, gymUnlock1 = 29, gymUnlock2 = 49, gymUnlock3 = 79,
+		gymUnlock4 = 99, gymUnlock5 = 149, gymUnlock6 = 199, gymUnlock7 = 299, gymUnlock8 = 449 }
+	local n = 0
+	for key, price in pairs(expect) do
+		n += 1
+		local def = ShopConfig.get(key)
+		if def == nil or def.priceRobux ~= price then
+			error(key)
+		end
+	end
+	return n == count("gamepass") + count("product")
+end)
+check("ShopConfig: 폐기 · 미룸 상품이 없다(자동 수령 · 승리 포션 · 게임패스 번들 · 워프 팩)", function()
+	return ShopConfig.get("autoCollect") == nil and ShopConfig.get("victoryPotion") == nil and ShopConfig.get("bundle") == nil
+		and ShopConfig.get("warpPack") == nil
+end)
+check("ShopConfig: 행운 상품(paidRandom) = 펫 · 아우라 · 칭호 행운 패스 · 럭키 · 슈퍼 롤 · 행운 포션 · 포션 번들", function()
+	local expect = { petLuck2x = true, auraLuck10x = true, titleLuck10x = true, luckyRoll5 = true, luckyRoll15 = true, superRoll5 = true,
+		superRoll15 = true, luckPotion = true, potionBundle = true }
+	for key, def in pairs(ShopConfig.Products) do
+		if def.paidRandom ~= (expect[key] == true) then
+			error(key)
+		end
+	end
+	return true
+end)
+check("ShopConfig.validate 거부: 행운 표시가 효과와 다름 · 계단 가격 순증가 아님 · 같은 ID 두 상품", function()
+	local d = ShopConfig.get("luckPotion") :: any
+	d.paidRandom = false
+	local ok1 = pcall(ShopConfig.validate)
+	d.paidRandom = true
+	local t = ShopConfig.get("strength4x") :: any
+	t.priceRobux = 2
+	local ok2 = pcall(ShopConfig.validate)
+	t.priceRobux = 9
+	local a, b = ShopConfig.get("damage2x") :: any, ShopConfig.get("blox2x") :: any
+	a.id, b.id = 777, 777
+	local ok3 = pcall(ShopConfig.validate)
+	a.id, b.id = 0, 0
+	return not ok1 and not ok2 and not ok3 and ShopConfig.validate()
+end)
+check("ShopConfig: 자동 클리커 둘 다 있으면 높은 쪽(30) · 하나면 15 · 없으면 0", function()
+	local function owns(set: { [string]: boolean })
+		return function(k: string)
+			return set[k] == true
+		end
+	end
+	return ShopConfig.autoClickRate(owns({ autoClicker = true, autoClickerOP = true })) == 30
+		and ShopConfig.autoClickRate(owns({ autoClicker = true })) == 15 and ShopConfig.autoClickRate(owns({})) == 0
+end)
+check("ShopConfig: 행운 패스는 그 뽑기에만(아우라 10 · 칭호 10 · 펫 2) · 계단 상태(지금 · 다음) · findById", function()
+	local function owns(k: string)
+		return k == "auraLuck10x" or k == "petLuck2x" or k == "strength2x" or k == "strength8x"
+	end
+	local cur, nxt = ShopConfig.strengthTierState(owns)
+	local none, first = ShopConfig.strengthTierState(function()
+		return false
+	end)
+	local top, after = ShopConfig.strengthTierState(function()
+		return true
+	end)
+	local def = ShopConfig.get("hatch3x") :: any
+	def.id = 4242
+	local found = ShopConfig.findById("gamepass", 4242)
+	local wrongKind = ShopConfig.findById("product", 4242)
+	def.id = 0
+	return ShopConfig.luckPassMult("aura", owns) == 10 and ShopConfig.luckPassMult("title", owns) == 1 and ShopConfig.luckPassMult("pet", owns) == 2
+		and cur == "strength8x" and nxt == "strength16x" and none == nil and first == "strength2x" and top == "strength1024x" and after == nil
+		and found == "hatch3x" and wrongKind == nil and ShopConfig.findById("gamepass", 0) == nil
 end)
 
 check("AuraConfig.validate", function()
@@ -234,10 +324,13 @@ end)
 
 check("ShopConfig: 힘 배수 게임패스는 최고 단계만 적용된다", function()
 	-- 10개 단계를 전부 "소유"한 것으로 가정해도 누적 곱셈이 아니라 최고 배수(1024x) 하나만 나와야 한다.
-	local mult = ShopConfig.getActiveStrengthMultiplier(function(_id: number)
+	local mult = ShopConfig.strengthTierMult(function(_key: string)
 		return true
 	end)
-	return mult == 1024
+	local mid = ShopConfig.strengthTierMult(function(key: string)
+		return key == "strength4x" or key == "strength16x"
+	end)
+	return mult == 1024 and mid == 16
 end)
 
 -- TitleConfig validate가 규칙 위반을 잡는다 (지시서 #10 G5) — 표를 잠깐 바꿨다가 되돌린다 ---------------

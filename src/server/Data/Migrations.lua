@@ -90,6 +90,46 @@ Migrations[5] = function(data)
 	return data
 end
 
+-- v6 -> v7: 수익화 기반 필드 (2026-10-25 지시서 #16 — DESIGN 9장 S2 · S7).
+--   boosts      {type, mult, expiresAt} → {type, mult, remainingSec}. 접속 중에만 흐르는 시계로 바꾼다 — 남은 시간은 변환 순간
+--               기준(expiresAt − 지금, 0 이하면 버린다). 이미 remainingSec가 있으면 그대로 둔다(멱등)
+--   purchases   처리한 영수증 PurchaseId 배열 — 없으면 빈 표
+--   potions · rollCredits · gymUnlocks — 없으면 템플릿 값(#17이 쓴다)
+-- 출시 전이라 실제 부스트는 아무 프로필에도 없다(v6까지 쓰는 코드가 없었다). 변환은 형태를 맞추는 방어다.
+Migrations[6] = function(data)
+	local now = os.time()
+	local converted = {}
+	if type(data.boosts) == "table" then
+		for _, boost in ipairs(data.boosts) do
+			if type(boost) == "table" and type(boost.type) == "string" and type(boost.mult) == "number" then
+				local remaining: number? = nil
+				if type(boost.remainingSec) == "number" then
+					remaining = boost.remainingSec
+				elseif type(boost.expiresAt) == "number" then
+					remaining = boost.expiresAt - now
+				end
+				if remaining ~= nil and remaining == remaining and remaining > 0 and remaining ~= math.huge then
+					table.insert(converted, { type = boost.type, mult = boost.mult, remainingSec = math.floor(remaining) })
+				end
+			end
+		end
+	end
+	data.boosts = converted
+	if type(data.purchases) ~= "table" then
+		data.purchases = {}
+	end
+	if type(data.potions) ~= "table" then
+		data.potions = { strength = 0, damage = 0, luck = 0 }
+	end
+	if type(data.rollCredits) ~= "table" then
+		data.rollCredits = { lucky = 0, super = 0 }
+	end
+	if type(data.gymUnlocks) ~= "table" then
+		data.gymUnlocks = {}
+	end
+	return data
+end
+
 -- data.schemaVersion부터 Migrations.CURRENT까지 등록된 변환 함수를 순서대로 적용하고
 -- data.schemaVersion을 최종 버전으로 갱신한다. data는 in-place로 수정된다.
 --
