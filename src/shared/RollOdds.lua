@@ -7,6 +7,10 @@
 --   percentages   표시 문자열. 모든 결과의 합이 표시 자릿수에서 정확히 100(최대 나머지 방식).
 --                 0이 아닌 확률은 유효숫자 2자리 이상으로 보인다(0으로 보이지 않는다)
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
+
 local RollOdds = {}
 
 export type Tier = { baseChance: number? }
@@ -102,9 +106,9 @@ function RollOdds.percentages(dist: { number }): ({ string }, number)
 	return out, d
 end
 
--- "행운 ×N 적용" 문구(소수 두 자리).
+-- "행운 ×N 적용" 문구(소수 두 자리 — Strings "roll.luckApplied").
 function RollOdds.luckText(luck: number): string
-	return string.format("행운 ×%.2f 적용", sanitizeLuck(luck))
+	return Locale.t("roll.luckApplied", { luck = string.format("%.2f", sanitizeLuck(luck)) })
 end
 
 return RollOdds

@@ -141,7 +141,7 @@ function PetWindow.create(deps: Deps): Handle
 		odds[i] = WindowParts.makeText("Odds" .. i, body, "small", (i - 1) * 0.25, ODDS_Y, 0.245, ODDS_H, Enum.TextXAlignment.Center)
 	end
 
-	local hatchButton, hatchLabel, hatchHit = makeButton("HatchButton", "blue", 0, HATCH_Y, HATCH_W, HATCH_H, body, "부화")
+	local hatchButton, hatchLabel, hatchHit = makeButton("HatchButton", "blue", 0, HATCH_Y, HATCH_W, HATCH_H, body, PetWindowLogic.HATCH_TEXT)
 	local hatchFoot = WindowParts.makeText("HatchFoot", body, "small", HATCH_FOOT_X, HATCH_Y, HATCH_FOOT_W, HATCH_H, Enum.TextXAlignment.Center)
 	hatchFoot.TextWrapped = true
 	local status = WindowParts.makeText("Status", body, "small", STATUS_X, HATCH_Y, 1 - STATUS_X, HATCH_H, Enum.TextXAlignment.Center)
@@ -209,7 +209,7 @@ function PetWindow.create(deps: Deps): Handle
 	local selName = WindowParts.makeText("SelName", body, "medium", RIGHT_X, SEL_NAME_Y, RIGHT_W, SEL_NAME_H, Enum.TextXAlignment.Center)
 	local selInfo = WindowParts.makeText("SelInfo", body, "small", RIGHT_X, SEL_INFO_Y, RIGHT_W, SEL_INFO_H, Enum.TextXAlignment.Center)
 	local equipButton, equipLabel, equipHit = makeButton("EquipButton", "blue", RIGHT_X, EQUIP_Y, RIGHT_W, BTN_H, body, PetWindowLogic.EQUIP_TEXT)
-	local craftButton, craftLabel, craftHit = makeButton("CraftButton", "blue", RIGHT_X, CRAFT_Y, RIGHT_W, BTN_H, body, "크래프팅")
+	local craftButton, craftLabel, craftHit = makeButton("CraftButton", "blue", RIGHT_X, CRAFT_Y, RIGHT_W, BTN_H, body, PetWindowLogic.CRAFT_TEXT)
 	local releaseButton, releaseLabel, releaseHit = makeButton("ReleaseButton", "gray", RIGHT_X, RELEASE_Y, RIGHT_W, BTN_H, body, PetWindowLogic.RELEASE_TEXT)
 
 	local closeHit = WindowParts.hitArea(panel.closeButton.root)
@@ -274,7 +274,7 @@ function PetWindow.create(deps: Deps): Handle
 			parts.frame.Visible = true
 			parts.name.Text = c.name
 			parts.name.TextColor3 = UiTheme.rarityColor(c.rarityTier)
-			parts.level.Text = if c.equipped then c.levelName .. " · 장착" else c.levelName
+			parts.level.Text = if c.equipped then c.levelName .. PetWindowLogic.EQUIPPED_SUFFIX_TEXT else c.levelName
 			parts.stroke.Enabled = c.uid == selected
 		end
 		for i = #cellView + 1, #cells do
@@ -305,7 +305,7 @@ function PetWindow.create(deps: Deps): Handle
 		selInfo.Text = if d ~= nil then (if d.releaseFoot ~= "" and releaseFlow.isArmed(t) then d.releaseFoot else d.infoText) else ""
 		equipLabel.Text = if d ~= nil then d.equipText else PetWindowLogic.EQUIP_TEXT
 		equipButton.setDisabled(d == nil or not d.canEquip or pending.isPending("equip", t) or pending.isPending("unequip", t))
-		craftLabel.Text = if d ~= nil then d.craftText else "크래프팅"
+		craftLabel.Text = if d ~= nil then d.craftText else PetWindowLogic.CRAFT_TEXT
 		craftButton.setDisabled(d == nil or not d.canCraft or pending.isPending("craft", t))
 		releaseLabel.Text = if d ~= nil and releaseFlow.isArmed(t) then PetWindowLogic.RELEASE_CONFIRM_TEXT else PetWindowLogic.RELEASE_TEXT
 		releaseButton.setDisabled(d == nil or not d.canRelease or pending.isPending("release", t))

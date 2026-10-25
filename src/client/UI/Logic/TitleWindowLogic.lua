@@ -17,47 +17,48 @@ local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 local Names = require(ReplicatedStorage.Shared.Localization.Names)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 
 type BigNumber = BigNum.BigNumber
 
 local TitleWindowLogic = {}
 
-TitleWindowLogic.TITLE = "칭호"
-TitleWindowLogic.EQUIP_TEXT = "장착"
-TitleWindowLogic.EQUIPPED_TEXT = "장착 중"
+TitleWindowLogic.TITLE = Locale.t("title.title")
+TitleWindowLogic.EQUIP_TEXT = Locale.t("common.equip")
+TitleWindowLogic.EQUIPPED_TEXT = Locale.t("common.equipped")
 TitleWindowLogic.LOCKED_TEXT = "-"
-TitleWindowLogic.OWNED_TEXT = "보유"
-TitleWindowLogic.NOT_OWNED_TEXT = "미보유"
-TitleWindowLogic.AUTO_ON_TEXT = "자동 뽑기 켜짐"
-TitleWindowLogic.AUTO_OFF_TEXT = "자동 뽑기 꺼짐"
+TitleWindowLogic.OWNED_TEXT = Locale.t("common.owned")
+TitleWindowLogic.NOT_OWNED_TEXT = Locale.t("common.notOwned")
+TitleWindowLogic.AUTO_ON_TEXT = Locale.t("title.autoOn")
+TitleWindowLogic.AUTO_OFF_TEXT = Locale.t("title.autoOff")
 
 -- 서버 사유 코드(RollService.REASON_* · TitleService.REASON_* · TitleRequestService). RollService는 서버 전용이라 문자열을 여기 둔다 —
 -- 같은 문자열인지는 서버 테스트가 잰다(RollServiceTests "잔액 부족 코드는 상점과 같은 문자열").
 TitleWindowLogic.REASONS = {
-	insufficient_blox = "블럭스가 모자라요",
-	rate_limited = "잠시 뒤에 다시 눌러 주세요",
-	no_profile = "데이터를 불러오는 중이에요",
-	not_owned = "아직 없는 칭호예요",
-	invalid_request = "할 수 없는 요청이에요",
-	partial_failure = "문제가 생겼어요. 관리자에게 알려 주세요", -- 블럭스가 빠진 뒤의 사고(상점과 같은 이유)
+	insufficient_blox = Locale.t("common.reason.insufficient_blox"),
+	rate_limited = Locale.t("common.reason.rate_limited"),
+	no_profile = Locale.t("common.reason.no_profile"),
+	not_owned = Locale.t("title.reason.not_owned"),
+	invalid_request = Locale.t("common.reason.invalid_request"),
+	partial_failure = Locale.t("common.reason.partial_failure"), -- 블럭스가 빠진 뒤의 사고(상점과 같은 이유)
 } :: { [string]: string }
 
 function TitleWindowLogic.reasonText(code: string): string
-	return TitleWindowLogic.REASONS[code] or "하지 못했어요"
+	return TitleWindowLogic.REASONS[code] or Locale.t("common.reason.failed")
 end
 
 -- 롤 버튼 문구 · 자동 롤 안내. 비용 · 간격은 TitleConfig 원본.
 function TitleWindowLogic.rollButtonText(): string
-	return string.format("1회 뽑기 (%s 블럭스)", Formatter.format(TitleConfig.ROLL_COST))
+	return Locale.t("title.rollButton", { cost = Formatter.format(TitleConfig.ROLL_COST) })
 end
 
 function TitleWindowLogic.autoNoteText(): string
 	local perSec = BigNum.div(TitleConfig.ROLL_COST, BigNum.fromNumber(TitleConfig.ROLL_INTERVAL_SEC))
-	return string.format("자동 뽑기는 초당 %s 블럭스를 씁니다", Formatter.format(perSec))
+	return Locale.t("title.autoNote", { cost = Formatter.format(perSec) })
 end
 
 function TitleWindowLogic.multText(mult: number): string
-	return string.format("힘·블럭스 ×%.2f", mult)
+	return Locale.t("title.mult", { mult = string.format("%.2f", mult) })
 end
 
 -- 지금 행운(표시용). levels = Store "upgrades".
@@ -159,11 +160,11 @@ function TitleWindowLogic.resultText(payload: any): string?
 	end
 	if payload.action == "roll" then
 		if payload.isNew then
-			return "새 칭호! " .. nameOf(payload.titleId)
+			return Locale.t("title.result.new", { name = nameOf(payload.titleId) })
 		end
-		return "이미 있는 칭호: " .. nameOf(payload.titleId)
+		return Locale.t("title.result.dup", { name = nameOf(payload.titleId) })
 	elseif payload.action == "equip" then
-		return "장착: " .. nameOf(payload.titleId)
+		return Locale.t("common.result.equip", { name = nameOf(payload.titleId) })
 	end
 	return nil
 end
@@ -178,7 +179,7 @@ function TitleWindowLogic.toastFor(titleId: any): Toast?
 	if def == nil or tier == nil then
 		return nil
 	end
-	return { text = string.format("새 칭호! %s (%s)", Names.title(def.id), TitleWindowLogic.multText(def.mult)), tier = tier }
+	return { text = Locale.t("title.toast", { name = Names.title(def.id), mult = TitleWindowLogic.multText(def.mult) }), tier = tier }
 end
 
 -- TitleResult가 토스트를 띄우는가: 성공 + 새 칭호(수동 롤 응답 · 자동 롤 알림 둘 다). 중복은 조용히 사라진다.

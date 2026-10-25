@@ -16,16 +16,18 @@ local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 local Names = require(ReplicatedStorage.Shared.Localization.Names)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 
 type BigNumber = BigNum.BigNumber
 
 local AuraWindowLogic = {}
 
-AuraWindowLogic.TITLE = "아우라"
-AuraWindowLogic.EQUIP_TEXT = "장착"
-AuraWindowLogic.EQUIPPED_TEXT = "장착 중"
+AuraWindowLogic.TITLE = Locale.t("aura.title")
+AuraWindowLogic.EQUIP_TEXT = Locale.t("common.equip")
+AuraWindowLogic.EQUIPPED_TEXT = Locale.t("common.equipped")
 AuraWindowLogic.LOCKED_TEXT = "-"
-AuraWindowLogic.TITLE_BUTTON_TEXT = "칭호"
+AuraWindowLogic.TITLE_BUTTON_TEXT = Locale.t("aura.titleButton")
+AuraWindowLogic.ROLL_TEXT = Locale.t("aura.roll")
 
 -- 아우라 등급(1 common ~ 4 legendary) → UiTheme.Rarity 단계(tier1~6). Claude가 정했다(docs/UI.md "지시서 #11").
 -- 일반 = 가장 수수한 tier1, 희귀 = 하늘 tier3, 영웅 = 보라 tier4, 전설 = 금 tier5. tier6(진분홍)은 칭호 신화만 쓴다 —
@@ -33,17 +35,17 @@ AuraWindowLogic.TITLE_BUTTON_TEXT = "칭호"
 AuraWindowLogic.RARITY_TIER = { 1, 3, 4, 5 }
 
 AuraWindowLogic.REASONS = {
-	insufficient_blox = "블럭스가 모자라요",
-	rate_limited = "잠시 뒤에 다시 눌러 주세요",
-	no_profile = "데이터를 불러오는 중이에요",
-	not_owned = "아직 없는 아우라예요",
-	pack_locked = "아직 열리지 않은 팩이에요",
-	invalid_request = "할 수 없는 요청이에요",
-	partial_failure = "문제가 생겼어요. 관리자에게 알려 주세요",
+	insufficient_blox = Locale.t("common.reason.insufficient_blox"),
+	rate_limited = Locale.t("common.reason.rate_limited"),
+	no_profile = Locale.t("common.reason.no_profile"),
+	not_owned = Locale.t("aura.reason.not_owned"),
+	pack_locked = Locale.t("aura.reason.pack_locked"),
+	invalid_request = Locale.t("common.reason.invalid_request"),
+	partial_failure = Locale.t("common.reason.partial_failure"),
 } :: { [string]: string }
 
 function AuraWindowLogic.reasonText(code: string): string
-	return AuraWindowLogic.REASONS[code] or "하지 못했어요"
+	return AuraWindowLogic.REASONS[code] or Locale.t("common.reason.failed")
 end
 
 function AuraWindowLogic.rarityTier(tier: number): number
@@ -51,7 +53,7 @@ function AuraWindowLogic.rarityTier(tier: number): number
 end
 
 function AuraWindowLogic.multText(m: number): string
-	return string.format("힘·데미지 ×%.2f", m)
+	return Locale.t("aura.mult", { mult = string.format("%.2f", m) })
 end
 
 -- shop = Store "shop"(지시서 #16). 주면 행운 패스 · 행운 포션을 곱한다(서버 computeLuck과 같은 항 — 제한 유저면 1, S13).
@@ -95,10 +97,8 @@ function AuraWindowLogic.packs(summary: any, lifetimeBlox: any): { PackTab }
 			table.insert(out, {
 				packId = packId,
 				unlocked = unlocked,
-				label = if unlocked then string.format("팩 %d", packId) else string.format("팩 %d 잠김", packId),
-				infoText = if unlocked
-					then string.format("팩 %d · 1회 %s 블럭스", packId, Formatter.format(pack.rollCost))
-					else string.format("팩 %d — 누적 블럭스 %s 이상이면 열려요", packId, Formatter.format(pack.rollCost)),
+				label = Locale.t(if unlocked then "aura.pack.tab" else "aura.pack.tabLocked", { pack = packId }),
+				infoText = Locale.t(if unlocked then "aura.pack.info" else "aura.pack.infoLocked", { pack = packId, cost = Formatter.format(pack.rollCost) }),
 			})
 		end
 	end
@@ -170,7 +170,7 @@ function AuraWindowLogic.cards(summary: any, levels: any, packId: number, shop: 
 			chanceText = texts[tier],
 			owned = isOwned,
 			equipped = isEquipped,
-			statusText = if isEquipped then "장착 중" elseif isOwned then "보유" else "미보유",
+			statusText = if isEquipped then Locale.t("common.equipped") elseif isOwned then Locale.t("common.owned") else Locale.t("common.notOwned"),
 			buttonText = if isEquipped then AuraWindowLogic.EQUIPPED_TEXT elseif isOwned then AuraWindowLogic.EQUIP_TEXT else AuraWindowLogic.LOCKED_TEXT,
 			canEquip = isOwned and not isEquipped,
 		})
@@ -184,9 +184,9 @@ export type RollState = { canRoll: boolean, buttonText: string, footText: string
 function AuraWindowLogic.rollState(summary: any, lifetimeBlox: any, blox: any, packId: number): RollState
 	local pack = AuraConfig.Packs[packId]
 	if pack == nil then
-		return { canRoll = false, buttonText = "뽑기", footText = AuraWindowLogic.reasonText("invalid_request") }
+		return { canRoll = false, buttonText = AuraWindowLogic.ROLL_TEXT, footText = AuraWindowLogic.reasonText("invalid_request") }
 	end
-	local buttonText = string.format("뽑기 (%s 블럭스)", Formatter.format(pack.rollCost))
+	local buttonText = Locale.t("aura.rollCost", { cost = Formatter.format(pack.rollCost) })
 	if not AuraConfig.isUnlocked(packId, big(lifetimeBlox), worldOf(summary)) then
 		return { canRoll = false, buttonText = buttonText, footText = AuraWindowLogic.reasonText("pack_locked") }
 	end
@@ -211,11 +211,11 @@ function AuraWindowLogic.resultText(payload: any): string?
 	end
 	if payload.action == "roll" then
 		if payload.isNew then
-			return "새 아우라! " .. nameOf(payload.auraId)
+			return Locale.t("aura.result.new", { name = nameOf(payload.auraId) })
 		end
-		return "이미 있는 아우라: " .. nameOf(payload.auraId)
+		return Locale.t("aura.result.dup", { name = nameOf(payload.auraId) })
 	elseif payload.action == "equip" then
-		return "장착: " .. nameOf(payload.auraId)
+		return Locale.t("common.result.equip", { name = nameOf(payload.auraId) })
 	end
 	return nil
 end
@@ -236,10 +236,10 @@ function AuraWindowLogic.resultView(payload: any): ResultView?
 		return nil
 	end
 	return {
-		heading = if payload.isNew then "새 아우라!" else "아우라",
+		heading = Locale.t(if payload.isNew then "aura.modal.new" else "aura.modal.heading"),
 		name = Names.aura(def.id),
 		rarityTier = AuraWindowLogic.rarityTier(tier),
-		detail = string.format("%s · %s%s", Names.rarity(tier), AuraWindowLogic.multText(def.mult), if payload.equipped then " · 장착" else ""),
+		detail = Locale.t(if payload.equipped then "aura.modal.detailEquipped" else "aura.modal.detail", { rarity = Names.rarity(tier), mult = AuraWindowLogic.multText(def.mult) }),
 	}
 end
 
@@ -249,7 +249,7 @@ function AuraWindowLogic.toastFor(payload: any): { text: string, tier: number }?
 	if v == nil then
 		return nil
 	end
-	return { text = string.format("%s %s (%s)", v.heading, v.name, AuraWindowLogic.multText((AuraConfig.get(payload.auraId) :: any).mult)), tier = v.rarityTier }
+	return { text = Locale.t("common.toast.result", { heading = v.heading, name = v.name, detail = AuraWindowLogic.multText((AuraConfig.get(payload.auraId) :: any).mult) }), tier = v.rarityTier }
 end
 
 function AuraWindowLogic.pendingKeyOf(payload: any): string?

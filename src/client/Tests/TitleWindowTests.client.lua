@@ -18,6 +18,7 @@ local TitleWindow = require(script.Parent.Parent.UI.Screens.Window.TitleWindow)
 local ToastStack = require(script.Parent.Parent.UI.Screens.Overlay.ToastStack)
 local RebirthNotice = require(script.Parent.Parent.UI.Screens.Overlay.RebirthNotice)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 
 local passed = 0
 local failed = 0
@@ -100,15 +101,15 @@ end
 -- 3. 결과 문구 · 토스트 판정 ----------------------------------------------------------------------------------
 do
 	local id = T[3].id
-	check("결과: 새 칭호", TitleWindowLogic.resultText({ action = "roll", ok = true, reason = "", titleId = id, isNew = true, equipped = true }) == "새 칭호! " .. Names.title(T[3].id))
-	check("결과: 중복", string.find(TitleWindowLogic.resultText({ action = "roll", ok = true, reason = "", titleId = id, isNew = false, equipped = false }) or "", "이미 있는", 1, true) ~= nil)
-	check("결과: 장착", TitleWindowLogic.resultText({ action = "equip", ok = true, reason = "", titleId = id, isNew = false, equipped = true }) == "장착: " .. Names.title(T[3].id))
+	check("결과: 새 칭호", TitleWindowLogic.resultText({ action = "roll", ok = true, reason = "", titleId = id, isNew = true, equipped = true }) == Locale.t("title.result.new", { name = Names.title(T[3].id) }))
+	check("결과: 중복", string.find(TitleWindowLogic.resultText({ action = "roll", ok = true, reason = "", titleId = id, isNew = false, equipped = false }) or "", Locale.t("title.result.dup", { name = "" }), 1, true) ~= nil)
+	check("결과: 장착", TitleWindowLogic.resultText({ action = "equip", ok = true, reason = "", titleId = id, isNew = false, equipped = true }) == Locale.t("common.result.equip", { name = Names.title(T[3].id) }))
 	check("결과: 거부는 사유 문구", TitleWindowLogic.resultText({ action = "roll", ok = false, reason = "rate_limited", titleId = "", isNew = false, equipped = false }) == TitleWindowLogic.reasonText("rate_limited"))
 	check("결과: 자동 롤 토글 성공은 문구 없음", TitleWindowLogic.resultText({ action = "setAuto", ok = true, reason = "", titleId = "", isNew = false, equipped = false }) == nil)
 
 	local toast = TitleWindowLogic.toastFor(T[N].id)
 	check("토스트: '새 칭호! 이름 (힘·블럭스 ×N)' · 희귀도 단계", toast ~= nil and (toast :: any).tier == N
-		and (toast :: any).text == string.format("새 칭호! %s (%s)", Names.title(T[N].id), TitleWindowLogic.multText(T[N].mult)))
+		and (toast :: any).text == Locale.t("title.toast", { name = Names.title(T[N].id), mult = TitleWindowLogic.multText(T[N].mult) }))
 	check("토스트: 모르는 id는 없음", TitleWindowLogic.toastFor("ghost") == nil)
 	check("토스트 판정: 수동 롤 신규 · 자동 롤 신규만", TitleWindowLogic.shouldToast({ action = "roll", ok = true, isNew = true })
 		and TitleWindowLogic.shouldToast({ action = "autoRoll", ok = true, isNew = true })
