@@ -29,6 +29,13 @@ local TEST_PRESET: string? = nil
 -- ⚠️ 커밋 값은 언제나 nil이다(GamepassServiceTests가 잰다 — 켠 Play에서는 그 줄이 실패한다. 그 Play로 테스트 개수를 세지 않는다).
 local TEST_GAMEPASSES: { string }? = nil
 
+-- ── 화면 언어: TEST_LOCALE (Studio 전용, 지시서 #L1 K2) ────────────────────────────────────
+-- "en" 또는 "ko"를 적고 Play하면 계정 언어 대신 그 언어로 보인다(클라 · Kick 안내문 둘 다 — Server/Systems/LocaleGate).
+-- Studio가 아니면 무시하고 ERROR 로그를 남긴다. ⚠️ 커밋 값은 언제나 nil이다(LocaleTests가 잰다 — 켠 Play에서는 그 줄이 실패한다).
+local TEST_LOCALE: string? = nil
+local LocaleGate = require(script.Parent.Systems.LocaleGate)
+LocaleGate.init(TEST_LOCALE)
+
 print("[Bootstrap] ProfileManager.init() 호출 시작")
 ProfileManager.init(TEST_PRESET)
 print("[Bootstrap] ProfileManager.init() 호출 완료")
