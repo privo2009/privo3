@@ -56,7 +56,7 @@ ServerPackages/ → Wally 패키지 (직접 수정 금지)
 | `docs/UI_ASSET_SPEC.md` | 디자인 담당용 에셋 제작 규격 (크기, 9-slice, hex) |
 | `docs/UI_HANDOFF.md` | 인계 절차, 배치 명세 템플릿, 검증 관문 G1~G4 |
 | `docs/PENDING.md` | 전달 대기 · 미결 · 잔재의 누적 큐 |
-| `docs/DASHBOARD_PRODUCTS.md` | 대시보드에 만들 로벅스 상품 목록 · 등록 절차 · ID 넣는 자리 (값 원본은 `ShopConfig`) |
+| `docs/DASHBOARD_PRODUCTS.md` | 대시보드에 만들 로벅스 상품 목록 · 등록 절차 · ID 넣는 자리 (가격 원본은 `ShopConfig` · 이름 · 설명 원본은 `Strings`) |
 | `docs/TUNING.md` | 사람이 혼자 값을 바꾸고 결과를 읽는 순서 · 손잡이 목록 · 테스트 프리셋 사용법 |
 | `docs/LOCALIZATION.md` | 다국어 구조(Strings → CSV → 로블록스 현지화 표) · 새 문장 · 새 언어 추가 순서 · 용어집 (언어 결정 원본은 `DESIGN.md` "12. 언어") |
 

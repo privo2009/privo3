@@ -120,6 +120,11 @@
   `TEST_PRESET_EXPORT_ENABLED = true`로 Play → 출력의 `[PRESET]` 줄을 `Shared/Config/TestPresets.lua`에 붙여 넣는다 → 플래그를 끈다
   (붙여 넣기가 어려우면 Claude에게 "프리셋 다시 뽑아 줘"라고 한다)
 
+### 화면 언어 바꿔 보기 — TEST_LOCALE (Studio 전용, 지시서 #L1)
+
+프리셋과 같은 자리(Bootstrap 위쪽)의 `TEST_LOCALE = nil`을 `"en"` 또는 `"ko"`로 바꾸고 Play하면 그 언어로 보인다.
+끝나면 반드시 nil로 되돌린다(LocaleTests 한 줄이 실패해서 알려 준다). 자세히는 `docs/LOCALIZATION.md`.
+
 ## 5. 바꾼 뒤 깨질 수 있는 곳과 대처
 
 - **Play 시작하자마자 빨간 에러 "…Config: …"** — validate가 위 "관계"를 막은 것이다. 메시지에 어느 값 · 어느 규칙인지 나온다.

@@ -228,10 +228,58 @@ ModuleScript **67개 중 아무도 require하지 않는 고아는
 ```
 
 다국어 미결
-- **아우라 · 펫 · 알 영어 이름** — #L1에서 Claude가 지었다(한국어 뜻 살림). 사람이 바꿀 수 있다 — 바꾸는 곳은 `Strings.lua` 한 곳
+- **아우라 · 펫 · 알 영어 이름** — #L1에서 Claude가 지었다(한국어 뜻 살림 — 목록은 `Strings.lua` "이름" 절). 사람이 바꿀 수 있다 — 바꾸는 곳은 `Strings.lua` 한 곳
 - **언어 선택 설정 항목** — 이번에는 만들지 않았다(K2). 필요하면 나중에
 - **클라우드 표 · 자동 번역 켜기** — 유럽 언어를 넣을 때. 절차 `docs/LOCALIZATION.md` 3절 · 런타임 플래그 켜는 조건 5절
 - **대시보드 상품 이름** — 대시보드에는 영어(Strings `shop.<키>.name`)로 등록하고 한국어는 대시보드 Products 번역 탭에서 넣는다(사람). 위치는 공식 문서로 봤고 실제 화면은 확인 필요
+
+### #L1 완료 보고 (2026-10-25 — 클라우드 세션, 브랜치 l10n-base · master 미병합)
+
+⚠️ **Play 검증 없음.** 아래 "확인"은 전부 Studio 밖 정적 검사 · 참고 실행이다. "검증됨"이 아니다.
+
+```
+커밋     d8e2259 문서 · 28fc4b0 Strings · Locale · Names · LocaleGate · LocaleTests · tools · 06bcb51 K6 Config 이름
+         1cb5c46 HUD · fa97072 3D · 3e4bac7 Overlay · 3358aea 작은 창 · abaa45f 큰 창 · ffaee7b 상점 · 0cc3b77 K5 Kick
+         87d6c1d · c991cea tools(참고 실행 · CSV · 길이) · 이 문서 커밋
+조사     단계 0 화면 대상 한글 리터럴 350 → 0 (python3 -I tools/l10n_scan.py --check)
+         제외: 서버 내부 사유 · 검증 오류 68(로그로만 간다 — K5 대상 아님) · 테스트 · 개발 도구 · 로그
+Strings  311항목(en 311 · ko 311) · tools/check_strings.py 0 failed · CSV 311줄(같은 영어 22줄은 Context에 키)
+정적     luau-lsp analyze(Roblox 정의 · rojo sourcemap) — master 대비 새 형 오류 0 · luau-compile 문법 오류 0
+참고실행  tools/luau_run.py(가짜 엔진) en-us · ko-kr 두 번 — 기존 테스트 84파일 통과 · 실패 개수가 master와 같다
+         새 파일 LocaleTests.server 35(그중 TEST_LOCALE 커밋 값 검사 1개는 Bootstrap이 없어 하네스에서만 실패)
+테스트   새 파일: src/server/Tests/LocaleTests.server.lua
+         고친 파일(개수 변화 없음 — 하네스 기준): Config · BalanceSummary · SuccessRateReport · AdvanceWallView · RollOdds(서버)
+         · AuraWindow · PetWindow · TitleWindow · RobuxShop · UpgradeShop · Settings · Rebirth · Warp · ChallengeInfo
+         · PowerBlock · MenuRail · CoreScreens · Feedback(클라)
+```
+
+영어가 많이 긴 문장(폭 추정 ≥ 1.6배 — 전체 목록은 `python3 -I tools/check_strings.py --lengths`):
+```
+HUD      Settings · Rebirth · Rebirth Multiplier × · 부스트 Power · Pets
+3D       Entry Gate · Advance · Coming soon · Walk through to start
+창       환생 Multiplier gained · Power → starting value / 펫 Unequip · · Equipped · 알 · 펫 이름 / 칭호 Apprentice · Mythic
+         / 아우라 이름(Lightning · Collapse · Doomsday · Eternity · Singularity …) · 희귀도 Legendary · Common
+상점     Power Potion · Couldn't complete the purchase · Coming soon     Overlay  Wall = Advance · Rebirth!
+```
+
+#L2 체크리스트(집 PC — 순서대로)
+1. `l10n-base`를 받고 Rojo Connect를 눈으로 확인한다(CLAUDE.md 절대 규칙 8)
+2. 플래그를 끈 Play에서 테스트 행 집합 실측 — ROADMAP "테스트 현황"에 `Tests/LocaleTests.server.lua` 행을 더하고 개수를 채운다
+3. `TEST_LOCALE = "en"` Play · `"ko"` Play 두 번 — HUD · 3D 안내 · Overlay · 창 7 · 상점 두 탭이 그 언어로만 보이는지,
+   `?`가 없는지, 출력에 `[Locale] WARN`이 없는지. ⚠️ TEST_LOCALE은 ReplicatedStorage 속성으로 내려간다 — 화면이 계정 언어로 뜨면
+   클라가 속성보다 먼저 글자를 고른 것이다(보고)
+4. 위 "영어가 많이 긴 문장" 화면부터 본다(넘침 · 11px 하한)
+5. 폰 시뮬레이션(Galaxy A06) en · ko
+6. 영어 기준 폰트를 고른다(K7 — 한글 대체 굵기도 같이)
+7. 서버발 문장 0 — Kick 안내 4종이 `LocaleGate.kickText`를 지나는지(코드) · 서버 → 클라 채널은 사유 코드만
+8. `TEST_LOCALE`을 nil로 되돌리고 LocaleTests 0 failed 확인 → master merge
+
+새 미결(다국어)
+- **AutoLocalize(로블록스 자동 번역)는 GuiObject 기본값이 켜짐이다.** 계정 자동 번역을 켠 en · ko 밖 플레이어에게는 우리 영어 화면을
+  로블록스가 번역할 수 있다(원하는 방향). 대신 자동 텍스트 캡처(ATC)를 켜면 한국어 화면 글자가 "영어 원본"으로 수집된다 — 켜지 않는다(`docs/LOCALIZATION.md` 3절)
+- **CSV 올리기는 아직 해 보지 않았다.** 인코딩(UTF-8, BOM 없음)이 Creator Hub에서 그대로 읽히는지 첫 업로드 때 사람이 본다
+- **영어 문장 톤 검토(사람)** — #L1에서 Claude가 새로 썼다. 용어집(K8)은 지켰다
+- **참고 실행 도구 `tools/luau_run.py`** — Play가 아니다. 순수 테스트 대부분이 돌지만 화면 크기 · 렌더 검사는 가짜 값이라 그대로 믿지 않는다
 
 ### Phase 8 — 결정 완료 (2026-10-25 사람 결정, 지시서 #16) · #15 조사 항목이 어디서 해소되는가
 

@@ -2,11 +2,16 @@
 
 Creator Dashboard에 만들 로벅스 상품 전부와, 만든 뒤 ID를 적을 자리. 지시서 #16(2026-10-25)에서 만들었다.
 
-⚠️ **이 문서는 목록과 절차만 둔다. 가격 · 이름 · 설명 · 효과의 원본은 `src/shared/Config/ShopConfig.lua`다.**
-아래 값은 그 파일을 옮겨 적은 것이라, 어긋나면 ShopConfig가 맞다(CLAUDE.md "문서 > 복사본은 반드시 어긋난다").
-등록할 때는 ShopConfig를 열어 놓고 그 값을 넣는다.
+⚠️ **이 문서는 목록과 절차만 둔다. 가격 · 효과의 원본은 `src/shared/Config/ShopConfig.lua`, 이름 · 설명의 원본은
+`src/shared/Localization/Strings.lua`(`shop.<키>.name` · `.desc`)다** (지시서 #L1 K6 — 2026-10-25부터 Config에는 이름이 없다).
+아래 값은 그 파일들을 옮겨 적은 것이라, 어긋나면 원본이 맞다(CLAUDE.md "문서 > 복사본은 반드시 어긋난다").
+등록할 때는 ShopConfig(가격)와 Strings(이름 · 설명)를 열어 놓고 그 값을 넣는다.
 
-문서 갱신: 2026-10-25
+⚠️ **대시보드 이름 · 설명은 영어(Strings의 en)로 넣는다** — 게임 기본 언어가 영어다(`DESIGN.md` "12. 언어").
+한국어(Strings의 ko — 아래 표의 이름 · 설명)는 대시보드 번역 자리(Localization → Translate → 한국어 → Products 탭)에 사람이 넣는다
+(`docs/LOCALIZATION.md` 3절 "대시보드 상품 이름의 번역"). 영어 목록은 `python3 -I tools/export_localization_csv.py`의 `shop.` 줄로도 뽑을 수 있다.
+
+문서 갱신: 2026-10-25 (지시서 #L1 — 이름 · 설명 원본이 Strings로 옮겨 감)
 
 ---
 
@@ -43,7 +48,7 @@ Studio에서 테스트 구매가 되는지는 위 두 페이지와 player-data-p
 
 `src/shared/Config/ShopConfig.lua`에서 그 키의 `id = 0`을 복사한 Asset ID로 바꾼다.
 ```
-pass("damage2x", "2배 데미지", 149, ...)   →  add({ key = "damage2x", kind = "gamepass", id = 0, ... })
+pass("damage2x", 149, ...)   →  add({ key = "damage2x", kind = "gamepass", id = 0, ... })
 ```
 지금은 `pass(...)` · `product(...)` 함수가 `id = 0`을 넣는다. ID를 넣을 때 키별 ID 표를 ShopConfig에 두는 방식으로 바꾼다
 (코드 담당 — Rojo · Git 작업이라 디자인 담당이 하지 않는다). `ShopConfig.validate`가 같은 ID 두 번 · 음수 · 소수 ID를 거부한다.
