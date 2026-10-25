@@ -325,6 +325,13 @@ do
 	local pbase = UpgradeConfig.getEffect("petLuck", 0)
 	check("펫 창: 펫 행운 패스 2 × 행운 포션 2 = 4", math.abs(PetWindowLogic.luckOf(levels,
 		shop({ "petLuck2x" }, false, { { type = "luck", mult = 2, remainingSec = 10, receivedAt = 0 } })) - pbase * 4) < 1e-9)
+	local RebirthWindowLogic = require(script.Parent.Parent.UI.Logic.RebirthWindowLogic)
+	local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
+	local blox = BigNum.fromNumber(RebirthConfig.BLOX_PER_REBIRTH * 3 + 10)
+	local v1 = RebirthWindowLogic.compute(blox, BigNum.new(0, 0), shop())
+	local v2 = RebirthWindowLogic.compute(blox, BigNum.new(0, 0), shop({ "rebirth2x" }))
+	check("환생 창: 2배 환생이면 얻는 배수 2배(3 → 6) · 버려지는 양은 같다(S6)", BigNum.eq(v1.gained, BigNum.fromNumber(3))
+		and BigNum.eq(v2.gained, BigNum.fromNumber(6)) and BigNum.eq(v1.wasted, v2.wasted))
 	local voidIndex = GymConfig.findByGamepass("voidTrainingZone") :: number
 	local zero = BigNum.new(0, 0)
 	local notOwned = WorldLabelLogic.gym(voidIndex, zero, false, GymLayout.shopUnlocked(nil, function()

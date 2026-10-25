@@ -155,7 +155,7 @@ function RebirthWindow.create(deps: Deps): Handle
 	WindowParts.raiseButtons({ button.root, cancelButton.root, shopButton.root, panel.closeButton.root })
 
 	local confirm = RebirthWindowLogic.newConfirm()
-	local view: RebirthWindowLogic.View = RebirthWindowLogic.compute(source.get("blox"), source.get("rebirths"))
+	local view: RebirthWindowLogic.View = RebirthWindowLogic.compute(source.get("blox"), source.get("rebirths"), source.get("shop"))
 	local resultText: string? = nil
 
 	local function render()
@@ -182,7 +182,7 @@ function RebirthWindow.create(deps: Deps): Handle
 	end
 
 	local function refresh()
-		view = RebirthWindowLogic.compute(source.get("blox"), source.get("rebirths"))
+		view = RebirthWindowLogic.compute(source.get("blox"), source.get("rebirths"), source.get("shop"))
 		render()
 	end
 
@@ -248,6 +248,7 @@ function RebirthWindow.create(deps: Deps): Handle
 	shopHit.Activated:Connect(openShop)
 	source.subscribe("blox", refresh)
 	source.subscribe("rebirths", refresh)
+	source.subscribe("shop", refresh) -- 2배 환생 게임패스(지시서 #16 S6)
 
 	render()
 

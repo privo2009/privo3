@@ -139,10 +139,13 @@ function AutoClickService.init()
 	end
 	initialized = true
 	local channels = Remotes.getServer()
+	-- 켜진 동안 만든 클릭 수(관측용 — 끌 때 한 줄 찍는다). 세션 메모리.
+	local made: { [Player]: number } = {}
 	runtime = createRuntime({
 		rateOf = ShopEffects.autoClickRate,
 		click = function(player: Player, n: number)
-			ClickService.processClicks(player, n, AutoClickService.SOURCE)
+			local accepted = ClickService.processClicks(player, n, AutoClickService.SOURCE)
+			made[player] = (made[player] or 0) + accepted
 		end,
 		send = function(player: Player, payload: Remotes.AutoClickResultPayload)
 			channels.autoClickResult:FireClient(player, payload)
@@ -155,9 +158,14 @@ function AutoClickService.init()
 		local out = runtime.onRequest(player, payload, os.clock())
 		print(string.format("[AutoClickService] %s(%d) 토글 요청 → ok=%s reason=%s on=%s 초당=%d", player.Name, player.UserId,
 			tostring(out.ok), out.reason, tostring(out.on), out.rate))
+		if out.ok and not out.on then
+			print(string.format("[AutoClickService] %s(%d) 끔 — 켜진 동안 자동 클릭 %d회", player.Name, player.UserId, made[player] or 0))
+			made[player] = nil
+		end
 	end)
 	Players.PlayerRemoving:Connect(function(player: Player)
 		runtime.onRemoving(player)
+		made[player] = nil
 	end)
 	local accum = 0
 	RunService.Heartbeat:Connect(function(dt: number)

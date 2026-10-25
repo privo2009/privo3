@@ -184,6 +184,55 @@ PurchaseRequestService.init()
 local AutoClickService = require(script.Parent.Systems.AutoClickService)
 AutoClickService.init()
 
+-- [Bootstrap][VERIFY][SHOP] 상시 유지 — 게임패스 소유가 확정되거나 바뀔 때마다 효과 값 한 줄(지시서 #16 6단계).
+-- 효과는 세션 값이라 화면 말고는 흔적이 없다 — 가짜 소유(TEST_GAMEPASSES) Play에서 "켜기 전 / 켠 뒤"를 이 줄로 대조한다.
+-- 읽기만 한다(값을 바꾸지 않는다). execute_luau는 모듈 캐시가 따로라 게임 상태를 못 읽는다 — 관측은 이 줄로 한다.
+do
+	local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
+	local GymLayout = require(ReplicatedStorage.Shared.GymLayout)
+	local ShopEffects = require(script.Parent.Systems.ShopEffects)
+	local UpgradeService = require(script.Parent.Systems.UpgradeService)
+	local RollService = require(script.Parent.Systems.RollService)
+	local ChallengeServiceV = require(script.Parent.Systems.ChallengeService)
+	local AuraServiceV = require(script.Parent.Systems.AuraService)
+	local TitleServiceV = require(script.Parent.Systems.TitleService)
+	local PetServiceV = require(script.Parent.Systems.PetService)
+	local function shopLine(player: Player): string
+		local profile = ProfileManager.get(player)
+		local parts = { "owned=" .. table.concat(GamepassService.ownedKeys(player), ","),
+			"restricted=" .. tostring(PolicyGate.isPaidRandomRestricted(player)) }
+		local tier, potion = ShopEffects.strength(player)
+		local dPass, dPotion = ShopEffects.damage(player)
+		table.insert(parts, string.format("tier=%s strPotion=%s strengthMult=%s", tier, potion, BigNum.tostring(ClickService.strengthMultiplierOf(player))))
+		table.insert(parts, string.format("damageMult=%s", AttackService.combineDamageMultiplier({
+			punchDamage = UpgradeService.getEffect(player, "punchDamage"), auraMult = AuraServiceV.getMult(player), passMult = dPass, potionMult = dPotion })))
+		table.insert(parts, string.format("bloxMult=%s", ChallengeServiceV.combineBloxMultiplier({
+			bloxGain = UpgradeService.getEffect(player, "bloxGain"), titleMult = TitleServiceV.getMult(player), passMult = ShopEffects.blox(player) })))
+		table.insert(parts, "autoRate=" .. ShopEffects.autoClickRate(player))
+		if profile ~= nil then
+			local data = profile.Data
+			local preview = RebirthService.previewGain(player)
+			table.insert(parts, string.format("blox=%s rebirthGain=%s", BigNum.tostring(data.blox), if preview ~= nil then BigNum.tostring(preview) else "-"))
+			local pets = PetServiceV.summarizeFor(player, data)
+			table.insert(parts, string.format("petSlots=%d petStorage=%d", pets.slots, pets.storage))
+			for _, roll in ipairs({ "title", "aura", "pet" }) do
+				table.insert(parts, string.format("luck_%s=%.4f", roll, RollService.computeLuck(roll, data, ShopEffects.luckOptions(player, roll))))
+			end
+			local vi = GymConfig.findByGamepass("voidTrainingZone") :: number
+			local c = GymLayout.computeLayout(GymConfig.getCount())[vi]
+			local r = GymLayout.resolve(Vector3.new(c.X, c.Y + 3, c.Z), data.rebirths, GymLayout.shopUnlocked(data.gymUnlocks, GamepassService.ownsFn(player)))
+			table.insert(parts, "voidMult=" .. r.multiplier)
+		end
+		return string.format("[Bootstrap][VERIFY][SHOP] %s %s", player.Name, table.concat(parts, " "))
+	end
+	GamepassService.onChanged(function(player: Player)
+		task.spawn(function()
+			ProfileManager.waitFor(player, 10)
+			print(shopLine(player))
+		end)
+	end)
+end
+
 -- 플레이어 상태 채널을 연다 (Phase 6 지시서 #5 — HUD가 서버 값을 보인다).
 -- ⚠️ 순서: ProfileManager · PadService · SpeedService · ChallengeService가 준비된 뒤여야 한다.
 -- 스냅샷은 그 넷에서 읽고, 접속 직후 런 상태 sync는 ChallengeService.syncRunState가 보낸다.

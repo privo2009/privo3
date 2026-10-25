@@ -12,6 +12,7 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
+local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 local ConfirmFlow = require(script.Parent.ConfirmFlow)
 
 type BigNumber = BigNum.BigNumber
@@ -28,8 +29,11 @@ export type View = {
 	multiplierAfter: BigNumber,
 }
 
-function RebirthWindowLogic.compute(blox: BigNumber, rebirths: BigNumber): View
-	local gained = RebirthConfig.getGainedRebirths(blox)
+-- shop = Store "shop"(지시서 #16 S6). 2배 환생을 가졌으면 얻는 배수가 2배다 — 서버 RebirthService와 같은 함수 · 같은 배수 인자.
+-- 환생할 수 있는가 · 버려지는 양은 배수와 상관없다.
+function RebirthWindowLogic.compute(blox: BigNumber, rebirths: BigNumber, shop: any?): View
+	local mult = if shop ~= nil then ShopEffectsLogic.rebirth(ShopEffectsLogic.fromSummary(shop)) else nil
+	local gained = RebirthConfig.getGainedRebirths(blox, mult)
 	-- 버려지는 양은 RebirthConfig.getLeftover가 원본이다(시뮬레이터의 S5 업그레이드 예산과 같은 함수 — 지시서 #7).
 	-- 블럭스가 아주 크면 나머지가 표현되지 않아 0이다(음수 잡음도 0으로 접는다).
 	local wasted = RebirthConfig.getLeftover(blox)
