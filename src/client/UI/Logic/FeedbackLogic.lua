@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 
 type BigNumber = BigNum.BigNumber
 
@@ -42,11 +43,11 @@ end
 
 -- 팝업 문구. 기구 배수가 1보다 크면 함께 적는다 — 같은 클릭이 기구 위에서 몇 배인지 보이게.
 function FeedbackLogic.popupText(gain: BigNumber, gymMultiplier: number?): string
-	local text = "+" .. Formatter.format(gain)
+	local amount = Formatter.format(gain)
 	if gymMultiplier ~= nil and gymMultiplier > 1 then
-		text ..= string.format("  기구 ×%s", FeedbackLogic.formatMultiplier(gymMultiplier))
+		return Locale.t("feedback.popup.gym", { amount = amount, mult = FeedbackLogic.formatMultiplier(gymMultiplier) })
 	end
-	return text
+	return Locale.t("feedback.popup", { amount = amount })
 end
 
 -- 1.2 → "1.2", 2 → "2", 100 → "100" (기구 배수는 작은 수라 Formatter의 소수 2자리를 쓰지 않는다)
@@ -74,8 +75,8 @@ end
 
 -- ===== 환생 안내 ============================================================================
 
-FeedbackLogic.REBIRTH_TITLE = "환생!"
-FeedbackLogic.REBIRTH_RESET_TEXT = "힘 · 블럭스 · 최고 층 · 패드는 처음부터"
+FeedbackLogic.REBIRTH_TITLE = Locale.t("feedback.rebirth.title")
+FeedbackLogic.REBIRTH_RESET_TEXT = Locale.t("feedback.rebirth.reset")
 FeedbackLogic.REBIRTH_HOLD_SEC = 5 -- Claude가 정한 시각 값(세션 로그)
 
 export type RebirthNotice = {
@@ -96,7 +97,7 @@ function FeedbackLogic.rebirthNotice(total: BigNumber, gained: BigNumber): Rebir
 	local after = FeedbackLogic.multiplierOf(total)
 	return {
 		title = FeedbackLogic.REBIRTH_TITLE,
-		change = string.format("힘 배수 ×%s → ×%s", Formatter.format(before), Formatter.format(after)),
+		change = Locale.t("feedback.rebirth.change", { before = Formatter.format(before), after = Formatter.format(after) }),
 		reset = FeedbackLogic.REBIRTH_RESET_TEXT,
 		before = before,
 		after = after,

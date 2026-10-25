@@ -7,6 +7,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local OverlayParts = require(script.Parent.OverlayParts)
 local RunNoticeLogic = require(script.Parent.Parent.Parent.Logic.RunNoticeLogic)
@@ -20,10 +21,10 @@ local ROW_GAP = 0.01 -- 줄 사이. 시각 튜닝값
 local TOP = Layout.TOP_HEIGHT + TextScale.Levels.small.heightFraction * 3 + ROW_GAP
 
 RunNotice.TEXT = {
-	cashout = "발판 = 수령",
-	advance = "벽 = 진행",
-	final = "수령만 가능",
-	fail = "시간 초과 · 획득 0",
+	cashout = Locale.t("overlay.run.cashout"),
+	advance = Locale.t("overlay.run.advance"),
+	final = Locale.t("overlay.run.final"),
+	fail = Locale.t("overlay.run.fail"),
 }
 
 export type Handle = {

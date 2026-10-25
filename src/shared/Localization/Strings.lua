@@ -190,6 +190,19 @@ Strings.Entries = {
 	["world.gym.lockedNeed"] = { en = "Locked · Need {amount} Rebirths", ko = "잠김 · 필요 환생 {amount}" },
 	["world.gate.title"] = { en = "Entry Gate", ko = "입장" },
 	["world.gate.detail"] = { en = "Walk through to start", ko = "지나가면 시작" },
+	-- ===== Overlay (로딩 · 오류 · 런 안내 · 결과 모달 · 환생 안내 · 클릭 팝업) ===============================
+	["common.ok"] = { en = "OK", ko = "확인" },
+	["overlay.loading"] = { en = "Loading...", ko = "불러오는 중..." },
+	["overlay.error.loadingTimeout"] = { en = "The server isn't responding. Please rejoin.", ko = "서버 응답이 없습니다. 다시 접속해 주세요" },
+	["overlay.run.cashout"] = { en = "Pad = Claim", ko = "발판 = 수령" },
+	["overlay.run.advance"] = { en = "Wall = Advance", ko = "벽 = 진행" },
+	["overlay.run.final"] = { en = "Claim only", ko = "수령만 가능" },
+	["overlay.run.fail"] = { en = "Time's up · 0 earned", ko = "시간 초과 · 획득 0" },
+	["feedback.popup"] = { en = "+{amount}", ko = "+{amount}" },
+	["feedback.popup.gym"] = { en = "+{amount}  Gym ×{mult}", ko = "+{amount}  기구 ×{mult}" },
+	["feedback.rebirth.title"] = { en = "Rebirth!", ko = "환생!" },
+	["feedback.rebirth.reset"] = { en = "Power · Blox · best floor · pads start over", ko = "힘 · 블럭스 · 최고 층 · 패드는 처음부터" },
+	["feedback.rebirth.change"] = { en = "Power multiplier ×{before} → ×{after}", ko = "힘 배수 ×{before} → ×{after}" },
 } :: { [string]: Entry }
 
 return Strings
