@@ -8,6 +8,7 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Store = require(script.Parent.Parent.UI.Store)
 local RebirthWindowLogic = require(script.Parent.Parent.UI.Logic.RebirthWindowLogic)
 local RebirthWindow = require(script.Parent.Parent.UI.Screens.Window.RebirthWindow)
@@ -67,17 +68,11 @@ do
 	check("확인: locked 뒤에도 바로 send 되지 않는다", c.press(21, true) == "askConfirm")
 end
 
-check("목록: 초기화 목록에 패드가 있다", (function()
-	for _, line in ipairs(RebirthWindowLogic.RESETS) do
-		if string.find(line, "패드", 1, true) then
-			return true
-		end
-	end
-	return false
-end)())
+check("목록: 초기화 목록에 패드가 있다", table.find(RebirthWindowLogic.RESETS, Locale.t("rebirth.reset.pad")) ~= nil
+	and string.find(Locale.tFor("ko", "rebirth.reset.pad"), "패드", 1, true) ~= nil and string.find(Locale.tFor("en", "rebirth.reset.pad"), "Pad", 1, true) ~= nil)
 
 -- 4. 창 --------------------------------------------------------------------------------------
-check("목록: 남는 것에 상점 업그레이드가 있다(환생은 업그레이드를 건드리지 않는다 — 지시서 #7)", string.find(RebirthWindowLogic.KEEPS, "업그레이드", 1, true) ~= nil)
+check("목록: 남는 것에 상점 업그레이드가 있다(환생은 업그레이드를 건드리지 않는다 — 지시서 #7)", RebirthWindowLogic.KEEPS == Locale.t("rebirth.keeps") and string.find(Locale.tFor("ko", "rebirth.keeps"), "업그레이드", 1, true) ~= nil and string.find(Locale.tFor("en", "rebirth.keeps"), "Upgrade", 1, true) ~= nil)
 check("값: 버려지는 양 = RebirthConfig.getLeftover(시뮬레이터 S5 예산과 같은 원본)", BigNum.eq(RebirthWindowLogic.compute(BigNum.fromNumber(2345), BigNum.new(0, 0)).wasted,
 	RebirthConfig.getLeftover(BigNum.fromNumber(2345))))
 
@@ -159,7 +154,7 @@ do
 	check("창: 확인 시간이 지나면 다시 두 번 눌러야 한다", w.sends == 1)
 
 	handle.onResult({ ok = true, reason = "", gained = { m = 3, e = 0 } })
-	check("창: 성공 결과 문구", handle._debug.labels.status.Text == string.format(RebirthWindow.SUCCESS_TEXT, Formatter.format(BigNum.new(3, 0))))
+	check("창: 성공 결과 문구", handle._debug.labels.status.Text == RebirthWindow.successText(BigNum.new(3, 0)))
 	handle.onResult({ ok = false, reason = "rate_limited", gained = { m = 0, e = 0 } })
 	check("창: 거부 결과는 사유 문구", handle._debug.labels.status.Text == RebirthWindowLogic.reasonText("rate_limited"))
 

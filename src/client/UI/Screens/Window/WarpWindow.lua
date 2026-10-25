@@ -15,6 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Panel = require(script.Parent.Parent.Parent.Components.Panel)
 local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
@@ -25,12 +26,14 @@ type BigNumber = BigNum.BigNumber
 
 local WarpWindow = {}
 
-WarpWindow.TITLE = "월드 · 워프"
-WarpWindow.WORLD_TEXT = "월드 1" -- 월드가 하나뿐이다(월드 전환 기능 없음 — 지시서 #6)
-WarpWindow.BUTTON_TEXT = "워프"
-WarpWindow.CONFIRM_TEXT = "한 번 더 누르면 워프"
-WarpWindow.CANCEL_TEXT = "취소"
-WarpWindow.SUCCESS_TEXT = "%d층으로 워프했어요 (-%s)"
+WarpWindow.TITLE = Locale.t("warp.title")
+WarpWindow.WORLD_TEXT = Locale.t("warp.world", { n = 1 }) -- 월드가 하나뿐이다(월드 전환 기능 없음 — 지시서 #6)
+WarpWindow.BUTTON_TEXT = Locale.t("warp.button")
+WarpWindow.CONFIRM_TEXT = Locale.t("warp.confirm")
+WarpWindow.CANCEL_TEXT = Locale.t("common.cancel")
+function WarpWindow.successText(stage: number, cost: BigNumber): string
+	return Locale.t("warp.success", { stage = stage, cost = Formatter.format(cost) })
+end
 
 -- 본문 안 세로 배치(본문 높이 대비). Claude가 정한 배치값(세션 로그).
 local WORLD_Y, WORLD_H = 0.0, 0.08
@@ -152,7 +155,7 @@ function WarpWindow.create(deps: Deps): Handle
 				label.Visible = false
 			else
 				label.Visible = true
-				label.Text = string.format("  %d층   %s 블럭스   %s", r.stage, Formatter.format(r.cost), if r.canWarp then "갈 수 있음" else "—")
+				label.Text = Locale.t("warp.row", { stage = r.stage, cost = Formatter.format(r.cost), state = if r.canWarp then Locale.t("warp.row.can") else "—" })
 				if r.stage == selected then
 					label.BackgroundColor3 = UiTheme.Colors.advance.base
 				elseif r.canWarp then
@@ -170,14 +173,14 @@ function WarpWindow.create(deps: Deps): Handle
 		local armed = confirm.isArmed(now()) and sel.canWarp
 		button.setDisabled(not sel.canWarp)
 		cancelButton.root.Visible = armed
-		buttonLabel.Text = if armed then WarpWindow.CONFIRM_TEXT else string.format("%s (%d층)", WarpWindow.BUTTON_TEXT, selected)
+		buttonLabel.Text = if armed then WarpWindow.CONFIRM_TEXT else Locale.t("warp.buttonFloor", { button = WarpWindow.BUTTON_TEXT, stage = selected })
 
 		if resultText ~= nil then
 			labels.status.Text = resultText
 		elseif not sel.canWarp and sel.reason ~= nil then
 			labels.status.Text = WarpWindowLogic.reasonText(sel.reason)
 		elseif armed then
-			labels.status.Text = string.format("%s 블럭스를 써요. 확인하면 한 번 더 누르세요", Formatter.format(sel.cost))
+			labels.status.Text = Locale.t("warp.confirmHint", { cost = Formatter.format(sel.cost) })
 		else
 			labels.status.Text = ""
 		end
@@ -203,7 +206,7 @@ function WarpWindow.create(deps: Deps): Handle
 		if action == "send" then
 			deps.sendRequest(selected)
 			render()
-			labels.status.Text = "워프하는 중..." -- 서버 WarpResult가 오면 onResult가 바꾼다
+			labels.status.Text = Locale.t("warp.sending") -- 서버 WarpResult가 오면 onResult가 바꾼다
 			return
 		end
 		render()
@@ -235,7 +238,7 @@ function WarpWindow.create(deps: Deps): Handle
 		end
 		confirm.cancel()
 		if payload.ok then
-			resultText = string.format(WarpWindow.SUCCESS_TEXT, payload.stage, Formatter.format(payload.cost))
+			resultText = WarpWindow.successText(payload.stage, payload.cost)
 		else
 			resultText = WarpWindowLogic.reasonText(tostring(payload.reason))
 		end

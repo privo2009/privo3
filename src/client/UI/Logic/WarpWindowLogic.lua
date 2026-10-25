@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local WarpConfig = require(ReplicatedStorage.Shared.Config.WarpConfig)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local ConfirmFlow = require(script.Parent.ConfirmFlow)
 
 type BigNumber = BigNum.BigNumber
@@ -82,22 +83,22 @@ end
 -- 사유 코드 → 화면 문구. 코드는 WarpConfig.REASON_* · WarpService.REASON_* · "rate_limited"와 같다.
 function WarpWindowLogic.reasonText(code: string): string
 	if code == WarpWindowLogic.REASON_RUN_ACTIVE then
-		return "런이 끝난 뒤에 워프할 수 있어요"
+		return Locale.t("warp.reason.run_active")
 	elseif code == WarpConfig.REASON_INSUFFICIENT_BLOX then
-		return "블럭스가 모자라요"
+		return Locale.t("common.reason.insufficient_blox")
 	elseif code == WarpConfig.REASON_INVALID_STAGE or code == WarpConfig.REASON_STAGE_OUT_OF_RANGE then
-		return "갈 수 없는 층이에요"
+		return Locale.t("warp.reason.invalid_stage")
 	elseif code == "no_character" then
-		return "캐릭터가 준비되면 다시 눌러 주세요"
+		return Locale.t("warp.reason.no_character")
 	elseif code == "no_profile" then
-		return "데이터를 불러오는 중이에요"
+		return Locale.t("common.reason.no_profile")
 	elseif code == "rate_limited" then
-		return "잠시 뒤에 다시 눌러 주세요"
+		return Locale.t("common.reason.rate_limited")
 	elseif code == "start_run_failed" or code == "subtract_failed" then
 		-- start_run_failed는 블럭스가 이미 빠진 뒤의 사고다 — "못 했다"로 안내하면 거짓말이 된다.
-		return "문제가 생겼어요. 관리자에게 알려 주세요"
+		return Locale.t("common.reason.partial_failure")
 	end
-	return "워프하지 못했어요"
+	return Locale.t("warp.reason.failed")
 end
 
 function WarpWindowLogic.newConfirm(): ConfirmFlow.Flow

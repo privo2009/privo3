@@ -13,6 +13,7 @@ local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local ConfirmFlow = require(script.Parent.ConfirmFlow)
 
 type BigNumber = BigNum.BigNumber
@@ -53,30 +54,30 @@ end
 -- 와 같은 문자열이다. 모르는 코드는 일반 문구.
 function RebirthWindowLogic.reasonText(code: string): string
 	if code == "not_enough_blox" then
-		return string.format("%s 블럭스부터 환생할 수 있어요", Formatter.format(BigNum.fromNumber(RebirthConfig.BLOX_PER_REBIRTH)))
+		return Locale.t("rebirth.reason.not_enough_blox", { cost = Formatter.format(BigNum.fromNumber(RebirthConfig.BLOX_PER_REBIRTH)) })
 	elseif code == "no_profile" then
-		return "데이터를 불러오는 중이에요"
+		return Locale.t("common.reason.no_profile")
 	elseif code == "rate_limited" then
-		return "잠시 뒤에 다시 눌러 주세요"
+		return Locale.t("common.reason.rate_limited")
 	elseif code == "partial_failure" then
 		-- 부작용이 이미 생긴 뒤의 사고다. "환생하지 못했다"로 안내하면 거짓말이 된다(RebirthService 상단).
-		return "문제가 생겼어요. 관리자에게 알려 주세요"
+		return Locale.t("common.reason.partial_failure")
 	end
-	return "환생하지 못했어요"
+	return Locale.t("rebirth.reason.failed")
 end
 
 -- 환생하면 바뀌는 것 / 남는 것. 문서가 아니라 RebirthService.runRebirth가 실제로 하는 일을 읽어 맞췄다
 -- (괄호 안은 그 함수의 단계 번호). 그쪽 단계가 바뀌면 여기도 바꾼다.
 RebirthWindowLogic.RESETS = {
-	"블럭스 → 0 (전부 사용)", -- 4
-	"힘 → 처음 값", -- 6
-	"최고 층 기록 · 현재 월드 → 처음", -- 7 · 8
-	"클릭 파워 패드 → 다시 잠김 (패드 1부터)", -- 11 (lifeBlox 0, 선택 패드 1)
-	"최대 이동속도 → 힘에 맞춰 다시", -- 10
-	"진행 중인 런 → 끝나고 스폰으로", -- 3
+	Locale.t("rebirth.reset.blox"), -- 4
+	Locale.t("rebirth.reset.power"), -- 6
+	Locale.t("rebirth.reset.floor"), -- 7 · 8
+	Locale.t("rebirth.reset.pad"), -- 11 (lifeBlox 0, 선택 패드 1)
+	Locale.t("rebirth.reset.speed"), -- 10
+	Locale.t("rebirth.reset.run"), -- 3
 }
 -- 상점 업그레이드: runRebirth의 deps에는 업그레이드를 바꾸는 통로가 없다 — 남는다(UpgradeServiceTests 5번이 확인한다, 지시서 #7).
-RebirthWindowLogic.KEEPS = "남는 것: 환생 배수(오름) · 운동기구 · 평생 누적 블럭스 · 상점 업그레이드"
+RebirthWindowLogic.KEEPS = Locale.t("rebirth.keeps")
 
 -- 창에 그리는 줄. 초기화 목록을 두 개씩 한 줄로 묶는다(지시서 #8 — 한 줄에 하나씩 6줄이면 줄 높이가 낮아 글자가 거의 안 읽혔다).
 RebirthWindowLogic.RESET_PER_LINE = 2
@@ -99,8 +100,8 @@ end
 
 -- 버려지는 양 옆 안내 + 상점 창으로 가는 버튼(지시서 #7 6단계). 버려질 나머지를 업그레이드에 먼저 쓰라는 안내다
 -- (시뮬레이터 표준 플레이어의 구매 규칙 S5와 같은 행동).
-RebirthWindowLogic.SHOP_HINT = "환생 전에 상점에서 먼저 쓸 수 있어요"
-RebirthWindowLogic.SHOP_BUTTON_TEXT = "상점으로"
+RebirthWindowLogic.SHOP_HINT = Locale.t("rebirth.shopHint")
+RebirthWindowLogic.SHOP_BUTTON_TEXT = Locale.t("rebirth.shopButton")
 
 -- ===== 확인 단계 ==============================================================================
 --

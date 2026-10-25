@@ -129,7 +129,7 @@ do
 	check("쪽: 1쪽 밑으로 안 내려간다", handle._debug.state().page == 1)
 
 	handle.onResult({ ok = true, reason = "", stage = 3, cost = WarpConfig.cost(3) })
-	check("결과: 성공 문구", handle._debug.labels.status.Text == string.format(WarpWindow.SUCCESS_TEXT, 3, Formatter.format(WarpConfig.cost(3))))
+	check("결과: 성공 문구", handle._debug.labels.status.Text == WarpWindow.successText(3, WarpConfig.cost(3)))
 	handle.onResult({ ok = false, reason = "run_active", stage = 3, cost = { m = 0, e = 0 } })
 	check("결과: 거부 사유 문구", handle._debug.labels.status.Text == WarpWindowLogic.reasonText("run_active"))
 
