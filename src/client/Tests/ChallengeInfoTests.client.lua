@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Layout = require(script.Parent.Parent.UI.Layout)
 local ChallengeInfo = require(script.Parent.Parent.UI.Screens.Hud.ChallengeInfo)
 
@@ -90,7 +91,7 @@ do
 		seeds = {},
 	})
 
-	check("활성 상태: 스테이지 문구가 채워진다", stageLabel.Text == "스테이지 3", stageLabel.Text)
+	check("활성 상태: 스테이지 문구가 채워진다", stageLabel.Text == Locale.t("hud.challenge.stage", { n = 3 }), stageLabel.Text)
 	check("활성 상태: 타이머가 소수 1자리로 채워진다", timerLabel.Text == "19.8", timerLabel.Text)
 
 	handle._debug.apply({
@@ -103,7 +104,7 @@ do
 	check("비활성 상태에서도 root Size가 그대로다(레이아웃 안 튐)", handle.root.Size == rootSizeBefore)
 	check("비활성 상태에서도 Stage Size가 그대로다", stageLabel.Size == stageSizeBefore)
 	check("비활성 상태에서도 Timer Size가 그대로다", timerLabel.Size == timerSizeBefore)
-	check("비활성 상태: 대기 문구로 바뀐다(Stage)", stageLabel.Text == "대기 중", stageLabel.Text)
+	check("비활성 상태: 대기 문구로 바뀐다(Stage)", stageLabel.Text == Locale.t("hud.challenge.idle"), stageLabel.Text)
 	check("비활성 상태: 대기 문구로 바뀐다(Timer)", timerLabel.Text == "--", timerLabel.Text)
 end
 

@@ -157,6 +157,21 @@ Strings.Entries = {
 	["shop.potionBundle.desc"] = { en = "99 each of Power · Damage · Luck Potions", ko = "힘 · 데미지 · 행운 포션 각 99개" },
 	["shop.gymUnlock.name"] = { en = "Unlock Gym {n}", ko = "운동기구 {n} 열기" },
 	["shop.gymUnlock.desc"] = { en = "Unlocks Gym {n} regardless of Rebirths", ko = "환생 수와 상관없이 운동기구 {n}을 열어요" },
+	-- ===== HUD ===========================================================================================
+	["hud.menu.shop"] = { en = "Shop", ko = "상점" },
+	["hud.menu.rebirth"] = { en = "Rebirth", ko = "환생" },
+	["hud.menu.warp"] = { en = "Warp", ko = "워프" },
+	["hud.menu.aura"] = { en = "Aura", ko = "아우라" },
+	["hud.menu.pet"] = { en = "Pets", ko = "펫 목록" },
+	["hud.menu.settings"] = { en = "Settings", ko = "설정" },
+	["hud.auto.clicker"] = { en = "Auto Click", ko = "자동클릭" },
+	["hud.auto.advance"] = { en = "Auto Advance", ko = "자동진행" },
+	["hud.challenge.idle"] = { en = "Waiting", ko = "대기 중" },
+	["hud.challenge.stage"] = { en = "Floor {n}", ko = "스테이지 {n}" },
+	["hud.power.rebirthMult"] = { en = "Rebirth Multiplier ×", ko = "환생 배수 ×" },
+	["hud.power.maxSpeed"] = { en = "/ Max {n}", ko = "/ 최대 {n}" },
+	["hud.slot.owned"] = { en = "Owned", ko = "보유" },
+	["hud.boost.line"] = { en = "{name} {mult} {time}", ko = "{name} {mult} {time}" },
 } :: { [string]: Entry }
 
 return Strings

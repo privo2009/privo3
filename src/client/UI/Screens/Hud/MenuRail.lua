@@ -23,6 +23,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local AssetRegistry = require(ReplicatedStorage.Shared.Config.AssetRegistry)
 local AssetImage = require(ReplicatedStorage.Shared.UI.AssetImage)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local ScreenController = require(script.Parent.Parent.Parent.ScreenController)
 
@@ -48,13 +49,13 @@ local COLUMNS = 2
 -- 화면 목록의 "메뉴 진입은 6개다" 그대로. 순서는 그 절의 나열 순서를 따른다.
 -- screenName은 아직 등록된 창이 하나도 없는 상태의 자리표시자다(아래 tap 처리 참고).
 local ITEMS = {
-	{ assetKey = "icon_shop", label = "상점", screenName = "Shop" },
-	{ assetKey = "icon_rebirth", label = "환생", screenName = "Rebirth" },
-	{ assetKey = "icon_warp", label = "워프", screenName = "Warp" }, -- 월드·워프 창 (창은 아직 없다)
+	{ assetKey = "icon_shop", label = Locale.t("hud.menu.shop"), screenName = "Shop" },
+	{ assetKey = "icon_rebirth", label = Locale.t("hud.menu.rebirth"), screenName = "Rebirth" },
+	{ assetKey = "icon_warp", label = Locale.t("hud.menu.warp"), screenName = "Warp" }, -- 월드·워프 창 (창은 아직 없다)
 	-- 지시서 #10 동안 이 칸이 임시로 "칭호"였다 — #11에서 아우라로 되돌렸다. 칭호 창은 아우라 창 "칭호" 버튼이 연다.
-	{ assetKey = "icon_aura", label = "아우라", screenName = "Aura" },
-	{ assetKey = "icon_pet", label = "펫 목록", screenName = "Pet" },
-	{ assetKey = "icon_settings", label = "설정", screenName = "Settings" },
+	{ assetKey = "icon_aura", label = Locale.t("hud.menu.aura"), screenName = "Aura" },
+	{ assetKey = "icon_pet", label = Locale.t("hud.menu.pet"), screenName = "Pet" },
+	{ assetKey = "icon_settings", label = Locale.t("hud.menu.settings"), screenName = "Settings" },
 }
 
 -- 테스트 전용 참조. 개수·라벨을 테스트에 하드코딩하지 않고 이 목록과 대조하기

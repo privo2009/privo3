@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Names = require(ReplicatedStorage.Shared.Localization.Names)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
@@ -293,9 +294,9 @@ do
 		and BoostTimersLogic.clockText(-5) == "0:00")
 	local s = shop(nil, false, { { type = "strength", mult = 2, remainingSec = 900, receivedAt = 100 }, { type = "luck", mult = 2, remainingSec = 30, receivedAt = 100 } })
 	local lines = BoostTimersLogic.lines(s, 100)
-	check("줄: '힘 ×2 15:00' · 순서 그대로", #lines == 2 and lines[1] == "힘 ×2 15:00" and lines[2] == "행운 ×2 0:30", table.concat(lines, " | "))
+	check("줄: '힘 ×2 15:00' · 순서 그대로", #lines == 2 and lines[1] == Locale.t("hud.boost.line", { name = Names.boost("strength", true), mult = "×2", time = "15:00" }) and lines[2] == Locale.t("hud.boost.line", { name = Names.boost("luck", true), mult = "×2", time = "0:30" }), table.concat(lines, " | "))
 	local later = BoostTimersLogic.lines(s, 100 + 40)
-	check("받은 뒤로 센다: 40초 뒤 힘 14:20 · 행운은 끝나 빠진다", #later == 1 and later[1] == "힘 ×2 14:20", table.concat(later, " | "))
+	check("받은 뒤로 센다: 40초 뒤 힘 14:20 · 행운은 끝나 빠진다", #later == 1 and later[1] == Locale.t("hud.boost.line", { name = Names.boost("strength", true), mult = "×2", time = "14:20" }), table.concat(later, " | "))
 	check("없으면 빈 목록", #BoostTimersLogic.lines(shop(), 0) == 0)
 	local store = Store.new()
 	local clock = 100
@@ -307,7 +308,7 @@ do
 		setter("shop", s)
 	end)
 	task.wait()
-	check("HUD: 활성 2개 → 줄 2개 · 문구", hud._debug.labels[1].Visible and hud._debug.labels[1].Text == "힘 ×2 15:00" and hud._debug.labels[2].Visible
+	check("HUD: 활성 2개 → 줄 2개 · 문구", hud._debug.labels[1].Visible and hud._debug.labels[1].Text == Locale.t("hud.boost.line", { name = Names.boost("strength", true), mult = "×2", time = "15:00" }) and hud._debug.labels[2].Visible
 		and not hud._debug.labels[3].Visible)
 	-- UDim Scale은 float32로 읽힌다(TestHelpers 상단) — 오차로 비교한다
 	check("HUD: 우측 레일 맨 위 · Scale만", math.abs(hud.root.Position.Y.Scale - BoostTimers.TOP) < 1e-6 and hud.root.Position.Y.Offset == 0

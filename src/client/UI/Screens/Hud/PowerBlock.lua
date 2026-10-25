@@ -35,6 +35,7 @@ local AssetImage = require(ReplicatedStorage.Shared.UI.AssetImage)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local ValuePanel = require(script.Parent.Parent.Parent.Components.ValuePanel)
 local Store = require(script.Parent.Parent.Parent.Store)
@@ -163,7 +164,7 @@ function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
 	multCaption.Size = UDim2.fromScale(1, MULT_CAPTION_H)
 	multCaption.BackgroundTransparency = 1
 	multCaption.BorderSizePixel = 0
-	multCaption.Text = "환생 배수 ×"
+	multCaption.Text = Locale.t("hud.power.rebirthMult")
 	multCaption.TextScaled = true
 	multCaption.TextColor3 = Color3.new(1, 1, 1)
 	multCaption.Font = Enum.Font.SourceSansBold
@@ -288,7 +289,7 @@ function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
 	maxLabel.TextXAlignment = Enum.TextXAlignment.Left
 	maxLabel.BackgroundTransparency = 1
 	maxLabel.BorderSizePixel = 0
-	maxLabel.Text = "/ 최대 0"
+	maxLabel.Text = Locale.t("hud.power.maxSpeed", { n = 0 })
 	maxLabel.TextScaled = true
 	maxLabel.TextColor3 = Color3.new(1, 1, 1)
 	maxLabel.Font = Enum.Font.SourceSansBold
@@ -336,7 +337,7 @@ function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
 
 	local function applySpeed(speed: number, maxSpeed: number)
 		speedValue.setNumber(speed)
-		maxLabel.Text = string.format("/ 최대 %d", maxSpeed)
+		maxLabel.Text = Locale.t("hud.power.maxSpeed", { n = maxSpeed })
 	end
 
 	applyPower(source.get("strength"))

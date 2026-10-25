@@ -24,13 +24,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local ShopSlotConfig = require(ReplicatedStorage.Shared.Config.ShopSlotConfig)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local TextService = game:GetService("TextService")
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local Store = require(script.Parent.Parent.Parent.Store)
 
 local ShopSlots = {}
 
-ShopSlots.OWNED_TEXT = "보유"
+ShopSlots.OWNED_TEXT = Locale.t("hud.slot.owned")
 
 -- 타일 8% 정사각 (docs/UI.md "7. 아이콘 > 타일 규격" — MenuRail.lua의 TILE_HEIGHT와
 -- 같은 값이다. 같은 상수를 내보내는 공용 자리가 없어 각자 정의한다. MenuRail도

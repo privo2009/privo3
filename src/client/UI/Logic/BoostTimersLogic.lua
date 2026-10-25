@@ -3,11 +3,15 @@
 --
 -- 값은 서버 PlayerState shop.boosts(Store "shop")다. 서버는 남은 초를 매초 보내지 않는다(BOOST_RESYNC_SEC) —
 -- 클라가 받은 시각(receivedAt) 뒤로 센다: 남은 = remainingSec − (지금 − receivedAt). 0 이하면 그 줄은 빠진다(곧 서버도 지운다).
--- 줄 = "힘 ×2 14:32"(1시간 이상이면 "1:02:03"). 순서는 서버가 보낸 순서(ShopConfig.BOOST_ORDER).
+-- 줄 = "힘 ×2 14:32"(1시간 이상이면 "1:02:03" — 꼴은 Strings "hud.boost.line"). 순서는 서버가 보낸 순서(ShopConfig.BOOST_ORDER).
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
 
 local BoostTimersLogic = {}
 
-BoostTimersLogic.SHORT_NAMES = { strength = "힘", damage = "데미지", luck = "행운" } :: { [string]: string }
 BoostTimersLogic.MAX_LINES = 3 -- 부스트 종류 수(ShopConfig.BOOST_ORDER) — 화면이 이만큼 줄을 만든다
 
 function BoostTimersLogic.clockText(sec: number): string
@@ -39,9 +43,9 @@ function BoostTimersLogic.lines(shop: any, now: number): { string }
 			local receivedAt = if type(b.receivedAt) == "number" then b.receivedAt else now
 			local left = b.remainingSec - math.max(0, now - receivedAt)
 			if left > 0 and #out < BoostTimersLogic.MAX_LINES then
-				local name = BoostTimersLogic.SHORT_NAMES[b.type] or tostring(b.type)
-				table.insert(out, string.format("%s %s %s", name, multText(if type(b.mult) == "number" then b.mult else 1),
-					BoostTimersLogic.clockText(left)))
+				local name = if type(b.type) == "string" and Locale.has("boost." .. b.type .. ".short") then Names.boost(b.type, true) else tostring(b.type)
+				table.insert(out, Locale.t("hud.boost.line", { name = name, mult = multText(if type(b.mult) == "number" then b.mult else 1),
+					time = BoostTimersLogic.clockText(left) }))
 			end
 		end
 	end
