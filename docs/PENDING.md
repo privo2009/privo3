@@ -217,6 +217,87 @@ ModuleScript **67개 중 아무도 require하지 않는 고아는
 
 ## 미결
 
+### Phase 8 착수 전 결정 (2026-10-25 지시서 #15 조사 — 읽기만) · 불일치 · 결정 항목
+
+조사 범위: `DESIGN.md` 1 · 3 · 6 · 7 · 9 · 10장 · `ShopConfig` · `ShopSlotConfig` · `GymConfig` · `UpgradeConfig` · `PetConfig` ·
+`StrengthMultiplier` · `ChallengeService` · `AttackService` · `RollService` · `RebirthConfig` · `ClickService` · `GymService` · `PetService` ·
+`Schema` · HUD(`ShopSlots` · `AutoTools`) · `UpgradeShopWindow` · `docs/UI.md` · ProfileStore 1.0.3 소스 · create.roblox.com 공식 문서(2026-10-25).
+**추천은 적지 않는다.** 원본 상세는 #15 완료 보고(HANDOFF 2026-10-25).
+
+**지금 있는 것:** 상품 정의(`ShopConfig` 게임패스 13 · 힘 배수 계단 10 · 개발자 상품 7, id 전부 0) · 최고 단계만 고르는 함수
+(`ShopConfig.getActiveStrengthMultiplier` — 어디서도 부르지 않는다) · 결합 함수 세 자리의 "Phase 8 필드" 주석(`StrengthMultiplier.compute` ·
+`combineBloxMultiplier` · `combineDamageMultiplier`) · 행운 체인 `RollService.computeLuck`의 `luckPassMult` · `rollProductMult` · `boostMult` 인자(넘기는 곳 0) ·
+`PetConfig.getSlots` / `getStorage`의 게임패스 인자(`PetService`는 언제나 false) · `GymConfig` 선해금 가격 · 공허 `gamepassKey` ·
+`ChallengeService` cashout · advance의 `source` 인자(자동 수령 · 자동 진행이 직접 부를 자리) · `Schema` `boosts`(형태 검사만) · `daily.freePotionDay` ·
+HUD 구좌 4개(TEMP, 누르면 아무 일 없음) · 자동 클리커 토글(켜고 끌 뿐 효과 없음) · 자동 진행 버튼(잠김 고정) · 상점 창 `RobuxSlot`(숨김)
+**지금 없는 것:** `MarketplaceService` 호출 0(소유 확인 · 구매 프롬프트 · ProcessReceipt) · 게임패스 세션 캐시 · 영수증 기록 필드 ·
+부스트 만료 판정 코드 · `PolicyService` 호출 · `AdService` 호출 · Roblox Plus 프롬프트 · 2x 환생 · 2x 데미지 · 자동 수령 · 자동 진행 루프 ·
+워프 팩 · 로벅스 상점 화면 · 부스트 남은 시간 표시 · 펫 / 아우라 / 칭호 창의 상품 버튼 · 실패 화면 광고 버튼 · 운동기구 구매 자리
+
+불일치 (문서 ↔ 코드 · 문서 ↔ 공식 문서)
+1. 자동 클리커 — DESIGN 9장 · `ClickService` 주석: 일반 49(15회/초) · OP 89(30회/초) 두 상품 / `ShopConfig` "OP 자동 클리커" 79 하나 ·
+   HUD 구좌도 그 79를 보인다 (#9 불일치 13 그대로)
+2. 공허 훈련 구역 799 = 힘 배수 64x 799 — 같은 가격 · 둘 다 클릭 힘에 곱해진다 (PENDING D3 그대로)
+3. 포션 번들 "(99+99) 999" — 포션 가격은 19 · 29다. 괄호 구성이 가격과 안 맞는다 · 수량 정의 없음(`ShopConfig` effect에 수량 없음)
+4. 게임패스 번들 1,499 — 구성(어느 패스 묶음 · "25% 할인"의 기준)이 DESIGN · `ShopConfig` 둘 다 없다 · 힘 배수 128x도 1,499
+5. 2x 데미지 게임패스 — 9장 · `ShopConfig`에 있고 3장 "배수 계통 [1펀치 데미지]"에는 없다
+6. 2x 환생 게임패스 — 9장 · `ShopConfig`에 있고 3장 "환생" · `RebirthConfig`에 효과 정의 · 자리가 없다
+7. 자동 수령 게임패스 199 · 무료판 3초 쿨다운(9장) ↔ 1장 "수령은 런당 1회이므로 자동화 대상이 아니고" · 자동 진행 "목표층 도달 → 자동 수령"
+8. 보상형 광고 "일일 무료 롤 → 슈퍼 롤 1회"(9장) ↔ 공식 "Rewards for video ads cannot be randomized items"(rewarded-video-ads)
+9. 보상형 광고 "13세 이상에게만 노출됨"(9장) — 공식 문서의 13+는 **게시자** 조건이다. 시청자 쪽은 `AdAvailabilityResult.PlayerIneligible`로만 온다(나이 기준 확인 못 함)
+10. 보상형 광고 "15초 이상 시청해야 수익 발생"(9장) — 공식 문서에서 확인 못 함(광고 길이 6 ~ 30초 서술만)
+11. PENDING "로벅스 구매(상점)"가 인용하는 DESIGN 7장 "일부 항목은 로벅스 병행 구매 가능" — DESIGN 본문에 그 문장이 없다(S6 "버튼 자리만"뿐)
+12. 자동 진행 — 9장 가격 "미정" · `ShopConfig`에 항목 없음 · HUD 버튼은 있음(잠김)
+13. 운동기구 선해금 가격(기구 1 ~ 8: 29 ~ 449) — `GymConfig`에만 있다. DESIGN 9장 · `ShopConfig`에 없다(공허만 `ShopConfig`)
+14. HUD 두 자동 버튼의 상태가 다르다 — 자동 진행은 "미보유 잠김"인데 자동 클리커는 미보유인데도 켜고 끌 수 있다(효과 없음 · UI.md는 둘 다 상품)
+
+결정 — 게임 수치 (G)
+- G1 자동 클리커 상품 수 · 가격 · 초당 횟수(49 · 89 둘 / 79 하나, 15 · 30회/초) — DESIGN 있음(9장, 코드와 다름)
+- G2 2x 환생의 양(얻는 환생 수 × 2인가, 다른 뜻인가) — DESIGN 없음
+- G3 포션 번들 구성 · 수량 · 가격(999) — DESIGN 있음(구성 문구 불일치 3)
+- G4 게임패스 번들 구성 · 가격(1,499) — DESIGN 있음(가격만)
+- G5 워프 팩 수치("+10 스테이지"의 10 · 횟수) — DESIGN 있음(뜻은 S11)
+- G6 운동기구 선해금 가격 8개 확정 · 공허 799와 64x 799 관계 — DESIGN 있음(가격은 GymConfig만, D3 미결)
+- G7 자동 진행 가격 — DESIGN 없음("미정")
+- G8 럭키 · 슈퍼 롤 1회에 블럭스 롤 비용을 따로 내는가(공짜 롤 n회인가) — DESIGN 없음
+- G9 광고 보상량("놓친 블럭스 절반" · "15분 연장" · 슈퍼 롤 대체) — DESIGN 있음(8과 충돌)
+- G10 매일 무료 포션(종류 · 시간) — DESIGN 있음(9장 "랜덤") · 코드 없음
+- G11 상점 업그레이드의 로벅스 병행 항목 · 가격 · 효과(레벨 +1?) — DESIGN 없음(불일치 11)
+- G12 HUD 상시 구좌 4개 최종 항목 — DESIGN 없음(`ShopSlotConfig` TEMP)
+
+결정 — 구조 (S)
+- S1 게임패스 소유 세션 캐시(접속 시 UserOwnsGamePassAsync · 게임 중 구매는 PromptGamePassPurchaseFinished 뒤 반영) · 실패 · 재시도 처리 — DESIGN 있음(절대 규칙 5 원칙만)
+- S2 영수증 기록 자리 — 프로필 필드(PurchaseId 목록) · 상한 · 오래된 것 버리는 규칙 · 스키마 v7 — DESIGN 없음
+- S3 ProcessReceipt 순서 — 처리 여부 확인 → 메모리 지급 → PurchaseId 기록 → 저장 확인(ProfileStore `LastSavedData` / `OnAfterSave`) → PurchaseGranted ·
+  프로필 미로드 · 퇴장 때 NotProcessedYet — DESIGN 있음(절대 규칙 6 원칙만)
+- S4 힘 배수 계단을 `StrengthMultiplier.compute` 필드로 붙이는 방식(최고 단계 하나 — `getActiveStrengthMultiplier`) · 공허와 곱하는가(D3) — DESIGN 있음(3장 · 9장)
+- S5 2x 데미지 · 2x 블럭스 · 승리 포션 · 힘 포션을 결합 함수 필드로 — 2x 데미지 자리는 DESIGN 없음(불일치 5)
+- S6 2x 환생 적용 자리(RebirthService 지급 · 환생 창 미리보기 · 시뮬레이터) — DESIGN 없음
+- S7 포션 · 부스트 — 지속 시간 · 같은 포션 두 번(연장 / 배수) · 오프라인 중 시간이 흐르는가 · 만료 판정(서버 os.time — `boosts` 필드) · 표시 — DESIGN 있음(15분 2x만)
+- S8 자동 클리커 방식 — 서버가 클릭을 만들어 넣는가 / 플레이어별 상한(10)을 올리는가 · 기구 위 · 런 중 적용 · 오토마우스 방어선과의 관계 — DESIGN 있음(초당 횟수만)
+- S9 자동 수령 — 언제 수령하는가(클리어 즉시 / 목표층) · 무료판 3초 쿨다운이 무엇의 쿨다운인가 · 1장 문장 정리 — DESIGN 있음(불일치 7)
+- S10 자동 진행 — 상품 형태(게임패스 / 개발자 상품) · 안전층 D · 부스트 만료(매 층 재계산 / 시작값 고정) · 설정 창 — DESIGN 있음(1장 미결 2개)
+- S11 워프 팩의 뜻 — 워프 비용 면제 n회인가, 현재 층 + 10 워프인가 · 최종층 넘김 — DESIGN 없음
+- S12 럭키 · 슈퍼 롤 적용 — 아우라 전용(G15) · 몇 번을 한꺼번에 굴리는가 · 결과 연출 · 저장 1회 — DESIGN 있음(G15만)
+- S13 로벅스 행운 상품(P2) — PolicyService 확인 시점 · 제한 유저 처리(공식 5가지 중 무엇) · 구매 전 숫자 설명 문구 · 활성 중 확률 표시 — DESIGN 있음(P2)
+- S14 2x 블럭스 게임패스 · 승리 포션이 "로벅스로 살 수 있는 화폐"를 만드는가(P1 해석) — 공식 문서에 해당 서술 없음 — DESIGN 없음
+- S15 보상형 광고 — 슈퍼 롤 대신 줄 보상(불일치 8) · 노필 UI · 노출 자리(실패 직후 · 부스트 만료) · 보상 = 개발자 상품 ProcessReceipt — DESIGN 있음(9장)
+- S16 Roblox Plus 프롬프트 시점 · 빈도 · 구독자 보상 여부 — DESIGN 있음(시점만)
+- S17 펫 게임패스 연결(hasSlotPass · hasStoragePass) · 장착 > 슬롯 잘라내기(E6)를 소유 확인 뒤에 — DESIGN 있음(E6)
+- S18 3x 부화(G16) — 결과 연출 3개 · 저장 공간이 1 ~ 2칸만 남았을 때 — DESIGN 있음(G16 정의만)
+- S19 운동기구 선해금 상품 형태(게임패스 8개?) · 구매 자리(3D 기구 · 창) — DESIGN 있음(가격만, 불일치 13)
+- S20 UI 자리 — 로벅스 상점 화면(게임패스 · 힘 계단 목록) · 부스트 남은 시간 · 펫 / 아우라 / 칭호 창 상품 버튼 · 실패 화면 광고 버튼 ·
+  자동 진행 설정 창(UI.md 있음) · 자동 클리커 미보유 상태(불일치 14) — DESIGN 없음(UI.md 화면 목록에 일부만)
+- S21 매일 무료 포션 · 출석 보상을 Phase 8 범위에 넣는가(스키마 `daily` 있음 · 코드 없음 · UI 목록에 "출석 보상") — DESIGN 있음(9장 무료 요소)
+
+결정 — 사람 대시보드 (D)
+- D1 게임패스 만들기 · 가격 · 아이콘(일반 13 · 힘 계단 10 · 선해금 S19 · 자동 진행 S10) → id를 Claude에게(`ShopConfig`에 넣는다) — DESIGN 있음(ROADMAP Phase 8)
+- D2 개발자 상품 만들기(롤 4 · 포션 2 · 번들 · 워프 팩 · 광고 보상용 상품) → id — DESIGN 있음
+- D3 판매 켜기 — Studio 테스트 구매 확인 뒤 — DESIGN 없음
+- D4 보상형 광고 자격 확인(게시자 13+ · 2단계 인증 · ID 인증 · 월 2,000명 · 성숙도 설문) — DESIGN 없음
+- D5 성숙도 · 준수 설문(Maturity and Compliance Questionnaire) — DESIGN 없음
+- D6 Studio API 접근 · 게임 공개 상태 확인(광고 · 상품 테스트 전제) — DESIGN 없음
+
 ### Phase 7 — 결정 완료 (2026-10-24 사람 결정, 지시서 #10) · 불일치가 어디서 해소되는가
 
 지시서 #9 조사의 게임 수치 16 · 구조 판단 15는 전부 정해졌다(해소 기록). 규칙 원본은 `DESIGN.md` "3. 화폐와 배수 > 배수 계통" ·
