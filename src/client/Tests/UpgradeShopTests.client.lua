@@ -11,6 +11,7 @@ local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local Store = require(script.Parent.Parent.UI.Store)
 local UpgradeShopLogic = require(script.Parent.Parent.UI.Logic.UpgradeShopLogic)
 local UpgradeShopWindow = require(script.Parent.Parent.UI.Screens.Window.UpgradeShopWindow)
+local PurchaseClient = require(script.Parent.Parent.Net.PurchaseClient)
 
 local passed = 0
 local failed = 0
@@ -102,6 +103,8 @@ local function makeWindow(bloxValue: BigNum.BigNumber, levels: { [string]: numbe
 		sendRequest = function(name: string)
 			table.insert(w.sends, name)
 		end,
+		-- 로벅스 탭 요청은 가짜로 받는다(이 파일은 업그레이드 탭만 본다 — 로벅스 탭은 RobuxShopTests)
+		purchase = PurchaseClient.new({ send = function() end }),
 		onClose = function()
 			w.closes += 1
 		end,
@@ -138,13 +141,15 @@ do
 	check("창: 줄 문구 = 로직 값", dmg.title.Text == UpgradeShopLogic.row("punchDamage", 0, blox).title and dmg.effect.Text == UpgradeShopLogic.row("punchDamage", 0, blox).effectText)
 	check("창: 살 수 있는 줄은 버튼 켜짐", not dmg.button.isDisabled())
 	check("창: 최대 레벨 줄은 MAX · 회색", handle._debug.rows.punchSpeed.buttonLabel.Text == UpgradeShopLogic.MAX_TEXT and handle._debug.rows.punchSpeed.button.isDisabled())
-	local robuxHidden = true
+	local noSlot = true
 	for _, parts in pairs(handle._debug.rows) do
-		if parts.robuxSlot.Visible then
-			robuxHidden = false
+		if parts.frame:FindFirstChild("RobuxSlot") ~= nil then
+			noSlot = false
 		end
 	end
-	check("창: 로벅스 자리는 있고 숨겨져 있다(S6)", robuxHidden and dmg.robuxSlot.Parent == dmg.frame)
+	check("창: RobuxSlot(숨김 자리)은 지웠다 — 업그레이드는 로벅스로 팔지 않는다(지시서 #16)", noSlot)
+	check("창: 처음 탭은 업그레이드 · 업그레이드 목록만 보인다", handle._debug.tab() == UpgradeShopWindow.TAB_UPGRADE and handle._debug.list.Visible
+		and not handle._debug.robuxList.Visible)
 
 	-- 한 번 누르면 한 번 나간다(확인 단계 없음 — S8)
 	handle._debug.press("punchDamage")

@@ -177,8 +177,8 @@ function AuraWindow.create(deps: Deps): Handle
 				end
 			end
 		end
-		luck.Text = AuraWindowLogic.luckText(source.get("upgrades"))
-		view = AuraWindowLogic.cards(summary, source.get("upgrades"), packId)
+		luck.Text = AuraWindowLogic.luckText(source.get("upgrades"), source.get("shop"))
+		view = AuraWindowLogic.cards(summary, source.get("upgrades"), packId, source.get("shop"))
 		for i, parts in ipairs(cards) do
 			local c = view[i]
 			if c ~= nil then
@@ -290,6 +290,7 @@ function AuraWindow.create(deps: Deps): Handle
 		render()
 	end)
 	source.subscribe("upgrades", render)
+	source.subscribe("shop", render) -- 행운 패스 · 행운 포션 → 현재 확률(지시서 #16)
 	source.subscribe("blox", render)
 	source.subscribe("lifetimeBlox", render)
 

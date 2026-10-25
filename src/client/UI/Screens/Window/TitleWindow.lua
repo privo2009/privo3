@@ -181,8 +181,8 @@ function TitleWindow.create(deps: Deps): Handle
 
 	local function render()
 		local t = now()
-		view = TitleWindowLogic.rows(source.get("titles"), source.get("upgrades"))
-		luckLine.Text = TitleWindowLogic.luckText(source.get("upgrades"))
+		view = TitleWindowLogic.rows(source.get("titles"), source.get("upgrades"), source.get("shop"))
+		luckLine.Text = TitleWindowLogic.luckText(source.get("upgrades"), source.get("shop"))
 		for i, r in ipairs(view) do
 			local parts = rows[i]
 			parts.name.Text = r.name
@@ -274,6 +274,7 @@ function TitleWindow.create(deps: Deps): Handle
 	end)
 	source.subscribe("titles", render)
 	source.subscribe("upgrades", render) -- 칭호 행운 레벨 → 현재 확률
+	source.subscribe("shop", render) -- 행운 패스 · 행운 포션 → 현재 확률(지시서 #16)
 	source.subscribe("blox", render)
 
 	render()

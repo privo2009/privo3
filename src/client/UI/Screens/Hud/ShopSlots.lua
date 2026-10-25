@@ -2,12 +2,10 @@
 -- HUD: 로벅스 상품 구좌 4개 (우측 · 하단). docs/UI.md "1. 화면 목록", "2. 세이프존",
 -- "7. 아이콘 > 타일 규격". 어떤 상품 4개인지는 `Shared/Config/ShopSlotConfig`가 정한다.
 --
--- ⚠️ 이번 범위는 자리와 표시뿐이다. `MarketplaceService` 호출을 넣지 않는다 — 눌러도
--- 아무 일도 일어나지 않는다(그래서 탭 감지용 버튼도 두지 않는다. MenuRail의
--- HitArea와 달리 지금은 누를 대상이 없다). 소유 상태도 표시하지 않는다 — CLAUDE.md
--- 절대 규칙 5(게임패스 소유 상태 저장 금지)가 매 세션 MarketplaceService로 확인하게
--- 하고, 그 배선은 Phase 8이다. 가격은 ShopSlotConfig(→ ShopConfig) 값을 그대로
--- 보여줄 뿐 실제 결제 가격이 아니다.
+-- 누르면 구매 요청(지시서 #16 — Net/PurchaseClient: 같은 키는 결과까지 한 번만). 프롬프트는 서버가 띄운다 —
+-- ID 0이면 서버가 not_registered로 답하고 토스트가 "준비 중"을 띄운다(OverlayBoot). 판정을 클라에 두지 않는다.
+-- 보유는 서버 세션 값(Store "shop".gamepasses — 절대 규칙 5)이다. 보유한 구좌는 가격 대신 "보유"를 적는다.
+-- 가격은 ShopSlotConfig(→ ShopConfig) 값이다.
 --
 -- ⚠️ 아이콘. AssetRegistry 아이콘 16종 중 이 4개 상품에 대응하는 엔트리가 없다
 -- (메뉴 아이콘을 상품 그림으로 재사용하면 같은 그림이 다른 뜻으로 두 번 쓰여 혼란을
@@ -28,8 +26,11 @@ local ShopSlotConfig = require(ReplicatedStorage.Shared.Config.ShopSlotConfig)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local TextService = game:GetService("TextService")
 local Layout = require(script.Parent.Parent.Parent.Layout)
+local Store = require(script.Parent.Parent.Parent.Store)
 
 local ShopSlots = {}
+
+ShopSlots.OWNED_TEXT = "보유"
 
 -- 타일 8% 정사각 (docs/UI.md "7. 아이콘 > 타일 규격" — MenuRail.lua의 TILE_HEIGHT와
 -- 같은 값이다. 같은 상수를 내보내는 공용 자리가 없어 각자 정의한다. MenuRail도
@@ -80,7 +81,7 @@ local PRICE_SIDE_PADDING_PX = 2
 -- 그 높이가 글자 하한보다 작으면 하한만큼 키운다(Scale로 다시 쓴다 — Offset 금지).
 -- 표기는 네 구좌가 같이 정한다 — 하나라도 긴 꼴이 안 들어가면 전부 짧은 꼴. "3 R$" 옆에 "79"가 서면
 -- 서로 다른 단위처럼 읽힌다(2026-10-22 폰 실측에서 섞여 나왔다).
-type PriceEntry = { tile: Frame, label: TextLabel, priceRobux: number }
+type PriceEntry = { tile: Frame, label: TextLabel, priceRobux: number, owned: boolean }
 
 local function fitPrices(entries: { PriceEntry })
 	local first = entries[1]
@@ -89,6 +90,10 @@ local function fitPrices(entries: { PriceEntry })
 	end
 	local tileSize = first.tile.AbsoluteSize -- 네 타일은 같은 크기다(같은 8% 정사각)
 	if tileSize.X <= 0 or tileSize.Y <= 0 then
+		-- 아직 화면에 안 붙었다 — 문구만 긴 꼴로 맞춘다(크기는 붙은 뒤 AbsoluteSize 신호에서 다시 맞춘다)
+		for _, entry in ipairs(entries) do
+			entry.label.Text = if entry.owned then ShopSlots.OWNED_TEXT else ShopSlots.priceText(entry.priceRobux, false)
+		end
 		return
 	end
 	local heightRel = math.min(1, math.max(PRICE_LABEL_HEIGHT_TILE_REL, TextScale.MIN_TEXT_PX / tileSize.Y))
@@ -97,7 +102,7 @@ local function fitPrices(entries: { PriceEntry })
 	local short = false
 	for _, entry in ipairs(entries) do
 		local fullWidth = TextService:GetTextSize(
-			ShopSlots.priceText(entry.priceRobux, false),
+			if entry.owned then ShopSlots.OWNED_TEXT else ShopSlots.priceText(entry.priceRobux, false),
 			TextScale.MIN_TEXT_PX,
 			PRICE_FONT,
 			Vector2.new(math.huge, math.huge)
@@ -108,7 +113,7 @@ local function fitPrices(entries: { PriceEntry })
 	end
 	for _, entry in ipairs(entries) do
 		entry.label.Size = UDim2.fromScale(1, heightRel)
-		entry.label.Text = ShopSlots.priceText(entry.priceRobux, short)
+		entry.label.Text = if entry.owned then ShopSlots.OWNED_TEXT else ShopSlots.priceText(entry.priceRobux, short)
 	end
 end
 
@@ -159,9 +164,19 @@ end
 
 export type ShopSlotsHandle = {
 	root: Frame,
+	_debug: {
+		press: (key: string) -> (),
+	},
 }
 
-function ShopSlots.create(): ShopSlotsHandle
+export type Deps = {
+	store: any?, -- Store 인스턴스. 생략하면 싱글톤
+	requestPurchase: ((key: string) -> ())?, -- PurchaseClient.request. 생략하면 눌러도 보내지 않는다(표시만 보는 테스트)
+}
+
+function ShopSlots.create(deps: Deps?): ShopSlotsHandle
+	local d: Deps = deps or {}
+	local source: any = d.store or Store
 	local rootWidth = Layout.RAIL_WIDTH - Layout.EDGE_MARGIN * 2 -- 우측 레일, BloxDisplay 좌측 레일과 같은 여백 관례를 미러링
 
 	local root = Instance.new("Frame")
@@ -191,8 +206,40 @@ function ShopSlots.create(): ShopSlotsHandle
 
 		local tile, priceLabel = createSlot(slot, x, y, cellWidthScale, cellHeightScale)
 		tile.Parent = root
-		table.insert(priceEntries, { tile = tile, label = priceLabel, priceRobux = slot.priceRobux })
+		table.insert(priceEntries, { tile = tile, label = priceLabel, priceRobux = slot.priceRobux, owned = false })
+
+		-- 탭 감지(타일 전체). 판정은 서버 — 여기서는 요청만 보낸다
+		local hit = Instance.new("TextButton")
+		hit.Name = "HitArea"
+		hit.Size = UDim2.fromScale(1, 1)
+		hit.BackgroundTransparency = 1
+		hit.BorderSizePixel = 0
+		hit.Text = ""
+		hit.ZIndex = 10
+		hit.Parent = tile
+		hit.Activated:Connect(function()
+			if d.requestPurchase ~= nil then
+				d.requestPurchase(slot.key)
+			end
+		end)
 	end
+
+	-- 보유 표시: 서버 세션 값(Store "shop".gamepasses)
+	local function readOwned()
+		local shop = source.get("shop")
+		local owned: { [string]: boolean } = {}
+		if type(shop) == "table" and type(shop.gamepasses) == "table" then
+			for _, key in ipairs(shop.gamepasses) do
+				owned[key] = true
+			end
+		end
+		for i, entry in ipairs(priceEntries) do
+			entry.owned = owned[slots[i].key] == true
+		end
+		fitPrices(priceEntries)
+	end
+	readOwned()
+	source.subscribe("shop", readOwned)
 
 	-- 타일 크기를 본다(root가 아니라) — 정사각 제약이 걸린 타일 쪽이 실제 칸 크기다.
 	if priceEntries[1] ~= nil then
@@ -204,6 +251,13 @@ function ShopSlots.create(): ShopSlotsHandle
 
 	return {
 		root = root,
+		_debug = {
+			press = function(key: string)
+				if d.requestPurchase ~= nil then
+					d.requestPurchase(key)
+				end
+			end,
+		},
 	}
 end
 

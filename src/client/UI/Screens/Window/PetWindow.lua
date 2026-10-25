@@ -244,8 +244,8 @@ function PetWindow.create(deps: Deps): Handle
 				end
 			end
 		end
-		luck.Text = PetWindowLogic.luckText(source.get("upgrades"))
-		local oddView = PetWindowLogic.odds(eggId, source.get("upgrades"))
+		luck.Text = PetWindowLogic.luckText(source.get("upgrades"), source.get("shop"))
+		local oddView = PetWindowLogic.odds(eggId, source.get("upgrades"), source.get("shop"))
 		for i, label in ipairs(odds) do
 			local o = oddView[i]
 			label.Text = if o ~= nil then o.text else ""
@@ -454,6 +454,7 @@ function PetWindow.create(deps: Deps): Handle
 	end)
 	source.subscribe("pets", render)
 	source.subscribe("upgrades", render)
+	source.subscribe("shop", render) -- 행운 패스 · 행운 포션 → 현재 확률(지시서 #16)
 	source.subscribe("blox", render)
 	source.subscribe("lifetimeBlox", render)
 

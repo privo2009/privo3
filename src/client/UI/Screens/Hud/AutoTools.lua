@@ -41,8 +41,14 @@ local AssetImage = require(ReplicatedStorage.Shared.UI.AssetImage)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
+local Store = require(script.Parent.Parent.Parent.Store)
+local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 
 local AutoTools = {}
+
+-- 미보유면 누를 때 요청할 상품 키(지시서 #16 S8 — 자동 클리커 게임패스. OP는 상점 창에서 산다)
+AutoTools.PURCHASE_KEY = "autoClicker"
+AutoTools.PENDING_TIMEOUT_SEC = 2 -- 토글 결과를 기다리는 최대 시간(업그레이드 상점과 같은 값)
 
 -- MenuRail.lua의 TILE_HEIGHT/LABEL_LEVEL/ITEM_GAP과 값이 같다(같은 문서 규격,
 -- "7. 아이콘 > 타일 규격") — 그 상수들이 export되지 않아 각자 정의한다(ShopSlots.lua와
@@ -95,11 +101,23 @@ AutoTools._pure = {
 
 export type AutoToolsHandle = {
 	root: Frame,
+	-- 서버 AutoClickResult 1건(실물은 HudBoot가 채널에서 넘긴다)
+	onAutoClickResult: (any) -> (),
 	-- 테스트 전용: 실제 탭(HitArea Activated) 없이도 토글 로직을 검증할 수 있게 한다.
 	_debug: {
 		setAutoClickerEnabled: (boolean) -> (),
 		isAutoClickerEnabled: () -> boolean,
+		isLocked: () -> boolean,
+		press: () -> (),
 	},
+}
+
+-- 실물 배선(테스트는 가짜를 넘긴다). 생략하면 아무 데도 보내지 않는다(HudLayoutTests 등 표시만 보는 쪽).
+export type Deps = {
+	store: any?, -- Store 인스턴스. 생략하면 싱글톤
+	requestPurchase: ((key: string) -> ())?, -- 미보유일 때 누르면(PurchaseClient.request)
+	sendAutoClick: ((on: boolean) -> ())?, -- 보유일 때 누르면(AutoClickRequest)
+	now: (() -> number)?,
 }
 
 local function createItem(name: string, assetKey: string, label: string, layoutOrder: number): Frame
@@ -149,7 +167,10 @@ local function createItem(name: string, assetKey: string, label: string, layoutO
 	return itemRow
 end
 
-function AutoTools.create(): AutoToolsHandle
+function AutoTools.create(deps: Deps?): AutoToolsHandle
+	local d: Deps = deps or {}
+	local source: any = d.store or Store
+	local now = d.now or os.clock
 	local rootWidth = Layout.RAIL_WIDTH - Layout.EDGE_MARGIN * 2 -- ShopSlots/BloxDisplay와 같은 레일 여백 관례
 
 	local root = Instance.new("Frame")
@@ -178,10 +199,12 @@ function AutoTools.create(): AutoToolsHandle
 	autoAdvanceItem.Size = UDim2.fromScale(cellWidthScale, 1)
 	autoAdvanceItem.Parent = root
 
-	-- ===== 자동 클리커 토글 =========================================================
+	-- ===== 자동 클리커 토글 (지시서 #16 S8) ================================================
 	--
-	-- 켜짐/꺼짐 두 상태. 상태는 클라 로컬로만 둔다 — 서버 배선(ClickService 자동
-	-- 경로)은 이번에 넣지 않는다.
+	-- 세 상태: 잠김(미보유 — 중립 어두운 밝기, 자동 진행 버튼과 같은 모습) · 꺼짐 · 켜짐.
+	-- 보유 · 켜짐은 서버 값이다(Store "shop" — gamepasses · autoClick, AutoClickResult). 클라는 요청만 보낸다(두 채널 — 요청 · 결과).
+	--   잠김에서 누르면 구매 요청(AutoTools.PURCHASE_KEY — ID 0이면 서버가 not_registered → "준비 중" 토스트)
+	--   보유에서 누르면 AutoClickRequest{on = 반대}. 결과가 올 때까지(또는 PENDING_TIMEOUT_SEC) 다시 보내지 않는다
 	local autoClickerIcon = autoClickerItem:FindFirstChild("Icon") :: GuiObject
 	local autoClickerStroke = autoClickerIcon:FindFirstChildOfClass("UIStroke") :: UIStroke
 	-- AssetImage.create 시점의 도착 여부를 다시 조회한다(같은 키, 순수 함수라
@@ -190,16 +213,62 @@ function AutoTools.create(): AutoToolsHandle
 	local autoClickerArrived = AssetRegistry.resolve("icon_autoclick").arrived
 
 	local autoClickerEnabled = false
+	local locked = true
+	local pendingAt: number? = nil
 
 	local function refreshAutoClickerVisual()
+		if locked then
+			autoClickerStroke.Color = TOGGLE_OFF_COLOR
+			setIconTint(autoClickerIcon, autoClickerArrived, ICON_LOCKED_TINT)
+			return
+		end
 		autoClickerStroke.Color = if autoClickerEnabled then TOGGLE_ON_COLOR else TOGGLE_OFF_COLOR
 		setIconTint(autoClickerIcon, autoClickerArrived, if autoClickerEnabled then ICON_ON_TINT else ICON_OFF_TINT)
 	end
-	refreshAutoClickerVisual()
+
+	-- Store "shop"에서 보유 · 켜짐을 읽는다(서버 값)
+	local function readShop()
+		local shop = source.get("shop")
+		locked = ShopEffectsLogic.autoClickRate(ShopEffectsLogic.fromSummary(shop)) <= 0
+		autoClickerEnabled = not locked and type(shop) == "table" and shop.autoClick == true
+		refreshAutoClickerVisual()
+	end
+	readShop()
+	source.subscribe("shop", function()
+		pendingAt = nil
+		readShop()
+	end)
 
 	local function setAutoClickerEnabled(value: boolean)
 		autoClickerEnabled = value
 		refreshAutoClickerVisual()
+	end
+
+	local function press()
+		if locked then
+			if d.requestPurchase ~= nil then
+				d.requestPurchase(AutoTools.PURCHASE_KEY)
+			end
+			return
+		end
+		local t = now()
+		if pendingAt ~= nil and t - (pendingAt :: number) < AutoTools.PENDING_TIMEOUT_SEC then
+			return
+		end
+		pendingAt = t
+		if d.sendAutoClick ~= nil then
+			d.sendAutoClick(not autoClickerEnabled)
+		end
+	end
+
+	local function onAutoClickResult(payload: any)
+		if type(payload) ~= "table" then
+			return
+		end
+		pendingAt = nil
+		if type(payload.on) == "boolean" then
+			setAutoClickerEnabled(payload.on and not locked)
+		end
 	end
 
 	local autoClickerHitArea = Instance.new("TextButton")
@@ -210,9 +279,7 @@ function AutoTools.create(): AutoToolsHandle
 	autoClickerHitArea.Text = ""
 	autoClickerHitArea.ZIndex = 10
 	autoClickerHitArea.Parent = autoClickerItem
-	autoClickerHitArea.Activated:Connect(function()
-		setAutoClickerEnabled(not autoClickerEnabled)
-	end)
+	autoClickerHitArea.Activated:Connect(press)
 
 	-- ===== 자동 진행 버튼 ===========================================================
 	--
@@ -233,11 +300,16 @@ function AutoTools.create(): AutoToolsHandle
 
 	return {
 		root = root,
+		onAutoClickResult = onAutoClickResult,
 		_debug = {
 			setAutoClickerEnabled = setAutoClickerEnabled,
 			isAutoClickerEnabled = function()
 				return autoClickerEnabled
 			end,
+			isLocked = function()
+				return locked
+			end,
+			press = press,
 		},
 	}
 end

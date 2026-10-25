@@ -14,6 +14,7 @@ local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
+local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 
 type BigNumber = BigNum.BigNumber
 
@@ -65,14 +66,17 @@ function PetWindowLogic.levelName(level: number): string
 	return PetConfig.LEVEL_NAMES[math.clamp(math.floor(level), 1, PetConfig.MAX_LEVEL)]
 end
 
-function PetWindowLogic.luckOf(levels: any): number
+-- shop = Store "shop"(지시서 #16). 주면 행운 패스 · 행운 포션을 곱한다(서버 computeLuck과 같은 항 — 제한 유저면 1, S13).
+-- 사용 중인 행운 상품의 효과가 확률 표에 그대로 보인다(공식 paid-random-items: 활성 중에는 바뀐 확률을 보인다).
+function PetWindowLogic.luckOf(levels: any, shop: any?): number
 	local v = if type(levels) == "table" then levels.petLuck else nil
 	local level = if type(v) == "number" and v == v and v >= 0 then math.floor(v) else 0
-	return UpgradeConfig.getEffect("petLuck", level)
+	local extra = if shop ~= nil then ShopEffectsLogic.luckMult(ShopEffectsLogic.fromSummary(shop), "pet") else 1
+	return UpgradeConfig.getEffect("petLuck", level) * extra
 end
 
-function PetWindowLogic.luckText(levels: any): string
-	return RollOdds.luckText(PetWindowLogic.luckOf(levels))
+function PetWindowLogic.luckText(levels: any, shop: any?): string
+	return RollOdds.luckText(PetWindowLogic.luckOf(levels, shop))
 end
 
 local function big(v: any): BigNumber
@@ -140,13 +144,13 @@ end
 export type Odd = { id: string, name: string, rarity: number, rarityTier: number, text: string }
 
 -- 알 하나의 종 4개 실제 등장 확률(합 100) — "도토리 ×1.05 · 63.1%".
-function PetWindowLogic.odds(eggId: number, levels: any): { Odd }
+function PetWindowLogic.odds(eggId: number, levels: any, shop: any?): { Odd }
 	local egg = PetConfig.Eggs[eggId]
 	local out: { Odd } = {}
 	if egg == nil then
 		return out
 	end
-	local texts = RollOdds.percentages(RollOdds.distribution(egg.pets, PetWindowLogic.luckOf(levels)))
+	local texts = RollOdds.percentages(RollOdds.distribution(egg.pets, PetWindowLogic.luckOf(levels, shop)))
 	for rarity, def in ipairs(egg.pets) do
 		table.insert(out, {
 			id = def.id,

@@ -21,6 +21,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 
 type BigNumber = BigNum.BigNumber
@@ -100,6 +101,20 @@ export type Resolution = {
 -- 서버(GymService — 실제 클릭 배수)와 클라(클릭 팝업 · 기구 3D 표시 — 보이기만)가 같은 이 함수를 부른다(지시서 #8).
 -- shopUnlocked(index) — 로벅스로 열렸는가(선해금 기록 · 공허 게임패스 소유 — 지시서 #16). 없으면 환생 수로만 본다.
 -- 열림 = 환생 해금 **OR** shopUnlocked. 서버는 GymService가, 클라 표시는 Store 값으로 같은 판정을 넘긴다.
+-- 로벅스로 열렸는가(지시서 #16): 선해금 기록(gymUnlocks["번호"] == true — 개발자 상품, 기록은 #17) 또는 그 기구의 게임패스 소유
+-- (공허 훈련 구역). 서버 GymService(프로필 · GamepassService)와 클라 표시(Store shop — 기록은 아직 요약에 없다)가 이 함수를 쓴다.
+-- ⚠️ 개발자 상품 키를 owns로 "가졌다"고 해도 열지 않는다 — 선해금은 기록만 본다.
+function GymLayout.shopUnlocked(gymUnlocks: any, owns: (string) -> boolean): (number) -> boolean
+	return function(index: number): boolean
+		if type(gymUnlocks) == "table" and gymUnlocks[tostring(index)] == true then
+			return true
+		end
+		local key = GymConfig.getShopKey(index)
+		local def = ShopConfig.get(key)
+		return def ~= nil and def.kind == "gamepass" and owns(key)
+	end
+end
+
 function GymLayout.resolve(position: Vector3?, rebirths: BigNumber?, shopUnlocked: ((number) -> boolean)?): Resolution
 	if position == nil then
 		return { multiplier = 1, index = nil, unlocked = false }

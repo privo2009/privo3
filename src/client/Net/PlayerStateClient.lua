@@ -93,6 +93,26 @@ local function isValidPets(v: any): boolean
 end
 PlayerStateClient.isValidPets = isValidPets
 
+-- 상점 요약(지시서 #16). gamepasses 문자열 배열 · boosts { type, mult, remainingSec } 배열 · boolean 둘.
+local function isValidShop(v: any): boolean
+	if type(v) ~= "table" or type(v.gamepasses) ~= "table" or type(v.boosts) ~= "table" or type(v.paidRandomRestricted) ~= "boolean"
+		or type(v.autoClick) ~= "boolean" then
+		return false
+	end
+	for _, key in ipairs(v.gamepasses) do
+		if type(key) ~= "string" then
+			return false
+		end
+	end
+	for _, b in ipairs(v.boosts) do
+		if type(b) ~= "table" or type(b.type) ~= "string" or not isFinite(b.mult) or not isFinite(b.remainingSec) then
+			return false
+		end
+	end
+	return true
+end
+PlayerStateClient.isValidShop = isValidShop
+
 -- payload 형태 검사. 하나라도 틀리면 false.
 function PlayerStateClient.isValidPayload(payload: any): boolean
 	if type(payload) ~= "table" then
@@ -109,10 +129,12 @@ function PlayerStateClient.isValidPayload(payload: any): boolean
 		end
 	end
 	return isValidUpgrades(payload.upgrades) and isValidTitles(payload.titles) and isValidAuras(payload.auras) and isValidPets(payload.pets)
+		and isValidShop(payload.shop)
 end
 
 -- payload를 setter에 반영한다. 형태가 틀리면 아무것도 반영하지 않고 false.
-function PlayerStateClient.apply(setter: (string, any) -> (), payload: any): boolean
+-- now = 받은 시각(부스트 남은 시간을 그 뒤로 센다). 생략하면 os.clock().
+function PlayerStateClient.apply(setter: (string, any) -> (), payload: any, now: number?): boolean
 	if not PlayerStateClient.isValidPayload(payload) then
 		return false
 	end
@@ -131,6 +153,17 @@ function PlayerStateClient.apply(setter: (string, any) -> (), payload: any): boo
 	setter("titles", payload.titles) -- Store가 깊게 복사한다
 	setter("auras", payload.auras)
 	setter("pets", payload.pets)
+	local receivedAt = now or os.clock()
+	local boosts = {}
+	for i, b in ipairs(payload.shop.boosts) do
+		boosts[i] = { type = b.type, mult = b.mult, remainingSec = b.remainingSec, receivedAt = receivedAt }
+	end
+	setter("shop", {
+		gamepasses = payload.shop.gamepasses,
+		paidRandomRestricted = payload.shop.paidRandomRestricted,
+		boosts = boosts,
+		autoClick = payload.shop.autoClick,
+	})
 	return true
 end
 

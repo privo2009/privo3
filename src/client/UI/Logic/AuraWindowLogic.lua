@@ -14,6 +14,7 @@ local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
 local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
+local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 
 type BigNumber = BigNum.BigNumber
 
@@ -52,14 +53,17 @@ function AuraWindowLogic.multText(m: number): string
 	return string.format("힘·데미지 ×%.2f", m)
 end
 
-function AuraWindowLogic.luckOf(levels: any): number
+-- shop = Store "shop"(지시서 #16). 주면 행운 패스 · 행운 포션을 곱한다(서버 computeLuck과 같은 항 — 제한 유저면 1, S13).
+-- 사용 중인 행운 상품의 효과가 확률 표에 그대로 보인다(공식 paid-random-items: 활성 중에는 바뀐 확률을 보인다).
+function AuraWindowLogic.luckOf(levels: any, shop: any?): number
 	local v = if type(levels) == "table" then levels.auraLuck else nil
 	local level = if type(v) == "number" and v == v and v >= 0 then math.floor(v) else 0
-	return UpgradeConfig.getEffect("auraLuck", level)
+	local extra = if shop ~= nil then ShopEffectsLogic.luckMult(ShopEffectsLogic.fromSummary(shop), "aura") else 1
+	return UpgradeConfig.getEffect("auraLuck", level) * extra
 end
 
-function AuraWindowLogic.luckText(levels: any): string
-	return RollOdds.luckText(AuraWindowLogic.luckOf(levels))
+function AuraWindowLogic.luckText(levels: any, shop: any?): string
+	return RollOdds.luckText(AuraWindowLogic.luckOf(levels, shop))
 end
 
 local function big(v: any): BigNumber
@@ -143,7 +147,7 @@ local function ownedSet(summary: any): { [string]: boolean }
 end
 
 -- 팩 하나의 카드 4장(희귀도 낮은 순 — 왼쪽 일반 → 오른쪽 전설).
-function AuraWindowLogic.cards(summary: any, levels: any, packId: number): { Card }
+function AuraWindowLogic.cards(summary: any, levels: any, packId: number, shop: any?): { Card }
 	local pack = AuraConfig.Packs[packId]
 	local out: { Card } = {}
 	if pack == nil then
@@ -151,7 +155,7 @@ function AuraWindowLogic.cards(summary: any, levels: any, packId: number): { Car
 	end
 	local owned = ownedSet(summary)
 	local equippedId = if type(summary) == "table" and type(summary.equipped) == "string" then summary.equipped else ""
-	local texts = RollOdds.percentages(RollOdds.distribution(pack.auras, AuraWindowLogic.luckOf(levels)))
+	local texts = RollOdds.percentages(RollOdds.distribution(pack.auras, AuraWindowLogic.luckOf(levels, shop)))
 	for tier, def in ipairs(pack.auras) do
 		local isOwned = owned[def.id] == true
 		local isEquipped = isOwned and equippedId == def.id

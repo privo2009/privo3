@@ -27,7 +27,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local GymLayout = require(ReplicatedStorage.Shared.GymLayout)
-local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local CurrencyService = require(script.Parent.CurrencyService)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 local GamepassService = require(script.Parent.GamepassService)
@@ -44,17 +43,8 @@ local CONTAINER_NAME = "Gyms"
 export type Resolution = GymLayout.Resolution
 local resolve = GymLayout.resolve
 
--- 로벅스로 열렸는가: 선해금 기록(gymUnlocks["번호"] == true) 또는 그 기구의 게임패스 소유.
-local function shopUnlockedWith(gymUnlocks: any, owns: (string) -> boolean): (number) -> boolean
-	return function(index: number): boolean
-		if type(gymUnlocks) == "table" and gymUnlocks[tostring(index)] == true then
-			return true
-		end
-		local key = GymConfig.getShopKey(index)
-		local def = ShopConfig.get(key)
-		return def ~= nil and def.kind == "gamepass" and owns(key)
-	end
-end
+-- 로벅스로 열렸는가 — 원본은 Shared/GymLayout.shopUnlocked(클라 표시와 같은 함수).
+local shopUnlockedWith = GymLayout.shopUnlocked
 
 -- 테스트 전용 통로. 공개 API 계약이 아니므로 이 밖에서는 쓰지 말 것.
 GymService._pure = {

@@ -1,21 +1,22 @@
 --!strict
--- 상점 창 — 업그레이드 (작은 창, Window 층 — 단일 오픈 · 배경 흐리게는 ScreenController). Phase 6 지시서 #7 U5.
+-- 상점 창 — 업그레이드 / 로벅스 두 탭 (작은 창, Window 층 — 단일 오픈 · 배경 흐리게는 ScreenController). Phase 6 지시서 #7 U5 · Phase 8 지시서 #16.
 -- 메뉴 레일 첫 칸 "상점"(screenName "Shop")이 연다.
 --
--- 본문: 항목 줄(UpgradeConfig.SHOP_ORDER — #13 L3 뒤 7줄, 스크롤 목록). 한 줄 = 이름 · 지금 레벨/최대 · 지금 효과 → 다음 효과 · 구매 버튼 · 버튼 아래 비용(또는 잠긴 이유).
--- 값 · 문구 · 중복 요청 막기는 UI/Logic/UpgradeShopLogic(순수)에서 나온다. 이 파일은 그리기와 배선뿐이다.
---
--- 구매 버튼은 블럭스(하늘) 역할 — btn_blue, 블럭스를 쓰는 행동이라서(UI.md "5. 버튼 > 색 6종").
--- 확인 단계가 없다(S8 — 자주 · 소액으로 반복하는 행동). 대신 요청을 보낸 항목은 결과가 올 때까지 버튼을 잠근다.
--- 최대 레벨이면 회색 "MAX", 블럭스가 모자라면 회색 잠김 + 버튼 아래 사유 문구.
---
--- 로벅스 버튼 자리(S6 — 로벅스 구매는 Phase 8): 줄마다 "RobuxSlot"을 만들어 두고 숨긴다. 붙일 때 Visible만 켜고
--- 구매 버튼 폭을 나눈다(지금은 자리만 — 누를 대상이 없어 HitArea도 없다).
+-- 본문 맨 위 탭 줄: "업그레이드" | "로벅스"(고른 탭 하늘, 나머지 회색 — 아우라 창 팩 탭과 같은 두 벌 방식). 단일 창 안에서 바꾼다.
+--   업그레이드 탭  항목 줄(UpgradeConfig.SHOP_ORDER — 7줄, 스크롤 목록). 한 줄 = 이름 · 지금 레벨/최대 · 지금 효과 → 다음 효과 ·
+--                 구매 버튼 · 버튼 아래 비용(또는 잠긴 이유). 값 · 문구 · 중복 요청 막기는 UI/Logic/UpgradeShopLogic.
+--                 구매 버튼은 블럭스(하늘) — btn_blue. 확인 단계 없음(S8), 결과가 올 때까지 그 줄 버튼을 잠근다.
+--                 RobuxSlot(숨김 자리)은 지웠다 — 업그레이드는 로벅스로 팔지 않는다(DESIGN 7장 · 지시서 #16).
+--   로벅스 탭     힘 배수 계단 한 줄 + 게임패스(ShopConfig.GAMEPASS_ORDER). 줄 = 이름 · 설명(행운 상품은 확률 변화 숫자) · 버튼 · 가격.
+--                 보유 = "보유 중"(회색) · ID 0 = "준비 중"(회색) · 그 밖 = 초록 btn_green + 가격. 제한 유저는 행운 상품 줄을 숨긴다(S13).
+--                 값 · 상태 · 문구는 UI/Logic/RobuxShopLogic. 구매 요청은 Net/PurchaseClient(같은 키는 결과까지 한 번만).
+-- 이 파일은 그리기와 배선뿐이다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local Panel = require(script.Parent.Parent.Parent.Components.Panel)
@@ -23,6 +24,8 @@ local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local Store = require(script.Parent.Parent.Parent.Store)
 local UpgradeShopLogic = require(script.Parent.Parent.Parent.Logic.UpgradeShopLogic)
+local RobuxShopLogic = require(script.Parent.Parent.Parent.Logic.RobuxShopLogic)
+local PurchaseClient = require(script.Parent.Parent.Parent.Parent.Net.PurchaseClient)
 
 type BigNumber = BigNum.BigNumber
 
@@ -30,24 +33,31 @@ local UpgradeShopWindow = {}
 
 UpgradeShopWindow.TITLE = "상점"
 UpgradeShopWindow.SUCCESS_TEXT = "%s Lv %d (-%s)"
+UpgradeShopWindow.TAB_UPGRADE = "upgrade"
+UpgradeShopWindow.TAB_ROBUX = "robux"
+UpgradeShopWindow.TAB_TEXT = { upgrade = "업그레이드", robux = "로벅스" }
 
--- 본문 안 배치(본문 기준 비율). Claude가 정한 배치값(세션 로그).
--- 지시서 #10: 칭호 행운이 5번째 줄로 들어와 0.2 → 0.17, 간격 0.02 → 0.01(5줄 0.9 + 상태 문구). 폰 줄 높이에서도 글자 하한 11px.
--- 지시서 #11: 아우라 행운이 6번째 줄 — 0.17 → 0.15, 간격 0.01 → 0.004. 폰 줄(약 22px) 안 두 칸이 각각 11px(글자 하한)이 되게
--- 줄 안을 위아래 반씩(이름 | 효과, 버튼 | 비용)으로 나눈다.
--- 지시서 #12: 펫 슬롯 · 펫 행운이 7 · 8번째 줄 — 8줄 × 0.154 = 1.23으로 창에 안 들어간다. 줄을 더 줄이면 폰에서 줄 안 두 칸이
--- 11px 아래로 내려간다(0.15일 때 22px의 반). 그래서 줄 높이는 그대로 두고 **스크롤 목록**(ScrollingFrame)으로 바꿨다.
--- 보이는 목록 높이 LIST_H(본문 기준) 안에 VISIBLE_ROWS줄쯤 보이고 나머지는 스크롤한다. 줄 높이 · 간격은 "보이는 목록 기준"이다.
--- 지시서 #13: 이동 속도 줄 삭제(L3) — 7줄 × 0.154 = 1.08 > 0.9라 스크롤 목록 그대로. 캔버스 배율은 줄 수에서 유도된다.
-local ROW_H = 0.15 -- 본문 기준 줄 높이(#11 값 그대로)
+-- 본문 안 배치(본문 기준 비율). Claude가 정한 배치값(세션 로그 · docs/UI.md "지시서 #16" 실측).
+-- 지시서 #12까지의 기록: 줄 높이 0.15 · 간격 0.004는 폰 줄 안 두 칸이 각각 11px(글자 하한)이 되게 고른 값이다 — 그대로 둔다.
+-- 지시서 #16: 맨 위 탭 줄 TAB_H(본문 0.1 — 폰 약 15px, 작은 글자 11px가 들어간다). 목록은 그 아래 LIST_Y부터 LIST_H만큼 보이고
+-- 스크롤한다(보이는 줄 수가 5쯤으로 준다 — 줄 높이를 줄이면 11px 하한이 깨진다). 그 아래가 상태 문구.
+local TAB_H = 0.1
+local TAB_W = 0.49
+local TAB_GAP = 0.02
+local LIST_Y = TAB_H + 0.01
+local ROW_H = 0.15
 local ROW_GAP = 0.004
-local LIST_H = 0.9 -- 보이는 목록 높이(본문 기준). 그 아래가 상태 문구
-local STATUS_Y = LIST_H + 0.01
+local LIST_H = 0.79 -- 보이는 목록 높이(본문 기준)
+local STATUS_Y = LIST_Y + LIST_H + 0.01
 local STATUS_H = 1 - STATUS_Y
 local SCROLLBAR_PX = 6 -- ScrollBarThickness는 픽셀 정수 속성이라 Scale로 줄 수 없다(docs/UI.md "지시서 #12")
-local CONTENT_H = (ROW_H + ROW_GAP) * #UpgradeConfig.SHOP_ORDER -- 줄 전체 높이(본문 기준)
-local CANVAS_K = math.max(1, CONTENT_H / LIST_H) -- 캔버스 = 보이는 목록 × 이 값. 목록 안 자식 Scale은 캔버스 기준이다
-UpgradeShopWindow.Layout = { ROW_H = ROW_H, LIST_H = LIST_H, CANVAS_K = CANVAS_K }
+local UPGRADE_ROWS = #UpgradeConfig.SHOP_ORDER
+local ROBUX_MAX_ROWS = 1 + #ShopConfig.GAMEPASS_ORDER -- 계단 한 줄 + 게임패스(제한 유저는 이보다 적다 — 남는 줄은 숨긴다)
+local function canvasK(rows: number): number
+	return math.max(1, (ROW_H + ROW_GAP) * rows / LIST_H)
+end
+local CANVAS_K = canvasK(UPGRADE_ROWS) -- 업그레이드 목록 캔버스 = 보이는 목록 × 이 값
+UpgradeShopWindow.Layout = { ROW_H = ROW_H, LIST_H = LIST_H, LIST_Y = LIST_Y, TAB_H = TAB_H, CANVAS_K = CANVAS_K, canvasK = canvasK }
 -- 줄 안(줄 기준 비율)
 local LEFT_W = 0.64
 local BUTTON_X = 0.68
@@ -58,7 +68,8 @@ local FOOT_H = 0.5
 
 export type Deps = {
 	store: any?, -- Store 인스턴스. 생략하면 싱글톤
-	sendRequest: (name: string) -> (),
+	sendRequest: (name: string) -> (), -- 업그레이드 구매(블럭스)
+	purchase: PurchaseClient.Client?, -- 로벅스 구매 요청. 생략하면 실물(PurchaseClient.get)
 	onClose: () -> (),
 	now: (() -> number)?, -- 테스트용 시계
 }
@@ -71,8 +82,9 @@ type RowParts = {
 	button: Button.ButtonHandle,
 	buttonLabel: TextLabel,
 	hit: TextButton,
-	robuxSlot: Frame,
 }
+
+type TabParts = { button: Button.ButtonHandle, selected: Button.ButtonHandle, label: TextLabel, hit: TextButton }
 
 export type Handle = {
 	root: Frame,
@@ -80,86 +92,112 @@ export type Handle = {
 	onResult: (any) -> (),
 	_debug: {
 		press: (name: string) -> (),
+		pressRobux: (index: number) -> (),
+		selectTab: (tab: string) -> (),
+		tab: () -> string,
 		close: () -> (),
 		list: ScrollingFrame,
+		robuxList: ScrollingFrame,
 		rows: { [string]: RowParts },
+		robuxRows: { RowParts },
+		tabs: { [string]: TabParts },
 		status: TextLabel,
 		view: () -> { UpgradeShopLogic.Row },
+		robuxView: () -> { RobuxShopLogic.Row },
 	},
 }
 
-function UpgradeShopWindow.create(deps: Deps): Handle
-	local source: any = deps.store or Store
-	local now = deps.now or os.clock
-	local panel = Panel.create("Small", UpgradeShopWindow.TITLE)
-	panel.root.Name = "UpgradeShopWindow"
-	local body = panel.body
-
+local function makeList(name: string, body: Instance, rows: number): ScrollingFrame
 	local list = Instance.new("ScrollingFrame")
-	list.Name = "List"
-	list.Position = UDim2.fromScale(0, 0)
+	list.Name = name
+	list.Position = UDim2.fromScale(0, LIST_Y)
 	list.Size = UDim2.fromScale(1, LIST_H)
-	list.CanvasSize = UDim2.fromScale(0, CANVAS_K)
+	list.CanvasSize = UDim2.fromScale(0, canvasK(rows))
 	list.ScrollingDirection = Enum.ScrollingDirection.Y
 	list.ScrollBarThickness = SCROLLBAR_PX
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
 	list.ZIndex = 3
 	list.Parent = body
+	return list
+end
 
-	-- 본문 기준 높이 h → 캔버스 기준 Scale
-	local function onCanvas(h: number): number
-		return h / LIST_H / CANVAS_K
+-- 본문 기준 높이 h → 캔버스 기준 Scale
+local function onCanvas(h: number, k: number): number
+	return h / LIST_H / k
+end
+
+local function makeRow(name: string, list: ScrollingFrame, index: number, k: number, color: Button.ColorName, buttonText: string,
+	raise: { Instance }): RowParts
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.Position = UDim2.fromScale(0, onCanvas((index - 1) * (ROW_H + ROW_GAP), k))
+	-- 오른쪽 끝을 스크롤바 폭만큼 비우지 않는다 — 비우려면 Offset이 필요하다. 스크롤바는 줄 위에 얇게 겹친다
+	frame.Size = UDim2.fromScale(1, onCanvas(ROW_H, k))
+	-- 줄 바탕: 중립 어두운 단계 — 패널 자리표시(중립 기본)와 구분된다(워프 창 행 경계 결함과 같은 이유)
+	frame.BackgroundColor3 = UiTheme.Colors.neutral.dark
+	frame.BackgroundTransparency = 0
+	frame.BorderSizePixel = 0
+	frame.ZIndex = 3
+	frame.Parent = list
+
+	local title = WindowParts.makeText("Title", frame, "medium", 0.02, 0, LEFT_W, 0.5)
+	local effect = WindowParts.makeText("Effect", frame, "small", 0.02, 0.5, LEFT_W, 0.5)
+
+	local button = Button.create({ size = "Small", color = color, widthScale = BUTTON_W, heightScale = BUTTON_H })
+	button.root.Name = "BuyButton"
+	button.root.Position = UDim2.fromScale(BUTTON_X, 0)
+	button.root.ZIndex = WindowParts.Z_BUTTON
+	button.root.Parent = frame
+	local buttonLabel, hit = WindowParts.decorateButton(button, buttonText)
+	table.insert(raise, button.root)
+
+	local foot = WindowParts.makeText("Foot", frame, "small", BUTTON_X, FOOT_Y, BUTTON_W, FOOT_H, Enum.TextXAlignment.Center)
+	return { frame = frame, title = title, effect = effect, foot = foot, button = button, buttonLabel = buttonLabel, hit = hit }
+end
+
+function UpgradeShopWindow.create(deps: Deps): Handle
+	local source: any = deps.store or Store
+	local now = deps.now or os.clock
+	local purchase: PurchaseClient.Client = deps.purchase or PurchaseClient.get()
+	local panel = Panel.create("Small", UpgradeShopWindow.TITLE)
+	panel.root.Name = "UpgradeShopWindow"
+	local body = panel.body
+	local raise: { Instance } = { panel.closeButton.root }
+
+	-- 탭 줄(선택 표시는 색 — 고른 탭 하늘 / 나머지 회색. 탭마다 두 벌을 둔다 — 아우라 창 팩 탭과 같은 이유)
+	local tabs: { [string]: TabParts } = {}
+	for i, tabKey in ipairs({ UpgradeShopWindow.TAB_UPGRADE, UpgradeShopWindow.TAB_ROBUX }) do
+		local gray = Button.create({ size = "Small", color = "gray", widthScale = TAB_W, heightScale = TAB_H })
+		gray.root.Name = "Tab_" .. tabKey
+		gray.root.Position = UDim2.fromScale((i - 1) * (TAB_W + TAB_GAP), 0)
+		gray.root.ZIndex = WindowParts.Z_BUTTON
+		gray.root.Parent = body
+		local selected = Button.create({ size = "Small", color = "blue", widthScale = 1, heightScale = 1 })
+		selected.root.Name = "Selected"
+		selected.root.Position = UDim2.fromScale(0, 0)
+		selected.root.ZIndex = WindowParts.Z_BUTTON
+		selected.root.Visible = false
+		selected.root.Parent = gray.root
+		local label, hit = WindowParts.decorateButton(gray, UpgradeShopWindow.TAB_TEXT[tabKey])
+		table.insert(raise, gray.root)
+		tabs[tabKey] = { button = gray, selected = selected, label = label, hit = hit }
 	end
 
+	-- 업그레이드 탭 목록
+	local list = makeList("List", body, UPGRADE_ROWS)
 	local rows: { [string]: RowParts } = {}
-	local raise: { Instance } = { panel.closeButton.root }
 	for i, name in ipairs(UpgradeConfig.SHOP_ORDER) do
-		local frame = Instance.new("Frame")
-		frame.Name = "Row_" .. name
-		frame.Position = UDim2.fromScale(0, onCanvas((i - 1) * (ROW_H + ROW_GAP)))
-		-- 오른쪽 끝을 스크롤바 폭만큼 비우지 않는다 — 비우려면 Offset이 필요하다. 스크롤바는 줄 위에 얇게 겹친다
-		frame.Size = UDim2.fromScale(1, onCanvas(ROW_H))
-		-- 줄 바탕: 중립 어두운 단계 — 패널 자리표시(중립 기본)와 구분된다(워프 창 행 경계 결함과 같은 이유)
-		frame.BackgroundColor3 = UiTheme.Colors.neutral.dark
-		frame.BackgroundTransparency = 0
-		frame.BorderSizePixel = 0
-		frame.ZIndex = 3
-		frame.Parent = list
+		rows[name] = makeRow("Row_" .. name, list, i, CANVAS_K, "blue", UpgradeShopLogic.BUY_TEXT, raise)
+	end
 
-		local title = WindowParts.makeText("Title", frame, "medium", 0.02, 0, LEFT_W, 0.5)
-		local effect = WindowParts.makeText("Effect", frame, "small", 0.02, 0.5, LEFT_W, 0.5)
-
-		local button = Button.create({ size = "Small", color = "blue", widthScale = BUTTON_W, heightScale = BUTTON_H })
-		button.root.Name = "BuyButton"
-		button.root.Position = UDim2.fromScale(BUTTON_X, 0)
-		button.root.ZIndex = WindowParts.Z_BUTTON
-		button.root.Parent = frame
-		local buttonLabel, hit = WindowParts.decorateButton(button, UpgradeShopLogic.BUY_TEXT)
-		table.insert(raise, button.root)
-
-		local foot = WindowParts.makeText("Foot", frame, "small", BUTTON_X, FOOT_Y, BUTTON_W, FOOT_H, Enum.TextXAlignment.Center)
-
-		-- S6: 로벅스 버튼 자리(숨김). Phase 8에서 Visible을 켜고 구매 버튼 폭을 나눈다.
-		local robuxSlot = Instance.new("Frame")
-		robuxSlot.Name = "RobuxSlot"
-		robuxSlot.Position = UDim2.fromScale(BUTTON_X, 0.02)
-		robuxSlot.Size = UDim2.fromScale(BUTTON_W / 2, BUTTON_H)
-		robuxSlot.BackgroundColor3 = UiTheme.Colors.robux.base
-		robuxSlot.BorderSizePixel = 0
-		robuxSlot.Visible = false
-		robuxSlot.Parent = frame
-
-		rows[name] = {
-			frame = frame,
-			title = title,
-			effect = effect,
-			foot = foot,
-			button = button,
-			buttonLabel = buttonLabel,
-			hit = hit,
-			robuxSlot = robuxSlot,
-		}
+	-- 로벅스 탭 목록(줄은 최대 수만큼 만들고, 그리는 순간의 줄 수만큼 보인다)
+	local robuxList = makeList("RobuxList", body, ROBUX_MAX_ROWS)
+	robuxList.Visible = false
+	local robuxK = canvasK(ROBUX_MAX_ROWS)
+	local robuxRows: { RowParts } = {}
+	for i = 1, ROBUX_MAX_ROWS do
+		robuxRows[i] = makeRow("RobuxRow_" .. i, robuxList, i, robuxK, "green", RobuxShopLogic.BUY_TEXT, raise)
 	end
 
 	local status = WindowParts.makeText("Status", body, "small", 0, STATUS_Y, 1, STATUS_H, Enum.TextXAlignment.Center)
@@ -169,8 +207,16 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 	local pending = UpgradeShopLogic.newPending()
 	local resultText: string? = nil
 	local view: { UpgradeShopLogic.Row } = {}
+	local robuxView: { RobuxShopLogic.Row } = {}
+	local tab = UpgradeShopWindow.TAB_UPGRADE
 
 	local function render()
+		for key, parts in pairs(tabs) do
+			parts.selected.root.Visible = key == tab
+		end
+		list.Visible = tab == UpgradeShopWindow.TAB_UPGRADE
+		robuxList.Visible = tab == UpgradeShopWindow.TAB_ROBUX
+
 		view = UpgradeShopLogic.rows(source.get("upgrades"), source.get("blox"))
 		local t = now()
 		for _, r in ipairs(view) do
@@ -180,6 +226,31 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 			parts.foot.Text = r.footText
 			parts.buttonLabel.Text = r.buttonText
 			parts.button.setDisabled(not r.canBuy or pending.isPending(r.name, t))
+		end
+
+		robuxView = RobuxShopLogic.rows(source.get("shop"), {
+			upgrades = source.get("upgrades"),
+			auras = source.get("auras"),
+			lifetimeBlox = source.get("lifetimeBlox"),
+			pets = source.get("pets"),
+		})
+		for i, parts in ipairs(robuxRows) do
+			local r = robuxView[i]
+			parts.frame.Visible = r ~= nil
+			if r ~= nil then
+				parts.title.Text = r.title
+				parts.effect.Text = r.detail
+				parts.foot.Text = r.footText
+				parts.buttonLabel.Text = r.buttonText
+				parts.button.setDisabled(not r.canBuy or (r.buyKey ~= nil and purchase.isPending(r.buyKey :: string)))
+			end
+		end
+		-- 캔버스는 지금 줄 수에서 유도한다(제한 유저는 줄이 적다). 줄 위치 · 높이도 그 캔버스 기준으로 다시 잡는다
+		local k = canvasK(#robuxView)
+		robuxList.CanvasSize = UDim2.fromScale(0, k)
+		for i, parts in ipairs(robuxRows) do
+			parts.frame.Position = UDim2.fromScale(0, onCanvas((i - 1) * (ROW_H + ROW_GAP), k))
+			parts.frame.Size = UDim2.fromScale(1, onCanvas(ROW_H, k))
 		end
 		status.Text = resultText or ""
 	end
@@ -209,6 +280,28 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 		task.delay(UpgradeShopLogic.PENDING_TIMEOUT_SEC + 0.05, render)
 	end
 
+	local function pressRobux(index: number)
+		render()
+		local r = robuxView[index]
+		if r == nil or not r.canBuy or r.buyKey == nil then
+			return
+		end
+		if purchase.request(r.buyKey :: string) then
+			resultText = nil
+			render()
+			task.delay(PurchaseClient.PENDING_TIMEOUT_SEC + 0.05, render)
+		end
+	end
+
+	local function selectTab(key: string)
+		if tabs[key] == nil or key == tab then
+			return
+		end
+		tab = key
+		resultText = nil
+		render()
+	end
+
 	local function close()
 		resultText = nil
 		render()
@@ -230,14 +323,33 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 		render()
 	end
 
+	-- 로벅스 구매 결과(프롬프트를 띄웠으면 문구 없음 · 거부 사유 · 구매 완료)
+	purchase.onResult(function(payload)
+		if tab == UpgradeShopWindow.TAB_ROBUX then
+			resultText = RobuxShopLogic.resultText(payload)
+		end
+		render()
+	end)
+
 	for name, parts in pairs(rows) do
 		parts.hit.Activated:Connect(function()
 			press(name)
 		end)
 	end
+	for i, parts in ipairs(robuxRows) do
+		parts.hit.Activated:Connect(function()
+			pressRobux(i)
+		end)
+	end
+	for key, parts in pairs(tabs) do
+		parts.hit.Activated:Connect(function()
+			selectTab(key)
+		end)
+	end
 	closeHit.Activated:Connect(close)
-	source.subscribe("blox", render)
-	source.subscribe("upgrades", render)
+	for _, key in ipairs({ "blox", "upgrades", "shop", "auras", "lifetimeBlox", "pets" }) do
+		source.subscribe(key, render)
+	end
 
 	render()
 
@@ -247,12 +359,23 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 		onResult = onResult,
 		_debug = {
 			press = press,
+			pressRobux = pressRobux,
+			selectTab = selectTab,
+			tab = function()
+				return tab
+			end,
 			close = close,
 			list = list,
+			robuxList = robuxList,
 			rows = rows,
+			robuxRows = robuxRows,
+			tabs = tabs,
 			status = status,
 			view = function()
 				return view
+			end,
+			robuxView = function()
+				return robuxView
 			end,
 		},
 	}

@@ -55,7 +55,12 @@ export type State = {
 	titles: TitleSummary, -- 칭호 요약 (지시서 #10). 서버 TitleService.summarize
 	auras: AuraSummary, -- 아우라 요약 (지시서 #11). 서버 AuraService.summarize
 	pets: PetSummary, -- 펫 요약 (지시서 #12). 서버 PetService.summarize
+	shop: ShopSummary, -- 상점 요약 (지시서 #16). 서버 세션 값 — 보유 게임패스 · 행운 상품 제한 · 활성 부스트 · 자동 클리커
 }
+
+-- boosts[i].receivedAt = 클라가 그 값을 받은 os.clock(남은 시간을 받은 뒤로 센다 — PlayerStateClient가 채운다)
+export type BoostEntry = { type: string, mult: number, remainingSec: number, receivedAt: number }
+export type ShopSummary = { gamepasses: { string }, paidRandomRestricted: boolean, boosts: { BoostEntry }, autoClick: boolean }
 
 export type PetEntry = { uid: string, petId: string, level: number }
 export type PetSummary = { owned: { PetEntry }, equipped: { string }, slots: number, storage: number, hideOtherPets: boolean, world: number }
@@ -78,6 +83,7 @@ export type Key =
 	| "titles"
 	| "auras"
 	| "pets"
+	| "shop"
 
 export type Setter = (Key, any) -> ()
 export type Source = (Setter) -> ()
@@ -111,6 +117,8 @@ local DUMMY_STATE: State = {
 	titles = { owned = {}, equipped = "", autoRoll = false }, -- 첫 PlayerState 전 — 아무 칭호 없음
 	auras = { owned = {}, equipped = "", selectedPack = 1, hideOtherAuras = false, world = 1 }, -- 첫 PlayerState 전
 	pets = { owned = {}, equipped = {}, slots = 2, storage = 50, hideOtherPets = false, world = 1 }, -- 첫 PlayerState 전(값은 곧 서버 것으로 바뀐다)
+	-- 첫 PlayerState 전: 보유 없음 · 제한(행운 상품을 숨긴 채 시작한다 — 서버 확인 전과 같다) · 부스트 없음 · 자동 꺼짐
+	shop = { gamepasses = {}, paidRandomRestricted = true, boosts = {}, autoClick = false },
 }
 
 local BIG_NUM_KEYS: { [Key]: boolean } = {
@@ -239,7 +247,57 @@ local function petsEqual(a: any, b: any): boolean
 	return true
 end
 
+-- 상점 요약 깊은 복사 · 비교(칭호와 같은 이유). 비교는 receivedAt을 보지 않는다 — 값이 같으면 받은 시각도 처음 것을 둔다.
+local function cloneShop(v: any): ShopSummary
+	local t = if type(v) == "table" then v else {}
+	local passes: { string } = {}
+	if type(t.gamepasses) == "table" then
+		for i, key in ipairs(t.gamepasses) do
+			passes[i] = tostring(key)
+		end
+	end
+	local boosts: { BoostEntry } = {}
+	if type(t.boosts) == "table" then
+		for _, b in ipairs(t.boosts) do
+			if type(b) == "table" then
+				table.insert(boosts, {
+					type = tostring(b.type),
+					mult = if type(b.mult) == "number" then b.mult else 1,
+					remainingSec = if type(b.remainingSec) == "number" then b.remainingSec else 0,
+					receivedAt = if type(b.receivedAt) == "number" then b.receivedAt else 0,
+				})
+			end
+		end
+	end
+	return { gamepasses = passes, paidRandomRestricted = t.paidRandomRestricted ~= false, boosts = boosts, autoClick = t.autoClick == true }
+end
+
+local function shopEqual(a: any, b: any): boolean
+	if type(a) ~= "table" or type(b) ~= "table" then
+		return a == b
+	end
+	if a.paidRandomRestricted ~= b.paidRandomRestricted or a.autoClick ~= b.autoClick or #a.gamepasses ~= #b.gamepasses
+		or #a.boosts ~= #b.boosts then
+		return false
+	end
+	for i, key in ipairs(a.gamepasses) do
+		if b.gamepasses[i] ~= key then
+			return false
+		end
+	end
+	for i, x in ipairs(a.boosts) do
+		local y = b.boosts[i]
+		if y == nil or x.type ~= y.type or x.mult ~= y.mult or x.remainingSec ~= y.remainingSec then
+			return false
+		end
+	end
+	return true
+end
+
 local function cloneValue(key: Key, value: any): any
+	if key == "shop" then
+		return cloneShop(value)
+	end
 	if key == "titles" then
 		return cloneTitles(value)
 	end
@@ -264,6 +322,9 @@ local function cloneValue(key: Key, value: any): any
 end
 
 local function valuesEqual(key: Key, a: any, b: any): boolean
+	if key == "shop" then
+		return shopEqual(a, b)
+	end
 	if key == "titles" then
 		return titlesEqual(a, b)
 	end

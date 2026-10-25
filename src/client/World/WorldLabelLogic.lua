@@ -19,6 +19,7 @@ local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local ClickPadConfig = require(ReplicatedStorage.Shared.Config.ClickPadConfig)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 
 -- 작은 배수(1.2 · 2 · 100)는 Formatter의 소수 2자리 대신 짧게 적는다.
 local function formatSmall(value: number): string
@@ -167,18 +168,20 @@ WorldLabelLogic.GYM_VOID_SIZE = Vector2.new(12, 3.6)
 -- 있어 패드처럼 높이를 계단으로 두지 않는다.
 WorldLabelLogic.GYM_HEIGHT = 10
 
--- 기구 위 표시. standing = 지금 이 기구 위에 서 있는가.
-function WorldLabelLogic.gym(index: number, rebirths: BigNumber, standing: boolean): Label
+-- 기구 위 표시. standing = 지금 이 기구 위에 서 있는가. shopUnlocked = 로벅스로 열렸는가(지시서 #16 — GymLayout.shopUnlocked).
+function WorldLabelLogic.gym(index: number, rebirths: BigNumber, standing: boolean, shopUnlocked: ((number) -> boolean)?): Label
 	local multiplierText = "기구 ×" .. formatSmall(GymConfig.getMultiplier(index))
+	local bought = shopUnlocked ~= nil and shopUnlocked(index)
 	if GymConfig.isRobuxOnly(index) then
+		local registered = ShopConfig.isRegistered(GymConfig.getShopKey(index))
 		return {
 			visible = true,
 			title = "공허 ×" .. formatSmall(GymConfig.getMultiplier(index)),
-			detail = "로벅스 전용(준비 중)",
+			detail = if bought then (if standing then "사용 중" else "") elseif registered then "로벅스 전용" else "로벅스 전용(준비 중)",
 			role = "premium",
 		}
 	end
-	if GymConfig.isUnlockedByRebirths(index, rebirths) then
+	if GymConfig.isUnlockedByRebirths(index, rebirths) or bought then
 		return { visible = true, title = multiplierText, detail = if standing then "사용 중" else "", role = "power" }
 	end
 	return {

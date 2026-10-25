@@ -36,6 +36,8 @@ local function samplePayload(): any
 		auras = { owned = { "pack1_rare" }, equipped = "pack1_rare", selectedPack = 2, hideOtherAuras = true, world = 1 },
 		pets = { owned = { { uid = "1", petId = "egg1_rare", level = 1 }, { uid = "4", petId = "egg1_epic", level = 2 } }, equipped = { "4" },
 			slots = 2, storage = 50, hideOtherPets = false, world = 1 },
+		shop = { gamepasses = { "damage2x", "strength8x" }, paidRandomRestricted = false,
+			boosts = { { type = "strength", mult = 2, remainingSec = 600 } }, autoClick = true },
 	}
 end
 
@@ -156,6 +158,40 @@ do
 	end)
 	check("거부: 틀린 payload는 false", ok == false)
 	check("거부: 틀린 payload는 한 키도 반영하지 않는다", store.get("walkSpeed") == before)
+end
+
+-- 상점 요약 (지시서 #16) -----------------------------------------------------------------------
+do
+	check("상점: 정상 요약 통과", PlayerStateClient.isValidShop(samplePayload().shop))
+	local noShop = samplePayload()
+	noShop.shop = nil
+	check("상점: 요약이 없으면 payload 거부", not PlayerStateClient.isValidPayload(noShop))
+	local badPass = samplePayload()
+	badPass.shop.gamepasses = { 3 }
+	local badBoost = samplePayload()
+	badBoost.shop.boosts = { { type = "luck", mult = 2, remainingSec = 0 / 0 } }
+	local badFlag = samplePayload()
+	badFlag.shop.autoClick = "yes"
+	check("상점: 게임패스 키가 문자열 아님 · 부스트 남은 초 nan · 토글이 boolean 아님 → 거부", not PlayerStateClient.isValidShop(badPass.shop)
+		and not PlayerStateClient.isValidShop(badBoost.shop) and not PlayerStateClient.isValidShop(badFlag.shop))
+	local store = Store.new()
+	local initial = store.get("shop")
+	check("상점: 첫 PlayerState 전에는 보유 없음 · 제한 · 부스트 없음 · 자동 꺼짐", #initial.gamepasses == 0 and initial.paidRandomRestricted == true
+		and #initial.boosts == 0 and initial.autoClick == false)
+	local payload = samplePayload()
+	store.setSource(function(setter)
+		PlayerStateClient.apply(setter, payload, 123)
+	end)
+	local shop = store.get("shop")
+	check("상점: 반영 · 받은 시각이 부스트에 붙는다", #shop.gamepasses == 2 and shop.gamepasses[2] == "strength8x" and shop.autoClick == true
+		and shop.paidRandomRestricted == false and shop.boosts[1].remainingSec == 600 and shop.boosts[1].receivedAt == 123)
+	shop.gamepasses[1] = "blox2x"
+	shop.boosts[1].remainingSec = 1
+	check("상점: 깊은 복사(받은 표를 고쳐도 안 바뀐다)", store.get("shop").gamepasses[1] == "damage2x" and store.get("shop").boosts[1].remainingSec == 600)
+	store.setSource(function(setter)
+		PlayerStateClient.apply(setter, samplePayload(), 500)
+	end)
+	check("상점: 값이 같으면 받은 시각은 처음 것 그대로(같은 값은 통지 안 함)", store.get("shop").boosts[1].receivedAt == 123)
 end
 
 print(string.format("[PlayerStateClientTests] %d passed, %d failed", passed, failed))

@@ -181,4 +181,15 @@ channels.petResult.OnClientEvent:Connect(function(payload: Remotes.PetResultPayl
 	end
 end)
 
+-- 로벅스 구매 결과 토스트(지시서 #16): 거부 사유(ID 0 = "준비 중" · 이미 보유 · 제한 …) · 게임패스 구매 완료.
+-- HUD 구좌 · 자동 클리커 잠김 · 상점 창 로벅스 탭이 같은 PurchaseClient로 보낸다 — 결과 문구는 RobuxShopLogic 하나.
+local PurchaseClient = require(script.Parent.Parent.Net.PurchaseClient)
+local RobuxShopLogic = require(script.Parent.Logic.RobuxShopLogic)
+PurchaseClient.get().onResult(function(payload: Remotes.PurchaseResultPayload)
+	local text = RobuxShopLogic.resultText(payload)
+	if text ~= nil then
+		toastStack.push({ text = text, tier = 1 })
+	end
+end)
+
 StateSync.request()

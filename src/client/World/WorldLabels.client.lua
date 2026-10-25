@@ -268,6 +268,12 @@ end)
 
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local GymLayout = require(ReplicatedStorage.Shared.GymLayout)
+local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
+
+-- 로벅스로 열린 기구(지시서 #16 — 공허 게임패스 소유). 서버 GymService와 같은 GymLayout.shopUnlocked. 선해금 기록은 #17이 요약에 싣는다
+local function shopUnlocked(): (number) -> boolean
+	return GymLayout.shopUnlocked(nil, ShopEffectsLogic.fromSummary(Store.get("shop")).owns)
+end
 
 local gymBoards: { [number]: Billboard } = {}
 local standingGym: number? = nil
@@ -289,7 +295,7 @@ local function refreshGym(index: number)
 	if adornee ~= nil and adornee:IsA("BasePart") then
 		board.gui.StudsOffsetWorldSpace = Vector3.new(0, -adornee.Size.Y / 2 + WorldLabelLogic.GYM_HEIGHT + size.Y / 2, 0)
 	end
-	apply(board, WorldLabelLogic.gym(index, rebirths, index == standingGym))
+	apply(board, WorldLabelLogic.gym(index, rebirths, index == standingGym, shopUnlocked()))
 end
 
 local function refreshAllGyms()
@@ -313,6 +319,7 @@ local function attachGym(part: Instance)
 end
 
 Store.subscribe("rebirths", refreshAllGyms)
+Store.subscribe("shop", refreshAllGyms) -- 공허 게임패스 소유(지시서 #16)
 
 task.spawn(function()
 	local folder = Workspace:WaitForChild("Gyms")
@@ -331,7 +338,7 @@ task.spawn(function()
 		local character = Players.LocalPlayer.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		local position = if root ~= nil and root:IsA("BasePart") then root.Position else nil
-		local now = GymLayout.resolve(position, Store.get("rebirths")).index
+		local now = GymLayout.resolve(position, Store.get("rebirths"), shopUnlocked()).index
 		if now ~= standingGym then
 			standingGym = now
 			refreshAllGyms()

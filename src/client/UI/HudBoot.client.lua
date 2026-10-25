@@ -18,8 +18,12 @@ local MenuRail = require(script.Parent.Screens.Hud.MenuRail)
 local PowerBlock = require(script.Parent.Screens.Hud.PowerBlock)
 local ShopSlots = require(script.Parent.Screens.Hud.ShopSlots)
 local AutoTools = require(script.Parent.Screens.Hud.AutoTools)
+local BoostTimers = require(script.Parent.Screens.Hud.BoostTimers)
 local Store = require(script.Parent.Store)
 local PlayerStateClient = require(script.Parent.Parent.Net.PlayerStateClient)
+local PurchaseClient = require(script.Parent.Parent.Net.PurchaseClient)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 -- 서버 상태를 Store에 붙인다. HUD 화면은 이 줄을 모른다 — Store만 구독한다.
 PlayerStateClient.start(Store)
@@ -41,8 +45,22 @@ local menuRail = MenuRail.create(bloxDisplayBottom + MENU_RAIL_TOP_GAP)
 local powerBlock = PowerBlock.create()
 -- ShopSlots/AutoTools도 우측 레일에 스스로 자리를 잡는다(각 파일 상단 참고) —
 -- 서로의 경계에서 위치를 유도하지 않는다.
-local shopSlots = ShopSlots.create()
-local autoTools = AutoTools.create()
+-- 로벅스 구매 요청은 PurchaseClient 하나로 간다(지시서 #16 — 같은 키는 결과까지 한 번만). 거부 · 완료 토스트는 OverlayBoot.
+local purchase = PurchaseClient.get()
+local channels = Remotes.getClient()
+local shopSlots = ShopSlots.create({ requestPurchase = purchase.request })
+local autoTools = AutoTools.create({
+	requestPurchase = purchase.request,
+	sendAutoClick = function(on: boolean)
+		local payload: Remotes.AutoClickRequestPayload = { on = on }
+		channels.autoClickRequest:FireServer(payload)
+	end,
+})
+channels.autoClickResult.OnClientEvent:Connect(function(payload: Remotes.AutoClickResultPayload)
+	autoTools.onAutoClickResult(payload)
+end)
+-- 활성 부스트 남은 시간(지시서 #16). 활성이 없으면 숨어 있다 — HudVisibilityTests의 "항상 보이는 6종"에는 넣지 않는다
+local boostTimers = BoostTimers.create()
 
 -- 여섯 다 register 이전에 이미 만들어져 있다. ScreenController의 지연 생성은 나중에
 -- 열릴 수도 있는 창·오버레이의 로딩 비용을 아끼려는 것이고, HUD는 register 직후
@@ -65,6 +83,9 @@ end)
 ScreenController.register("AutoTools", "Hud", function()
 	return autoTools.root
 end)
+ScreenController.register("BoostTimers", "Hud", function()
+	return boostTimers.root
+end)
 
 ScreenController.open("BloxDisplay")
 ScreenController.open("ChallengeInfo")
@@ -72,6 +93,7 @@ ScreenController.open("MenuRail")
 ScreenController.open("PowerBlock")
 ScreenController.open("ShopSlots")
 ScreenController.open("AutoTools")
+ScreenController.open("BoostTimers") -- 열어 두고, 활성 부스트가 있을 때만 root.Visible
 
 -- 폰 대응 (Phase 6 지시서 #6) -------------------------------------------------------------
 -- 글자 높이 하한: 세 ScreenGui 전부(지금 있는 글자 + 나중에 열리는 창 · 오버레이 글자).

@@ -15,6 +15,7 @@ local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
+local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 
 type BigNumber = BigNum.BigNumber
 
@@ -59,10 +60,13 @@ function TitleWindowLogic.multText(mult: number): string
 end
 
 -- 지금 행운(표시용). levels = Store "upgrades".
-function TitleWindowLogic.luckOf(levels: any): number
+-- shop = Store "shop"(지시서 #16). 주면 행운 패스 · 행운 포션을 곱한다(서버 computeLuck과 같은 항 — 제한 유저면 1, S13).
+-- 사용 중인 행운 상품의 효과가 확률 표에 그대로 보인다(공식 paid-random-items: 활성 중에는 바뀐 확률을 보인다).
+function TitleWindowLogic.luckOf(levels: any, shop: any?): number
 	local v = if type(levels) == "table" then levels.titleLuck else nil
 	local level = if type(v) == "number" and v == v and v >= 0 then math.floor(v) else 0
-	return UpgradeConfig.getEffect("titleLuck", level)
+	local extra = if shop ~= nil then ShopEffectsLogic.luckMult(ShopEffectsLogic.fromSummary(shop), "title") else 1
+	return UpgradeConfig.getEffect("titleLuck", level) * extra
 end
 
 export type Row = {
@@ -91,10 +95,10 @@ local function ownedSet(summary: any): { [string]: boolean }
 end
 
 -- 6줄. 위가 가장 귀한 등급이다(희귀도 높은 순 — 목표가 위에 보인다). summary = Store "titles", levels = Store "upgrades".
-function TitleWindowLogic.rows(summary: any, levels: any): { Row }
+function TitleWindowLogic.rows(summary: any, levels: any, shop: any?): { Row }
 	local owned = ownedSet(summary)
 	local equippedId = if type(summary) == "table" and type(summary.equipped) == "string" then summary.equipped else ""
-	local luck = TitleWindowLogic.luckOf(levels)
+	local luck = TitleWindowLogic.luckOf(levels, shop)
 	local texts = RollOdds.percentages(RollOdds.distribution(TitleConfig.Titles, luck))
 	local out: { Row } = {}
 	for tier = #TitleConfig.Titles, 1, -1 do
@@ -119,8 +123,8 @@ function TitleWindowLogic.rows(summary: any, levels: any): { Row }
 end
 
 -- 확률 표 위 "행운 ×N 적용"(P3).
-function TitleWindowLogic.luckText(levels: any): string
-	return RollOdds.luckText(TitleWindowLogic.luckOf(levels))
+function TitleWindowLogic.luckText(levels: any, shop: any?): string
+	return RollOdds.luckText(TitleWindowLogic.luckOf(levels, shop))
 end
 
 export type RollState = { canRoll: boolean, footText: string }

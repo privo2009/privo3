@@ -8,6 +8,7 @@ local AssetRegistry = require(ReplicatedStorage.Shared.Config.AssetRegistry)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local Layout = require(script.Parent.Parent.UI.Layout)
 local AutoTools = require(script.Parent.Parent.UI.Screens.Hud.AutoTools)
+local Store = require(script.Parent.Parent.UI.Store)
 local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local checkClose = TestHelpers.checkClose
 
@@ -108,7 +109,13 @@ do
 		-- 잠김(dark)이 자동클릭의 기본 꺼짐 상태(base, 이 시점엔 아직 안 건드렸다 —
 		-- 섹션 5에서 토글하기 전)보다 더 어두운지 — "잠김 > 꺼짐 > 켜짐" 순서의
 		-- 절반(잠김 vs 꺼짐)을 여기서 먼저 고정한다.
-		local autoClickerIcon = handle.root:FindFirstChild("AutoClicker") :: Frame
+		-- 지시서 #16: 기본 handle의 자동 클리커는 미보유라 잠김이다 — "꺼짐"은 보유한 Store로 만든 것과 비교한다
+		local offStore = Store.new()
+		offStore.setSource(function(setter)
+			setter("shop", { gamepasses = { "autoClicker" }, paidRandomRestricted = false, boosts = {}, autoClick = false })
+		end)
+		local offTools = AutoTools.create({ store = offStore })
+		local autoClickerIcon = offTools.root:FindFirstChild("AutoClicker") :: Frame
 		local autoClickerIconVisual = autoClickerIcon:FindFirstChild("Icon") :: Frame
 		check(
 			"잠김이 자동클릭 기본(꺼짐) 상태보다 더 흐리다",
@@ -119,6 +126,7 @@ do
 				brightness(autoClickerIconVisual.BackgroundColor3)
 			)
 		)
+		offTools.root:Destroy()
 	end
 
 	local hitArea = autoAdvanceItem:FindFirstChild("HitArea")
@@ -126,9 +134,17 @@ do
 end
 
 -- 5. 자동 클리커 토글이 두 상태를 전환한다 (색 + 밝기 두 채널) --------------------------
+-- 지시서 #16: 미보유면 잠김이다(RobuxShopTests가 잠김 · 구매 요청을 본다). 여기서는 보유한 Store로 켜짐/꺼짐 두 채널을 본다.
 
 do
-	check("기본값은 꺼짐이다", handle._debug.isAutoClickerEnabled() == false)
+	check("미보유(첫 PlayerState 전 Store 기본값)면 잠김이다(지시서 #16 S8)", handle._debug.isLocked() == true)
+	local ownedStore = Store.new()
+	ownedStore.setSource(function(setter)
+		setter("shop", { gamepasses = { "autoClicker" }, paidRandomRestricted = false, boosts = {}, autoClick = false })
+	end)
+	local owner = AutoTools.create({ store = ownedStore })
+	local handle = owner
+	check("기본값은 꺼짐이다", handle._debug.isAutoClickerEnabled() == false and not handle._debug.isLocked())
 
 	local autoClickerItem = handle.root:FindFirstChild("AutoClicker") :: Frame
 	local icon = autoClickerItem:FindFirstChild("Icon") :: Frame
@@ -178,6 +194,7 @@ do
 
 	local hitArea = autoClickerItem:FindFirstChild("HitArea")
 	check("자동 클리커 항목에는 HitArea가 있다(탭으로 토글)", hitArea ~= nil)
+	owner.root:Destroy()
 end
 
 -- 6. setIconTint가 도착/미도착 두 경로 모두에서 밝기를 세팅한다(U3-7) -------------------

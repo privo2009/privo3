@@ -15,6 +15,7 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local GymLayout = require(ReplicatedStorage.Shared.GymLayout)
+local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 local FeedbackLogic = require(script.Parent.Parent.UI.Logic.FeedbackLogic)
 local Store = require(script.Parent.Parent.UI.Store)
 local PlayerStateClient = require(script.Parent.Parent.Net.PlayerStateClient)
@@ -84,7 +85,9 @@ local function show(gain: BigNumber)
 	if root == nil then
 		return
 	end
-	local gym = GymLayout.resolve(root.Position, Store.get("rebirths"))
+	-- 로벅스로 열린 기구(공허 게임패스 — 지시서 #16)도 서버와 같은 판정(GymLayout.shopUnlocked)
+	local gym = GymLayout.resolve(root.Position, Store.get("rebirths"),
+		GymLayout.shopUnlocked(nil, ShopEffectsLogic.fromSummary(Store.get("shop")).owns))
 	local popup = pool[nextIndex]
 	nextIndex = nextIndex % #pool + 1
 
