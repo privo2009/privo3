@@ -58,6 +58,7 @@ ServerPackages/ → Wally 패키지 (직접 수정 금지)
 | `docs/PENDING.md` | 전달 대기 · 미결 · 잔재의 누적 큐 |
 | `docs/DASHBOARD_PRODUCTS.md` | 대시보드에 만들 로벅스 상품 목록 · 등록 절차 · ID 넣는 자리 (값 원본은 `ShopConfig`) |
 | `docs/TUNING.md` | 사람이 혼자 값을 바꾸고 결과를 읽는 순서 · 손잡이 목록 · 테스트 프리셋 사용법 |
+| `docs/LOCALIZATION.md` | 다국어 구조(Strings → CSV → 로블록스 현지화 표) · 새 문장 · 새 언어 추가 순서 · 용어집 (언어 결정 원본은 `DESIGN.md` "12. 언어") |
 
 ⚠️ **화면 개수 · 색값 · 규격 수치를 이 문서로 복사하지 말 것.**
 원본 한 곳만 고치면 되도록 참조로 둔다. 복사본은 반드시 어긋난다 —
@@ -261,6 +262,7 @@ Rojo 플러그인 창의 Connect 상태는 MCP로 읽을 수 없고,
 - ❌ 판정 반경을 상수로 하드코딩 (`BlockLayout`에서 파생시킬 것)
 - ❌ 수령·진행을 화면 UI 버튼으로 구현 (3D 발판·벽 방식)
 - ❌ UI 크기·위치에 Offset 사용 (Scale만. Offset은 폰에서 깨짐)
+- ❌ 화면 문장을 코드에 직접 쓰는 것 (`Shared/Localization/Strings` 키로만 — `Locale.t(키)`. `docs/LOCALIZATION.md`)
 - ❌ 블럭스를 로벅스로 파는 상품 (뽑기 3종이 유료 랜덤 아이템이 된다 — DESIGN 9장)
 - ❌ 디자인 담당 PC의 `C:\privo\privo3-assets`에 Rojo 연결
      (PNG 보관 폴더이며 프로젝트가 아니다. 연결하면 Team Create 스크립트 전멸)
