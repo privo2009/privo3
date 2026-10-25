@@ -189,7 +189,15 @@ local instMethods = {}
 function instMethods:FindFirstChild(name) for _, c in ipairs(rawget(self, "__kids")) do if c.Name == name then return c end end return nil end
 function instMethods:FindFirstChildOfClass(cls) for _, c in ipairs(rawget(self, "__kids")) do if c.ClassName == cls then return c end end return nil end
 function instMethods:FindFirstChildWhichIsA(cls) return instMethods.FindFirstChildOfClass(self, cls) end
-function instMethods:WaitForChild(name) return instMethods.FindFirstChild(self, name) end
+function instMethods:WaitForChild(name)
+	local c = instMethods.FindFirstChild(self, name)
+	if c == nil then c = FakeInstance.new("RemoteEvent"); c.Name = name; c.Parent = self end
+	return c
+end
+function instMethods:FireServer() end
+function instMethods:FireClient() end
+function instMethods:FireAllClients() end
+function instMethods:InvokeServer() return nil end
 function instMethods:GetChildren() return table.clone(rawget(self, "__kids")) end
 function instMethods:GetDescendants() local out = {}; local function walk(n) for _, c in ipairs(rawget(n, "__kids")) do table.insert(out, c); walk(c) end end; walk(self); return out end
 function instMethods:FindFirstAncestorOfClass(cls) local p = self.Parent; while p do if p.ClassName == cls then return p end; p = p.Parent end; return nil end
@@ -296,7 +304,12 @@ local function newNode(name, parent, className)
 end
 local methods = {}
 function methods:FindFirstChild(name) return rawget(self, "__children")[name] end
-function methods:WaitForChild(name) local c = rawget(self, "__children")[name]; assert(c, "WaitForChild 없음: " .. name); return c end
+-- 없는 자식을 기다리면 빈 가짜 인스턴스를 만들어 준다(서버가 만드는 Remotes 폴더 등 — Studio에서는 서버가 먼저 만든다)
+function methods:WaitForChild(name)
+	local c = rawget(self, "__children")[name]
+	if c == nil then c = FakeInstance.new("Folder"); c.Name = name; rawget(self, "__children")[name] = c end
+	return c
+end
 function methods:GetChildren() local t = {}; for _, c in pairs(rawget(self, "__children")) do table.insert(t, c) end; return t end
 function methods:GetAttribute(k) return rawget(self, "__attrs")[k] end
 function methods:SetAttribute(k, v) rawget(self, "__attrs")[k] = v end
