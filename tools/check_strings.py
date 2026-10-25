@@ -1,7 +1,8 @@
 """Strings 표 정적 검사 (지시서 #L1 단계 2 · 5). Studio 없이 돈다 — Python 3만 있으면 된다.
 
-사용:  python3 -I tools/check_strings.py         실패가 있으면 exit 1
-       python3 -I tools/check_strings.py --keys  키 목록도 찍는다
+사용:  python3 -I tools/check_strings.py           실패가 있으면 exit 1
+       python3 -I tools/check_strings.py --keys    키 목록도 찍는다
+       python3 -I tools/check_strings.py --lengths 영어가 한국어보다 많이 긴 항목(글자 수 2배 이상 · 폭 추정 1.3배 이상)
 
 검사 (같은 규칙의 Luau 판은 src/server/Tests/LocaleTests.server.lua — #L2가 Play에서 돌린다):
   1. Strings.lua의 항목 줄이 전부 읽힌다 · 키 중복 없음
@@ -77,6 +78,39 @@ def code_references():
     return exact, prefixes, where
 
 
+def est_width(text):
+    """대략의 글자 폭(한글 1칸 기준). 한글은 라틴보다 넓다 — 글자 수만 보면 영어 넘침을 놓친다."""
+    w = 0.0
+    for ch in PLACEHOLDER.sub("0000", text):
+        if "\uac00" <= ch <= "\ud7a3":
+            w += 1.0
+        elif ch.isupper() or ch.isdigit():
+            w += 0.62
+        elif ch == " ":
+            w += 0.28
+        elif ch.isalpha():
+            w += 0.52
+        else:
+            w += 0.45
+    return w
+
+
+def length_report(entries):
+    """(키, en, ko, 글자 수 배율, 폭 배율) — 영어가 많이 긴 것만, 폭 배율 큰 순."""
+    out = []
+    for key, fields, _ in entries:
+        en, ko = fields.get("en", ""), fields.get("ko", "")
+        if not en or not ko:
+            continue
+        en_s, ko_s = PLACEHOLDER.sub("0000", en), PLACEHOLDER.sub("0000", ko)
+        char_ratio = len(en_s) / max(1, len(ko_s))
+        width_ratio = est_width(en) / max(0.1, est_width(ko))
+        if char_ratio >= 2.0 or width_ratio >= 1.3:
+            out.append((key, en, ko, char_ratio, width_ratio))
+    out.sort(key=lambda r: -r[4])
+    return out
+
+
 def main():
     entries, errors = load_entries()
     keys = {}
@@ -120,6 +154,11 @@ def main():
     print(f"Strings 항목 {len(keys)} · 코드가 부르는 키 {len(used)} · 안 부르는 키 {len(unused)}")
     for k in unused:
         print(f"  (알림) 안 부르는 키 {k}")
+    if "--lengths" in sys.argv:
+        rows = length_report(entries)
+        print(f"--- 영어가 많이 긴 항목 {len(rows)} (글자 수 ≥ 2배 또는 폭 추정 ≥ 1.3배) ---")
+        for key, en, ko, cr, wr in rows:
+            print(f"  {key}  글자 ×{cr:.1f} · 폭 ×{wr:.1f}  en={en!r}  ko={ko!r}")
     if "--keys" in sys.argv:
         for k in sorted(keys):
             print(k)
