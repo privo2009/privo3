@@ -6,6 +6,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
@@ -75,7 +76,7 @@ do
 	for i, key in ipairs(ShopConfig.GAMEPASS_ORDER) do
 		local r = rows[i + 1]
 		local def = ShopConfig.get(key) :: ShopConfig.ProductDef
-		if r.key ~= key or r.title ~= def.name or r.footText ~= RobuxShopLogic.priceText(def.priceRobux) then
+		if r.key ~= key or r.title ~= Names.product(key) or r.footText ~= RobuxShopLogic.priceText(def.priceRobux) then
 			allMatch = false
 		end
 	end
@@ -97,10 +98,10 @@ end
 do
 	local none = RobuxShopLogic.rows(shop())[1]
 	check("계단: 보유 없음 → '지금 ×1' · 다음 2배 힘 · 가격 3 R$", string.find(none.title, "지금 ×1", 1, true) ~= nil
-		and string.find(none.detail, "2배 힘", 1, true) ~= nil and none.footText == "3 R$")
+		and string.find(none.detail, Names.product("strength2x"), 1, true) ~= nil and none.footText == "3 R$")
 	local mid = RobuxShopLogic.rows(shop({ "strength2x", "strength8x" }))[1]
 	check("계단: 2 · 8 보유 → '지금 ×8'(최고 하나) · 다음 16배", string.find(mid.title, "지금 ×8", 1, true) ~= nil
-		and string.find(mid.detail, "16배 힘", 1, true) ~= nil)
+		and string.find(mid.detail, Names.product("strength16x"), 1, true) ~= nil)
 	withIds({ strength16x = 888 }, function()
 		local r = RobuxShopLogic.rows(shop({ "strength8x" }))[1]
 		check("계단: 다음 단계 ID가 있으면 그 키로 요청", r.canBuy and r.buyKey == "strength16x")
@@ -117,7 +118,7 @@ do
 	local base = UpgradeConfig.getEffect("auraLuck", 0)
 	local before = RollOdds.percentages(RollOdds.distribution(tiers, base))
 	local after = RollOdds.percentages(RollOdds.distribution(tiers, base * 10))
-	local expect = string.format("%s %s → %s", tiers[#tiers].name, before[#tiers], after[#tiers])
+	local expect = string.format("%s %s → %s", Names.aura(tiers[#tiers].id), before[#tiers], after[#tiers])
 	check("행운 줄: 확률 변화 숫자 = RollOdds(지금 → 10배)", aura.detail == expect, aura.detail .. " vs " .. expect)
 	check("행운 줄: 칭호 · 펫도 숫자가 있다", string.find((rowByKey(RobuxShopLogic.rows(shop(nil, false), ctx), "titleLuck10x") :: any).detail, "%", 1, true) ~= nil
 		and string.find((rowByKey(RobuxShopLogic.rows(shop(nil, false), ctx), "petLuck2x") :: any).detail, "→", 1, true) ~= nil)
@@ -137,7 +138,7 @@ do
 		== "준비 중이에요")
 	check("문구: 프롬프트를 띄웠으면 없음 · 닫았으면 없음", RobuxShopLogic.resultText({ key = "damage2x", phase = "prompt", ok = true, reason = "" }) == nil
 		and RobuxShopLogic.resultText({ key = "damage2x", phase = "finished", ok = false, reason = "cancelled" }) == nil)
-	check("문구: 구매 완료 = 이름 + 완료", RobuxShopLogic.resultText({ key = "damage2x", phase = "finished", ok = true, reason = "" }) == "2배 데미지 구매 완료!")
+	check("문구: 구매 완료 = 이름 + 완료", RobuxShopLogic.resultText({ key = "damage2x", phase = "finished", ok = true, reason = "" }) == Names.product("damage2x") .. " 구매 완료!")
 	local generic = RobuxShopLogic.reasonText("???")
 	local distinct = true
 	for _, code in ipairs({ "already_owned", "restricted", "rate_limited", "invalid_key", "prompt_failed", "not_registered" }) do

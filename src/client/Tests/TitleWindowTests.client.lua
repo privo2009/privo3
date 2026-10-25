@@ -5,6 +5,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
@@ -99,15 +100,15 @@ end
 -- 3. 결과 문구 · 토스트 판정 ----------------------------------------------------------------------------------
 do
 	local id = T[3].id
-	check("결과: 새 칭호", TitleWindowLogic.resultText({ action = "roll", ok = true, reason = "", titleId = id, isNew = true, equipped = true }) == "새 칭호! " .. T[3].name)
+	check("결과: 새 칭호", TitleWindowLogic.resultText({ action = "roll", ok = true, reason = "", titleId = id, isNew = true, equipped = true }) == "새 칭호! " .. Names.title(T[3].id))
 	check("결과: 중복", string.find(TitleWindowLogic.resultText({ action = "roll", ok = true, reason = "", titleId = id, isNew = false, equipped = false }) or "", "이미 있는", 1, true) ~= nil)
-	check("결과: 장착", TitleWindowLogic.resultText({ action = "equip", ok = true, reason = "", titleId = id, isNew = false, equipped = true }) == "장착: " .. T[3].name)
+	check("결과: 장착", TitleWindowLogic.resultText({ action = "equip", ok = true, reason = "", titleId = id, isNew = false, equipped = true }) == "장착: " .. Names.title(T[3].id))
 	check("결과: 거부는 사유 문구", TitleWindowLogic.resultText({ action = "roll", ok = false, reason = "rate_limited", titleId = "", isNew = false, equipped = false }) == TitleWindowLogic.reasonText("rate_limited"))
 	check("결과: 자동 롤 토글 성공은 문구 없음", TitleWindowLogic.resultText({ action = "setAuto", ok = true, reason = "", titleId = "", isNew = false, equipped = false }) == nil)
 
 	local toast = TitleWindowLogic.toastFor(T[N].id)
 	check("토스트: '새 칭호! 이름 (힘·블럭스 ×N)' · 희귀도 단계", toast ~= nil and (toast :: any).tier == N
-		and (toast :: any).text == string.format("새 칭호! %s (%s)", T[N].name, TitleWindowLogic.multText(T[N].mult)))
+		and (toast :: any).text == string.format("새 칭호! %s (%s)", Names.title(T[N].id), TitleWindowLogic.multText(T[N].mult)))
 	check("토스트: 모르는 id는 없음", TitleWindowLogic.toastFor("ghost") == nil)
 	check("토스트 판정: 수동 롤 신규 · 자동 롤 신규만", TitleWindowLogic.shouldToast({ action = "roll", ok = true, isNew = true })
 		and TitleWindowLogic.shouldToast({ action = "autoRoll", ok = true, isNew = true })
@@ -171,7 +172,7 @@ do
 	check("롤: 결과가 안 와도 시간이 지나면 다시 나간다", #w.sends == 3)
 
 	handle.onResult({ action = "autoRoll", ok = true, reason = "", titleId = T[3].id, isNew = true, equipped = false })
-	check("자동 롤 알림은 창 상태 문구를 바꾸지 않는다 (토스트 몫)", string.find(d.status.Text, T[3].name, 1, true) == nil)
+	check("자동 롤 알림은 창 상태 문구를 바꾸지 않는다 (토스트 몫)", string.find(d.status.Text, Names.title(T[3].id), 1, true) == nil)
 
 	-- 장착
 	d.pressEquip(T[N].id)

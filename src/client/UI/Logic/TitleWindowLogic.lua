@@ -16,6 +16,7 @@ local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
 
 type BigNumber = BigNum.BigNumber
 
@@ -108,7 +109,7 @@ function TitleWindowLogic.rows(summary: any, levels: any, shop: any?): { Row }
 		local chance = texts[tier]
 		table.insert(out, {
 			id = def.id,
-			name = def.name,
+			name = Names.title(def.id),
 			tier = tier,
 			multText = TitleWindowLogic.multText(def.mult),
 			chanceText = chance,
@@ -145,7 +146,7 @@ end
 
 local function nameOf(id: any): string
 	local def = TitleConfig.get(id)
-	return if def ~= nil then def.name else tostring(id)
+	return if def ~= nil then Names.title(def.id) else tostring(id)
 end
 
 -- 요청 결과 → 상태 문구(nil이면 문구를 비운다). payload = Remotes.TitleResultPayload.
@@ -177,7 +178,7 @@ function TitleWindowLogic.toastFor(titleId: any): Toast?
 	if def == nil or tier == nil then
 		return nil
 	end
-	return { text = string.format("새 칭호! %s (%s)", def.name, TitleWindowLogic.multText(def.mult)), tier = tier }
+	return { text = string.format("새 칭호! %s (%s)", Names.title(def.id), TitleWindowLogic.multText(def.mult)), tier = tier }
 end
 
 -- TitleResult가 토스트를 띄우는가: 성공 + 새 칭호(수동 롤 응답 · 자동 롤 알림 둘 다). 중복은 조용히 사라진다.

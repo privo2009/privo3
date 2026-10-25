@@ -190,7 +190,7 @@ end
 do
 	local found = false
 	for _, source in ipairs(LevelConfig.DEPTH_SOURCES) do
-		if source.name == "진행 벽" then
+		if source.name == "advanceWall" then
 			found = true
 			check("LevelConfig: 진행 벽 소스 깊이 = ADVANCE_WALL_DEPTH", checkClose(source.get(), ArenaConfig.ADVANCE_WALL_DEPTH))
 		end
@@ -200,7 +200,7 @@ do
 	-- 진행 벽을 뺀 나머지 소스로 유도한 상한과 같아야 한다 — 벽 추가가 상한을 바꾸지 않았다.
 	local shallowestWithoutWall: number? = nil
 	for _, source in ipairs(LevelConfig.DEPTH_SOURCES) do
-		if source.name ~= "진행 벽" then
+		if source.name ~= "advanceWall" then
 			local depth = source.get()
 			if shallowestWithoutWall == nil or depth < shallowestWithoutWall then
 				shallowestWithoutWall = depth

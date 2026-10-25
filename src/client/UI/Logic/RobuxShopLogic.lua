@@ -2,7 +2,7 @@
 -- 상점 창 로벅스 탭의 줄 · 상태 · 문구 (Phase 8 지시서 #16 5단계 — docs/UI.md "지시서 #16"). 순수 모듈 —
 -- 화면은 Screens/Window/UpgradeShopWindow(로벅스 탭).
 --
--- 값은 원본에서 나온다: 이름 · 가격 · 설명 · ID는 ShopConfig, 보유 · 제한 · 부스트는 서버 PlayerState shop 요약(Store "shop"),
+-- 값은 원본에서 나온다: 가격 · ID는 ShopConfig, 이름 · 설명은 Strings(Names.product — 지시서 #L1 K6), 보유 · 제한 · 부스트는 서버 PlayerState shop 요약(Store "shop"),
 -- 확률은 RollOdds(서버 RollLogic이 낳는 실제 등장 확률 — P3). 화면 값은 안내일 뿐이고 실제 구매 판정은 서버가 한다.
 --
 --   줄 순서   힘 배수 계단 한 줄 → ShopConfig.GAMEPASS_ORDER(게임패스 13)
@@ -20,6 +20,7 @@ local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
 
 type BigNumber = BigNum.BigNumber
 
@@ -94,12 +95,12 @@ function RobuxShopLogic.oddsText(roll: string, mult: number, ctx: Context, shop:
 	local before = RollOdds.percentages(RollOdds.distribution(tiers, luck))
 	local after = RollOdds.percentages(RollOdds.distribution(tiers, luck * mult))
 	local top = tiers[#tiers]
-	return string.format("%s %s → %s", top.name, before[#tiers], after[#tiers]) -- percentages가 "%"를 붙인다
+	return string.format("%s %s → %s", Names.rollItem(roll, top.id), before[#tiers], after[#tiers]) -- percentages가 "%"를 붙인다
 end
 
 local function passRow(key: string, owns: (string) -> boolean, ctx: Context, shop: any): Row
 	local def = ShopConfig.get(key) :: ShopConfig.ProductDef
-	local detail = def.description
+	local detail = Names.productDesc(key)
 	if def.effect.type == "luckPass" then
 		detail = RobuxShopLogic.oddsText(def.effect.roll, def.effect.mult, ctx, shop)
 	end
@@ -107,7 +108,7 @@ local function passRow(key: string, owns: (string) -> boolean, ctx: Context, sho
 	return {
 		key = key,
 		buyKey = if state == "buy" then key else nil,
-		title = def.name,
+		title = Names.product(key),
 		detail = detail,
 		state = state,
 		buttonText = if state == "owned" then RobuxShopLogic.OWNED_TEXT elseif state == "notRegistered" then RobuxShopLogic.NOT_REGISTERED_TEXT
@@ -127,7 +128,7 @@ local function ladderRow(owns: (string) -> boolean): Row
 			key = RobuxShopLogic.LADDER_KEY,
 			buyKey = nil,
 			title = title,
-			detail = string.format("%s 보유 — 가장 높은 단계예요", (ShopConfig.get(current :: string) :: any).name),
+			detail = string.format("%s 보유 — 가장 높은 단계예요", Names.product(current :: string)),
 			state = "max",
 			buttonText = RobuxShopLogic.MAX_TEXT,
 			footText = "",
@@ -140,7 +141,7 @@ local function ladderRow(owns: (string) -> boolean): Row
 		key = RobuxShopLogic.LADDER_KEY,
 		buyKey = if state == "buy" then nextKey else nil,
 		title = title,
-		detail = string.format("다음 %s(가장 높은 단계 하나만 적용)", def.name),
+		detail = string.format("다음 %s(가장 높은 단계 하나만 적용)", Names.product(nextKey)),
 		state = state,
 		buttonText = if state == "notRegistered" then RobuxShopLogic.NOT_REGISTERED_TEXT else RobuxShopLogic.BUY_TEXT,
 		footText = RobuxShopLogic.priceText(def.priceRobux),
@@ -168,7 +169,7 @@ function RobuxShopLogic.resultText(payload: any): string?
 		return nil
 	end
 	local def = ShopConfig.get(payload.key)
-	local name = if def ~= nil then def.name else "상품"
+	local name = if def ~= nil then Names.product(payload.key) else "상품"
 	if payload.phase == "finished" then
 		if payload.ok then
 			return string.format("%s 구매 완료!", name)

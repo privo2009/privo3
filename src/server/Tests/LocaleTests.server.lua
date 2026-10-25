@@ -3,13 +3,20 @@
 --   1. 모든 키에 en이 있다                    2. 언어마다 자리 표시 집합 = en
 --   3. 없는 키 → "?" + WARN(키는 화면에 안 나간다) 4. ko가 비었거나 없으면 en
 --   5. 자리 표시 치환 · 남는 자리 표시 없음      6. 언어 고르기(K2) · TEST_LOCALE 관문
---   7. 커밋된 TEST_LOCALE = nil
--- ⚠️ 7번은 TEST_LOCALE을 켠 Play에서 실패한다(TestPresetGateTests와 같은 방식). 그 Play로 테스트 개수를 세지 않는다.
+--   7. Config id → 이름 키가 전부 있다(K6)      8. 커밋된 TEST_LOCALE = nil
+-- ⚠️ 8번은 TEST_LOCALE을 켠 Play에서 실패한다(TestPresetGateTests와 같은 방식). 그 Play로 테스트 개수를 세지 않는다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Strings = require(ReplicatedStorage.Shared.Localization.Strings)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
+local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
+local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
+local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
+local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
+local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 local LocaleGate = require(script.Parent.Parent.Systems.LocaleGate)
 
 local passed = 0
@@ -144,7 +151,67 @@ do
 	check("클라우드 Translator 커밋 값 = 꺼짐(Studio 확인 전 — K4)", Locale.CLOUD_TRANSLATOR_ENABLED == false)
 end
 
--- 7. 커밋된 TEST_LOCALE = nil (Bootstrap이 LocaleGate.init으로 넘긴 값) -----------------------------------
+-- 7. Config id → 이름 키 (K6) -----------------------------------------------------------------------
+do
+	local missing = {}
+	local function need(key: string)
+		if not Locale.has(key) then
+			table.insert(missing, key)
+		end
+	end
+	for _, pack in pairs(AuraConfig.Packs) do
+		for _, def in ipairs(pack.auras) do
+			need("aura.name." .. def.id)
+		end
+	end
+	for eggId, egg in pairs(PetConfig.Eggs) do
+		need("egg.name." .. tostring(eggId))
+		for _, def in ipairs(egg.pets) do
+			need("pet.name." .. def.id)
+		end
+	end
+	for level = 1, PetConfig.MAX_LEVEL do
+		need("pet.level." .. tostring(level))
+	end
+	for _, key in ipairs(Names.RARITY_KEYS) do
+		need("rarity." .. key)
+	end
+	for _, def in ipairs(TitleConfig.Titles) do
+		need("title.name." .. def.id)
+	end
+	for key in pairs(ShopConfig.Products) do
+		for _, k in ipairs(Names.productKeys(key)) do
+			need(k)
+		end
+	end
+	for key in pairs(ShopConfig.BOOSTS) do
+		need("boost." .. key .. ".name")
+		need("boost." .. key .. ".short")
+	end
+	for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+		need("upgrade.name." .. name)
+	end
+	for worldId in pairs(WorldConfig.Worlds) do
+		need("world.name." .. tostring(worldId))
+	end
+	table.sort(missing)
+	check("Config id → 이름 키가 전부 있다(K6)", #missing == 0, table.concat(missing, ", "))
+	check("이름 함수: 키가 아니라 문장이 나온다", Names.title("novice") ~= "title.name.novice" and Names.title("novice") ~= Locale.MISSING_TEXT)
+	local clash = {}
+	for level = 1, PetConfig.MAX_LEVEL do
+		for tier = 1, #Names.RARITY_KEYS do
+			for _, code in ipairs(Locale.SUPPORTED) do
+				if Locale.tFor(code, "pet.level." .. level) == Locale.tFor(code, "rarity." .. Names.RARITY_KEYS[tier]) then
+					table.insert(clash, code .. ":" .. level)
+				end
+			end
+		end
+	end
+	check("펫 강화 단계 이름은 희귀도 이름과 겹치지 않는다(E4 · G10)", #clash == 0, table.concat(clash, ", "))
+	check("상품 이름: 힘 배수 계단은 배수를 채운다", string.find(Locale.tFor("en", "shop.strengthTier.name", { mult = 8 }), "8", 1, true) ~= nil)
+end
+
+-- 8. 커밋된 TEST_LOCALE = nil (Bootstrap이 LocaleGate.init으로 넘긴 값) -----------------------------------
 do
 	local deadline = os.clock() + 15
 	while not LocaleGate.isRegistered() and os.clock() < deadline do

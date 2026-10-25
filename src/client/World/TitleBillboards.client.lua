@@ -18,6 +18,7 @@ local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
 
 local ATTRIBUTE = "EquippedTitle" -- 서버 TitleService.ATTRIBUTE와 같은 문자열
 local SIZE = Vector2.new(6, 0.8)
@@ -75,7 +76,7 @@ local function refresh(player: Player)
 		tag.gui.Enabled = false
 		return
 	end
-	tag.label.Text = def.name
+	tag.label.Text = Names.title(def.id)
 	tag.label.TextColor3 = UiTheme.rarityColor(tier)
 	tag.gui.Adornee = root :: BasePart
 	tag.gui.Enabled = true

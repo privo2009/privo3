@@ -24,20 +24,20 @@ export type ProductDef = {
 	key: string,
 	kind: Kind,
 	id: number, -- Roblox GamePassId / ProductId. 0 = 미등록
-	name: string, -- 화면 · 대시보드 이름(한국어)
+	-- 이름 · 설명은 여기 없다 — Strings "shop.<키>.name" · ".desc"(영어가 대시보드 이름 · 설명. 지시서 #L1 K6, Shared/Localization/Names)
 	priceRobux: number,
-	description: string, -- 대시보드 설명 · 상점 줄 설명 한 줄(한국어)
 	effect: { [string]: any },
 	paidRandom: boolean, -- 로벅스 행운 상품(S13)
 }
 
 -- 포션(부스트) 정의. 개발자 상품 effect.boost가 이 키를 가리킨다. 엔진은 Server/Systems/BoostService(S7).
 -- mult는 켜 있는 동안의 배수, durationSec는 1개를 켤 때 더해지는 시간(같은 종류를 또 켜면 시간만 더해진다 — 배수는 그대로).
-export type BoostDef = { name: string, mult: number, durationSec: number, paidRandom: boolean }
+-- 이름은 Strings "boost.<키>.name"(지시서 #L1 K6).
+export type BoostDef = { mult: number, durationSec: number, paidRandom: boolean }
 ShopConfig.BOOSTS = {
-	strength = { name = "힘 포션", mult = 2, durationSec = 900, paidRandom = false }, -- 힘 ×2 (StrengthMultiplier)
-	damage = { name = "데미지 포션", mult = 2, durationSec = 900, paidRandom = false }, -- 1펀치 데미지 ×2
-	luck = { name = "행운 포션", mult = 2, durationSec = 900, paidRandom = true }, -- 칭호 · 아우라 · 펫 행운 ×2
+	strength = { mult = 2, durationSec = 900, paidRandom = false }, -- 힘 ×2 (StrengthMultiplier)
+	damage = { mult = 2, durationSec = 900, paidRandom = false }, -- 1펀치 데미지 ×2
+	luck = { mult = 2, durationSec = 900, paidRandom = true }, -- 칭호 · 아우라 · 펫 행운 ×2
 } :: { [string]: BoostDef }
 ShopConfig.BOOST_ORDER = { "strength", "damage", "luck" }
 
@@ -49,53 +49,52 @@ local function add(def: ProductDef)
 	Products[def.key] = def
 end
 
-local function pass(key: string, name: string, price: number, description: string, effect: { [string]: any }, paidRandom: boolean?)
-	add({ key = key, kind = "gamepass", id = 0, name = name, priceRobux = price, description = description, effect = effect, paidRandom = paidRandom == true })
+local function pass(key: string, price: number, effect: { [string]: any }, paidRandom: boolean?)
+	add({ key = key, kind = "gamepass", id = 0, priceRobux = price, effect = effect, paidRandom = paidRandom == true })
 end
 
-local function product(key: string, name: string, price: number, description: string, effect: { [string]: any }, paidRandom: boolean?)
-	add({ key = key, kind = "product", id = 0, name = name, priceRobux = price, description = description, effect = effect, paidRandom = paidRandom == true })
+local function product(key: string, price: number, effect: { [string]: any }, paidRandom: boolean?)
+	add({ key = key, kind = "product", id = 0, priceRobux = price, effect = effect, paidRandom = paidRandom == true })
 end
 
 -- ===== 게임패스 ==================================================================================
-pass("autoClicker", "자동 클리커", 49, "켜 두면 초당 15번 자동으로 클릭해요", { type = "autoClick", clicksPerSec = 15 })
-pass("autoClickerOP", "OP 자동 클리커", 89, "켜 두면 초당 30번 자동으로 클릭해요", { type = "autoClick", clicksPerSec = 30 })
-pass("rebirth2x", "2배 환생", 99, "환생할 때 얻는 환생 수가 2배예요", { type = "rebirthMult", mult = 2 })
-pass("hatch3x", "3배 부화", 99, "알을 한 번에 3개 부화해요(비용 3배)", { type = "hatchMulti", count = 3 })
-pass("petLuck2x", "2배 펫 행운", 99, "펫 부화 행운이 2배예요", { type = "luckPass", roll = "pet", mult = 2 }, true)
-pass("petStorage100", "+100 펫 저장 공간", 49, "펫을 100마리 더 보관해요", { type = "petStorage" }) -- 보너스 수는 PetConfig.GamepassStorageBonus
-pass("damage2x", "2배 데미지", 149, "1펀치 데미지가 2배예요", { type = "damageMult", mult = 2 })
-pass("petSlots3", "+3 펫 장착", 199, "펫을 3마리 더 장착해요", { type = "petSlots" }) -- 보너스 수는 PetConfig.GamepassSlotBonus
-pass("blox2x", "2배 블럭스", 199, "수령할 때 받는 블럭스가 2배예요", { type = "bloxMult", mult = 2 })
-pass("auraLuck10x", "10배 아우라 행운", 299, "아우라 뽑기 행운이 10배예요", { type = "luckPass", roll = "aura", mult = 10 }, true)
-pass("titleLuck10x", "10배 칭호 행운", 299, "칭호 뽑기 행운이 10배예요", { type = "luckPass", roll = "title", mult = 10 }, true)
-pass("voidTrainingZone", "공허 훈련 구역", 799, "가장 센 운동기구를 열어요", { type = "gymPass" }) -- 기구는 GymConfig(gamepassKey)가 가리킨다
-pass("autoAdvance", "자동 진행", 199, "목표층까지 멈추지 않고 진행해요", { type = "autoAdvance" }) -- 효과는 #18
+pass("autoClicker", 49, { type = "autoClick", clicksPerSec = 15 })
+pass("autoClickerOP", 89, { type = "autoClick", clicksPerSec = 30 })
+pass("rebirth2x", 99, { type = "rebirthMult", mult = 2 })
+pass("hatch3x", 99, { type = "hatchMulti", count = 3 })
+pass("petLuck2x", 99, { type = "luckPass", roll = "pet", mult = 2 }, true)
+pass("petStorage100", 49, { type = "petStorage" }) -- 보너스 수는 PetConfig.GamepassStorageBonus
+pass("damage2x", 149, { type = "damageMult", mult = 2 })
+pass("petSlots3", 199, { type = "petSlots" }) -- 보너스 수는 PetConfig.GamepassSlotBonus
+pass("blox2x", 199, { type = "bloxMult", mult = 2 })
+pass("auraLuck10x", 299, { type = "luckPass", roll = "aura", mult = 10 }, true)
+pass("titleLuck10x", 299, { type = "luckPass", roll = "title", mult = 10 }, true)
+pass("voidTrainingZone", 799, { type = "gymPass" }) -- 기구는 GymConfig(gamepassKey)가 가리킨다
+pass("autoAdvance", 199, { type = "autoAdvance" }) -- 효과는 #18
 
 -- ===== 힘 배수 계단 (게임패스 10단계 — 보유한 단계 중 최고 하나만, S4) ============================
 ShopConfig.STRENGTH_TIERS = {} :: { string }
 for _, t in ipairs({ { 2, 3 }, { 4, 9 }, { 8, 29 }, { 16, 79 }, { 32, 249 }, { 64, 799 }, { 128, 1499 }, { 256, 2499 }, { 512, 3999 }, { 1024, 5999 } }) do
 	local key = string.format("strength%dx", t[1])
-	pass(key, string.format("%d배 힘", t[1]), t[2], string.format("클릭으로 얻는 힘이 %d배예요(가장 높은 단계 하나만)", t[1]),
-		{ type = "strengthTier", mult = t[1] })
+	pass(key, t[2], { type = "strengthTier", mult = t[1] })
 	table.insert(ShopConfig.STRENGTH_TIERS, key)
 end
 
 -- ===== 개발자 상품 ================================================================================
-product("luckyRoll5", "럭키 롤 5회", 49, "아우라 뽑기 5회 · 행운 ×5 · 블럭스 없이", { type = "rollCredit", credit = "lucky", rolls = 5, luckMult = 5 }, true)
-product("luckyRoll15", "럭키 롤 15회", 149, "아우라 뽑기 15회 · 행운 ×5 · 블럭스 없이", { type = "rollCredit", credit = "lucky", rolls = 15, luckMult = 5 }, true)
-product("superRoll5", "슈퍼 롤 5회", 99, "아우라 뽑기 5회 · 행운 ×100 · 블럭스 없이", { type = "rollCredit", credit = "super", rolls = 5, luckMult = 100 }, true)
-product("superRoll15", "슈퍼 롤 15회", 249, "아우라 뽑기 15회 · 행운 ×100 · 블럭스 없이", { type = "rollCredit", credit = "super", rolls = 15, luckMult = 100 }, true)
-product("strengthPotion", "힘 포션", 19, "15분 동안 힘 ×2", { type = "potion", boost = "strength", count = 1 })
-product("damagePotion", "데미지 포션", 19, "15분 동안 1펀치 데미지 ×2", { type = "potion", boost = "damage", count = 1 })
-product("luckPotion", "행운 포션", 29, "15분 동안 칭호 · 아우라 · 펫 행운 ×2", { type = "potion", boost = "luck", count = 1 }, true)
-product("potionBundle", "포션 번들", 999, "힘 · 데미지 · 행운 포션 각 99개", { type = "potionBundle", counts = { strength = 99, damage = 99, luck = 99 } }, true)
+product("luckyRoll5", 49, { type = "rollCredit", credit = "lucky", rolls = 5, luckMult = 5 }, true)
+product("luckyRoll15", 149, { type = "rollCredit", credit = "lucky", rolls = 15, luckMult = 5 }, true)
+product("superRoll5", 99, { type = "rollCredit", credit = "super", rolls = 5, luckMult = 100 }, true)
+product("superRoll15", 249, { type = "rollCredit", credit = "super", rolls = 15, luckMult = 100 }, true)
+product("strengthPotion", 19, { type = "potion", boost = "strength", count = 1 })
+product("damagePotion", 19, { type = "potion", boost = "damage", count = 1 })
+product("luckPotion", 29, { type = "potion", boost = "luck", count = 1 }, true)
+product("potionBundle", 999, { type = "potionBundle", counts = { strength = 99, damage = 99, luck = 99 } }, true)
 
 -- 운동기구 선해금 8종. 가격은 2026-10-21 GymConfig 값 그대로(29 ~ 449). GymConfig는 이 키로 참조한다(원본 한 곳).
 ShopConfig.GYM_UNLOCKS = {} :: { string }
 for i, price in ipairs({ 29, 49, 79, 99, 149, 199, 299, 449 }) do
 	local key = "gymUnlock" .. i
-	product(key, string.format("운동기구 %d 열기", i), price, string.format("환생 수와 상관없이 운동기구 %d을 열어요", i), { type = "gymUnlock", gymIndex = i })
+	product(key, price, { type = "gymUnlock", gymIndex = i })
 	table.insert(ShopConfig.GYM_UNLOCKS, key)
 end
 
@@ -237,7 +236,6 @@ function ShopConfig.validate(): boolean
 		assert(def.key == key, "ShopConfig: 키가 표 키와 다름 - " .. key)
 		assert(def.kind == "gamepass" or def.kind == "product", "ShopConfig: kind가 이상함 - " .. key)
 		assert(type(def.priceRobux) == "number" and def.priceRobux > 0 and def.priceRobux % 1 == 0, "ShopConfig: 가격은 양의 정수 - " .. key)
-		assert(type(def.name) == "string" and #def.name > 0 and type(def.description) == "string" and #def.description > 0, "ShopConfig: 이름 · 설명 - " .. key)
 		assert(type(def.id) == "number" and def.id >= 0 and def.id % 1 == 0, "ShopConfig: id는 0 이상 정수 - " .. key)
 		assert(type(def.effect) == "table" and type(def.effect.type) == "string", "ShopConfig: effect.type이 없음 - " .. key)
 		-- P1: 블럭스를 로벅스로 파는 상품 금지(CLAUDE.md 금지 사항)

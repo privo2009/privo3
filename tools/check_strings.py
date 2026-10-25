@@ -104,6 +104,8 @@ def main():
             continue  # 키 꼴이지만 Strings 이름공간이 아니다(인스턴스 경로 등)
         if ref in keys:
             used.add(ref)
+        elif any(k.startswith(ref + ".") for k in keys):
+            used.update(k for k in keys if k.startswith(ref + "."))  # 키 앞부분(뒤에 ".name" 등을 붙여 쓴다)
         else:
             errors.append(f"{where[ref]}: 표에 없는 키 {ref}")
     for p in sorted(prefixes):

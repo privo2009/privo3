@@ -84,7 +84,7 @@ end
 
 LevelConfig.DEPTH_SOURCES = {
 	{
-		name = "클릭 파워 패드",
+		name = "clickPad", -- 개발용 id(검증 오류 · 테스트가 찾는다). 화면에 안 나간다
 		get = function(): number
 			return depthAlong(PadLayout.PAD_SIZE, PadLayout.AXIS)
 		end,
@@ -97,7 +97,7 @@ LevelConfig.DEPTH_SOURCES = {
 	-- ⚠️ 축은 ArenaConfig.AXIS다. PadLayout.AXIS와 같은 값이지만(그쪽이 재공개다)
 	-- 발판은 패드가 아니므로 패드의 축을 빌려 쓰지 않는다.
 	{
-		name = "수령 발판",
+		name = "cashoutPad",
 		get = function(): number
 			return depthAlong(ArenaConfig.CASHOUT_PAD_SIZE, ArenaConfig.AXIS)
 		end,
@@ -105,7 +105,7 @@ LevelConfig.DEPTH_SOURCES = {
 	-- 3c 커밋 1에서 추가. 진행 벽은 통과(Touched)로 advance를 부르므로 수령 발판과
 	-- 같은 관통 하한이 걸린다. 깊이의 정본은 ArenaConfig.ADVANCE_WALL_DEPTH다.
 	{
-		name = "진행 벽",
+		name = "advanceWall",
 		get = function(): number
 			return depthAlong(ArenaConfig.getAdvanceWallSize(), ArenaConfig.AXIS)
 		end,

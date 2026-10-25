@@ -6,6 +6,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
@@ -50,7 +51,7 @@ do
 	local odds = PetWindowLogic.odds(1, {})
 	local texts, dec = RollOdds.percentages(RollOdds.distribution(E1.pets, 1))
 	check("확률 줄 4개 = 실제 등장 확률(RollOdds) · 이름 · ×m", #odds == 4 and string.find(odds[1].text, texts[1], 1, true) ~= nil
-		and string.find(odds[4].text, E1.pets[4].name, 1, true) ~= nil and string.find(odds[4].text, string.format("×%.2f", E1.pets[4].mult), 1, true) ~= nil)
+		and string.find(odds[4].text, Names.pet(E1.pets[4].id), 1, true) ~= nil and string.find(odds[4].text, string.format("×%.2f", E1.pets[4].mult), 1, true) ~= nil)
 	local units = 0
 	for _, t in ipairs(texts) do
 		units += math.floor((tonumber((string.gsub(t, "%%", ""))) :: number) * 10 ^ dec + 0.5)
@@ -87,7 +88,7 @@ do
 	local s = summary(owned, { "4" })
 	local g = PetWindowLogic.grid(s)
 	check("격자: 보유 전부 · 장착 먼저 · 그다음 실효 증가분 큰 순", #g == 4 and g[1].uid == "4" and g[2].gain >= g[3].gain and g[3].gain >= g[4].gain)
-	check("격자: 이름 · 강화 단계 이름 · 희귀도 색 단계", g[1].name == E1.pets[3].name and g[1].levelName == PetConfig.LEVEL_NAMES[1] and g[1].rarityTier == 4)
+	check("격자: 이름 · 강화 단계 이름 · 희귀도 색 단계", g[1].name == Names.pet(E1.pets[3].id) and g[1].levelName == Names.petLevel(1) and g[1].rarityTier == 4)
 	check("보유 문구 = 보유 수 / 파생 저장 공간", PetWindowLogic.storageText(s) == string.format("보유 4 / %d", PetConfig.getStorage(false)))
 	local slots = PetWindowLogic.slots(s)
 	check("장착 슬롯 수 = 파생 슬롯(기본)", #slots == PetConfig.getSlots(0, false) and slots[1].uid == "4" and slots[2].uid == nil
@@ -105,7 +106,7 @@ do
 		and string.find(d1.craftText, "(1/3)", 1, true) ~= nil)
 	local three = { entry("1", E1.pets[1].id), entry("2", E1.pets[1].id), entry("3", E1.pets[1].id) }
 	local d3 = PetWindowLogic.detail(summary(three), "2") :: PetWindowLogic.Detail
-	check("상세: 같은 petId · 같은 단계 3마리면 크래프팅 가능 · 다음 단계 이름", d3.canCraft and string.find(d3.craftText, PetConfig.LEVEL_NAMES[2], 1, true) ~= nil)
+	check("상세: 같은 petId · 같은 단계 3마리면 크래프팅 가능 · 다음 단계 이름", d3.canCraft and string.find(d3.craftText, Names.petLevel(2), 1, true) ~= nil)
 	local top = PetWindowLogic.detail(summary({ entry("9", E1.pets[1].id, PetConfig.MAX_LEVEL) }), "9") :: PetWindowLogic.Detail
 	check("상세: 최고 단계면 크래프팅 없음", not top.canCraft and top.craftText == "최고 단계")
 	local fullSlots = summary({ entry("1", E1.pets[1].id), entry("2", E1.pets[2].id), entry("3", E1.pets[3].id) }, { "1", "2" })
@@ -128,11 +129,11 @@ do
 	craft.action = "craft"
 	check("모달: 크래프팅 · 거부는 안 띄운다(창 안 문구)", not PetWindowLogic.shouldModal(craft) and not PetWindowLogic.shouldModal({ action = "hatch", ok = false, isNew = true }))
 	local v = PetWindowLogic.resultView(n) :: PetWindowLogic.ResultView
-	check("모달 내용: 머리말 · 이름 · 희귀도 색 단계", v.heading == "새 펫!" and v.name == E1.pets[1].name and v.rarityTier == 1)
+	check("모달 내용: 머리말 · 이름 · 희귀도 색 단계", v.heading == "새 펫!" and v.name == Names.pet(E1.pets[1].id) and v.rarityTier == 1)
 	local toast = PetWindowLogic.toastFor(epic)
-	check("런 중 토스트: 한 줄 · 희귀도 단계", toast ~= nil and string.find(toast.text, E1.pets[3].name, 1, true) ~= nil and toast.tier == 4)
+	check("런 중 토스트: 한 줄 · 희귀도 단계", toast ~= nil and string.find(toast.text, Names.pet(E1.pets[3].id), 1, true) ~= nil and toast.tier == 4)
 	check("상태 문구: 거부 사유 · 크래프팅 결과", PetWindowLogic.resultText({ action = "hatch", ok = false, reason = "storage_full" }) == PetWindowLogic.reasonText("storage_full")
-		and string.find(PetWindowLogic.resultText({ action = "craft", ok = true, petId = E1.pets[1].id, level = 2 }) :: string, PetConfig.LEVEL_NAMES[2], 1, true) ~= nil)
+		and string.find(PetWindowLogic.resultText({ action = "craft", ok = true, petId = E1.pets[1].id, level = 2 }) :: string, Names.petLevel(2), 1, true) ~= nil)
 end
 
 -- 5. 창: 요청 한 번만 · 놓아주기 확인 단계 · 격자 · 슬롯 -------------------------------------------------
@@ -194,7 +195,7 @@ do
 	check("부화 거부 → 상태 문구", h._debug.status.Text == PetWindowLogic.reasonText("storage_full"))
 
 	h._debug.select("1")
-	check("고르기: 이름 · 희귀도 색", h._debug.selName.Text == E1.pets[1].name and h._debug.selected() == "1")
+	check("고르기: 이름 · 희귀도 색", h._debug.selName.Text == Names.pet(E1.pets[1].id) and h._debug.selected() == "1")
 	check("고르기: 같은 펫 3마리 → 크래프팅 켜짐", not h._debug.craftButton.isDisabled())
 	h._debug.pressCraft()
 	h._debug.pressCraft()
@@ -221,7 +222,7 @@ do
 	setter("pets", summary({ entry("4", E1.pets[2].id), entry("6", E1.pets[1].id, 2) }, { "4" }, PetConfig.getSlots(1, false)))
 	task.wait()
 	h.refresh()
-	check("크래프팅 결과: 새 펫을 고른다", h._debug.selected() == "6" and h._debug.selName.Text == E1.pets[1].name)
+	check("크래프팅 결과: 새 펫을 고른다", h._debug.selected() == "6" and h._debug.selName.Text == Names.pet(E1.pets[1].id))
 	visibleCells = 0
 	for _, c in ipairs(h._debug.cells) do
 		if c.frame.Visible then

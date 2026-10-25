@@ -15,6 +15,7 @@ local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
 
 type BigNumber = BigNum.BigNumber
 
@@ -63,7 +64,7 @@ function PetWindowLogic.gainText(gain: number): string
 end
 
 function PetWindowLogic.levelName(level: number): string
-	return PetConfig.LEVEL_NAMES[math.clamp(math.floor(level), 1, PetConfig.MAX_LEVEL)]
+	return Names.petLevel(math.clamp(math.floor(level), 1, PetConfig.MAX_LEVEL))
 end
 
 -- shop = Store "shop"(지시서 #16). 주면 행운 패스 · 행운 포션을 곱한다(서버 computeLuck과 같은 항 — 제한 유저면 1, S13).
@@ -116,13 +117,14 @@ function PetWindowLogic.eggs(summary: any, lifetimeBlox: any): { EggTab }
 		local egg = PetConfig.Eggs[eggId]
 		if egg ~= nil then
 			local unlocked = BigNum.gte(lifetime, egg.rollCost)
+			local eggName = Names.egg(eggId)
 			table.insert(out, {
 				eggId = eggId,
 				unlocked = unlocked,
-				label = if unlocked then egg.name else egg.name .. " 잠김",
+				label = if unlocked then eggName else eggName .. " 잠김",
 				infoText = if unlocked
-					then string.format("%s · 1회 %s 블럭스", egg.name, Formatter.format(egg.rollCost))
-					else string.format("%s — 누적 블럭스 %s 이상이면 열려요", egg.name, Formatter.format(egg.rollCost)),
+					then string.format("%s · 1회 %s 블럭스", eggName, Formatter.format(egg.rollCost))
+					else string.format("%s — 누적 블럭스 %s 이상이면 열려요", eggName, Formatter.format(egg.rollCost)),
 			})
 		end
 	end
@@ -154,10 +156,10 @@ function PetWindowLogic.odds(eggId: number, levels: any, shop: any?): { Odd }
 	for rarity, def in ipairs(egg.pets) do
 		table.insert(out, {
 			id = def.id,
-			name = def.name,
+			name = Names.pet(def.id),
 			rarity = rarity,
 			rarityTier = PetWindowLogic.rarityTier(rarity),
-			text = string.format("%s ×%.2f · %s", def.name, def.mult, texts[rarity]),
+			text = string.format("%s ×%.2f · %s", Names.pet(def.id), def.mult, texts[rarity]),
 		})
 	end
 	return out
@@ -218,7 +220,7 @@ local function cellOf(summary: any, e: any): Cell?
 	return {
 		uid = e.uid,
 		petId = e.petId,
-		name = def.name,
+		name = Names.pet(def.id),
 		level = e.level,
 		levelName = PetWindowLogic.levelName(e.level),
 		rarity = rarity,
@@ -322,7 +324,7 @@ function PetWindowLogic.detail(summary: any, uid: string?): Detail?
 		uid = c.uid,
 		name = c.name,
 		rarityTier = c.rarityTier,
-		infoText = string.format("%s · %s · %s", PetConfig.TIER_NAMES[c.rarity], c.levelName, PetWindowLogic.gainText(c.gain)),
+		infoText = string.format("%s · %s · %s", Names.rarity(c.rarity), c.levelName, PetWindowLogic.gainText(c.gain)),
 		equipped = c.equipped,
 		equipText = if c.equipped then PetWindowLogic.UNEQUIP_TEXT else PetWindowLogic.EQUIP_TEXT,
 		canEquip = c.equipped or #equippedList(summary) < slots,
@@ -335,7 +337,7 @@ end
 
 local function nameOf(petId: any): string
 	local def = PetConfig.get(petId)
-	return if def ~= nil then def.name else tostring(petId)
+	return if def ~= nil then Names.pet(def.id) else tostring(petId)
 end
 
 -- 요청 결과 → 창 상태 문구(nil이면 비운다).
@@ -381,9 +383,9 @@ function PetWindowLogic.resultView(payload: any): ResultView?
 	local level = if type(payload.level) == "number" and PetConfig.isLevel(payload.level) then payload.level else 1
 	return {
 		heading = if payload.isNew then "새 펫!" else "펫",
-		name = def.name,
+		name = Names.pet(def.id),
 		rarityTier = PetWindowLogic.rarityTier(rarity),
-		detail = string.format("%s · %s%s", PetConfig.TIER_NAMES[rarity], PetWindowLogic.gainText(PetConfig.effectiveGain(def.id, level)),
+		detail = string.format("%s · %s%s", Names.rarity(rarity), PetWindowLogic.gainText(PetConfig.effectiveGain(def.id, level)),
 			if payload.equipped then " · 장착" else ""),
 	}
 end

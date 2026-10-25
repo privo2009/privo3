@@ -15,6 +15,7 @@ local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
 
 type BigNumber = BigNum.BigNumber
 
@@ -161,10 +162,10 @@ function AuraWindowLogic.cards(summary: any, levels: any, packId: number, shop: 
 		local isEquipped = isOwned and equippedId == def.id
 		table.insert(out, {
 			id = def.id,
-			name = def.name,
+			name = Names.aura(def.id),
 			tier = tier,
 			rarityTier = AuraWindowLogic.rarityTier(tier),
-			tierName = AuraConfig.TIER_NAMES[tier],
+			tierName = Names.rarity(tier),
 			multText = AuraWindowLogic.multText(def.mult),
 			chanceText = texts[tier],
 			owned = isOwned,
@@ -197,7 +198,7 @@ end
 
 local function nameOf(id: any): string
 	local def = AuraConfig.get(id)
-	return if def ~= nil then def.name else tostring(id)
+	return if def ~= nil then Names.aura(def.id) else tostring(id)
 end
 
 -- 요청 결과 → 창 상태 문구(nil이면 비운다).
@@ -236,9 +237,9 @@ function AuraWindowLogic.resultView(payload: any): ResultView?
 	end
 	return {
 		heading = if payload.isNew then "새 아우라!" else "아우라",
-		name = def.name,
+		name = Names.aura(def.id),
 		rarityTier = AuraWindowLogic.rarityTier(tier),
-		detail = string.format("%s · %s%s", AuraConfig.TIER_NAMES[tier], AuraWindowLogic.multText(def.mult), if payload.equipped then " · 장착" else ""),
+		detail = string.format("%s · %s%s", Names.rarity(tier), AuraWindowLogic.multText(def.mult), if payload.equipped then " · 장착" else ""),
 	}
 end
 
