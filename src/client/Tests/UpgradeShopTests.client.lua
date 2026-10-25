@@ -71,7 +71,7 @@ do
 	for _, row in ipairs(UpgradeShopLogic.rows({}, BigNum.new(1, 30))) do
 		names[row.name] = true
 	end
-	check("L3: 상점에 이동 속도 줄이 없다 · 이름 표에도 없다", names.moveSpeed == nil and not Locale.has("upgrade.name.moveSpeed"))
+	check("L3: 상점에 이동 속도 줄이 없다 · 이름 표에도 없다", names.moveSpeed == nil and not Locale.has("upgrade.name." .. "moveSpeed"))
 	check("L3: '최대 속도 도달' 문구가 어떤 줄에도 없다(힘이 커도)", (function()
 		for _, row in ipairs(UpgradeShopLogic.rows({}, BigNum.new(1, 30))) do
 			if string.find(row.footText, "최대 속도", 1, true) ~= nil or string.find(row.footText, "Max speed", 1, true) ~= nil then

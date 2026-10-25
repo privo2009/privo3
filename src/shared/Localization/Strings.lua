@@ -355,6 +355,11 @@ Strings.Entries = {
 	["shop.reason.invalid_key"] = { en = "This item can't be bought", ko = "살 수 없는 상품이에요" },
 	["shop.reason.prompt_failed"] = { en = "Couldn't open the purchase window", ko = "구매 창을 열지 못했어요" },
 	["shop.reason.failed"] = { en = "Couldn't complete the purchase", ko = "구매하지 못했어요" },
+	-- ===== 접속 끊김 안내 (서버 Player:Kick — Server/Systems/LocaleGate가 그 플레이어 언어로 고른다. K5의 단 하나 예외) =====
+	["kick.loadFailed"] = { en = "Couldn't load your data. Please rejoin.", ko = "데이터 로드에 실패했습니다. 다시 접속해 주세요." },
+	["kick.versionError"] = { en = "Data version error. Please rejoin.", ko = "데이터 버전 오류입니다. 다시 접속해 주세요." },
+	["kick.corrupted"] = { en = "Your data is damaged and can't be loaded. Please contact an admin.", ko = "데이터가 손상되어 로드할 수 없습니다. 관리자에게 문의해 주세요." },
+	["kick.otherServer"] = { en = "Your data was loaded on another server. Please rejoin.", ko = "다른 서버에서 데이터를 불러왔습니다. 다시 접속해 주세요." },
 } :: { [string]: Entry }
 
 return Strings
