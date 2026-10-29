@@ -271,8 +271,28 @@ D1 ~ D3 → `docs/DASHBOARD_PRODUCTS.md`(#16 7단계) · D4 · D5 광고와 함�
    창은 다음 단계만 보이고 HUD 구좌는 `strength2x` 고정이라, 8배 보유자가 HUD 구좌를 누르면 효과 없는 2배를 살 수 있다.
    막을지(already_owned로 거부 · 구좌를 다음 단계로 바꾸기)는 사람 결정
 8. 행운 줄 확률 표기의 자릿수가 앞뒤로 다를 수 있다(예: "신화 0.0020% → 0.020%") — RollOdds가 표마다 자릿수를 정하기 때문(합 100 규칙)
-9. `ROADMAP.md` 테스트 현황 표가 #16 전부터 실측보다 뒤처져 있었다(표 합계 3588 · 행 합 3378 · 실측 3655). #16 7단계에서 84행 전부를
-   실측으로 맞췄다(3953)
+9. ~~`ROADMAP.md` 테스트 현황 표가 #16 전부터 실측보다 뒤처져 있었다(행 합 3378)~~ — **틀린 기록, #L2에서 정정(2026-10-29).**
+   #13 마지막(`5b398db`) 표는 행이 맞았다(서버 49행 2299 · 클라 27행 1356 = 3655). 틀린 것은 **합계 줄 하나**(3588 — #13에서 안 고침).
+   "행 합 3378"은 #16 7단계의 내 계산 실수다(CRLF · LF가 섞인 파일에서 표를 읽다 중간에 멈췄다). #16 7단계가 84행 · 합계 3953으로
+   맞춘 결과 자체는 실측과 같다(#L2 단계 0 master Play: 서버 56행 2497 · 클라 28행 1456 / 0 failed)
+
+### #16 테스트 대조 정정 (#L2 단계 0, 2026-10-29)
+
+#16 보고는 "이전 서버 2318"과 갱신 29를 적었다 — #13 기준선 2299에 신설 144 + 갱신 29를 더하면 2472로 실측 2497과 25가 어긋난다.
+**25의 정체:** #16 2단계 갱신 +19(보고가 2단계 Play 실측 2318을 "이전"으로 써서 빠졌다) + PlayerStateServiceTests 3단계 +6
+(보고가 63 → 69로 적었다 — 실제는 57 → 63 → 69). #14 · #15는 테스트 파일을 바꾸지 않았다(`git diff 5b398db..af933b2`).
+
+#13 → #16 서버(2299 → 2497, +198) — Play 실측 단계별: 2299 →(2단계 +19) 2318 →(3단계 +79) 2397 →(4단계 1/2 +74) 2471 →(4단계 2/2 +26) 2497
+```
+신설  GamepassServiceTests 23 · PolicyGateTests 7 · PurchaseRequestServiceTests 22 · ProductServiceTests 21   (3단계)
+      ShopEffectsTests 33 · BoostServiceTests 18 (4단계 1/2) · AutoClickServiceTests 20 (4단계 2/2)         = 144
+갱신  ConfigTests 110 → 117 · MigrationsTests 43 → 49 · SchemaTests 49 → 54 · GymServiceTests 45 → 46   (2단계 +19)
+      PlayerStateServiceTests 57 → 63 (3단계) → 69 (4단계 2/2)                                           (+12)
+      PetServiceTests 67 → 84 · PetRequestServiceTests 23 → 28 · UpgradeServiceTests 34 → 35 (4단계 1/2)  (+23) = 54
+```
+#13 → #16 클라(1356 → 1456, +100): 신설 RobuxShopTests 60 · PlayerStateClientTests 36 → 43 · UpgradeShopTests 44 → 45 ·
+AutoToolsTests 28 → 29 · HudLayoutTests 432 → 463
+근거: 개수는 Play 실측(#16 각 단계 Play · #L2 단계 0). 단계 귀속은 커밋별 정적 check 수 차이로 찾았다(원인 찾기용 — 값의 원본은 실측)
 
 ### Phase 7 — 결정 완료 (2026-10-24 사람 결정, 지시서 #10) · 불일치가 어디서 해소되는가
 
