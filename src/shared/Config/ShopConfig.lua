@@ -153,6 +153,11 @@ ShopConfig.GAMEPASS_ORDER = {
 	"petSlots3", "petStorage100", "hatch3x", "petLuck2x", "auraLuck10x", "titleLuck10x",
 }
 
+-- Roblox Plus 구독 프롬프트(S16 — 지시서 #17). 세션에 한 번, 환생 직후 또는 상점을 열 때 · 이미 구독자면 안 띄운다(PlusPromptService).
+-- ⚠️ 꺼 둔다(false). Studio에서 이 프롬프트가 어떻게 동작하는지 공식 문서에 없고(2026-10-30 확인 — 확인 못 함), 실제 구독(결제)
+-- 프롬프트라 MCP로 잴 수 없다. 켜는 시점은 사람이 정한다(docs/PENDING.md "Phase 8 — #17"). 커밋 값 false는 ConfigTests가 잰다.
+ShopConfig.PLUS_PROMPT_ENABLED = false
+
 -- 반드시 "최고 단계만". 절대 누적 곱셈 금지 (CLAUDE.md 금지 사항).
 ShopConfig.STRENGTH_TIER_NOTE = "highest_only"
 

@@ -10,6 +10,8 @@
 -- 공허 훈련 구역(로벅스 전용)은 프리미엄(남색) + 금테. 금테는 Highlight 외곽선 하나다(처음에 한 번만 만든다).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GymLayout = require(ReplicatedStorage.Shared.GymLayout)
+local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 local Workspace = game:GetService("Workspace")
 
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
@@ -38,10 +40,13 @@ local function paintGyms()
 		return
 	end
 	local rebirths = Store.get("rebirths")
+	local shop = Store.get("shop")
+	-- 선해금 · 공허 게임패스(지시서 #17)도 열린 색 — 서버와 같은 GymLayout.shopUnlocked
+	local unlocked = GymLayout.shopUnlocked(if type(shop) == "table" then shop.gymUnlocks else nil, ShopEffectsLogic.fromSummary(shop).owns)
 	for _, part in ipairs((gymFolder :: Instance):GetChildren()) do
 		local index = part:GetAttribute("GymIndex")
 		if part:IsA("BasePart") and type(index) == "number" then
-			local role = WorldLabelLogic.gymBodyRole(index, rebirths)
+			local role = WorldLabelLogic.gymBodyRole(index, rebirths, unlocked)
 			part.Color = UiTheme.Colors[role].base
 			if role == "premium" and voidEdge == nil then
 				local edge = Instance.new("Highlight")
@@ -59,6 +64,7 @@ end
 
 Store.subscribe("lifeBlox", paintPads)
 Store.subscribe("rebirths", paintGyms)
+Store.subscribe("shop", paintGyms)
 
 task.spawn(function()
 	local folder = Workspace:WaitForChild("ClickPads")

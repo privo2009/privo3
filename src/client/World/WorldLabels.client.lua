@@ -274,7 +274,8 @@ local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 
 -- 로벅스로 열린 기구(지시서 #16 — 공허 게임패스 소유). 서버 GymService와 같은 GymLayout.shopUnlocked. 선해금 기록은 #17이 요약에 싣는다
 local function shopUnlocked(): (number) -> boolean
-	return GymLayout.shopUnlocked(nil, ShopEffectsLogic.fromSummary(Store.get("shop")).owns)
+	local shop = Store.get("shop")
+	return GymLayout.shopUnlocked(if type(shop) == "table" then shop.gymUnlocks else nil, ShopEffectsLogic.fromSummary(shop).owns)
 end
 
 local gymBoards: { [number]: Billboard } = {}

@@ -21,6 +21,7 @@ local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
 
 -- 작은 배수(1.2 · 2 · 100)는 Formatter의 소수 2자리 대신 짧게 적는다.
 local function formatSmall(value: number): string
@@ -203,11 +204,28 @@ function WorldLabelLogic.padBodyRole(index: number, lifeBlox: BigNumber): UiThem
 	return if ClickPadConfig.isUnlocked(WORLD_ID, index, lifeBlox) then "power" else "neutral"
 end
 
-function WorldLabelLogic.gymBodyRole(index: number, rebirths: BigNumber): UiTheme.ColorRole
+function WorldLabelLogic.gymBodyRole(index: number, rebirths: BigNumber, shopUnlocked: ((number) -> boolean)?): UiTheme.ColorRole
 	if GymConfig.isRobuxOnly(index) then
 		return "premium"
 	end
-	return if GymConfig.isUnlockedByRebirths(index, rebirths) then "power" else "neutral"
+	-- 선해금(지시서 #17)으로 열린 기구도 열린 색
+	local bought = shopUnlocked ~= nil and shopUnlocked(index)
+	return if GymConfig.isUnlockedByRebirths(index, rebirths) or bought then "power" else "neutral"
+end
+
+-- 잠긴 기구 옆 "로벅스로 열기" 프롬프트(지시서 #17 — DESIGN 9장 "창별 상품 버튼"). 켤지 · 누르면 요청할 상품 키 · 글자.
+-- 켬 = 아직 안 열림(환생 수 · 선해금 · 공허 게임패스 모두 아님) + 대시보드에 등록됨. 공허는 게임패스, 나머지는 선해금 개발자 상품.
+export type GymPrompt = { enabled: boolean, key: string, actionText: string, objectText: string }
+function WorldLabelLogic.gymPrompt(index: number, rebirths: BigNumber, shopUnlocked: ((number) -> boolean)?): GymPrompt
+	local key = GymConfig.getShopKey(index)
+	local bought = shopUnlocked ~= nil and shopUnlocked(index)
+	local open = bought or (not GymConfig.isRobuxOnly(index) and GymConfig.isUnlockedByRebirths(index, rebirths))
+	return {
+		enabled = not open and ShopConfig.isRegistered(key),
+		key = key,
+		actionText = Locale.t("world.gym.buyPrompt"),
+		objectText = Locale.t("world.gym.buyObject", { name = Names.product(key), price = string.format("%d R$", GymConfig.getRobuxPrice(index)) }),
+	}
 end
 
 -- 입장 게이트. 위치 안내만. 런 중에는 숨긴다(이미 지나왔다).

@@ -135,6 +135,8 @@ AttackService.init()
 -- 빈도 상한은 클라 입력 경로 전용이고 서버 재적용이 걸리면 안 되기 때문이다.
 local RebirthService = require(script.Parent.Systems.RebirthService)
 RebirthService.init()
+-- Roblox Plus 프롬프트(S16 — 지시서 #17). ShopConfig.PLUS_PROMPT_ENABLED = false면 판정만 하고 띄우지 않는다
+require(script.Parent.Systems.PlusPromptService).init(RebirthService.onRebirthed)
 
 -- 환생 창의 요청 채널 (Phase 6 지시서 #5). RebirthService.init() 뒤 — 요청을 그쪽으로 넘긴다.
 local RebirthRequestService = require(script.Parent.Systems.RebirthRequestService)

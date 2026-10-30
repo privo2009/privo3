@@ -89,7 +89,7 @@ local function show(gain: BigNumber)
 	end
 	-- 로벅스로 열린 기구(공허 게임패스 — 지시서 #16)도 서버와 같은 판정(GymLayout.shopUnlocked)
 	local gym = GymLayout.resolve(root.Position, Store.get("rebirths"),
-		GymLayout.shopUnlocked(nil, ShopEffectsLogic.fromSummary(Store.get("shop")).owns))
+		GymLayout.shopUnlocked(Store.get("shop").gymUnlocks, ShopEffectsLogic.fromSummary(Store.get("shop")).owns)) -- 선해금(#17)도
 	local popup = pool[nextIndex]
 	nextIndex = nextIndex % #pool + 1
 

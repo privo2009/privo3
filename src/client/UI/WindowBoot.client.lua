@@ -90,6 +90,13 @@ local shopWindow = UpgradeShopWindow.create({
 ScreenController.register("Shop", "Window", function()
 	return shopWindow.root
 end)
+-- 상점을 열면 Roblox Plus 프롬프트 기회를 서버에 알린다(S16 — 띄울지는 서버: 플래그 · 세션 한 번 · 구독자. 지시서 #17)
+shopWindow.root:GetPropertyChangedSignal("Visible"):Connect(function()
+	if shopWindow.root.Visible then
+		local payload: Remotes.PlusPromptRequestPayload = { reason = "shop" }
+		channels.plusPromptRequest:FireServer(payload)
+	end
+end)
 -- HUD 부스트 표시 → 상점 로벅스 탭 "포션" 묶음(지시서 #17 — Navigation)
 require(script.Parent.Navigation).onOpenPotions(function()
 	ScreenController.open("Shop")

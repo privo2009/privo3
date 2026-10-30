@@ -187,6 +187,8 @@ Strings.Entries = {
 	["world.gym.robuxOnly"] = { en = "Robux only", ko = "로벅스 전용" },
 	["world.gym.robuxOnlySoon"] = { en = "Robux only (coming soon)", ko = "로벅스 전용(준비 중)" },
 	["world.gym.need"] = { en = "Need {amount} Rebirths", ko = "필요 환생 {amount}" },
+	["world.gym.buyPrompt"] = { en = "Unlock with Robux", ko = "로벅스로 열기" }, -- 잠긴 기구 프롬프트(지시서 #17)
+	["world.gym.buyObject"] = { en = "{name} · {price}", ko = "{name} · {price}" },
 	["world.gym.lockedNeed"] = { en = "Locked · Need {amount} Rebirths", ko = "잠김 · 필요 환생 {amount}" },
 	["world.gate.title"] = { en = "Entry Gate", ko = "입장" },
 	["world.gate.detail"] = { en = "Walk through to start", ko = "지나가면 시작" },

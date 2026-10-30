@@ -40,6 +40,9 @@ export type Gateway = {
 	getPolicy: (player: Player) -> (boolean, any),
 	-- (조회 성공, 상품 정보 표) — 실패면 (false, 오류 문구). kind = "gamepass" | "product". 양보(yield)한다
 	getProductInfo: (id: number, kind: string) -> (boolean, any),
+	-- Roblox Plus(S16 — 지시서 #17). Player.HasRobloxSubscription(읽기 None) · PromptRobloxSubscriptionPurchase(보안 None, 공식 예제는 서버 Script)
+	hasRobloxSubscription: (player: Player) -> boolean,
+	promptRobloxSubscription: (player: Player) -> (boolean, string),
 }
 
 -- ===== 실물 ======================================================================================
@@ -100,6 +103,18 @@ function MarketplaceGateway.real(): Gateway
 		end
 		return true, info
 	end
+	gateway.hasRobloxSubscription = function(player: Player): boolean
+		local ok, v = pcall(function()
+			return (player :: any).HasRobloxSubscription
+		end)
+		return ok and v == true
+	end
+	gateway.promptRobloxSubscription = function(player: Player): (boolean, string)
+		local ok = pcall(function()
+			MarketplaceService:PromptRobloxSubscriptionPurchase(player)
+		end)
+		return ok, if ok then "" else "prompt_failed"
+	end
 	gateway.getProductInfo = function(id: number, kind: string): (boolean, any)
 		local infoType = if kind == "gamepass" then Enum.InfoType.GamePass else Enum.InfoType.Product
 		local ok, info = pcall(function()
@@ -123,6 +138,7 @@ export type Fake = Gateway & {
 	failOwns: { [number]: boolean },
 	policy: { [number]: any },
 	productInfo: { [number]: any },
+	subscribed: { [number]: boolean },
 	prompts: { { kind: string, player: Player, id: number } },
 	ownsCalls: number,
 	finish: (Player, number, boolean) -> (),
@@ -130,7 +146,7 @@ export type Fake = Gateway & {
 }
 
 function MarketplaceGateway.fake(): Fake
-	local fake: any = { owned = {}, failOwns = {}, policy = {}, productInfo = {}, prompts = {}, ownsCalls = 0 }
+	local fake: any = { owned = {}, failOwns = {}, policy = {}, productInfo = {}, subscribed = {}, prompts = {}, ownsCalls = 0 }
 	local finishedCallbacks: { (Player, number, boolean) -> () } = {}
 	local receiptCallback: ((ReceiptInfo) -> string)? = nil
 	fake.ownsGamePass = function(userId: number, passId: number): (boolean, boolean)
@@ -164,6 +180,13 @@ function MarketplaceGateway.fake(): Fake
 			return false, nil
 		end
 		return true, info
+	end
+	fake.hasRobloxSubscription = function(player: Player): boolean
+		return fake.subscribed[player.UserId] == true
+	end
+	fake.promptRobloxSubscription = function(player: Player): (boolean, string)
+		table.insert(fake.prompts, { kind = "plus", player = player, id = 0 })
+		return true, ""
 	end
 	fake.getProductInfo = function(id: number, _kind: string): (boolean, any)
 		local info = fake.productInfo[id]

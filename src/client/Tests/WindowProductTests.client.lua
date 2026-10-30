@@ -154,6 +154,37 @@ do
 	w.root:Destroy()
 end
 
+-- 3b. 운동기구 로벅스 프롬프트 · 선해금 표시 (지시서 #17) ------------------------------------------------------
+do
+	local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
+	local GymLayout = require(ReplicatedStorage.Shared.GymLayout)
+	local WorldLabelLogic = require(script.Parent.Parent.World.WorldLabelLogic)
+	local zero = BigNum.new(0, 0)
+	local none = GymLayout.shopUnlocked({}, function()
+		return false
+	end)
+	local p1 = WorldLabelLogic.gymPrompt(1, zero, none)
+	check("기구 프롬프트: 잠긴 기구 1 → 켬 · gymUnlock1 · 글자(Strings)", p1.enabled and p1.key == "gymUnlock1"
+		and p1.actionText == Locale.t("world.gym.buyPrompt") and string.find(p1.objectText, "29 R$", 1, true) ~= nil)
+	local open = WorldLabelLogic.gymPrompt(1, GymConfig.getUnlockRebirths(1), none)
+	check("기구 프롬프트: 환생 수로 열린 기구 → 끔", not open.enabled)
+	local pre = GymLayout.shopUnlocked({ 2 }, function()
+		return false
+	end)
+	check("기구 프롬프트: 선해금(클라 목록 꼴 { 2 }) → 끔 · 몸통 열린 색", not WorldLabelLogic.gymPrompt(2, zero, pre).enabled
+		and WorldLabelLogic.gymBodyRole(2, zero, pre) == "power" and WorldLabelLogic.gymBodyRole(2, zero, none) == "neutral")
+	local void = GymConfig.findByGamepass("voidTrainingZone") :: number
+	local vp = WorldLabelLogic.gymPrompt(void, BigNum.new(1, 30), none)
+	check("기구 프롬프트: 공허는 환생 수와 상관없이 게임패스(voidTrainingZone)로", vp.enabled and vp.key == "voidTrainingZone")
+	local owned = GymLayout.shopUnlocked({}, function(k: string)
+		return k == "voidTrainingZone"
+	end)
+	check("기구 프롬프트: 공허 게임패스 보유 → 끔", not WorldLabelLogic.gymPrompt(void, zero, owned).enabled)
+	check("서버 꼴(프로필 {[\"3\"] = true})도 그대로", GymLayout.shopUnlocked({ ["3"] = true }, function()
+		return false
+	end)(3))
+end
+
 -- 4. 폰 틀 705×338 — 세 창의 새 칸(로벅스 탭 · 사용 · ×3 · 상품 버튼) 넘침 0 · 11px (그 Play의 언어) -----------------
 do
 	local gui = Instance.new("ScreenGui")

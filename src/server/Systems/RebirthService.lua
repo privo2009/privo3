@@ -284,8 +284,21 @@ local REAL: Deps = {
 --
 -- source는 호출 경로 태그다. nil이나 빈 문자열이면 "unknown"으로 접힌다
 -- (ChallengeService.advance/cashout과 같은 규칙).
+local rebirthedListeners: { (Player) -> () } = {}
+
+-- 환생이 성공하면 부른다(지시서 #17 — Roblox Plus 프롬프트 기회 S16). 반응하는 쪽이 등록한다(순환 방지). 실패 · 거부에는 부르지 않는다.
+function RebirthService.onRebirthed(callback: (Player) -> ())
+	table.insert(rebirthedListeners, callback)
+end
+
 function RebirthService.rebirth(player: Player, source: string?): (boolean, any)
-	return runRebirth(REAL, player, source)
+	local ok, value = runRebirth(REAL, player, source)
+	if ok then
+		for _, cb in ipairs(rebirthedListeners) do
+			task.spawn(cb, player)
+		end
+	end
+	return ok, value
 end
 
 local initialized = false
