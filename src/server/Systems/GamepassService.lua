@@ -9,6 +9,14 @@
 --   isResolved(player, key) — 그 패스의 소유가 확정됐는가(조회 성공 · 구매 완료 · 미등록). 펫 장착 잘라내기(E6)처럼
 --   "확인이 끝난 뒤에만" 해야 하는 일이 이것을 본다(DESIGN 9장 S17).
 --
+-- ===== Studio에서는 실제 소유를 무시한다 (G-OWN — 2026-10-31 사람 결정, 지시서 #17) =====================
+--
+--   개발 계정이 게임 제작자라 패스 23개를 전부 가진 것으로 조회된다(2026-10-30 실측). 그대로 두면 측정 Play · 사람 직접 플레이가
+--   ×1024와 모든 패스 효과로 돌고, 그 상태에서 번 힘 · 블럭스가 실제 프로필에 저장된다.
+--   그래서 Studio(RunService:IsStudio())에서는 UserOwnsGamePassAsync를 부르지 않고 전부 "미보유 · 확정"으로 시작한다.
+--   패스가 필요하면 TEST_GAMEPASSES로만 켠다. 구매 완료 이벤트로 얻은 소유는 Studio에서도 그 세션에만 반영한다.
+--   실서버는 바뀌지 않는다(조회 · 재조회 그대로). 시작할 때 "[Gamepass] Studio — 실제 소유 무시" 한 줄.
+--
 -- ===== 가짜 소유 (Studio 전용 — Bootstrap TEST_GAMEPASSES) ========================================
 --
 --   키 목록을 넘기면 Studio에서만 그 패스를 가진 것으로 친다(확정). 저장하지 않는다. Studio가 아니면 무시하고 ERROR 로그.
@@ -24,6 +32,7 @@ local MarketplaceGateway = require(script.Parent.MarketplaceGateway)
 local GamepassService = {}
 
 GamepassService.RETRY_SEC = 60 -- 조회 실패한 패스를 다시 조회하는 간격(S1)
+GamepassService.STUDIO_IGNORE_LINE = "[Gamepass] Studio — 실제 소유 무시"
 
 export type Deps = {
 	gateway: MarketplaceGateway.Gateway,
@@ -69,6 +78,9 @@ local function createRuntime(deps: Deps)
 	local entries: { [Player]: Entry } = {}
 	local catalog = deps.catalog or ShopConfig
 	local fakeSet, fakeLine = resolveTestPasses(deps.testPasses, deps.isStudio, catalog)
+	if deps.isStudio then
+		deps.log(GamepassService.STUDIO_IGNORE_LINE)
+	end
 	if fakeLine ~= nil then
 		deps.log(fakeLine)
 	end
@@ -98,6 +110,9 @@ local function createRuntime(deps: Deps)
 			elseif not catalog.isRegistered(key) then
 				entry.owned[key] = false
 				entry.resolved[key] = true -- 미등록 = 아무도 없다(확정)
+			elseif deps.isStudio then
+				entry.owned[key] = false
+				entry.resolved[key] = true -- G-OWN: Studio는 실제 소유를 무시한다(확정 — 재조회도 없다)
 			else
 				query(player, entry, key)
 			end

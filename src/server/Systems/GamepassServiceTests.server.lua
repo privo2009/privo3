@@ -32,7 +32,8 @@ local function newWorld(opts: { testPasses: { string }?, isStudio: boolean? }?)
 	local w = { gateway = MarketplaceGateway.fake(), notified = 0, logs = {} :: { string } }
 	w.runtime = pure.createRuntime({
 		gateway = w.gateway,
-		isStudio = if o.isStudio == nil then true else o.isStudio :: boolean,
+		-- 기본은 실서버 분기(실제 조회). Studio 분기(G-OWN — 실제 소유 무시)는 isStudio = true로 따로 잰다
+		isStudio = o.isStudio == true,
 		testPasses = o.testPasses,
 		notify = function()
 			w.notified += 1
@@ -116,13 +117,37 @@ do
 	local w = newWorld({ testPasses = { "rebirth2x", "damage2x" }, isStudio = true })
 	w.runtime.onJoin(playerA, 0)
 	check("가짜 소유(Studio): 미등록(ID 0) 패스도 소유 · 확정", w.runtime.owns(playerA, "rebirth2x") and w.runtime.isResolved(playerA, "rebirth2x"))
-	check("가짜 소유(Studio): 켠 패스는 조회하지 않는다(등록 4개 중 damage2x 빼고 3번)", w.runtime.owns(playerA, "damage2x") and w.gateway.ownsCalls == 3,
+	check("가짜 소유(Studio): 켠 패스는 소유 · Studio라 실제 조회 0번(G-OWN)", w.runtime.owns(playerA, "damage2x") and w.gateway.ownsCalls == 0,
 		tostring(w.gateway.ownsCalls))
-	check("가짜 소유(Studio): 안내 로그 한 줄", #w.logs == 1)
+	check("가짜 소유(Studio): 로그 두 줄(실제 소유 무시 · 가짜 소유 안내)", #w.logs == 2)
 	local outside = newWorld({ testPasses = { "rebirth2x", "damage2x" }, isStudio = false })
 	outside.runtime.onJoin(playerA, 0)
 	check("가짜 소유가 Studio 밖에서 무시됨: 소유 없음 · ERROR 로그", not outside.runtime.owns(playerA, "rebirth2x")
 		and not outside.runtime.owns(playerA, "damage2x") and #outside.logs == 1 and string.find(outside.logs[1], "ERROR", 1, true) ~= nil)
+end
+
+-- 5b. G-OWN (2026-10-31 사람 결정): Studio는 실제 소유를 무시한다 -----------------------------------------
+do
+	local w = newWorld({ isStudio = true })
+	w.gateway.owned[playerA.UserId] = { [IDS.damage2x] = true, [IDS.blox2x] = true, [IDS.strength8x] = true, [IDS.autoClicker] = true }
+	w.runtime.onJoin(playerA, 0)
+	check("G-OWN Studio: 실제로 가진 패스도 미보유 · 확정 · 조회 0번", not w.runtime.owns(playerA, "damage2x") and w.runtime.isResolved(playerA, "damage2x")
+		and #w.runtime.ownedKeys(playerA) == 0 and w.gateway.ownsCalls == 0, tostring(w.gateway.ownsCalls))
+	check("G-OWN Studio: 시작 로그 한 줄", table.find(w.logs, "[Gamepass] Studio — 실제 소유 무시") ~= nil)
+	w.runtime.tick(1e6)
+	check("G-OWN Studio: 재조회도 하지 않는다", w.gateway.ownsCalls == 0)
+	w.runtime.onPurchaseFinished(playerA, IDS.blox2x, true)
+	check("G-OWN Studio: 구매 완료 이벤트는 그 세션에 반영", w.runtime.owns(playerA, "blox2x") and not w.runtime.owns(playerA, "damage2x"))
+	local real = newWorld({ isStudio = false })
+	real.gateway.owned[playerA.UserId] = { [IDS.damage2x] = true }
+	real.runtime.onJoin(playerA, 0)
+	check("G-OWN 실서버: 실제 조회 그대로(가진 패스 보유) · 시작 로그 없음", real.runtime.owns(playerA, "damage2x") and real.gateway.ownsCalls == 4
+		and table.find(real.logs, "[Gamepass] Studio — 실제 소유 무시") == nil)
+	local fake = newWorld({ testPasses = { "rebirth2x" }, isStudio = true })
+	fake.gateway.owned[playerA.UserId] = { [IDS.damage2x] = true }
+	fake.runtime.onJoin(playerA, 0)
+	check("G-OWN + TEST_GAMEPASSES: 가짜로 켠 패스만 보유(실제 소유는 무시) · 조회 0번", fake.runtime.owns(playerA, "rebirth2x")
+		and not fake.runtime.owns(playerA, "damage2x") and fake.gateway.ownsCalls == 0)
 end
 
 -- 6. 커밋된 TEST_GAMEPASSES = nil (Bootstrap이 GamepassService.init으로 넘긴 값) -----------------------------
