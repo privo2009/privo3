@@ -11,6 +11,12 @@
 --   6. PurchaseGranted. 저장이 확인되지 않으면 NotProcessedYet — 다시 와도 2번에서 걸러져 두 번 지급하지 않는다
 --
 -- 콜백 설정은 이 파일의 init 하나뿐이다(MarketplaceGateway.setProcessReceipt — ProcessReceipt는 서버 한 곳만).
+--
+-- ===== 가짜 영수증 (Studio · Mock 프리셋 전용 — Bootstrap TEST_RECEIPTS, 지시서 #17 6단계) ==========================
+--   개발자 상품 키 목록을 적고 TEST_PRESET과 함께 Play하면, 프로필이 로드될 때 그 상품의 영수증을 같은 처리 순서(process)로 흘린다
+--   — 실제 결제 없이 지급 경로를 실물로 잰다. 첫 영수증은 같은 PurchaseId로 한 번 더 보내 멱등(지급 1회)도 본다.
+--   Studio가 아니거나 Mock 세션이 아니면(ProfileManager.mockPreset() == nil) 무시하고 ERROR — 실제 프로필에는 절대 흘리지 않는다.
+--   커밋 값 nil은 ProductGrantsTests가 잰다(켠 Play에서는 그 줄이 실패한다 — 그 Play로 테스트 개수를 세지 않는다).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -137,6 +143,34 @@ ProductService._pure = { createRuntime = createRuntime, record = record }
 -- ===== 런타임 ======================================================================================
 
 local runtime: any = nil
+local requestedTestReceipts: { string }? = nil
+local testReceiptsRegistered = false
+
+-- Bootstrap의 TEST_RECEIPTS 값(테스트가 커밋 값 nil을 확인하는 통로).
+function ProductService.getRequestedTestReceipts(): ({ string }?, boolean)
+	return requestedTestReceipts, testReceiptsRegistered
+end
+
+-- 가짜 영수증을 켤 수 있는가(순수). (켤 키 목록 또는 nil, 로그 한 줄 또는 nil)
+function ProductService.resolveTestReceipts(list: any, isStudio: boolean, mockPreset: string?): ({ string }?, string?)
+	if list == nil then
+		return nil, nil
+	end
+	if not isStudio or mockPreset == nil then
+		return nil, "[ProductService] ERROR TEST_RECEIPTS는 Studio + TEST_PRESET(Mock)에서만 — 무시한다. Bootstrap의 TEST_RECEIPTS를 nil로 되돌릴 것"
+	end
+	if type(list) ~= "table" then
+		return nil, "[ProductService] ERROR TEST_RECEIPTS는 상품 키 목록이어야 한다 — 무시한다"
+	end
+	local keys: { string } = {}
+	for _, key in ipairs(list) do
+		local def = ShopConfig.get(key)
+		if def ~= nil and def.kind == "product" and def.id > 0 then
+			table.insert(keys, key)
+		end
+	end
+	return keys, string.format("[ProductService] ⚠️ 가짜 영수증(Studio · Mock %s — 실제 결제 · 실제 프로필 없음): %s", mockPreset, table.concat(keys, ", "))
+end
 
 function ProductService.register(key: string, grant: Grant)
 	assert(runtime ~= nil, "ProductService.register: init 전")
@@ -205,6 +239,41 @@ function ProductService.init()
 		return decision
 	end)
 	print("[ProductService] 영수증 처리 준비 완료 (멱등 — 최근 " .. Schema.LIMITS.MAX_PURCHASES .. "개 기록 · 저장 확인 뒤 PurchaseGranted)")
+end
+
+-- 가짜 영수증 시작(위 "가짜 영수증"). init 뒤 · 지급 함수 등록 뒤에 부른다.
+function ProductService.startTestReceipts(list: { string }?, isStudio: boolean)
+	requestedTestReceipts = list
+	testReceiptsRegistered = true
+	local keys, line = ProductService.resolveTestReceipts(list, isStudio, ProfileManager.mockPreset())
+	if line ~= nil then
+		warn(line)
+	end
+	if keys == nil or runtime == nil then
+		return
+	end
+	local function run(player: Player)
+		task.spawn(function()
+			for i, key in ipairs(keys :: { string }) do
+				local def = ShopConfig.get(key) :: ShopConfig.ProductDef
+				local info = { PlayerId = player.UserId, PurchaseId = string.format("TEST-%s-%d", key, i), ProductId = def.id, CurrencySpent = 0 }
+				local decision = runtime.process(info)
+				print(string.format("[ProductService] ⚠️ 가짜 영수증 %s(%s) → %s", info.PurchaseId, key, decision))
+				if i == 1 then
+					local again = runtime.process(info) -- 같은 영수증 다시(멱등 — 지급 1회)
+					print(string.format("[ProductService] ⚠️ 가짜 영수증 %s 다시 → %s", info.PurchaseId, again))
+				end
+			end
+		end)
+	end
+	ProfileManager.onLoaded(function(player: Player)
+		run(player)
+	end)
+	for _, player in ipairs(Players:GetPlayers()) do
+		if ProfileManager.get(player) ~= nil then
+			run(player)
+		end
+	end
 end
 
 return ProductService

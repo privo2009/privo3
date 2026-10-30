@@ -29,6 +29,12 @@ local TEST_PRESET: string? = nil
 -- ⚠️ 커밋 값은 언제나 nil이다(GamepassServiceTests가 잰다 — 켠 Play에서는 그 줄이 실패한다. 그 Play로 테스트 개수를 세지 않는다).
 local TEST_GAMEPASSES: { string }? = nil
 
+-- ── 가짜 영수증: TEST_RECEIPTS (Studio · Mock 프리셋 전용, 지시서 #17 6단계) ─────────────────
+-- 개발자 상품 키 목록을 적고 TEST_PRESET과 함께 Play하면 접속할 때 그 영수증을 처리 순서대로 흘린다(실제 결제 없음 · Mock 프로필만).
+-- 예: { "strengthPotion", "luckyRoll5", "gymUnlock5" }. Studio가 아니거나 프리셋이 없으면 무시하고 ERROR 로그(ProductService).
+-- ⚠️ 커밋 값은 언제나 nil이다(ProductGrantsTests가 잰다 — 켠 Play에서는 그 줄이 실패한다. 그 Play로 테스트 개수를 세지 않는다).
+local TEST_RECEIPTS: { string }? = nil
+
 -- ── 화면 언어: TEST_LOCALE (Studio 전용, 지시서 #L1 K2) ────────────────────────────────────
 -- "en" 또는 "ko"를 적고 Play하면 계정 언어 대신 그 언어로 보인다(클라 · Kick 안내문 둘 다 — Server/Systems/LocaleGate).
 -- Studio가 아니면 무시하고 ERROR 로그를 남긴다. ⚠️ 커밋 값은 언제나 nil이다(LocaleTests가 잰다 — 켠 Play에서는 그 줄이 실패한다).
@@ -202,6 +208,7 @@ local granted = require(script.Parent.Systems.ProductGrants).registerAll({
 	notify = notifyState,
 })
 print(string.format("[Bootstrap] 개발자 상품 지급 함수 %d개 등록", #granted))
+ProductService.startTestReceipts(TEST_RECEIPTS, game:GetService("RunService"):IsStudio())
 -- 포션 켜기 채널(지시서 #17 4단계): 보관함 −1 → 부스트 15분
 require(script.Parent.Systems.PotionRequestService).init({
 	getData = function(player: Player)

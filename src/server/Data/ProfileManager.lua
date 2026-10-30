@@ -214,6 +214,13 @@ local function handlePlayerAdded(player: Player)
 	fireLoaded(player, profile)
 end
 
+-- 이번 서버가 테스트 프리셋 Mock 저장소로 세션을 여는가(TestPresetGate가 고른 프리셋 이름, 아니면 nil).
+-- 실제 데이터에 닿으면 안 되는 Studio 전용 도구(가짜 영수증 TEST_RECEIPTS — 지시서 #17)가 이것으로 Mock을 확인한다.
+local mockPreset: string? = nil
+function ProfileManager.mockPreset(): string?
+	return mockPreset
+end
+
 -- testPreset: Bootstrap의 TEST_PRESET(Studio 전용 테스트 프리셋 이름, 커밋 값은 언제나 nil). TestPresetGate가 판정한다.
 function ProfileManager.init(testPreset: string?)
 	if initialized then
@@ -224,10 +231,11 @@ function ProfileManager.init(testPreset: string?)
 
 	-- ⚠️ 첫 세션을 열기 전에 정한다(아래 GetPlayers 순회보다 앞). 프리셋이면 Mock만 — 실제 저장소에는 세션을 열지 않는다.
 	TestPresetGate.register(testPreset)
-	local store, _active, line, level = TestPresetGate.chooseSessionStore(testPreset, RunService:IsStudio(), playerStore, function(name: string, template: any)
+	local store, active, line, level = TestPresetGate.chooseSessionStore(testPreset, RunService:IsStudio(), playerStore, function(name: string, template: any)
 		return ProfileStore.New(name, template)
 	end)
 	sessionStore = store
+	mockPreset = active
 	if line ~= nil then
 		if level == "warn" then
 			warn(line)
