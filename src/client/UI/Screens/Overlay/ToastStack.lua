@@ -7,11 +7,16 @@
 -- 그 자리로 올라오고(TouchSafeLayout, 2026-10-24 실측 y 0.357~0.659), 왼쪽 아래는 이동 조이스틱 영역이다.
 -- 한 줄 = 소 단계 글자. **희귀도 색 글자 + 중립 어두운 바탕** — 희귀도 색 바탕에 흰 글자보다 등급이 먼저 읽힌다.
 -- 배치값은 Claude가 정했다(docs/UI.md "지시서 #10" 절).
+--
+-- 폰 예외 (#L2, 2026-10-29 사람 결정): 한 줄 칸에 글자 하한(11px) 두 줄이 안 들어가는 낮은 화면(Galaxy A06 338px → 14.9px)에서는
+-- 영어 토스트가 칸 폭(169px)을 넘친다. 그때만 **동시 2개 · 각 두 줄(글자 감싸기)**로 바꾼다 — 같은 띠 높이를 2줄로 나눠 쓴다.
+-- 넘치는 토스트는 큐로 돌아가 차례를 기다린다(ToastLogic.setLimit — 잃지 않는다). 화면 높이가 바뀌면 다시 고른다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local OverlayParts = require(script.Parent.OverlayParts)
+local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local ToastLogic = require(script.Parent.Parent.Parent.Logic.ToastLogic)
 
 local ToastStack = {}
@@ -21,6 +26,7 @@ local WIDTH = 1 - Layout.EDGE_MARGIN - X0 -- 0.24
 local TOP = 0.005
 local ROW_H = 0.044 -- 3줄 + 간격이 띠(0.15) 안에 들도록(부동소수 여유)
 local GAP = 0.005
+ToastStack.COMPACT_VISIBLE = 2 -- 폰 예외에서 동시에 보이는 수
 ToastStack.Bounds = { x0 = X0, y0 = TOP, x1 = X0 + WIDTH, y1 = TOP + ToastLogic.MAX_VISIBLE * ROW_H + (ToastLogic.MAX_VISIBLE - 1) * GAP }
 
 export type Entry = { text: string, tier: number }
@@ -31,6 +37,7 @@ export type Handle = {
 	_rows: { TextLabel },
 	_queue: ToastLogic.Queue<Entry>,
 	_render: () -> (),
+	_isCompact: () -> boolean,
 }
 
 function ToastStack.create(now: (() -> number)?): Handle
@@ -61,12 +68,14 @@ function ToastStack.create(now: (() -> number)?): Handle
 	end
 
 	local queue = ToastLogic.new() :: ToastLogic.Queue<Entry>
+	local compact = false
+	local shownRows = #rows
 
 	local function render()
 		local list = queue.visible()
 		for i, label in ipairs(rows) do
 			local item = list[i]
-			if item ~= nil then
+			if item ~= nil and i <= shownRows then
 				label.Text = item.text .. " "
 				label.TextColor3 = UiTheme.rarityColor(item.tier)
 				label.Visible = true
@@ -75,6 +84,41 @@ function ToastStack.create(now: (() -> number)?): Handle
 			end
 		end
 	end
+
+	-- 폰 예외 고르기: 부모(화면) 높이로 한 줄 칸의 픽셀을 보고, 두 줄(하한 + 1px씩)이 안 들어가면 2개 · 두 줄로.
+	local function fit()
+		local parent = root.Parent
+		local screenH = if parent ~= nil and parent:IsA("GuiBase2d") then (parent :: GuiBase2d).AbsoluteSize.Y else 0
+		if screenH <= 0 then
+			return
+		end
+		local want = ROW_H * screenH < 2 * (TextScale.MIN_TEXT_PX + 1)
+		if want == compact then
+			return
+		end
+		compact = want
+		shownRows = if compact then ToastStack.COMPACT_VISIBLE else #rows
+		local rowH = if compact then (height - (shownRows - 1) * GAP) / shownRows else ROW_H
+		for i, label in ipairs(rows) do
+			label.Position = UDim2.fromScale(0, (i - 1) * (rowH + GAP) / height)
+			label.Size = UDim2.fromScale(1, rowH / height)
+			label.TextWrapped = compact
+		end
+		queue.setLimit(shownRows, clock())
+		render()
+	end
+	local parentConn: RBXScriptConnection? = nil
+	root.AncestryChanged:Connect(function()
+		if parentConn ~= nil then
+			parentConn:Disconnect()
+			parentConn = nil
+		end
+		local parent = root.Parent
+		if parent ~= nil and parent:IsA("GuiBase2d") then
+			parentConn = (parent :: GuiBase2d):GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+		end
+		fit()
+	end)
 
 	-- 가장 오래된 것이 사라질 시각에 한 번만 깨운다(Heartbeat 루프를 두지 않는다 · 예약은 늘 하나).
 	-- 깨어나면 지운 뒤 큐 맨 앞을 올리고, 아직 보이는 것이 있으면 다음 시각을 다시 예약한다.
@@ -109,6 +153,9 @@ function ToastStack.create(now: (() -> number)?): Handle
 		_rows = rows,
 		_queue = queue,
 		_render = render,
+		_isCompact = function()
+			return compact
+		end,
 	}
 end
 

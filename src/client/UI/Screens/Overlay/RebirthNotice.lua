@@ -73,6 +73,39 @@ function RebirthNotice.create(): Handle
 	change.TextColor3 = UiTheme.Colors.power.light
 	local reset = row("Reset", "small", GAP * 3 + TITLE_H + CHANGE_H, RESET_H)
 
+	-- 폰 맞춤(#L2): 소 단계 줄(2.5%)이 글자 하한(11px)보다 낮으면(Galaxy A06 338px → 8.4px) 하한 + 1px로 키운다.
+	-- 상단 정보 띠(15%)를 넘지 않게 줄 사이를 그만큼 좁힌다. Scale로 다시 쓴다(Offset 금지 — 구좌 가격 · 부스트 줄과 같은 방식).
+	local function fit()
+		local parent = root.Parent
+		local screenH = if parent ~= nil and parent:IsA("GuiBase2d") then (parent :: GuiBase2d).AbsoluteSize.Y else 0
+		if screenH <= 0 then
+			return
+		end
+		local resetH = math.max(RESET_H, (TextScale.MIN_TEXT_PX + 1) / screenH)
+		local gap = math.min(GAP, math.max(0, (Layout.TOP_HEIGHT - TOP - (TITLE_H + CHANGE_H + resetH)) / 4))
+		local total = TITLE_H + CHANGE_H + resetH + gap * 4
+		root.Size = UDim2.fromScale(WIDTH, total)
+		local function place(label: TextLabel, y: number, h: number)
+			label.Position = UDim2.fromScale(0.03, y / total)
+			label.Size = UDim2.fromScale(0.94, h / total)
+		end
+		place(title, gap, TITLE_H)
+		place(change, gap * 2 + TITLE_H, CHANGE_H)
+		place(reset, gap * 3 + TITLE_H + CHANGE_H, resetH)
+	end
+	local parentConn: RBXScriptConnection? = nil
+	root.AncestryChanged:Connect(function()
+		if parentConn ~= nil then
+			parentConn:Disconnect()
+			parentConn = nil
+		end
+		local parent = root.Parent
+		if parent ~= nil and parent:IsA("GuiBase2d") then
+			parentConn = (parent :: GuiBase2d):GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+		end
+		fit()
+	end)
+
 	local token = 0
 	local function show(notice: FeedbackLogic.RebirthNotice)
 		token += 1
