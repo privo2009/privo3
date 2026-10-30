@@ -103,8 +103,8 @@
 | `Systems/AutoClickServiceTests.server.lua` | 20 | 자동 클리커 S8 — 초당 15 · 30 · 소수 이월 · 수동 무시 · 수동 상한 10 불변 · 미보유 not_owned · 보유가 사라지면 끔 · 세션 토글(#16) |
 | `Tests/RobuxShopTests.client.lua` | 60 | 로벅스 상점 UI — 탭 전환 · 표시 값(ShopConfig) · 보유 / 준비 중 / 구매 가능 · 계단 지금 단계 · 행운 줄 확률 숫자 · 제한 숨김 · 요청 한 번만 · HUD 구좌 · 자동 클리커 잠김 · 부스트 표시 · 뽑기 창 행운 · 환생 창 2배 · 공허 표시 · 폰 705×338 틀(11px · 넘침 0)(#16) |
 | `Tests/LocaleTests.server.lua` | 39 | 다국어 표 · 고르기(#L1) — 모든 키에 en · 자리 표시 집합 = en · 없는 키 "?" + WARN · ko 없으면 en · 치환 · 언어 고르기(K2) · TEST_LOCALE 관문(Studio 전용) · Config id → 이름 키(K6) · 커밋된 TEST_LOCALE = nil · K11 신호 기다리기(바로 · 늦게 · 상한) · 서버가 LocaleReady를 세운다(#L2) |
-| `Tests/LocaleClientTests.client.lua` | 5 | K10 우리 GUI 루트 전수 AutoLocalize = false(예외: Freecam · 플레이스 StarterGui 복사본) · K11 지금 언어 = TEST_LOCALE 또는 계정 언어 · 첫 언어는 서버 신호 뒤 · 신호 전 기억 없는 호출 0(#L2) |
-| **합계** | **3997** | |
+| `Tests/LocaleClientTests.client.lua` | 21 | K10 우리 GUI 루트 전수 AutoLocalize = false(예외: Freecam · 플레이스 StarterGui 복사본) · K11 지금 언어 = TEST_LOCALE 또는 계정 언어 · 첫 언어는 서버 신호 뒤 · 신호 전 기억 없는 호출 0 · 토스트 setLimit · 알림층 폰 705×338 틀(런 안내 3 · 오류 · 로딩 · 환생 안내 · 가장 긴 칭호 · 아우라 · 펫 토스트 · 결과 모달 — 넘침 0 · 11px · 그 Play의 언어) · 토스트 폰 예외(2개 · 두 줄)(#L2) |
+| **합계** | **4013** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -1571,6 +1571,12 @@ Phase 8  롤 상품(아우라 전용) · 행운 게임패스 · 3x 부화 · 슬
 #L1  클라우드 세션 — Strings · Locale · 화면 문장 전부 키로 · CSV 내보내기 · 정적 검사. 브랜치 l10n-base(merge 안 함)
 #L2  집 PC — Play 실측 · TEST_LOCALE en · ko · 폰 · 폰트 선택 → master merge
 ```
+
+**다국어 기반 완료 (#L2, 2026-10-29 ~ 30).** master merge `5166170`(--no-ff, l10n-base는 남긴다). #L2 커밋: `1a17676` #16 대조 정정 ·
+`d1b1175` · `6d9756f` 표 · `1095d84` K10 AutoLocalize 끔 · K11 TEST_LOCALE 신호 대기 · `434033c` 폰 알림층 맞춤(토스트 폰 예외 · 환생 안내 줄).
+테스트 서버 57행 2536 · 클라 29행 1477 / 0 failed(플래그 전부 끈 Play — l10n-base 최종과 master merge 뒤가 행 · 개수 같다).
+언어별 확인(TEST_LOCALE en · ko, PC): HUD · 3D 안내 · 창 7 · 상점 두 탭 — 그 언어가 아닌 글자 0 · "?" 0 · [Locale] WARN 0 · 넘침 0 ·
+최소 12.4px. 알림층은 폰 틀 테스트로 두 언어 다. 폰 실물(기기 에뮬레이터)과 폰트 고르기는 사람 몫(`docs/PENDING.md` "다국어 — #L2 뒤")
 
 **#16 완료 (2026-10-25).** 커밋 `b86837d` docs · `8575793` ShopConfig · v7 · `2d79ffd` 구매 기반 · `80a9c70` · `c5dac72` 효과 · 부스트 · 자동 클리커 ·
 `8380fe2` 상점 UI · `935c7f8` 실물 관측. 테스트 서버 56행 2497 · 클라 28행 1456 / 0 failed(가짜 소유 · 프리셋 끈 Play).

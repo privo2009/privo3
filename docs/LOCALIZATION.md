@@ -40,6 +40,21 @@ Config 파일에는 id만 있다. 화면 이름은 id로 키를 만들어 String
 `src/server/Bootstrap.server.lua`의 `TEST_LOCALE`에 `"en"` 또는 `"ko"`를 적고 Play하면 그 언어로 보인다(Studio 전용).
 ⚠️ 커밋할 때는 반드시 `nil`로 되돌린다. `LocaleTests`가 커밋 값이 nil인지 잰다 — 켠 Play에서는 그 줄이 실패하니 그 Play로 테스트 개수를 세지 않는다.
 
+**K11 (#L2, 2026-10-29 사람 결정) — 첫 프레임부터 그 언어.** 서버 `LocaleGate.init`이 TEST_LOCALE을 정한 뒤 ReplicatedStorage 속성
+`LocaleReady = true`를 세운다(TEST_LOCALE이 nil이어도). 클라는 **Studio에서만** 처음 언어를 고를 때 이 신호를 `Locale.READY_WAIT_SEC`(5초)까지
+기다린다. 넘으면 `[Locale] WARN` 한 줄 + 계정 언어. 실서버는 기다리지 않는다(TEST_LOCALE이 Studio 전용이라 쓸 일이 없다).
+기다릴 수 없는 자리(yield 불가)에서 먼저 불리면 그 호출만 지금 값으로 고르고 기억하지 않는다 — `LocaleClientTests`가 그런 호출 0을 잰다.
+확인(2026-10-29): 계정 en-us · TEST_LOCALE "ko" Play에서 첫 화면부터 한국어.
+
+### 로블록스 자동 번역 끔 — K10
+
+**우리 코드가 만드는 ScreenGui · BillboardGui · SurfaceGui는 전부 `AutoLocalize = false`다(#L2, 2026-10-29 사람 결정).**
+번역은 Strings(`Locale.t`)가 한다. 나중의 클라우드 번역도 `FormatByKey`로 키를 직접 부르는 방식이라 AutoLocalize가 필요 없다(5절).
+켜 두면 클라우드 표를 올린 뒤 로블록스 번역이 우리 번역 위에 한 번 더 덮일 수 있다.
+- 지금 GUI 루트를 만드는 곳: `UI/ScreenController`(화면 3층) · `World/WorldLabels`(3D 안내) · `World/ClickPopups` · `World/TitleBillboards`
+- 새 GUI 루트를 만들면 `gui.AutoLocalize = false`를 같이 쓴다. `LocaleClientTests`가 PlayerGui · Workspace 아래 GUI 루트를 전수로 잰다
+  (예외 둘: Studio 카메라 도구 `Freecam`, 플레이스 파일 StarterGui에 있는 것의 복사본 — 코드가 만든 것이 아니다)
+
 ---
 
 ## 2. 새 문장을 추가하는 법
