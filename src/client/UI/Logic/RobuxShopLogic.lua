@@ -2,7 +2,7 @@
 -- 상점 창 로벅스 탭의 줄 · 상태 · 문구 (Phase 8 지시서 #16 5단계 — docs/UI.md "지시서 #16"). 순수 모듈 —
 -- 화면은 Screens/Window/UpgradeShopWindow(로벅스 탭).
 --
--- 값은 원본에서 나온다: 이름 · 가격 · 설명 · ID는 ShopConfig, 보유 · 제한 · 부스트는 서버 PlayerState shop 요약(Store "shop"),
+-- 값은 원본에서 나온다: 가격 · ID는 ShopConfig, 이름 · 설명은 Strings(Names.product — 지시서 #L1 K6), 보유 · 제한 · 부스트는 서버 PlayerState shop 요약(Store "shop"),
 -- 확률은 RollOdds(서버 RollLogic이 낳는 실제 등장 확률 — P3). 화면 값은 안내일 뿐이고 실제 구매 판정은 서버가 한다.
 --
 --   줄 순서   힘 배수 계단 한 줄 → ShopConfig.GAMEPASS_ORDER(게임패스 13)
@@ -20,15 +20,17 @@ local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 
 type BigNumber = BigNum.BigNumber
 
 local RobuxShopLogic = {}
 
-RobuxShopLogic.BUY_TEXT = "구매"
-RobuxShopLogic.OWNED_TEXT = "보유 중"
-RobuxShopLogic.NOT_REGISTERED_TEXT = "준비 중"
-RobuxShopLogic.MAX_TEXT = "최고 단계"
+RobuxShopLogic.BUY_TEXT = Locale.t("common.buy")
+RobuxShopLogic.OWNED_TEXT = Locale.t("shop.owned")
+RobuxShopLogic.NOT_REGISTERED_TEXT = Locale.t("shop.comingSoon")
+RobuxShopLogic.MAX_TEXT = Locale.t("shop.ladder.maxButton")
 RobuxShopLogic.LADDER_KEY = "strengthLadder" -- 계단 줄의 화면 키(상품 키가 아니다 — 누르면 다음 단계 키로 요청한다)
 
 export type State = "buy" | "owned" | "notRegistered" | "max"
@@ -94,12 +96,12 @@ function RobuxShopLogic.oddsText(roll: string, mult: number, ctx: Context, shop:
 	local before = RollOdds.percentages(RollOdds.distribution(tiers, luck))
 	local after = RollOdds.percentages(RollOdds.distribution(tiers, luck * mult))
 	local top = tiers[#tiers]
-	return string.format("%s %s → %s", top.name, before[#tiers], after[#tiers]) -- percentages가 "%"를 붙인다
+	return string.format("%s %s → %s", Names.rollItem(roll, top.id), before[#tiers], after[#tiers]) -- percentages가 "%"를 붙인다
 end
 
 local function passRow(key: string, owns: (string) -> boolean, ctx: Context, shop: any): Row
 	local def = ShopConfig.get(key) :: ShopConfig.ProductDef
-	local detail = def.description
+	local detail = Names.productDesc(key)
 	if def.effect.type == "luckPass" then
 		detail = RobuxShopLogic.oddsText(def.effect.roll, def.effect.mult, ctx, shop)
 	end
@@ -107,7 +109,7 @@ local function passRow(key: string, owns: (string) -> boolean, ctx: Context, sho
 	return {
 		key = key,
 		buyKey = if state == "buy" then key else nil,
-		title = def.name,
+		title = Names.product(key),
 		detail = detail,
 		state = state,
 		buttonText = if state == "owned" then RobuxShopLogic.OWNED_TEXT elseif state == "notRegistered" then RobuxShopLogic.NOT_REGISTERED_TEXT
@@ -121,13 +123,13 @@ end
 local function ladderRow(owns: (string) -> boolean): Row
 	local current, nextKey = ShopConfig.strengthTierState(owns)
 	local nowMult = ShopConfig.strengthTierMult(owns)
-	local title = string.format("힘 배수 계단  지금 ×%d", nowMult)
+	local title = Locale.t("shop.ladder.title", { mult = nowMult })
 	if nextKey == nil then
 		return {
 			key = RobuxShopLogic.LADDER_KEY,
 			buyKey = nil,
 			title = title,
-			detail = string.format("%s 보유 — 가장 높은 단계예요", (ShopConfig.get(current :: string) :: any).name),
+			detail = Locale.t("shop.ladder.top", { name = Names.product(current :: string) }),
 			state = "max",
 			buttonText = RobuxShopLogic.MAX_TEXT,
 			footText = "",
@@ -140,7 +142,7 @@ local function ladderRow(owns: (string) -> boolean): Row
 		key = RobuxShopLogic.LADDER_KEY,
 		buyKey = if state == "buy" then nextKey else nil,
 		title = title,
-		detail = string.format("다음 %s(가장 높은 단계 하나만 적용)", def.name),
+		detail = Locale.t("shop.ladder.next", { name = Names.product(nextKey) }),
 		state = state,
 		buttonText = if state == "notRegistered" then RobuxShopLogic.NOT_REGISTERED_TEXT else RobuxShopLogic.BUY_TEXT,
 		footText = RobuxShopLogic.priceText(def.priceRobux),
@@ -168,10 +170,10 @@ function RobuxShopLogic.resultText(payload: any): string?
 		return nil
 	end
 	local def = ShopConfig.get(payload.key)
-	local name = if def ~= nil then def.name else "상품"
+	local name = if def ~= nil then Names.product(payload.key) else Locale.t("shop.product")
 	if payload.phase == "finished" then
 		if payload.ok then
-			return string.format("%s 구매 완료!", name)
+			return Locale.t("shop.purchased", { name = name })
 		end
 		return nil -- 프롬프트를 닫았다 — 알리지 않는다(유저가 직접 닫은 것)
 	end
@@ -184,19 +186,19 @@ end
 -- 사유 코드 → 문구. 코드는 서버 PurchaseRequestService.REASON_* · MarketplaceGateway.
 function RobuxShopLogic.reasonText(code: string): string
 	if code == "not_registered" or code == "not_available" then
-		return "준비 중이에요"
+		return Locale.t("shop.reason.not_registered")
 	elseif code == "already_owned" then
-		return "이미 가지고 있어요"
+		return Locale.t("shop.reason.already_owned")
 	elseif code == "restricted" then
-		return "이 지역에서는 살 수 없는 상품이에요"
+		return Locale.t("shop.reason.restricted")
 	elseif code == "rate_limited" then
-		return "잠시 뒤에 다시 눌러 주세요"
+		return Locale.t("common.reason.rate_limited")
 	elseif code == "invalid_key" then
-		return "살 수 없는 상품이에요"
+		return Locale.t("shop.reason.invalid_key")
 	elseif code == "prompt_failed" then
-		return "구매 창을 열지 못했어요"
+		return Locale.t("shop.reason.prompt_failed")
 	end
-	return "구매하지 못했어요"
+	return Locale.t("shop.reason.failed")
 end
 
 return RobuxShopLogic

@@ -43,6 +43,7 @@ local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local Store = require(script.Parent.Parent.Parent.Store)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 
 local AutoTools = {}
 
@@ -187,13 +188,13 @@ function AutoTools.create(deps: Deps?): AutoToolsHandle
 	local gapXScale = ITEM_GAP / rootWidth
 	local cellWidthScale = (1 - gapXScale) / COLUMNS
 
-	local autoClickerItem = createItem("AutoClicker", "icon_autoclick", "자동클릭", 1)
+	local autoClickerItem = createItem("AutoClicker", "icon_autoclick", Locale.t("hud.auto.clicker"), 1)
 	autoClickerItem.AnchorPoint = Vector2.new(0, 0)
 	autoClickerItem.Position = UDim2.fromScale(0, 0)
 	autoClickerItem.Size = UDim2.fromScale(cellWidthScale, 1)
 	autoClickerItem.Parent = root
 
-	local autoAdvanceItem = createItem("AutoAdvance", "icon_autoadvance", "자동진행", 2)
+	local autoAdvanceItem = createItem("AutoAdvance", "icon_autoadvance", Locale.t("hud.auto.advance"), 2)
 	autoAdvanceItem.AnchorPoint = Vector2.new(0, 0)
 	autoAdvanceItem.Position = UDim2.fromScale(cellWidthScale + gapXScale, 0)
 	autoAdvanceItem.Size = UDim2.fromScale(cellWidthScale, 1)

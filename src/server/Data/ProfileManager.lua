@@ -19,6 +19,8 @@ local ProfileStore = require(ServerScriptService.ServerPackages.ProfileStore)
 local Schema = require(script.Parent.Schema)
 local Migrations = require(script.Parent.Migrations)
 local TestPresetGate = require(script.Parent.TestPresetGate)
+-- Kick 안내문은 서버가 화면에 직접 보이는 유일한 글자다(클라가 이미 없다) — 그 플레이어 언어로 Strings에서 고른다(지시서 #L1 K5)
+local LocaleGate = require(script.Parent.Parent.Systems.LocaleGate)
 
 -- ProfileStore.Profile<T>은 제네릭이고 T(profile.Data의 실제 형태)는 Schema.validate가
 -- 런타임에 검증하는 대상이라 여기서는 굳이 정적으로 좁히지 않는다.
@@ -147,7 +149,7 @@ local function handlePlayerAdded(player: Player)
 		-- 세션 시작 실패. 데이터 없이 플레이시킬 수 없으므로 무조건 킥한다.
 		warn(string.format("[ProfileManager] %s(%d) 세션 시작 실패 - 킥", player.Name, player.UserId))
 		if player.Parent == Players then
-			player:Kick("데이터 로드에 실패했습니다. 다시 접속해 주세요.")
+			player:Kick(LocaleGate.kickText(player, "kick.loadFailed"))
 		end
 		return
 	end
@@ -166,7 +168,7 @@ local function handlePlayerAdded(player: Player)
 	if not migrateOk then
 		warn(string.format("[ProfileManager] %s(%d) 마이그레이션 실패: %s - 킥", player.Name, player.UserId, tostring(migrateErr)))
 		profile:EndSession()
-		player:Kick("데이터 버전 오류입니다. 다시 접속해 주세요.")
+		player:Kick(LocaleGate.kickText(player, "kick.versionError"))
 		return
 	end
 
@@ -179,7 +181,7 @@ local function handlePlayerAdded(player: Player)
 			warn("  - " .. err)
 		end
 		profile:EndSession()
-		player:Kick("데이터가 손상되어 로드할 수 없습니다. 관리자에게 문의해 주세요.")
+		player:Kick(LocaleGate.kickText(player, "kick.corrupted"))
 		return
 	end
 
@@ -203,7 +205,7 @@ local function handlePlayerAdded(player: Player)
 		profiles[player] = nil
 		warn(string.format("[ProfileManager] %s(%d) 세션 종료 - 킥 (다른 서버가 세션을 가져갔을 가능성)", player.Name, player.UserId))
 		if player.Parent == Players then
-			player:Kick("다른 서버에서 데이터를 불러왔습니다. 다시 접속해 주세요.")
+			player:Kick(LocaleGate.kickText(player, "kick.otherServer"))
 		end
 	end)
 

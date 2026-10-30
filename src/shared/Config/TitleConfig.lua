@@ -21,8 +21,7 @@ local BigNum = require(script.Parent.Parent.BigNum)
 type BigNumber = BigNum.BigNumber
 
 export type TitleDef = {
-	id: string,
-	name: string,
+	id: string, -- 화면 이름은 Strings "title.name.<id>" (지시서 #L1 K6 — 화면 이름은 Strings 키, Shared/Localization/Names)
 	baseChance: number?, -- 폴백(Titles[1])은 nil. 나머지는 (0, 1]
 	mult: number, -- 힘 배수 = 블럭스 배수 (TEMP)
 }
@@ -33,12 +32,12 @@ TitleConfig.ROLL_COST = BigNum.new(1, 1) :: BigNumber -- 10, 고정 (지수 아�
 TitleConfig.ROLL_INTERVAL_SEC = 1 -- TEMP(G6). 수동 · 자동 합쳐 플레이어당 1회
 
 local Titles: { TitleDef } = {
-	{ id = "novice", name = "초보자", baseChance = nil, mult = 1.0 }, -- 폴백
-	{ id = "apprentice", name = "견습생", baseChance = 1 / 5, mult = 1.05 }, -- TEMP mult
-	{ id = "breaker", name = "파괴자", baseChance = 1 / 50, mult = 1.1 }, -- TEMP mult
-	{ id = "champion", name = "챔피언", baseChance = 1 / 500, mult = 1.2 }, -- TEMP mult
-	{ id = "legend", name = "레전드", baseChance = 1 / 5000, mult = 1.4 }, -- TEMP mult
-	{ id = "mythic", name = "신화", baseChance = 1 / 50000, mult = 1.8 }, -- TEMP mult
+	{ id = "novice", baseChance = nil, mult = 1.0 }, -- 폴백
+	{ id = "apprentice", baseChance = 1 / 5, mult = 1.05 }, -- TEMP mult
+	{ id = "breaker", baseChance = 1 / 50, mult = 1.1 }, -- TEMP mult
+	{ id = "champion", baseChance = 1 / 500, mult = 1.2 }, -- TEMP mult
+	{ id = "legend", baseChance = 1 / 5000, mult = 1.4 }, -- TEMP mult
+	{ id = "mythic", baseChance = 1 / 50000, mult = 1.8 }, -- TEMP mult
 }
 TitleConfig.Titles = Titles
 

@@ -71,7 +71,7 @@ end
 local function reportWorld(worldId: number, world: WorldConfig.WorldDef)
 	local startStage, endStage = world.stageRange[1], world.stageRange[2]
 
-	print(string.format("\n===== 월드 %d (%s) : %d~%d층 =====", worldId, world.name, startStage, endStage))
+	print(string.format("\n===== 월드 %d (%s) : %d~%d층 =====", worldId, world.material, startStage, endStage))
 	print("  층 |     블록HP |       총HP |       보상 | 블록 | 보상/총HP")
 	print("  ---+------------+------------+------------+------+-----------")
 

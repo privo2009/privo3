@@ -48,7 +48,7 @@ function BalanceSummary.drawLines(results: { SuccessRateReport.PlayerResult }): 
 	for _, r in ipairs(results) do
 		titleCounts[r.finalTitleIndex] = (titleCounts[r.finalTitleIndex] or 0) + 1
 		local _, packId, tier = AuraConfig.get(r.finalAuraId)
-		local key = if packId ~= nil and tier ~= nil then string.format("팩%d %s", packId, AuraConfig.TIER_NAMES[tier]) else "없음"
+		local key = if packId ~= nil and tier ~= nil then tostring(r.finalAuraId) else "없음" -- id(지시서 #L1 K6 — 리포트는 이름 대신 id)
 		auraCounts[key] = (auraCounts[key] or 0) + 1
 		table.insert(petMults, PetConfig.totalMult(r.finalPets :: any))
 		for _, pet in ipairs(r.finalPets) do
@@ -59,7 +59,7 @@ function BalanceSummary.drawLines(results: { SuccessRateReport.PlayerResult }): 
 	for i = #TitleConfig.Titles, 0, -1 do
 		local n = titleCounts[i]
 		if n ~= nil and n > 0 then
-			table.insert(titleParts, string.format("%s %d", if i == 0 then "없음" else TitleConfig.Titles[i].name, n))
+			table.insert(titleParts, string.format("%s %d", if i == 0 then "없음" else TitleConfig.Titles[i].id, n))
 		end
 	end
 	local auraKeys = {}
@@ -75,7 +75,7 @@ function BalanceSummary.drawLines(results: { SuccessRateReport.PlayerResult }): 
 	end
 	local levelParts = {}
 	for level = 1, PetConfig.MAX_LEVEL do
-		table.insert(levelParts, string.format("%s %d", PetConfig.LEVEL_NAMES[level], levelCounts[level] or 0))
+		table.insert(levelParts, string.format("L%d %d", level, levelCounts[level] or 0))
 	end
 	return {
 		"칭호(25층 첫 진입 때 장착) " .. table.concat(titleParts, " · "),

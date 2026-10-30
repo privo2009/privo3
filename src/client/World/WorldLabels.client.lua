@@ -75,6 +75,8 @@ end
 local function makeBillboard(name: string, kind: string): Billboard
 	local gui = Instance.new("BillboardGui")
 	gui.Name = name
+	-- K10(#L2): 번역은 Strings(Locale.t)가 한다 — 로블록스 자동 번역이 우리 번역 위에 한 번 더 덮이지 않게 끈다
+	gui.AutoLocalize = false
 	gui.Size = UDim2.fromScale(SIZE[kind].X, SIZE[kind].Y)
 	gui.AlwaysOnTop = false
 	gui.LightInfluence = 0

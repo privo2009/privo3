@@ -19,6 +19,7 @@ local ValuePanel = require(script.Parent.Parent.UI.Components.ValuePanel)
 local PowerBlock = require(script.Parent.Parent.UI.Screens.Hud.PowerBlock)
 local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
 local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local checkClose = TestHelpers.checkClose
 
 type BigNumber = BigNum.BigNumber
@@ -217,7 +218,7 @@ do
 		task.wait()
 
 		check("Store.walkSpeed 변경이 SpeedValue 텍스트에 반영된다", speedLabel.Text == "33", speedLabel.Text)
-		check("Store.maxWalkSpeed 변경이 MaxLabel 텍스트에 반영된다", maxLabel.Text == "/ 최대 77", maxLabel.Text)
+		check("Store.maxWalkSpeed 변경이 MaxLabel 텍스트에 반영된다", maxLabel.Text == Locale.t("hud.power.maxSpeed", { n = 77 }), maxLabel.Text)
 
 		-- 6b. 다른 Store 인스턴스는 실물 PowerBlock에 닿지 않는다 ----------------------
 		--

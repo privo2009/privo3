@@ -8,6 +8,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Panel = require(script.Parent.Parent.Parent.Components.Panel)
 local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
@@ -16,15 +17,15 @@ local TitleWindowLogic = require(script.Parent.Parent.Parent.Logic.TitleWindowLo
 
 local SettingsWindow = {}
 
-SettingsWindow.TITLE = "설정"
-SettingsWindow.ON_TEXT = "켜짐"
-SettingsWindow.OFF_TEXT = "꺼짐"
+SettingsWindow.TITLE = Locale.t("settings.title")
+SettingsWindow.ON_TEXT = Locale.t("settings.on")
+SettingsWindow.OFF_TEXT = Locale.t("settings.off")
 
 -- 항목 표. read(Store) → 지금 값, key = 서버 화이트리스트 키.
 local ROWS = {
 	{
 		key = "hideOtherAuras",
-		label = "다른 사람 아우라 숨기기",
+		label = Locale.t("settings.hideOtherAuras"),
 		read = function(source: any): boolean
 			local a = source.get("auras")
 			return type(a) == "table" and a.hideOtherAuras == true
@@ -32,7 +33,7 @@ local ROWS = {
 	},
 	{
 		key = "hideOtherPets",
-		label = "다른 사람 펫 숨기기",
+		label = Locale.t("settings.hideOtherPets"),
 		read = function(source: any): boolean
 			local p = source.get("pets")
 			return type(p) == "table" and p.hideOtherPets == true
@@ -52,10 +53,10 @@ local ON_TEXT = UiTheme.Colors.neutral.light
 local OFF_TEXT = UiTheme.Colors.neutral.base
 
 local REASONS = {
-	rate_limited = "잠시 뒤에 다시 눌러 주세요",
-	not_allowed = "바꿀 수 없는 설정이에요",
-	bad_value = "잘못된 값이에요",
-	no_profile = "데이터를 불러오는 중이에요",
+	rate_limited = Locale.t("common.reason.rate_limited"),
+	not_allowed = Locale.t("settings.reason.not_allowed"),
+	bad_value = Locale.t("settings.reason.bad_value"),
+	no_profile = Locale.t("common.reason.no_profile"),
 } :: { [string]: string }
 
 export type Deps = {
@@ -140,7 +141,7 @@ function SettingsWindow.create(deps: Deps): Handle
 			return
 		end
 		pending.finish(payload.key)
-		resultText = if payload.ok then nil else (REASONS[tostring(payload.reason)] or "바꾸지 못했어요")
+		resultText = if payload.ok then nil else (REASONS[tostring(payload.reason)] or Locale.t("settings.reason.failed"))
 		render()
 	end
 

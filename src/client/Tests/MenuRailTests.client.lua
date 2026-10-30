@@ -2,6 +2,7 @@
 -- MenuRail 검증. Studio에서 Rojo 연결 후 Play 하면 클라 시작 시 자동 실행된다.
 -- U3-2b 착수 준비.
 
+local Locale = require(game:GetService("ReplicatedStorage").Shared.Localization.Locale)
 local Layout = require(script.Parent.Parent.UI.Layout)
 local BloxDisplay = require(script.Parent.Parent.UI.Screens.Hud.BloxDisplay)
 local MenuRail = require(script.Parent.Parent.UI.Screens.Hud.MenuRail)
@@ -94,10 +95,12 @@ for _, item in ipairs(MenuRail.Items) do
 		local label = itemRow:FindFirstChild("Label") :: TextLabel?
 		check(string.format("'%s' 라벨이 있다", item.screenName), label ~= nil)
 		if label then
+			-- 길이 규칙은 언어마다 다르다(지시서 #L1 — 한국어 2~4자, 영어 2~8자: "Settings" 8자). 넘침은 #L2가 화면에서 본다
 			local charCount = utf8.len(label.Text) or 0
+			local maxChars = if Locale.current() == "ko" then 4 else 8
 			check(
-				string.format("'%s' 라벨('%s')이 한글 2~4자다", item.screenName, label.Text),
-				charCount >= 2 and charCount <= 4,
+				string.format("'%s' 라벨('%s')이 2~%d자다(%s)", item.screenName, label.Text, maxChars, Locale.current()),
+				charCount >= 2 and charCount <= maxChars,
 				tostring(charCount)
 			)
 		end

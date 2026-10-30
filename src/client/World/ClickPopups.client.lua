@@ -41,6 +41,8 @@ local pool: { Popup } = {}
 for i = 1, FeedbackLogic.POPUP_POOL_SIZE do
 	local gui = Instance.new("BillboardGui")
 	gui.Name = string.format("ClickPopup_%02d", i)
+	-- K10(#L2): 번역은 Strings(Locale.t)가 한다 — 로블록스 자동 번역이 우리 번역 위에 한 번 더 덮이지 않게 끈다
+	gui.AutoLocalize = false
 	gui.Size = UDim2.fromScale(POPUP_SIZE.X, POPUP_SIZE.Y)
 	-- AlwaysOnTop을 켜지 않는다. 머리 위라 가릴 것이 거의 없고, 다른 3D 안내(WorldLabels)와 같은 방식이다
 	-- (2026-10-23 Play: 켜면 Studio screen_capture에 안 찍혀 검증할 수 없었다).

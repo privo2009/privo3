@@ -71,7 +71,7 @@ check("ShopSlotConfig: HUD 구좌 4개 = 2배 힘 · 자동 클리커 · 2배 �
 	local keys = { "strength2x", "autoClicker", "blox2x", "damage2x" }
 	for i, key in ipairs(keys) do
 		local def = ShopConfig.get(key) :: any
-		if slots[i].key ~= key or slots[i].priceRobux ~= def.priceRobux or slots[i].name ~= def.name then
+		if slots[i].key ~= key or slots[i].priceRobux ~= def.priceRobux then
 			return false
 		end
 	end
@@ -89,7 +89,7 @@ end)
 
 check("ShopConfig.validate: 블럭스 상품이 다시 들어오면 거부", function()
 	local products = ShopConfig.Products :: any
-	products._probe = { key = "_probe", kind = "product", id = 0, name = "probe", priceRobux = 99, description = "x", effect = { type = "blox" }, paidRandom = false }
+	products._probe = { key = "_probe", kind = "product", id = 0, priceRobux = 99, effect = { type = "blox" }, paidRandom = false }
 	local ok = pcall(ShopConfig.validate)
 	products._probe = nil
 	return not ok and ShopConfig.validate()
@@ -498,15 +498,8 @@ check("PetConfig.totalMult: 1 + Σ 실효 증가분 · 빈 목록 1 · 빈 슬�
 		and math.abs(PetConfig.totalMult(holey) - expect) < 1e-12
 end)
 
-check("PetConfig: 강화 단계 4 · 이름 기본 · 황금 · 다이아 · 무지개 (종 희귀도 이름과 겹치지 않는다)", function()
-	local n = PetConfig.LEVEL_NAMES
-	local clash = false
-	for _, a in ipairs(n) do
-		for _, b in ipairs(PetConfig.TIER_NAMES) do
-			clash = clash or a == b
-		end
-	end
-	return PetConfig.MAX_LEVEL == 4 and n[1] == "기본" and n[2] == "황금" and n[3] == "다이아" and n[4] == "무지개" and not clash
+check("PetConfig: 강화 단계 4 (이름은 Strings pet.level.* — 겹침 검사는 LocaleTests, 지시서 #L1 K6)", function()
+	return PetConfig.MAX_LEVEL == 4
 		and PetConfig.CRAFT_REQUIREMENT == 3 and PetConfig.isLevel(4) and not PetConfig.isLevel(5) and not PetConfig.isLevel(0)
 end)
 
@@ -938,7 +931,7 @@ check("LevelConfig: 수령 발판이 깊이 소스에 등록돼 있다", functio
 	-- 증상은 "빠르게 지나가면 발판이 가끔 안 밟힌다" 하나뿐이라 원인이 안 보인다.
 	local found = false
 	for _, source in ipairs(LevelConfig.DEPTH_SOURCES) do
-		if source.name == "수령 발판" then
+		if source.name == "cashoutPad" then
 			found = true
 		end
 	end

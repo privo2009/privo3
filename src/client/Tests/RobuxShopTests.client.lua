@@ -6,6 +6,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
@@ -75,7 +77,7 @@ do
 	for i, key in ipairs(ShopConfig.GAMEPASS_ORDER) do
 		local r = rows[i + 1]
 		local def = ShopConfig.get(key) :: ShopConfig.ProductDef
-		if r.key ~= key or r.title ~= def.name or r.footText ~= RobuxShopLogic.priceText(def.priceRobux) then
+		if r.key ~= key or r.title ~= Names.product(key) or r.footText ~= RobuxShopLogic.priceText(def.priceRobux) then
 			allMatch = false
 		end
 	end
@@ -96,11 +98,11 @@ end
 -- 2. 계단 "지금 단계" ---------------------------------------------------------------------------------
 do
 	local none = RobuxShopLogic.rows(shop())[1]
-	check("계단: 보유 없음 → '지금 ×1' · 다음 2배 힘 · 가격 3 R$", string.find(none.title, "지금 ×1", 1, true) ~= nil
-		and string.find(none.detail, "2배 힘", 1, true) ~= nil and none.footText == "3 R$")
+	check("계단: 보유 없음 → '지금 ×1' · 다음 2배 힘 · 가격 3 R$", none.title == Locale.t("shop.ladder.title", { mult = 1 })
+		and string.find(none.detail, Names.product("strength2x"), 1, true) ~= nil and none.footText == "3 R$")
 	local mid = RobuxShopLogic.rows(shop({ "strength2x", "strength8x" }))[1]
-	check("계단: 2 · 8 보유 → '지금 ×8'(최고 하나) · 다음 16배", string.find(mid.title, "지금 ×8", 1, true) ~= nil
-		and string.find(mid.detail, "16배 힘", 1, true) ~= nil)
+	check("계단: 2 · 8 보유 → '지금 ×8'(최고 하나) · 다음 16배", mid.title == Locale.t("shop.ladder.title", { mult = 8 })
+		and string.find(mid.detail, Names.product("strength16x"), 1, true) ~= nil)
 	withIds({ strength16x = 888 }, function()
 		local r = RobuxShopLogic.rows(shop({ "strength8x" }))[1]
 		check("계단: 다음 단계 ID가 있으면 그 키로 요청", r.canBuy and r.buyKey == "strength16x")
@@ -117,7 +119,7 @@ do
 	local base = UpgradeConfig.getEffect("auraLuck", 0)
 	local before = RollOdds.percentages(RollOdds.distribution(tiers, base))
 	local after = RollOdds.percentages(RollOdds.distribution(tiers, base * 10))
-	local expect = string.format("%s %s → %s", tiers[#tiers].name, before[#tiers], after[#tiers])
+	local expect = string.format("%s %s → %s", Names.aura(tiers[#tiers].id), before[#tiers], after[#tiers])
 	check("행운 줄: 확률 변화 숫자 = RollOdds(지금 → 10배)", aura.detail == expect, aura.detail .. " vs " .. expect)
 	check("행운 줄: 칭호 · 펫도 숫자가 있다", string.find((rowByKey(RobuxShopLogic.rows(shop(nil, false), ctx), "titleLuck10x") :: any).detail, "%", 1, true) ~= nil
 		and string.find((rowByKey(RobuxShopLogic.rows(shop(nil, false), ctx), "petLuck2x") :: any).detail, "→", 1, true) ~= nil)
@@ -134,10 +136,10 @@ end
 -- 4. 결과 문구 ---------------------------------------------------------------------------------------
 do
 	check("문구: ID 0 → '준비 중이에요'", RobuxShopLogic.resultText({ key = "damage2x", kind = "gamepass", phase = "prompt", ok = false, reason = "not_registered" })
-		== "준비 중이에요")
+		== Locale.t("shop.reason.not_registered"))
 	check("문구: 프롬프트를 띄웠으면 없음 · 닫았으면 없음", RobuxShopLogic.resultText({ key = "damage2x", phase = "prompt", ok = true, reason = "" }) == nil
 		and RobuxShopLogic.resultText({ key = "damage2x", phase = "finished", ok = false, reason = "cancelled" }) == nil)
-	check("문구: 구매 완료 = 이름 + 완료", RobuxShopLogic.resultText({ key = "damage2x", phase = "finished", ok = true, reason = "" }) == "2배 데미지 구매 완료!")
+	check("문구: 구매 완료 = 이름 + 완료", RobuxShopLogic.resultText({ key = "damage2x", phase = "finished", ok = true, reason = "" }) == Locale.t("shop.purchased", { name = Names.product("damage2x") }))
 	local generic = RobuxShopLogic.reasonText("???")
 	local distinct = true
 	for _, code in ipairs({ "already_owned", "restricted", "rate_limited", "invalid_key", "prompt_failed", "not_registered" }) do
@@ -292,9 +294,9 @@ do
 		and BoostTimersLogic.clockText(-5) == "0:00")
 	local s = shop(nil, false, { { type = "strength", mult = 2, remainingSec = 900, receivedAt = 100 }, { type = "luck", mult = 2, remainingSec = 30, receivedAt = 100 } })
 	local lines = BoostTimersLogic.lines(s, 100)
-	check("줄: '힘 ×2 15:00' · 순서 그대로", #lines == 2 and lines[1] == "힘 ×2 15:00" and lines[2] == "행운 ×2 0:30", table.concat(lines, " | "))
+	check("줄: '힘 ×2 15:00' · 순서 그대로", #lines == 2 and lines[1] == Locale.t("hud.boost.line", { name = Names.boost("strength", true), mult = "×2", time = "15:00" }) and lines[2] == Locale.t("hud.boost.line", { name = Names.boost("luck", true), mult = "×2", time = "0:30" }), table.concat(lines, " | "))
 	local later = BoostTimersLogic.lines(s, 100 + 40)
-	check("받은 뒤로 센다: 40초 뒤 힘 14:20 · 행운은 끝나 빠진다", #later == 1 and later[1] == "힘 ×2 14:20", table.concat(later, " | "))
+	check("받은 뒤로 센다: 40초 뒤 힘 14:20 · 행운은 끝나 빠진다", #later == 1 and later[1] == Locale.t("hud.boost.line", { name = Names.boost("strength", true), mult = "×2", time = "14:20" }), table.concat(later, " | "))
 	check("없으면 빈 목록", #BoostTimersLogic.lines(shop(), 0) == 0)
 	local store = Store.new()
 	local clock = 100
@@ -306,7 +308,7 @@ do
 		setter("shop", s)
 	end)
 	task.wait()
-	check("HUD: 활성 2개 → 줄 2개 · 문구", hud._debug.labels[1].Visible and hud._debug.labels[1].Text == "힘 ×2 15:00" and hud._debug.labels[2].Visible
+	check("HUD: 활성 2개 → 줄 2개 · 문구", hud._debug.labels[1].Visible and hud._debug.labels[1].Text == Locale.t("hud.boost.line", { name = Names.boost("strength", true), mult = "×2", time = "15:00" }) and hud._debug.labels[2].Visible
 		and not hud._debug.labels[3].Visible)
 	-- UDim Scale은 float32로 읽힌다(TestHelpers 상단) — 오차로 비교한다
 	check("HUD: 우측 레일 맨 위 · Scale만", math.abs(hud.root.Position.Y.Scale - BoostTimers.TOP) < 1e-6 and hud.root.Position.Y.Offset == 0
@@ -337,11 +339,11 @@ do
 	local notOwned = WorldLabelLogic.gym(voidIndex, zero, false, GymLayout.shopUnlocked(nil, function()
 		return false
 	end))
-	check("공허 표시: 미보유 · ID 0 → '로벅스 전용(준비 중)'", notOwned.detail == "로벅스 전용(준비 중)")
+	check("공허 표시: 미보유 · ID 0 → '로벅스 전용(준비 중)'", notOwned.detail == Locale.t("world.gym.robuxOnlySoon"))
 	local owned = WorldLabelLogic.gym(voidIndex, zero, true, GymLayout.shopUnlocked(nil, function(k: string)
 		return k == "voidTrainingZone"
 	end))
-	check("공허 표시: 보유 · 서 있음 → '사용 중'", owned.detail == "사용 중" and owned.role == "premium")
+	check("공허 표시: 보유 · 서 있음 → '사용 중'", owned.detail == Locale.t("world.gym.inUse") and owned.role == "premium")
 end
 
 -- 10. 폰 크기(Galaxy A06 뷰포트 705×338) 틀 안에서 그린다 — 상점 두 탭 · 부스트 표시: 글자 하한 11px · 넘침 0 -------------
@@ -353,6 +355,7 @@ do
 	local TextMinimum = require(script.Parent.Parent.UI.TextMinimum)
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "RobuxShopPhoneFit"
+	gui.AutoLocalize = false -- K10(#L2): 우리 코드가 만드는 GUI 루트는 전부 끈다(LocaleTests 검사 대상)
 	gui.ResetOnSpawn = false
 	local phone = Instance.new("Frame")
 	phone.Name = "Phone"

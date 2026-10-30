@@ -67,6 +67,8 @@ local DISPLAY_ORDER: { [Layer]: number } = {
 local function createScreenGui(layer: Layer, namePrefix: string): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = namePrefix .. layer .. "Gui"
+	-- K10(#L2): 번역은 Strings(Locale.t)가 한다 — 로블록스 자동 번역이 우리 번역 위에 한 번 더 덮이지 않게 끈다
+	gui.AutoLocalize = false
 	gui.DisplayOrder = DISPLAY_ORDER[layer]
 	gui.ResetOnSpawn = false
 	-- false(엔진 기본값): 좌표계 원점을 로블록스 topbar 인셋만큼 엔진이 대신

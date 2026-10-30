@@ -8,6 +8,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local OverlayParts = require(script.Parent.OverlayParts)
@@ -72,7 +73,7 @@ function ResultModal.create(): Handle
 	confirm.root.Name = "Confirm"
 	confirm.root.Position = UDim2.fromScale(0.25, 0.72)
 	confirm.root.Parent = panel
-	local confirmLabel, confirmHit = WindowParts.decorateButton(confirm, "확인")
+	local confirmLabel, confirmHit = WindowParts.decorateButton(confirm, Locale.t("common.ok"))
 	for _, obj in ipairs(confirm.root:GetDescendants()) do
 		if obj:IsA("GuiObject") then
 			obj.ZIndex = OverlayParts.Z.blocking + 3

@@ -9,6 +9,7 @@ local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local ClickPadConfig = require(ReplicatedStorage.Shared.Config.ClickPadConfig)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Layout = require(script.Parent.Parent.UI.Layout)
 local RunNoticeLogic = require(script.Parent.Parent.UI.Logic.RunNoticeLogic)
 local LoadingScreen = require(script.Parent.Parent.UI.Screens.Overlay.LoadingScreen)
@@ -56,7 +57,7 @@ check("로딩: 못 받고 시간을 넘기면 timeout", LoadingScreen.decide(fal
 do
 	local cleared = { active = true, stage = 3, cleared = true, canAdvance = true, reward = BigNum.new(7.29, 0) }
 	local c = WorldLabelLogic.cashout(cleared, 3)
-	check("발판: 켜진 발판에 수령액(서버 값)", c.visible and c.role == "cashout" and c.detail == "+" .. Formatter.format(cleared.reward), c.detail)
+	check("발판: 켜진 발판에 수령액(서버 값)", c.visible and c.role == "cashout" and c.detail == Locale.t("world.cashout.reward", { amount = Formatter.format(cleared.reward) }), c.detail)
 	check("발판: 다른 층 발판에는 안 뜸", not WorldLabelLogic.cashout(cleared, 2).visible)
 	local notCleared = { active = true, stage = 3, cleared = false, canAdvance = true, reward = BigNum.new(7.29, 0) }
 	check("발판: 클리어 전에는 안 뜸", not WorldLabelLogic.cashout(notCleared, 3).visible)
@@ -64,10 +65,10 @@ do
 
 	local w = WorldLabelLogic.wall(cleared)
 	check("벽: 클리어 뒤 다음 층 보상(StageConfig 원본)", w.visible and w.role == "advance"
-		and w.detail == "다음 층 +" .. Formatter.format(StageConfig.getBloxReward(4)), w.detail)
+		and w.detail == Locale.t("world.wall.nextReward", { amount = Formatter.format(StageConfig.getBloxReward(4)) }), w.detail)
 	local boosted = { active = true, stage = 3, cleared = true, canAdvance = true, reward = BigNum.new(7.29, 0), nextReward = BigNum.new(3.3, 2) }
 	check("벽: 서버가 nextReward를 주면 그 값(업그레이드 배수는 서버가 곱한다 — 지시서 #7)",
-		WorldLabelLogic.wall(boosted).detail == "다음 층 +" .. Formatter.format(BigNum.new(3.3, 2)), WorldLabelLogic.wall(boosted).detail)
+		WorldLabelLogic.wall(boosted).detail == Locale.t("world.wall.nextReward", { amount = Formatter.format(BigNum.new(3.3, 2)) }), WorldLabelLogic.wall(boosted).detail)
 	check("벽: 클리어 전에는 안 뜸", not WorldLabelLogic.wall(notCleared).visible)
 	local final = { active = true, stage = 25, cleared = true, canAdvance = false, reward = BigNum.new(1, 0) }
 	local wf = WorldLabelLogic.wall(final)
@@ -76,10 +77,10 @@ do
 	local zero = BigNum.new(0, 0)
 	local p1 = WorldLabelLogic.pad(1, zero)
 	check("패드: 패드 1은 처음부터 해금(주황)", p1.visible and p1.role == "power" and p1.detail == "")
-	check("패드: 파워 문구는 ClickPadConfig 원본", p1.title == "클릭 " .. Formatter.format(ClickPadConfig.getPadPower(1, 1)), p1.title)
+	check("패드: 파워 문구는 ClickPadConfig 원본", p1.title == Locale.t("world.pad.power", { power = Formatter.format(ClickPadConfig.getPadPower(1, 1)) }), p1.title)
 	local p2 = WorldLabelLogic.pad(2, zero)
 	check("패드: 미해금은 회색 + 필요량(원본)", p2.role == "neutral"
-		and p2.detail == "필요 " .. Formatter.format(ClickPadConfig.getPadUnlock(1, 2)), p2.detail)
+		and p2.detail == Locale.t("world.pad.need", { amount = Formatter.format(ClickPadConfig.getPadUnlock(1, 2)) }), p2.detail)
 	local p2open = WorldLabelLogic.pad(2, ClickPadConfig.getPadUnlock(1, 2))
 	check("패드: 조건을 채우면 주황", p2open.role == "power")
 

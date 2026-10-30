@@ -5,12 +5,14 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Store = require(script.Parent.Parent.UI.Store)
 local AuraWindowLogic = require(script.Parent.Parent.UI.Logic.AuraWindowLogic)
 local AuraWindow = require(script.Parent.Parent.UI.Screens.Window.AuraWindow)
@@ -37,7 +39,7 @@ end
 do
 	local cards = AuraWindowLogic.cards(summary({}, ""), {}, 1)
 	check("카드 4장 · 일반 → 전설 순", #cards == 4 and cards[1].id == P1.auras[1].id and cards[4].id == P1.auras[4].id)
-	check("배수 문구 = '힘·데미지 ×m' (A1)", cards[4].multText == string.format("힘·데미지 ×%.2f", P1.auras[4].mult))
+	check("배수 문구 = '힘·데미지 ×m' (A1)", cards[4].multText == Locale.t("aura.mult", { mult = string.format("%.2f", P1.auras[4].mult) }))
 	local texts, dec = RollOdds.percentages(RollOdds.distribution(P1.auras, 1))
 	check("확률 = 실제 등장 확률(RollOdds)", cards[1].chanceText == texts[1] and cards[4].chanceText == texts[4], cards[1].chanceText)
 	local units = 0
@@ -90,10 +92,10 @@ do
 	check("모달: 거부 · 장착은 아님", not AuraWindowLogic.shouldModal({ action = "roll", ok = false, tier = 4, isNew = true })
 		and not AuraWindowLogic.shouldModal({ action = "equip", ok = true, isNew = true }))
 	local v = AuraWindowLogic.resultView(newLow) :: any
-	check("모달 내용: 머리말 · 이름 · 희귀도 · 배수", v.heading == "새 아우라!" and v.name == P1.auras[1].name and v.rarityTier == 1
+	check("모달 내용: 머리말 · 이름 · 희귀도 · 배수", v.heading == Locale.t("aura.modal.new") and v.name == Names.aura(P1.auras[1].id) and v.rarityTier == 1
 		and string.find(v.detail, AuraWindowLogic.multText(P1.auras[1].mult), 1, true) ~= nil)
 	local t = AuraWindowLogic.toastFor(dupEpic) :: any
-	check("런 중 토스트 문구 · 희귀도", t ~= nil and string.find(t.text, P1.auras[3].name, 1, true) ~= nil and t.tier == 4)
+	check("런 중 토스트 문구 · 희귀도", t ~= nil and string.find(t.text, Names.aura(P1.auras[3].id), 1, true) ~= nil and t.tier == 4)
 end
 
 -- 4. 창 — 요청 한 번만 · 탭 · 칭호 버튼 ------------------------------------------------------------------

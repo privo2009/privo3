@@ -141,7 +141,7 @@ function AuraWindow.create(deps: Deps): Handle
 		cards[i] = { frame = frame, name = name, tierName = tierName, mult = mult, chance = chance, status = status, button = button, buttonLabel = buttonLabel, hit = hit }
 	end
 
-	local rollButton, rollLabel, rollHit = makeButton("RollButton", "blue", 0, ROLL_Y, ROLL_W, ROLL_H, body, "뽑기")
+	local rollButton, rollLabel, rollHit = makeButton("RollButton", "blue", 0, ROLL_Y, ROLL_W, ROLL_H, body, AuraWindowLogic.ROLL_TEXT)
 	local rollFoot = WindowParts.makeText("RollFoot", body, "small", 0, FOOT_Y, ROLL_W, FOOT_H, Enum.TextXAlignment.Center)
 	local status = WindowParts.makeText("Status", body, "small", STATUS_X, ROLL_Y, 1 - STATUS_X, ROLL_H, Enum.TextXAlignment.Center)
 	status.TextWrapped = true

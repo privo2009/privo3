@@ -18,6 +18,7 @@ local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
 
 local ATTRIBUTE = "EquippedTitle" -- 서버 TitleService.ATTRIBUTE와 같은 문자열
 local SIZE = Vector2.new(6, 0.8)
@@ -33,6 +34,8 @@ local connections: { [Player]: { RBXScriptConnection } } = {}
 local function newTag(): Tag
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "TitleTag"
+	-- K10(#L2): 번역은 Strings(Locale.t)가 한다 — 로블록스 자동 번역이 우리 번역 위에 한 번 더 덮이지 않게 끈다
+	gui.AutoLocalize = false
 	gui.Size = UDim2.fromScale(SIZE.X, SIZE.Y)
 	gui.StudsOffset = Vector3.new(0, HEIGHT, 0)
 	gui.AlwaysOnTop = false
@@ -75,7 +78,7 @@ local function refresh(player: Player)
 		tag.gui.Enabled = false
 		return
 	end
-	tag.label.Text = def.name
+	tag.label.Text = Names.title(def.id)
 	tag.label.TextColor3 = UiTheme.rarityColor(tier)
 	tag.gui.Adornee = root :: BasePart
 	tag.gui.Enabled = true

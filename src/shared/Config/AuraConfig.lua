@@ -22,8 +22,7 @@ local WorldConfig = require(script.Parent.WorldConfig)
 type BigNumber = BigNum.BigNumber
 
 export type AuraDef = {
-	id: string,
-	name: string,
+	id: string, -- 화면 이름은 Strings "aura.name.<id>" (지시서 #L1 K6 — 화면 이름은 Strings 키, Shared/Localization/Names)
 	baseChance: number?, -- common(폴백)은 nil
 	mult: number, -- m (힘 = 데미지)
 }
@@ -45,7 +44,6 @@ AuraConfig.PACK_RATIO = 1.4 -- 팩 n = 팩 1 × PACK_RATIO^(n-1) (M2). G4: 1.05 
 
 -- 등급 확률(사람 결정 G1). common은 폴백이라 nil.
 local CHANCES: { number? } = { nil, 0.3, 0.09, 0.01 }
-AuraConfig.TIER_NAMES = { "일반", "희귀", "영웅", "전설" }
 AuraConfig.TIER_COUNT = 4
 AuraConfig.MODAL_MIN_TIER = 3 -- 결과 모달: 새 아우라이거나 이 등급(epic) 이상 (A6)
 
@@ -58,13 +56,6 @@ AuraConfig.PARTICLE = {
 	MAX_TOTAL_RATE = 120, -- 한 클라가 그리는 모든 아우라의 초당 입자 합 상한(넘으면 비율로 줄인다)
 }
 
-local NAMES = {
-	{ "반짝임", "불꽃", "번개", "오로라" },
-	{ "돌풍", "빙하", "용암", "혜성" },
-	{ "성운", "일식", "초신성", "블랙홀" },
-	{ "차원균열", "시공왜곡", "붕괴", "특이점" },
-	{ "태초", "종말", "영원", "절대자" },
-}
 local TIER_KEYS = { "common", "rare", "epic", "legendary" }
 local PACK_COUNT = 5
 
@@ -80,7 +71,6 @@ function AuraConfig.rebuild()
 		for tier = 1, AuraConfig.TIER_COUNT do
 			auras[tier] = {
 				id = string.format("pack%d_%s", packId, TIER_KEYS[tier]),
-				name = NAMES[packId][tier],
 				baseChance = CHANCES[tier],
 				mult = math.floor(AuraConfig.LADDER[tier] * scale * 10000 + 0.5) / 10000,
 			}

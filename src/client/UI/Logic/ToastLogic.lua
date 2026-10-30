@@ -18,10 +18,12 @@ export type Queue<T> = {
 	visible: () -> { T }, -- 위(오래된 것)부터
 	waiting: () -> number,
 	nextExpiryIn: (now: number) -> number?, -- 가장 오래된 것이 사라질 때까지 남은 초. 보이는 것이 없으면 nil
+	-- 동시에 보이는 수를 바꾼다(#L2 — 폰에서 2). 줄이면 넘치는 것(나중에 뜬 것)을 큐 맨 앞으로 돌려보낸다 — 잃지 않는다
+	setLimit: (limit: number, now: number) -> boolean,
 }
 
 function ToastLogic.new<T>(maxVisible: number?, holdSec: number?): Queue<T>
-	local limit = maxVisible or ToastLogic.MAX_VISIBLE
+	local limit: number = maxVisible or ToastLogic.MAX_VISIBLE
 	local hold = holdSec or ToastLogic.HOLD_SEC
 	local shown: { Item<T> } = {}
 	local queued: { T } = {}
@@ -60,6 +62,20 @@ function ToastLogic.new<T>(maxVisible: number?, holdSec: number?): Queue<T>
 
 	function q.waiting(): number
 		return #queued
+	end
+
+	function q.setLimit(newLimit: number, now: number): boolean
+		if newLimit == limit or newLimit < 1 then
+			return false
+		end
+		limit = newLimit
+		local changed = false
+		while #shown > limit do
+			local item = table.remove(shown) :: Item<T>
+			table.insert(queued, 1, item.value)
+			changed = true
+		end
+		return promote(now) or changed
 	end
 
 	function q.nextExpiryIn(now: number): number?

@@ -9,6 +9,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local OverlayParts = require(script.Parent.OverlayParts)
 
 local LoadingScreen = {}
@@ -30,7 +31,7 @@ function LoadingScreen.decide(received: boolean, elapsedSec: number): State
 	return "loading"
 end
 
-LoadingScreen.TEXT = "불러오는 중..."
+LoadingScreen.TEXT = Locale.t("overlay.loading")
 
 export type Handle = { root: Frame }
 

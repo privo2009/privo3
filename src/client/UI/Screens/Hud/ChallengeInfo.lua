@@ -24,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local RunService = game:GetService("RunService")
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local ValuePanel = require(script.Parent.Parent.Parent.Components.ValuePanel)
 local StateSync = require(script.Parent.Parent.Parent.Parent.Net.StateSync)
@@ -34,7 +35,7 @@ local STAGE_LEVEL: TextScale.Level = "medium"
 local TIMER_LEVEL: TextScale.Level = "huge" -- 특대(7%) — docs/UI.md 힘 수치와 같은 단계
 local TIMER_CHARS = 4 -- 런 제한 20초 안쪽이라 "19.8"류 4자로 충분하다
 
-local INACTIVE_STAGE_TEXT = "대기 중"
+local INACTIVE_STAGE_TEXT = Locale.t("hud.challenge.idle")
 local INACTIVE_TIMER_TEXT = "--"
 
 export type ChallengeInfoHandle = {
@@ -106,7 +107,7 @@ function ChallengeInfo.create(): ChallengeInfoHandle
 
 	local function apply(payload: Remotes.RunStateChangedPayload)
 		if payload.active then
-			stageLabel.Text = string.format("스테이지 %d", payload.state.stage)
+			stageLabel.Text = Locale.t("hud.challenge.stage", { n = payload.state.stage })
 			timer.label.Text = string.format("%.1f", payload.state.timeLeft)
 			deadline = if payload.state.cleared then nil else os.clock() + payload.state.timeLeft
 		else

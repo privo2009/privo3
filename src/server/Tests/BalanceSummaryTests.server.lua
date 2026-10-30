@@ -59,7 +59,7 @@ check("25층 중앙값 · 환생 · 레벨 상한 줄", has(lines, "25층 첫 �
 check("표준 경로 25층 도달(클릭률별 · 못 닿으면 -)", has(lines, "클릭 6 → 22.3분") and has(lines, "클릭 10 → -분"))
 check("절벽: 16→17 클릭 8 2.50 ≥ 임계 → 실재 · 8→9 전부 아래 → 없음", has(lines, "16→17층") and has(lines, "→ 절벽 실재(그 클릭률)") and has(lines, "8→9층")
 	and has(lines, "클릭 10 1.90  → 절벽 없음"))
-check("뽑기 분포: 칭호 이름 · 아우라 팩 · 펫 단계", has(lines, TitleConfig.Titles[4].name .. " 1") and has(lines, "팩2 영웅 1") and has(lines, PetConfig.LEVEL_NAMES[2] .. " 1"))
+check("뽑기 분포: 칭호 이름 · 아우라 팩 · 펫 단계", has(lines, TitleConfig.Titles[4].id .. " 1") and has(lines, "pack2_epic 1") and has(lines, "L2 1"))
 check("모든 줄이 문자열 · 비어 있지 않다", (function()
 	for _, line in ipairs(lines) do
 		if type(line) ~= "string" or #line == 0 then

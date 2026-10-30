@@ -25,15 +25,13 @@ local WorldConfig = require(script.Parent.WorldConfig)
 type BigNumber = BigNum.BigNumber
 
 export type PetDef = {
-	id: string,
-	name: string,
+	id: string, -- 화면 이름은 Strings "pet.name.<id>" (지시서 #L1 K6 — 화면 이름은 Strings 키, Shared/Localization/Names)
 	baseChance: number?, -- 일반(폴백)은 nil
 	mult: number, -- m (힘 배수 — 장착 시 실효 증가분으로 합산)
 }
 
 export type EggDef = {
-	eggId: number,
-	name: string,
+	eggId: number, -- 화면 이름은 Strings "egg.name.<번호>" (지시서 #L1 K6 — 화면 이름은 Strings 키, Shared/Localization/Names)
 	rollCost: BigNumber, -- = 해금 조건(lifetimeBlox ≥ 이 값, G8)
 	pets: { PetDef }, -- 희귀도 낮은 순. 인덱스 = 종 희귀도(1 일반 · 2 희귀 · 3 영웅 · 4 전설)
 }
@@ -53,12 +51,10 @@ PetConfig.CRAFT_FACTOR = 2.2
 
 -- 종 희귀도 확률(사람 결정 G7 — 아우라와 같은 모양). 일반은 폴백이라 nil.
 local CHANCES: { number? } = { nil, 0.3, 0.09, 0.01 }
-PetConfig.TIER_NAMES = { "일반", "희귀", "영웅", "전설" } -- 종 희귀도
 PetConfig.TIER_COUNT = 4
 PetConfig.MODAL_MIN_TIER = 3 -- 결과 모달: 새 펫이거나 이 종 희귀도(영웅) 이상 (E8)
 
--- 강화 단계 (E4 · G10). 이름은 종 희귀도와 겹치지 않게 다른 낱말을 쓴다.
-PetConfig.LEVEL_NAMES = { "기본", "황금", "다이아", "무지개" }
+-- 강화 단계 (E4 · G10). 이름(Strings "pet.level.<단계>")은 종 희귀도와 겹치지 않게 다른 낱말을 쓴다 — LocaleTests가 잰다.
 PetConfig.MAX_LEVEL = 4
 PetConfig.CRAFT_REQUIREMENT = 3 -- 같은 petId · 같은 단계 3마리 → 다음 단계 1마리
 
@@ -87,12 +83,6 @@ PetConfig.DISPLAY = {
 	PUNCH_PERIOD_SEC = 0.5, -- 블록 반경 안일 때 "치는 모습" 주기(데미지 없음 — S9)
 }
 
-local NAMES = {
-	{ "도토리", "다람쥐", "올빼미", "고대나무정령" },
-	{ "자갈", "골렘새끼", "크리스탈웜", "산의정령" },
-	{ "톱니쥐", "기계매", "강철드레이크", "기계신" },
-}
-local EGG_NAMES = { "나무 알", "돌 알", "철 알" }
 local TIER_KEYS = { "common", "rare", "epic", "legendary" }
 local EGG_COUNT = 3
 PetConfig.EGG_COST_EXPONENTS = { 2, 5, 8 } -- 100 · 100K · 100M (E1 확정)
@@ -120,7 +110,6 @@ function PetConfig.rebuild()
 		for tier = 1, PetConfig.TIER_COUNT do
 			pets[tier] = {
 				id = string.format("egg%d_%s", eggId, TIER_KEYS[tier]),
-				name = NAMES[eggId][tier],
 				baseChance = CHANCES[tier],
 				mult = math.floor(PetConfig.LADDER[tier] * scale * 10000 + 0.5) / 10000,
 			}
@@ -131,7 +120,7 @@ function PetConfig.rebuild()
 			existing.rollCost = cost
 			existing.pets = pets
 		else
-			Eggs[eggId] = { eggId = eggId, name = EGG_NAMES[eggId], rollCost = cost, pets = pets }
+			Eggs[eggId] = { eggId = eggId, rollCost = cost, pets = pets }
 		end
 	end
 	rebuildIndex()
@@ -270,7 +259,6 @@ end
 
 function PetConfig.validate(): boolean
 	assert(PetConfig.CRAFT_REQUIREMENT >= 2 and PetConfig.CRAFT_REQUIREMENT % 1 == 0, "PetConfig: CRAFT_REQUIREMENT는 2 이상 정수")
-	assert(PetConfig.MAX_LEVEL == #PetConfig.LEVEL_NAMES, "PetConfig: 강화 단계 이름 수 = MAX_LEVEL")
 	assert(PetConfig.MAX_LEVEL >= 1 and PetConfig.MAX_LEVEL <= 4, "PetConfig: 강화 단계는 1~4")
 	assert(type(PetConfig.CRAFT_FACTOR) == "number" and PetConfig.CRAFT_FACTOR > 1 and PetConfig.CRAFT_FACTOR < math.huge,
 		"PetConfig: CRAFT_FACTOR는 1보다 큰 유한수(강화하면 실효 증가분이 커져야 한다)")

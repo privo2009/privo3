@@ -102,7 +102,9 @@
 | `Systems/BoostServiceTests.server.lua` | 18 | 부스트 S7 — 감소 · 연장 · 만료 · 같은 종류 한 번만 · 오프라인 중 안 줄어듦(남은 초 저장) · 요약 순서 · 숨김(#16) |
 | `Systems/AutoClickServiceTests.server.lua` | 20 | 자동 클리커 S8 — 초당 15 · 30 · 소수 이월 · 수동 무시 · 수동 상한 10 불변 · 미보유 not_owned · 보유가 사라지면 끔 · 세션 토글(#16) |
 | `Tests/RobuxShopTests.client.lua` | 60 | 로벅스 상점 UI — 탭 전환 · 표시 값(ShopConfig) · 보유 / 준비 중 / 구매 가능 · 계단 지금 단계 · 행운 줄 확률 숫자 · 제한 숨김 · 요청 한 번만 · HUD 구좌 · 자동 클리커 잠김 · 부스트 표시 · 뽑기 창 행운 · 환생 창 2배 · 공허 표시 · 폰 705×338 틀(11px · 넘침 0)(#16) |
-| **합계** | **3953** | |
+| `Tests/LocaleTests.server.lua` | 39 | 다국어 표 · 고르기(#L1) — 모든 키에 en · 자리 표시 집합 = en · 없는 키 "?" + WARN · ko 없으면 en · 치환 · 언어 고르기(K2) · TEST_LOCALE 관문(Studio 전용) · Config id → 이름 키(K6) · 커밋된 TEST_LOCALE = nil · K11 신호 기다리기(바로 · 늦게 · 상한) · 서버가 LocaleReady를 세운다(#L2) |
+| `Tests/LocaleClientTests.client.lua` | 5 | K10 우리 GUI 루트 전수 AutoLocalize = false(예외: Freecam · 플레이스 StarterGui 복사본) · K11 지금 언어 = TEST_LOCALE 또는 계정 언어 · 첫 언어는 서버 신호 뒤 · 신호 전 기억 없는 호출 0(#L2) |
+| **합계** | **3997** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -1562,6 +1564,12 @@ Phase 8  롤 상품(아우라 전용) · 행운 게임패스 · 3x 부화 · 슬
 #17  개발자 상품 지급(포션 보관함 · 켜기 · 롤 충전 · 운동기구 선해금) · 창별 상품 버튼 · Roblox Plus
 #18  자동 진행 모드
 출시 후  게임패스 번들 · 워프 팩 · 보상형 광고
+```
+
+다국어 기반 (2026-10-25 사람 결정 — Phase 8 사이에 끼운다. 규칙 `DESIGN.md` "12. 언어" · 절차 `docs/LOCALIZATION.md`)
+```
+#L1  클라우드 세션 — Strings · Locale · 화면 문장 전부 키로 · CSV 내보내기 · 정적 검사. 브랜치 l10n-base(merge 안 함)
+#L2  집 PC — Play 실측 · TEST_LOCALE en · ko · 폰 · 폰트 선택 → master merge
 ```
 
 **#16 완료 (2026-10-25).** 커밋 `b86837d` docs · `8575793` ShopConfig · v7 · `2d79ffd` 구매 기반 · `80a9c70` · `c5dac72` 효과 · 부스트 · 자동 클리커 ·

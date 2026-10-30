@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
 local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 
 local passed = 0
 local failed = 0
@@ -105,7 +106,7 @@ do
 	-- 0은 0으로
 	local withZero = RollOdds.percentages({ 0, 1 })
 	check("0인 확률은 0.0%, 나머지가 100.0%", withZero[1] == "0.0%" and withZero[2] == "100.0%")
-	check("행운 문구", RollOdds.luckText(1.03) == "행운 ×1.03 적용")
+	check("행운 문구", RollOdds.luckText(1.03) == Locale.t("roll.luckApplied", { luck = "1.03" }) and Locale.tFor("ko", "roll.luckApplied", { luck = "1.03" }) == "행운 ×1.03 적용")
 end
 
 print(string.format("[RollOddsTests] %d passed, %d failed", passed, failed))

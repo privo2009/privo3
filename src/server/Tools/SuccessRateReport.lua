@@ -1420,7 +1420,7 @@ function SuccessRateReport.titleSummaryText(results: { PlayerResult }): string
 	end
 	local parts = { string.format("없음 %d", counts[0] or 0) }
 	for i, def in ipairs(TitleConfig.Titles) do
-		table.insert(parts, string.format("%s %d", def.name, counts[i] or 0))
+		table.insert(parts, string.format("%s %d", def.id, counts[i] or 0)) -- id(지시서 #L1 K6)
 	end
 	local m, s, k = median(onMin), median(onStage), median(rolls)
 	return string.format(
@@ -1444,7 +1444,7 @@ function SuccessRateReport.auraSummaryText(results: { PlayerResult }): string
 	for _, r in ipairs(results) do
 		local _, packId, tier = AuraConfig.get(r.finalAuraId)
 		if packId ~= nil and tier ~= nil then
-			local key = string.format("팩%d·%s", packId, AuraConfig.TIER_NAMES[tier])
+			local key = tostring(r.finalAuraId) -- id(지시서 #L1 K6)
 			counts[key] = (counts[key] or 0) + 1
 		else
 			none += 1
@@ -1541,7 +1541,7 @@ function SuccessRateReport.petSummaryText(results: { PlayerResult }): string
 		for _, pet in ipairs(r.finalPets) do
 			local _, eggId, rarity = PetConfig.get(pet.petId)
 			if eggId ~= nil and rarity ~= nil then
-				local key = string.format("알%d·%s", eggId, PetConfig.TIER_NAMES[rarity])
+				local key = tostring(pet.petId) -- id(지시서 #L1 K6 — 알 · 종 희귀도가 id에 들어 있다)
 				counts[key] = (counts[key] or 0) + 1
 			end
 		end
@@ -1593,7 +1593,7 @@ function SuccessRateReport.petLevelText(results: { PlayerResult }): string
 	end
 	local parts = {}
 	for level = 1, PetConfig.MAX_LEVEL do
-		table.insert(parts, string.format("%s %d", PetConfig.LEVEL_NAMES[level], byLevel[level] or 0))
+		table.insert(parts, string.format("L%d %d", level, byLevel[level] or 0))
 	end
 	local m = median(mults)
 	return string.format("펫(E11): 장착 펫 강화 단계 %s · 펫 배수 중앙값 ×%s", table.concat(parts, " · "),

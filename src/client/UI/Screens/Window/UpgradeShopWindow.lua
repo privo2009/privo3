@@ -19,6 +19,7 @@ local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Panel = require(script.Parent.Parent.Parent.Components.Panel)
 local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
@@ -31,11 +32,13 @@ type BigNumber = BigNum.BigNumber
 
 local UpgradeShopWindow = {}
 
-UpgradeShopWindow.TITLE = "상점"
-UpgradeShopWindow.SUCCESS_TEXT = "%s Lv %d (-%s)"
+UpgradeShopWindow.TITLE = Locale.t("shop.title")
+function UpgradeShopWindow.successText(name: string, level: number, cost: BigNumber): string
+	return Locale.t("upgrade.success", { name = UpgradeShopLogic.nameOf(name), n = level, cost = Formatter.format(cost) })
+end
 UpgradeShopWindow.TAB_UPGRADE = "upgrade"
 UpgradeShopWindow.TAB_ROBUX = "robux"
-UpgradeShopWindow.TAB_TEXT = { upgrade = "업그레이드", robux = "로벅스" }
+UpgradeShopWindow.TAB_TEXT = { upgrade = Locale.t("shop.tab.upgrade"), robux = Locale.t("shop.tab.robux") }
 
 -- 본문 안 배치(본문 기준 비율). Claude가 정한 배치값(세션 로그 · docs/UI.md "지시서 #16" 실측).
 -- 지시서 #12까지의 기록: 줄 높이 0.15 · 간격 0.004는 폰 줄 안 두 칸이 각각 11px(글자 하한)이 되게 고른 값이다 — 그대로 둔다.
@@ -316,7 +319,7 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 		pending.finish(name)
 		if payload.ok then
 			local cost = if type(payload.cost) == "table" then payload.cost else BigNum.new(0, 0)
-			resultText = string.format(UpgradeShopWindow.SUCCESS_TEXT, UpgradeShopLogic.NAMES[name] or name, tonumber(payload.level) or 0, Formatter.format(cost))
+			resultText = UpgradeShopWindow.successText(name, tonumber(payload.level) or 0, cost)
 		else
 			resultText = UpgradeShopLogic.reasonText(tostring(payload.reason))
 		end

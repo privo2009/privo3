@@ -729,7 +729,7 @@ do
 		finalPets = { { petId = E2.pets[4].id, tier = 2, gain = 1 } }, petHatches = 4, crafts = 1, releases = 0, petSpentLog10 = 5,
 		eggFirstMin = { [2] = 12.5 }, eggFirstStage = { [2] = 14 },
 	} :: any })
-	check("요약: 알 · 종 희귀도 · 알 첫 부화 · 크래프팅", string.find(txt, "알2·전설 1", 1, true) ~= nil and string.find(txt, "알 2 첫 부화 12.5분 · 14층", 1, true) ~= nil
+	check("요약: 알 · 종 희귀도 · 알 첫 부화 · 크래프팅", string.find(txt, E2.pets[4].id .. " 1", 1, true) ~= nil and string.find(txt, "알 2 첫 부화 12.5분 · 14층", 1, true) ~= nil
 		and string.find(txt, "크래프팅 중앙값 1", 1, true) ~= nil)
 end
 

@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Store = require(script.Parent.Parent.UI.Store)
 local SettingsWindow = require(script.Parent.Parent.UI.Screens.Window.SettingsWindow)
 local AuraRenderLogic = require(script.Parent.Parent.World.AuraRenderLogic)
@@ -43,7 +44,7 @@ do
 		end,
 	})
 	local row = h._debug.rows[1]
-	check("첫 항목: 다른 사람 아우라 숨기기", row.label.Text == "다른 사람 아우라 숨기기" and SettingsWindow.ROWS[1].key == "hideOtherAuras")
+	check("첫 항목: 다른 사람 아우라 숨기기", row.label.Text == Locale.t("settings.hideOtherAuras") and SettingsWindow.ROWS[1].key == "hideOtherAuras")
 	check("꺼짐: 테두리 검정 · 글자 중립 기본", #row.strokes > 0 and row.strokes[1].Color == Color3.new(0, 0, 0)
 		and row.buttonLabel.TextColor3 == UiTheme.Colors.neutral.base and row.buttonLabel.Text == SettingsWindow.OFF_TEXT)
 	h._debug.press(1)
@@ -62,7 +63,7 @@ do
 
 	-- 둘째 줄: 다른 사람 펫 숨기기 (지시서 #12 E10)
 	local pets = h._debug.rows[2]
-	check("둘째 항목: 다른 사람 펫 숨기기 · 키 hideOtherPets", #SettingsWindow.ROWS == 2 and pets ~= nil and pets.label.Text == "다른 사람 펫 숨기기"
+	check("둘째 항목: 다른 사람 펫 숨기기 · 키 hideOtherPets", #SettingsWindow.ROWS == 2 and pets ~= nil and pets.label.Text == Locale.t("settings.hideOtherPets")
 		and SettingsWindow.ROWS[2].key == "hideOtherPets" and pets.buttonLabel.Text == SettingsWindow.OFF_TEXT)
 	h._debug.press(2)
 	check("펫 숨기기: 지금의 반대 값 1건 · 아우라 줄 대기와 따로", #sends == 3 and sends[3].key == "hideOtherPets" and sends[3].value == true)

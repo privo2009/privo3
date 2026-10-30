@@ -28,8 +28,7 @@ export type ClickPadSet = {
 }
 
 export type WorldDef = {
-	id: number,
-	name: string,
+	id: number, -- 화면 이름은 Strings "world.name.<id>" (지시서 #L1 K6 — 화면 이름은 Strings 키, Shared/Localization/Names)
 	material: string,
 	stageRange: { number }, -- { 시작, 끝 } (둘 다 포함)
 	hpBase: BigNumber,
@@ -46,7 +45,6 @@ local WorldConfig = {}
 local Worlds: { [number]: WorldDef } = {
 	[1] = {
 		id = 1,
-		name = "나무",
 		material = "wood",
 		stageRange = { 1, 25 },
 		hpBase = BigNum.new(1, 2), -- 100

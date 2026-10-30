@@ -19,6 +19,7 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Panel = require(script.Parent.Parent.Parent.Components.Panel)
 local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
@@ -29,11 +30,13 @@ type BigNumber = BigNum.BigNumber
 
 local RebirthWindow = {}
 
-RebirthWindow.TITLE = "환생"
-RebirthWindow.BUTTON_TEXT = "환생하기"
-RebirthWindow.CONFIRM_TEXT = "한 번 더 누르면 환생"
-RebirthWindow.CANCEL_TEXT = "취소"
-RebirthWindow.SUCCESS_TEXT = "환생했어요! 배수 +%s"
+RebirthWindow.TITLE = Locale.t("rebirth.title")
+RebirthWindow.BUTTON_TEXT = Locale.t("rebirth.button")
+RebirthWindow.CONFIRM_TEXT = Locale.t("rebirth.confirm")
+RebirthWindow.CANCEL_TEXT = Locale.t("common.cancel")
+function RebirthWindow.successText(gained: BigNumber): string
+	return Locale.t("rebirth.success", { gained = Formatter.format(gained) })
+end
 
 -- 본문 안 세로 배치(본문 높이 대비). Claude가 정한 배치값(세션 로그).
 local ROW_H = 0.09
@@ -95,16 +98,16 @@ function RebirthWindow.create(deps: Deps): Handle
 
 	local labels: { [string]: TextLabel } = {}
 	labels.bloxName = makeText("BloxName", body, "medium", 0, ROWS.blox, 0.45, ROW_H)
-	labels.bloxName.Text = "보유 블럭스"
+	labels.bloxName.Text = Locale.t("rebirth.blox")
 	labels.bloxValue = makeText("BloxValue", body, "medium", 0.5, ROWS.blox, 0.5, ROW_H, Enum.TextXAlignment.Right)
 
 	labels.gainName = makeText("GainName", body, "medium", 0, ROWS.gain, 0.45, ROW_H)
-	labels.gainName.Text = "얻는 배수"
+	labels.gainName.Text = Locale.t("rebirth.gain")
 	labels.gainValue = makeText("GainValue", body, "medium", 0.45, ROWS.gain, 0.55, ROW_H, Enum.TextXAlignment.Right)
 
 	-- 버려지는 양: 강조(경고 빨강 배경). 1000 미만 나머지는 환생해도 아무것도 안 된다.
 	labels.wastedName = makeText("WastedName", body, "medium", 0, ROWS.wasted, 0.45, ROW_H)
-	labels.wastedName.Text = "버려지는 양"
+	labels.wastedName.Text = Locale.t("rebirth.wasted")
 	labels.wastedValue = makeText("WastedValue", body, "medium", 0.5, ROWS.wasted, 0.5, ROW_H, Enum.TextXAlignment.Right)
 	labels.wastedValue.BackgroundColor3 = UiTheme.Colors.danger.base
 	labels.wastedValue.BackgroundTransparency = 0
@@ -122,7 +125,7 @@ function RebirthWindow.create(deps: Deps): Handle
 	labels.shopButton = shopLabel
 
 	labels.resetsHeader = makeText("ResetsHeader", body, "small", 0, ROWS.resetsHeader, 1, LIST_STEP)
-	labels.resetsHeader.Text = "환생하면 초기화되는 것"
+	labels.resetsHeader.Text = Locale.t("rebirth.resetsHeader")
 	for i, text in ipairs(RebirthWindowLogic.resetLines()) do
 		local line = makeText("Reset" .. i, body, "small", 0.03, ROWS.resetsTop + (i - 1) * ROWS.resetLine, 0.97, ROWS.resetLine)
 		line.Text = text
@@ -160,8 +163,8 @@ function RebirthWindow.create(deps: Deps): Handle
 
 	local function render()
 		labels.bloxValue.Text = Formatter.format(view.blox)
-		labels.gainValue.Text = string.format("+%s  (×%s → ×%s)", Formatter.format(view.gained),
-			Formatter.format(view.multiplierNow), Formatter.format(view.multiplierAfter))
+		labels.gainValue.Text = Locale.t("rebirth.gainValue", { gained = Formatter.format(view.gained),
+			before = Formatter.format(view.multiplierNow), after = Formatter.format(view.multiplierAfter) })
 		labels.wastedValue.Text = Formatter.format(view.wasted)
 		labels.wastedValue.BackgroundTransparency = if RebirthWindowLogic.shouldWarnWasted(view.wasted) then 0 else 1
 
@@ -175,7 +178,7 @@ function RebirthWindow.create(deps: Deps): Handle
 		elseif not view.canRebirth and view.lockReason ~= nil then
 			labels.status.Text = RebirthWindowLogic.reasonText(view.lockReason)
 		elseif armed then
-			labels.status.Text = "되돌릴 수 없어요. 확인하면 한 번 더 누르세요"
+			labels.status.Text = Locale.t("rebirth.confirmHint")
 		else
 			labels.status.Text = ""
 		end
@@ -192,7 +195,7 @@ function RebirthWindow.create(deps: Deps): Handle
 		if action == "send" then
 			deps.sendRequest()
 			render()
-			labels.status.Text = "환생하는 중..." -- 서버 RebirthResult가 오면 onResult가 바꾼다
+			labels.status.Text = Locale.t("rebirth.sending") -- 서버 RebirthResult가 오면 onResult가 바꾼다
 			return
 		end
 		render()
@@ -235,7 +238,7 @@ function RebirthWindow.create(deps: Deps): Handle
 		end
 		confirm.cancel()
 		if payload.ok then
-			resultText = string.format(RebirthWindow.SUCCESS_TEXT, Formatter.format(payload.gained))
+			resultText = RebirthWindow.successText(payload.gained)
 		else
 			resultText = RebirthWindowLogic.reasonText(tostring(payload.reason))
 		end

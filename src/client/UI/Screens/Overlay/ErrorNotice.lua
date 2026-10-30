@@ -4,6 +4,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local OverlayParts = require(script.Parent.OverlayParts)
 
@@ -41,6 +42,6 @@ function ErrorNotice.create(): Handle
 	}
 end
 
-ErrorNotice.LOADING_TIMEOUT_TEXT = "서버 응답이 없습니다. 다시 접속해 주세요"
+ErrorNotice.LOADING_TIMEOUT_TEXT = Locale.t("overlay.error.loadingTimeout")
 
 return ErrorNotice

@@ -19,8 +19,7 @@ local ShopConfig = require(script.Parent.ShopConfig)
 
 export type Slot = {
 	key: string, -- ShopConfig 상품 키(구매 요청에 그대로 쓴다). 표시 문구 아님
-	track: string, -- 문서/테스트용 트랙 이름(힘/클릭 입력/재화/데미지). 표시 안 함
-	name: string, -- ShopConfig에서 그대로 가져온 표시 이름
+	track: string, -- 문서/테스트용 트랙 id(power/clickInput/currency/damage). 표시 안 함
 	priceRobux: number, -- ShopConfig에서 그대로 가져온 가격
 }
 
@@ -39,14 +38,14 @@ local ShopSlotConfig = {}
 local function slot(key: string, track: string): Slot
 	local def = ShopConfig.get(key)
 	assert(def ~= nil, "ShopSlotConfig: ShopConfig에 없는 상품 - " .. key)
-	return { key = key, track = track, name = def.name, priceRobux = def.priceRobux }
+	return { key = key, track = track, priceRobux = def.priceRobux }
 end
 
 ShopSlotConfig.TEMP_SLOTS = {
-	slot("strength2x", "힘"),
-	slot("autoClicker", "클릭 입력"),
-	slot("blox2x", "재화"),
-	slot("damage2x", "데미지"),
+	slot("strength2x", "power"),
+	slot("autoClicker", "clickInput"),
+	slot("blox2x", "currency"),
+	slot("damage2x", "damage"),
 } :: { Slot }
 
 function ShopSlotConfig.validate(): boolean
@@ -56,12 +55,11 @@ function ShopSlotConfig.validate(): boolean
 	for _, slot in ipairs(ShopSlotConfig.TEMP_SLOTS) do
 		assert(type(slot.key) == "string" and #slot.key > 0, "ShopSlotConfig: key가 비어 있음")
 		local def = ShopConfig.get(slot.key)
-		assert(def ~= nil and def.name == slot.name and def.priceRobux == slot.priceRobux, "ShopSlotConfig: ShopConfig 원본과 다름 - " .. slot.key)
+		assert(def ~= nil and def.priceRobux == slot.priceRobux, "ShopSlotConfig: ShopConfig 원본과 다름 - " .. slot.key)
 		assert(not seenKeys[slot.key], "ShopSlotConfig: key가 중복됨: " .. slot.key)
 		seenKeys[slot.key] = true
 
 		assert(type(slot.track) == "string" and #slot.track > 0, "ShopSlotConfig: track이 비어 있음: " .. slot.key)
-		assert(type(slot.name) == "string" and #slot.name > 0, "ShopSlotConfig: name이 비어 있음: " .. slot.key)
 		assert(
 			type(slot.priceRobux) == "number" and slot.priceRobux > 0,
 			"ShopSlotConfig: priceRobux는 0보다 커야 함: " .. slot.key
