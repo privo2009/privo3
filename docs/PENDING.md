@@ -369,9 +369,9 @@ D1 ~ D3 → `docs/DASHBOARD_PRODUCTS.md`(#16 7단계) · D4 · D5 광고와 함�
 
 #17이 할 것(코드)
 4. ✅ 개발자 상품 지급 함수 16개 — #17 단계 4(`2352184`, ProductGrants)
-5. ◐ 서버 완료 #17 단계 4(PotionRequest · 롤 쓰기 · 선해금 기록) · 창 버튼은 #17 단계 5. 원래 항목: 포션 보관함 → 켜기(`BoostService.add` 엔진은 있다) · 롤 충전 사용(computeLuck `rollProductMult` 자리는 있다) · 3배 부화 창 버튼
+5. ✅ #17 단계 4(서버) · 5(창 버튼 — `2ca5465` · `b58aed6` · `9709c79`). 원래 항목: 포션 보관함 → 켜기(`BoostService.add` 엔진은 있다) · 롤 충전 사용(computeLuck `rollProductMult` 자리는 있다) · 3배 부화 창 버튼
    (`PetRequest` action `hatch3` 서버는 있다) · 운동기구 선해금 기록 쓰기(`gymUnlocks` — 서버 판정은 이미 OR로 본다)
-6. ◐ PlayerState에 실었다(#17 단계 4 — shop.gymUnlocks). 클라 표시는 #17 단계 5. 원래 항목: 선해금 기록을 PlayerState에 싣기 — 지금 클라 기구 표시(3D 라벨 · 클릭 팝업 · 본체 색)는 게임패스 소유만 본다
+6. ✅ PlayerState shop.gymUnlocks(#17 단계 4) · 3D 라벨 · 클릭 팝업 · 본체 색(#17 단계 5c). 원래 항목: 선해금 기록을 PlayerState에 싣기 — 지금 클라 기구 표시(3D 라벨 · 클릭 팝업 · 본체 색)는 게임패스 소유만 본다
 
 관찰(결정 아님 — 사람이 볼 것)
 7. ✅ **2026-10-30 사람 결정 R1**(`DESIGN.md` 9장) — 가진 단계 이하는 `ladder_owned_higher`로 거부 · HUD 구좌는 다음 단계. 아래는 당시 관찰.
@@ -410,6 +410,11 @@ D1 ~ D3 → `docs/DASHBOARD_PRODUCTS.md`(#16 7단계) · D4 · D5 광고와 함�
 - **미결 — 게임패스 구매 경로의 실서버 확인**(Phase 9 비공개 테스트 · 제작자가 아닌 다른 계정): 프롬프트 → 구매 완료 이벤트 → 소유 반영 →
   재접속 뒤 UserOwnsGamePassAsync. #17 7단계는 개발자 상품(Power Potion 19 R$)만 산다(2026-10-31 사람 결정)
 - 가격 대조 실측: `[ShopPriceCheck] 39개 — 일치 39 · 다름 0 · 판매 안 함 0 · 조회 실패 0`
+
+관측 (2026-10-31, #17 단계 5)
+- 운동기구 ProximityPrompt UI는 로블록스가 그린다(CoreGui) — MCP screen_capture에 안 찍힌다. 켜짐 · 글자 · 거리는 읽기로 확인했다
+  (기구 5: "Unlock with Robux" · "Gym 5 Unlock · 149 R$" · 거리 3.6 / 10). 누르면 실제 구매 창이 떠서 MCP로 누르지 않는다
+- 칭호 창 폰 영어 "Not owned" 넘침(원래 있던 것)을 #17 폰 틀 검사가 찾아 칸 비율로 고쳤다 — 창 7의 폰 영어 실물 확인("다국어 — #L2 뒤" 1)은 여전히 사람 몫
 
 잔재 확인
 - 플레이스 StarterGui의 빈 `ScreenGui`("다국어 — #L2 뒤" 잔재) — 사람이 지운다. #17 8단계에서 search_game_tree로 없어졌는지만 본다
@@ -966,6 +971,13 @@ Play가 1~11번 전부 통과하면 다음은 **U4**다. 실패가 있으면 U4 
 ---
 
 ## 함정 — Play 검증 전에 확인할 것
+
+### TEST_LOCALE "ko" Play에서 클라 execute_luau가 한국어 긴 줄을 돌려주다 멈출 수 있다 (2026-10-31 #17)
+
+ko Play에서 클라 로그 필터 결과(한국어가 섞인 테스트 안내 줄 여러 개)를 돌려받는 호출이 두 번 120초를 넘겨 시간 초과로 끝났다.
+같은 Play에서 숫자만 돌려주는 짧은 읽기는 바로 왔고, 게임 화면은 정상이었다(#L2에서도 한 번 비슷했다).
+- ko Play의 개수 실측은 결과를 ASCII로만 받는다: `^%[(%w+)%] (%d+) passed, (%d+) failed`로 이름 · 숫자만 꺼낸다
+- 공식 스니펫 그대로의 개수 실측은 TEST_LOCALE nil Play에서 한다(원래 규칙 — 플래그 켠 Play에서는 세지 않는다)
 
 ### 브랜치를 바꾸면 rojo serve가 "지웠다 다시 생긴 파일"을 놓칠 수 있다 (2026-10-30 #L2)
 master로 checkout(파일 삭제) → 바로 merge(같은 파일 다시 생성)를 하자, 내용이 바뀐 파일은 Studio에 들어왔지만 **새로 생긴 파일 3개**

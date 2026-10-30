@@ -65,7 +65,7 @@
 | `Tests/EntranceGateServiceTests.server.lua` | 25 | 런 없음→1층 startRun·런 있음 무동작·서 있기 반복·디바운스 공유·플레이어 격리·스펙 파생(지면·블록 바깥면 앞) |
 | `Tests/RunDeathServiceTests.server.lua` | 9 | 런 있음 abandon 1회·런 없음 0회·같은 죽음 두 번 차단·리스폰 뒤 새 죽음 |
 | `Systems/PlayerStateServiceTests.server.lua` | 78 | 상태 스냅샷 형태 · 직렬화 왕복 · 같음 비교 · 로드 시 1회 · 빈도 상한 · sync 모음(로드 전 요청 포함) · 리스폰 · 퇴장 · 업그레이드 레벨 8키 · 칭호 요약 · 아우라 요약 · 펫 요약(보유 · 단계 · 장착 · 파생 슬롯 · 숨기기 · JSON 왕복) · 상점 요약(보유 게임패스 · 제한 · 부스트 BOOST_RESYNC_SEC 허용 · 자동 클리커 · JSON 왕복 — #16) · 보관함 · 롤 · 선해금 요약 · 비교 · notify(#17) |
-| `Tests/PlayerStateClientTests.client.lua` | 43 | payload 형태 판정 · Store 반영 · 틀린 payload 통째로 버림 · 업그레이드 표(키 · 음수 · 복사) · 칭호 · 아우라 · 펫 요약(형태 · 깊은 복사) · 상점 요약(형태 · 받은 시각 · 깊은 복사 — #16) |
+| `Tests/PlayerStateClientTests.client.lua` | 46 | payload 형태 판정 · Store 반영 · 틀린 payload 통째로 버림 · 업그레이드 표(키 · 음수 · 복사) · 칭호 · 아우라 · 펫 요약(형태 · 깊은 복사) · 상점 요약(형태 · 받은 시각 · 깊은 복사 — #16) · 보관함 · 롤 · 선해금 수신(옛 payload · 이상한 값 · 통지 — #17) |
 | `Tests/CoreScreensTests.client.lua` | 56 | 런 안내 · 로딩 판정, 3D 안내 내용(서버 · Config 원본), 화면 규칙(Offset 0 · 금지 구역 밖 · 층 순서 · 역할 색), 패드 표시 역할 3종 · 역할별 높이 · 다음 해금 크기 · 벽 표시 서버 nextReward |
 | `Systems/RebirthRequestServiceTests.server.lua` | 12 | 환생 요청 거부 경로(블럭스 부족 · 빈도 상한 · 부분 실패) · 성공 결과 형태 |
 | `Tests/RebirthWindowTests.client.lua` | 52 | 표시 값(서버와 같은 함수) · 사유 문구 · 확인 단계 없이는 요청 안 나감 · 잠김 · 창 규격 · 버튼 그림 ZIndex · 남는 것에 업그레이드 · 상점 안내 · 상점으로 |
@@ -88,7 +88,7 @@
 | `Tests/RollOddsTests.server.lua` | 21 | 실제 등장 확률 분포(합 1 · 손계산 · p ≥ 1 · 폴백 · 순수) · 표시 % 합 100(최대 나머지 · 1/50000 비영 · 반올림 경계) · 행운 문구 |
 | `Systems/AuraServiceTests.server.lua` | 46 | 거부 부작용 0(잠긴 · 월드 밖 · 잔액 · 시계 · 잘못된 팩) · 차감 → 판정 · 신규 / 중복 · 더 높은 m 자동 장착 · 저장 1회 · 장착 · 팩 선택 · 행운 전달 · 요약 · m 힘 · 1펀치 한 번씩 · 럭키 · 슈퍼 롤 쓰기(비용 없음 · 횟수 −1 · 행운 ×5 · ×100 · 제한 · none_owned · 잠긴 팩 · 시계 — #17) |
 | `Systems/AuraRequestServiceTests.server.lua` | 27 | payload 위생 · 빈도 상한 · 사유 그대로 · 응답 필드 전부 · 설정 화이트리스트(키 · 타입 · 빈도 · 프로필 없음) · rollCredit payload · 전달 · 사유(#17) |
-| `Tests/AuraWindowTests.client.lua` | 43 | 카드 값(m · 실제 확률 합 100 · 행운) · 희귀도 매핑 · 보유 / 장착 · 팩 탭 · 잠김 사유 · 결과 판정(모달 · 런 중 토스트) · 요청 한 번만 · 롤 시계 잠금 · 칭호 버튼 |
+| `Tests/AuraWindowTests.client.lua` | 45 | 카드 값(m · 실제 확률 합 100 · 행운) · 희귀도 매핑 · 보유 / 장착 · 팩 탭 · 잠김 사유 · 결과 판정(모달 · 런 중 토스트) · 요청 한 번만 · 롤 시계 잠금 · 칭호 버튼 · 사유 표 +2(none_owned · restricted — #17) |
 | `Tests/BlockingQueueTests.client.lua` | 14 | 차단층 큐(한 번에 하나 · 닫으면 다음 · 우선순위 · 가로채지 않음 · 순서) · 결과 모달 표시 · 차단층 |
 | `Tests/SettingsWindowTests.client.lua` | 14 | 설정 토글(반대 값 1건 · 두 채널 · 거부 문구) · 파티클 방출량(등급 · 숨기기 · 내 것은 보임 · 전체 상한) · 둘째 항목 펫 숨기기(#12) |
 | `Systems/PetServiceTests.server.lua` | 84 | 부화 거부 부작용 0(잠긴 알 · 월드 밖 · 저장 공간 가득 · 잔액 · 경합 · 시계 · 잘못된 알) · 차감 → 판정 · uid 문자열 · 깨진 nextUid · 새 종만 저장 · 빈 슬롯 자동 장착 · 장착 ≤ 파생 슬롯 · 해제 · equipBest · 크래프팅(재료 순서 · 장착 자리 이어받기 · 부족 · 최대 · 연쇄) · 놓아주기 · 로드 정리 · E3 · 한 번만 · 데미지 없음 · 요약 · 프로필 크기 · 펫 게임패스(슬롯 · 저장 · 잘라내기는 소유 확인 뒤에만) · 3배 부화(거부 부작용 0 · 비용 3배 한 번 · 3마리 · 롤 시계 1회 — #16) |
@@ -100,14 +100,16 @@
 | `Systems/PurchaseRequestServiceTests.server.lua` | 31 | 구매 요청 채널 — payload · 빈도 · 판정 순서(invalid_key · already_owned · restricted · not_registered · not_available) · 프롬프트 · 닫힘 결과 · 실물 게이트웨이 ID 0(#16) · 상위 보유 거부 ladder_owned_higher · auto_owned_higher · 선해금 already_unlocked(#17) |
 | `Systems/ProductGrantsTests.server.lua` | 20 | 개발자 상품 지급 16 — 포션 · 번들(반쪽 지급 없음) · 롤 · 선해금 · 표 없음 거부 · 등록 16 · 같은 영수증 지급 1회 · 알림(#17) |
 | `Systems/PotionRequestServiceTests.server.lua` | 12 | 포션 켜기 — payload · invalid · none_owned · 보관 −1 · 부스트 · 연장 · 제한 유저 행운 포션 · 부스트 실패 되돌림 · 빈도(#17) |
+| `Systems/PlusPromptServiceTests.server.lua` | 8 | Roblox Plus(S16) — 꺼짐 · 커밋 플래그 false · 세션 한 번 · 구독자 제외 · 모르는 이유 · 새 세션 · 환생 알림(#17) |
 | `Systems/ShopPriceCheckTests.server.lua` | 12 | 대시보드 가격 대조 — 일치 · 할인 전 값 일치 · 다름 · 판매 안 함 · 조회 실패 · 등록 상품만 · WARN만 · 고치지 않음 · 실제 표 39개(#17) |
 | `Systems/ShopEffectsTests.server.lua` | 33 | 로벅스 효과 — 미보유 1 · 보유 정확한 배수 · 계단 최고만 · 공허 OR · 공허 × 계단 곱 · 결합 자리 한 번씩 · 2배 환생 얻는 수 · 행운 패스 · 포션 · 제한이면 1(#16) |
 | `Systems/BoostServiceTests.server.lua` | 18 | 부스트 S7 — 감소 · 연장 · 만료 · 같은 종류 한 번만 · 오프라인 중 안 줄어듦(남은 초 저장) · 요약 순서 · 숨김(#16) |
 | `Systems/AutoClickServiceTests.server.lua` | 20 | 자동 클리커 S8 — 초당 15 · 30 · 소수 이월 · 수동 무시 · 수동 상한 10 불변 · 미보유 not_owned · 보유가 사라지면 끔 · 세션 토글(#16) |
-| `Tests/RobuxShopTests.client.lua` | 67 | 로벅스 상점 UI — 탭 전환 · 표시 값(ShopConfig) · 보유 / 준비 중 / 구매 가능 · 계단 지금 단계 · 행운 줄 확률 숫자 · 제한 숨김 · 요청 한 번만 · HUD 구좌 · 자동 클리커 잠김 · 부스트 표시 · 뽑기 창 행운 · 환생 창 2배 · 공허 표시 · 폰 705×338 틀(11px · 넘침 0)(#16) · R2 보유(상위) · HUD 계단 구좌 다음 단계 · 사유 문구 2(#17) |
+| `Tests/RobuxShopTests.client.lua` | 82 | 로벅스 상점 UI — 탭 전환 · 표시 값(ShopConfig) · 보유 / 준비 중 / 구매 가능 · 계단 지금 단계 · 행운 줄 확률 숫자 · 제한 숨김 · 요청 한 번만 · HUD 구좌 · 자동 클리커 잠김 · 부스트 표시 · 뽑기 창 행운 · 환생 창 2배 · 공허 표시 · 폰 705×338 틀(11px · 넘침 0)(#16) · R2 보유(상위) · HUD 계단 구좌 다음 단계 · 사유 문구 2(#17) · 포션 묶음(줄 · 켜기 한 번 · 제한 숨김) · openPotions · 창별 상품 줄 · 부스트 표시 누르기(#17) |
+| `Tests/WindowProductTests.client.lua` | 30 | 창별 상품 버튼 — 아우라 로벅스 탭 · 롤 사용 · 펫 로벅스 탭 · ×3 부화 · 칭호 10배 행운 버튼 · 운동기구 프롬프트 · 선해금 표시 · 폰 705×338 넘침 0 · 11px(#17) |
 | `Tests/LocaleTests.server.lua` | 39 | 다국어 표 · 고르기(#L1) — 모든 키에 en · 자리 표시 집합 = en · 없는 키 "?" + WARN · ko 없으면 en · 치환 · 언어 고르기(K2) · TEST_LOCALE 관문(Studio 전용) · Config id → 이름 키(K6) · 커밋된 TEST_LOCALE = nil · K11 신호 기다리기(바로 · 늦게 · 상한) · 서버가 LocaleReady를 세운다(#L2) |
 | `Tests/LocaleClientTests.client.lua` | 26 | K10 우리 GUI 루트 전수 AutoLocalize = false(예외: Freecam · 플레이스 StarterGui 복사본) · K11 지금 언어 = TEST_LOCALE 또는 계정 언어 · 첫 언어는 서버 신호 뒤 · 신호 전 기억 없는 호출 0 · 토스트 setLimit · 알림층 폰 705×338 틀(런 안내 3 · 오류 · 로딩 · 환생 안내 · 가장 긴 칭호 · 아우라 · 펫 토스트 · 결과 모달 — 넘침 0 · 11px · 그 Play의 언어) · 토스트 폰 예외(2개 · 두 줄)(#L2) · 글자 전부 UiTheme.FONT · 힘 블록 환생 배수 라벨 폰 한 줄 · 값 · 힘 수치와 안 겹침(#17 F1 · F2) |
-| **합계** | **4110** | |
+| **합계** | **4168** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
