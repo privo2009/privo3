@@ -20,7 +20,7 @@
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
-| `Tests/ConfigTests.server.lua` | 117 | 모든 Config의 validate + 스모크 · 파생 함수(getSlots · getStorage · getUnlockedPacks) · TitleConfig validate 거부 5종 · 블럭스 상품 금지(P1) · AuraConfig m = 사다리 × 비율 · G4 · 단조 거부(#11) · PetConfig m · 비용 100/100K/100M · 해금 · 실효 증가분 · totalMult(nil 구멍) · 강화 4단계 · validate 거부 · Attribute 직렬화(#12) · 레벨 L1 경계(1 · 2 · 3 · 4 · 2^k ± 가수 1 ulp · 10^2000대) · 진행률 0 이상 1 미만 · L2 상한(레벨 48) · 환생 뒤 0(#13) · ShopConfig 검사(가격 · 키 · 계단 순증가 · blox 거부 · 행운 표시 = 효과 · 같은 ID — #16) |
+| `Tests/ConfigTests.server.lua` | 120 | 모든 Config의 validate + 스모크 · 파생 함수(getSlots · getStorage · getUnlockedPacks) · TitleConfig validate 거부 5종 · 블럭스 상품 금지(P1) · AuraConfig m = 사다리 × 비율 · G4 · 단조 거부(#11) · PetConfig m · 비용 100/100K/100M · 해금 · 실효 증가분 · totalMult(nil 구멍) · 강화 4단계 · validate 거부 · Attribute 직렬화(#12) · 레벨 L1 경계(1 · 2 · 3 · 4 · 2^k ± 가수 1 ulp · 10^2000대) · 진행률 0 이상 1 미만 · L2 상한(레벨 48) · 환생 뒤 0(#13) · ShopConfig 검사(가격 · 키 · 계단 순증가 · blox 거부 · 행운 표시 = 효과 · 같은 ID — #16) · 대시보드 ID 39 등록 · ID 표 섞임 · 0 거부 · ownedHigher R1 · R2(#17) |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Tests/WarpConfigTests.server.lua` | 31 | 워프 비용 곡선(지수·단조)·순수성·거부 사유 3종 |
 | `Tests/AttackConfigTests.server.lua` | 29 | 펀치 속도·판정 반경 파생·경계(이하) |
@@ -97,14 +97,15 @@
 | `Systems/GamepassServiceTests.server.lua` | 23 | 게임패스 소유 S1 — 조회 성공 · 실패 · RETRY_SEC 재시도 · 구매 완료 즉시 소유 · ID 0 조회 안 함 · 가짜 소유 Studio 전용(밖이면 무시 + ERROR) · 커밋된 TEST_GAMEPASSES = nil(#16) |
 | `Systems/PolicyGateTests.server.lua` | 7 | 유료 랜덤 아이템 제한 S13 — 확인 전 · 판정 실패 · 필드 없음은 제한 · false만 허용 · 퇴장(#16) |
 | `Systems/ProductServiceTests.server.lua` | 21 | 영수증 S2 · S3 — 같은 PurchaseId 두 번 지급 1회 · 프로필 미로드 · 저장 실패 NotProcessedYet · 지급 함수 없음 ERROR · 기록 상한 100 · ProfileStore Mock 실물 저장 확인(#16) |
-| `Systems/PurchaseRequestServiceTests.server.lua` | 22 | 구매 요청 채널 — payload · 빈도 · 판정 순서(invalid_key · already_owned · restricted · not_registered · not_available) · 프롬프트 · 닫힘 결과 · 실물 게이트웨이 ID 0(#16) |
+| `Systems/PurchaseRequestServiceTests.server.lua` | 28 | 구매 요청 채널 — payload · 빈도 · 판정 순서(invalid_key · already_owned · restricted · not_registered · not_available) · 프롬프트 · 닫힘 결과 · 실물 게이트웨이 ID 0(#16) · 상위 보유 거부 ladder_owned_higher · auto_owned_higher(#17) |
+| `Systems/ShopPriceCheckTests.server.lua` | 12 | 대시보드 가격 대조 — 일치 · 할인 전 값 일치 · 다름 · 판매 안 함 · 조회 실패 · 등록 상품만 · WARN만 · 고치지 않음 · 실제 표 39개(#17) |
 | `Systems/ShopEffectsTests.server.lua` | 33 | 로벅스 효과 — 미보유 1 · 보유 정확한 배수 · 계단 최고만 · 공허 OR · 공허 × 계단 곱 · 결합 자리 한 번씩 · 2배 환생 얻는 수 · 행운 패스 · 포션 · 제한이면 1(#16) |
 | `Systems/BoostServiceTests.server.lua` | 18 | 부스트 S7 — 감소 · 연장 · 만료 · 같은 종류 한 번만 · 오프라인 중 안 줄어듦(남은 초 저장) · 요약 순서 · 숨김(#16) |
 | `Systems/AutoClickServiceTests.server.lua` | 20 | 자동 클리커 S8 — 초당 15 · 30 · 소수 이월 · 수동 무시 · 수동 상한 10 불변 · 미보유 not_owned · 보유가 사라지면 끔 · 세션 토글(#16) |
-| `Tests/RobuxShopTests.client.lua` | 60 | 로벅스 상점 UI — 탭 전환 · 표시 값(ShopConfig) · 보유 / 준비 중 / 구매 가능 · 계단 지금 단계 · 행운 줄 확률 숫자 · 제한 숨김 · 요청 한 번만 · HUD 구좌 · 자동 클리커 잠김 · 부스트 표시 · 뽑기 창 행운 · 환생 창 2배 · 공허 표시 · 폰 705×338 틀(11px · 넘침 0)(#16) |
+| `Tests/RobuxShopTests.client.lua` | 67 | 로벅스 상점 UI — 탭 전환 · 표시 값(ShopConfig) · 보유 / 준비 중 / 구매 가능 · 계단 지금 단계 · 행운 줄 확률 숫자 · 제한 숨김 · 요청 한 번만 · HUD 구좌 · 자동 클리커 잠김 · 부스트 표시 · 뽑기 창 행운 · 환생 창 2배 · 공허 표시 · 폰 705×338 틀(11px · 넘침 0)(#16) · R2 보유(상위) · HUD 계단 구좌 다음 단계 · 사유 문구 2(#17) |
 | `Tests/LocaleTests.server.lua` | 39 | 다국어 표 · 고르기(#L1) — 모든 키에 en · 자리 표시 집합 = en · 없는 키 "?" + WARN · ko 없으면 en · 치환 · 언어 고르기(K2) · TEST_LOCALE 관문(Studio 전용) · Config id → 이름 키(K6) · 커밋된 TEST_LOCALE = nil · K11 신호 기다리기(바로 · 늦게 · 상한) · 서버가 LocaleReady를 세운다(#L2) |
 | `Tests/LocaleClientTests.client.lua` | 26 | K10 우리 GUI 루트 전수 AutoLocalize = false(예외: Freecam · 플레이스 StarterGui 복사본) · K11 지금 언어 = TEST_LOCALE 또는 계정 언어 · 첫 언어는 서버 신호 뒤 · 신호 전 기억 없는 호출 0 · 토스트 setLimit · 알림층 폰 705×338 틀(런 안내 3 · 오류 · 로딩 · 환생 안내 · 가장 긴 칭호 · 아우라 · 펫 토스트 · 결과 모달 — 넘침 0 · 11px · 그 Play의 언어) · 토스트 폰 예외(2개 · 두 줄)(#L2) · 글자 전부 UiTheme.FONT · 힘 블록 환생 배수 라벨 폰 한 줄 · 값 · 힘 수치와 안 겹침(#17 F1 · F2) |
-| **합계** | **4018** | |
+| **합계** | **4046** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
