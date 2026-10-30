@@ -60,7 +60,10 @@ export type State = {
 
 -- boosts[i].receivedAt = 클라가 그 값을 받은 os.clock(남은 시간을 받은 뒤로 센다 — PlayerStateClient가 채운다)
 export type BoostEntry = { type: string, mult: number, remainingSec: number, receivedAt: number }
-export type ShopSummary = { gamepasses: { string }, paidRandomRestricted: boolean, boosts: { BoostEntry }, autoClick: boolean }
+-- potions · rollCredits · gymUnlocks = 보관 포션 수 · 남은 럭키 · 슈퍼 롤 · 선해금 기구 번호(오름차순) — 지시서 #17
+export type Inventory = { potions: { strength: number, damage: number, luck: number }, rollCredits: { lucky: number, super: number }, gymUnlocks: { number } }
+export type ShopSummary = { gamepasses: { string }, paidRandomRestricted: boolean, boosts: { BoostEntry }, autoClick: boolean,
+	potions: { strength: number, damage: number, luck: number }, rollCredits: { lucky: number, super: number }, gymUnlocks: { number } }
 
 export type PetEntry = { uid: string, petId: string, level: number }
 export type PetSummary = { owned: { PetEntry }, equipped: { string }, slots: number, storage: number, hideOtherPets: boolean, world: number }
@@ -118,7 +121,8 @@ local DUMMY_STATE: State = {
 	auras = { owned = {}, equipped = "", selectedPack = 1, hideOtherAuras = false, world = 1 }, -- 첫 PlayerState 전
 	pets = { owned = {}, equipped = {}, slots = 2, storage = 50, hideOtherPets = false, world = 1 }, -- 첫 PlayerState 전(값은 곧 서버 것으로 바뀐다)
 	-- 첫 PlayerState 전: 보유 없음 · 제한(행운 상품을 숨긴 채 시작한다 — 서버 확인 전과 같다) · 부스트 없음 · 자동 꺼짐
-	shop = { gamepasses = {}, paidRandomRestricted = true, boosts = {}, autoClick = false },
+	shop = { gamepasses = {}, paidRandomRestricted = true, boosts = {}, autoClick = false,
+		potions = { strength = 0, damage = 0, luck = 0 }, rollCredits = { lucky = 0, super = 0 }, gymUnlocks = {} },
 }
 
 local BIG_NUM_KEYS: { [Key]: boolean } = {
@@ -269,7 +273,27 @@ local function cloneShop(v: any): ShopSummary
 			end
 		end
 	end
-	return { gamepasses = passes, paidRandomRestricted = t.paidRandomRestricted ~= false, boosts = boosts, autoClick = t.autoClick == true }
+	local function count(src: any, k: string): number
+		local n = if type(src) == "table" then src[k] else nil
+		return if type(n) == "number" and n == n and n >= 0 and n ~= math.huge then math.floor(n) else 0
+	end
+	local gyms: { number } = {}
+	if type(t.gymUnlocks) == "table" then
+		for _, n in ipairs(t.gymUnlocks) do
+			if type(n) == "number" and n == n and n % 1 == 0 then
+				table.insert(gyms, n)
+			end
+		end
+	end
+	return {
+		gamepasses = passes,
+		paidRandomRestricted = t.paidRandomRestricted ~= false,
+		boosts = boosts,
+		autoClick = t.autoClick == true,
+		potions = { strength = count(t.potions, "strength"), damage = count(t.potions, "damage"), luck = count(t.potions, "luck") },
+		rollCredits = { lucky = count(t.rollCredits, "lucky"), super = count(t.rollCredits, "super") },
+		gymUnlocks = gyms,
+	}
 end
 
 local function shopEqual(a: any, b: any): boolean
@@ -282,6 +306,20 @@ local function shopEqual(a: any, b: any): boolean
 	end
 	for i, key in ipairs(a.gamepasses) do
 		if b.gamepasses[i] ~= key then
+			return false
+		end
+	end
+	-- 보관함 · 롤 · 선해금(지시서 #17)
+	local pa, pb, ra, rb = a.potions or {}, b.potions or {}, a.rollCredits or {}, b.rollCredits or {}
+	if pa.strength ~= pb.strength or pa.damage ~= pb.damage or pa.luck ~= pb.luck or ra.lucky ~= rb.lucky or ra.super ~= rb.super then
+		return false
+	end
+	local ga, gb = a.gymUnlocks or {}, b.gymUnlocks or {}
+	if #ga ~= #gb then
+		return false
+	end
+	for i, n in ipairs(ga) do
+		if gb[i] ~= n then
 			return false
 		end
 	end
@@ -323,7 +361,8 @@ end
 
 local function valuesEqual(key: Key, a: any, b: any): boolean
 	if key == "shop" then
-		return shopEqual(a, b)
+		-- 들어온 값은 아직 복사 전이라 빠진 필드가 있을 수 있다(옛 payload의 보관함 — 지시서 #17). 둘 다 정규화한 뒤 비교한다
+		return shopEqual(cloneShop(a), cloneShop(b))
 	end
 	if key == "titles" then
 		return titlesEqual(a, b)

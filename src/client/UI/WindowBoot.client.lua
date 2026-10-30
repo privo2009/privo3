@@ -90,6 +90,11 @@ local shopWindow = UpgradeShopWindow.create({
 ScreenController.register("Shop", "Window", function()
 	return shopWindow.root
 end)
+-- HUD 부스트 표시 → 상점 로벅스 탭 "포션" 묶음(지시서 #17 — Navigation)
+require(script.Parent.Navigation).onOpenPotions(function()
+	ScreenController.open("Shop")
+	shopWindow.openPotions()
+end)
 
 channels.upgradeResult.OnClientEvent:Connect(function(payload: Remotes.UpgradeResultPayload)
 	shopWindow.onResult(payload)

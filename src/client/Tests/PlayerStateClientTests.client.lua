@@ -192,6 +192,32 @@ do
 		PlayerStateClient.apply(setter, samplePayload(), 500)
 	end)
 	check("상점: 값이 같으면 받은 시각은 처음 것 그대로(같은 값은 통지 안 함)", store.get("shop").boosts[1].receivedAt == 123)
+	-- 보관함 · 롤 · 선해금(지시서 #17)
+	check("보관함: 옛 payload(필드 없음)도 받는다 → 0 · 빈 목록", store.get("shop").potions.strength == 0 and store.get("shop").rollCredits.super == 0
+		and #store.get("shop").gymUnlocks == 0)
+	local inv = samplePayload()
+	inv.shop.potions = { strength = 2, damage = 0, luck = 7 }
+	inv.shop.rollCredits = { lucky = 5, super = 1 }
+	inv.shop.gymUnlocks = { 1, 4 }
+	local fired = 0
+	store.subscribe("shop", function()
+		fired += 1
+	end)
+	store.setSource(function(setter)
+		PlayerStateClient.apply(setter, inv, 600)
+	end)
+	task.wait()
+	local s2 = store.get("shop")
+	check("보관함: 포션 · 롤 · 선해금이 Store에 실린다 · 바뀌면 통지", s2.potions.strength == 2 and s2.potions.luck == 7 and s2.rollCredits.lucky == 5
+		and s2.gymUnlocks[2] == 4 and fired >= 1)
+	local bad = samplePayload()
+	bad.shop.potions = { strength = 0 / 0, damage = -1 }
+	bad.shop.gymUnlocks = { "x", 3.5, 2 }
+	store.setSource(function(setter)
+		PlayerStateClient.apply(setter, bad, 700)
+	end)
+	check("보관함: 이상한 값은 0 · 정수 번호만", store.get("shop").potions.strength == 0 and store.get("shop").potions.damage == 0
+		and #store.get("shop").gymUnlocks == 1 and store.get("shop").gymUnlocks[1] == 2)
 end
 
 print(string.format("[PlayerStateClientTests] %d passed, %d failed", passed, failed))

@@ -72,10 +72,12 @@ end
 -- 1. 줄 · 상태 · 표시 값 ----------------------------------------------------------------------------
 do
 	local rows = RobuxShopLogic.rows(shop(nil, false))
-	check("줄: 계단 한 줄 + 게임패스 13(제한 아님)", #rows == 1 + #ShopConfig.GAMEPASS_ORDER and rows[1].key == RobuxShopLogic.LADDER_KEY)
+	local potionN = #RobuxShopLogic.potionRows(shop(nil, false))
+	check("줄: 계단 한 줄 + 포션 묶음 4(#17) + 게임패스 13(제한 아님)", potionN == #ShopConfig.BOOST_ORDER + 1
+		and #rows == 1 + potionN + #ShopConfig.GAMEPASS_ORDER and rows[1].key == RobuxShopLogic.LADDER_KEY and rows[2].useKey == "strength")
 	local allMatch = true
 	for i, key in ipairs(ShopConfig.GAMEPASS_ORDER) do
-		local r = rows[i + 1]
+		local r = rows[i + 1 + potionN]
 		local def = ShopConfig.get(key) :: ShopConfig.ProductDef
 		if r.key ~= key or r.title ~= Names.product(key) or r.footText ~= RobuxShopLogic.priceText(def.priceRobux) then
 			allMatch = false
@@ -135,7 +137,7 @@ do
 	local b2 = RollOdds.percentages(RollOdds.distribution(tiers, base * 2))
 	check("행운 줄: 행운 포션 활성 중이면 '지금' 확률에 포션이 들어 있다", string.find(withPotion.detail, b2[#tiers] .. " →", 1, true) ~= nil, withPotion.detail)
 	local restricted = RobuxShopLogic.rows(shop(nil, true), ctx)
-	check("제한 유저: 행운 상품 줄 3개를 숨긴다", #restricted == 1 + #ShopConfig.GAMEPASS_ORDER - 3 and rowByKey(restricted, "petLuck2x") == nil
+	check("제한 유저: 행운 상품 줄 3개 · 행운 포션 · 번들을 숨긴다", #restricted == 1 + (#ShopConfig.BOOST_ORDER - 1) + #ShopConfig.GAMEPASS_ORDER - 3 and rowByKey(restricted, "petLuck2x") == nil
 		and rowByKey(restricted, "auraLuck10x") == nil and rowByKey(restricted, "titleLuck10x") == nil and rowByKey(restricted, "damage2x") ~= nil)
 	check("첫 PlayerState 전(Store 기본값)은 제한으로 본다 — 행운 줄이 안 보인다", rowByKey(RobuxShopLogic.rows(Store.new().get("shop")), "auraLuck10x") == nil)
 end
@@ -197,7 +199,14 @@ do
 			table.insert(sent, key)
 		end,
 	})
-	local handle = UpgradeShopWindow.create({ store = store, sendRequest = function() end, purchase = client, onClose = function() end })
+	local used = {}
+	local potionClient = PurchaseClient.new({
+		send = function(boost: string)
+			table.insert(used, boost)
+		end,
+	})
+	local handle = UpgradeShopWindow.create({ store = store, sendRequest = function() end, purchase = client, potion = potionClient,
+		onClose = function() end })
 	check("탭: 처음은 업그레이드 · 업그레이드 탭만 하늘", handle._debug.tab() == UpgradeShopWindow.TAB_UPGRADE
 		and handle._debug.tabs.upgrade.selected.root.Visible and not handle._debug.tabs.robux.selected.root.Visible)
 	handle._debug.selectTab(UpgradeShopWindow.TAB_ROBUX)
@@ -212,7 +221,8 @@ do
 	end
 	local parts = handle._debug.robuxRows[bloxIndex]
 	check("로벅스 줄: 보유 = '보유 중' · 회색(잠김)", parts.buttonLabel.Text == RobuxShopLogic.OWNED_TEXT and parts.button.isDisabled())
-	check("로벅스 줄: 제한 아님 → 줄 14개가 보인다", #view == 1 + #ShopConfig.GAMEPASS_ORDER and handle._debug.robuxRows[#view].frame.Visible)
+	check("로벅스 줄: 제한 아님 → 줄 18개(계단 · 포션 4 · 게임패스 13)가 보인다", #view == 1 + #ShopConfig.BOOST_ORDER + 1 + #ShopConfig.GAMEPASS_ORDER
+		and handle._debug.robuxRows[#view].frame.Visible)
 	check("로벅스 줄: 크기는 Scale만(Offset 0)", parts.frame.Size.Y.Offset == 0 and parts.frame.Position.Y.Offset == 0)
 	handle._debug.pressRobux(bloxIndex)
 	check("로벅스 줄: 보유 줄은 눌러도 요청 없음", #sent == 0)
@@ -231,8 +241,34 @@ do
 		setter("shop", shop({ "blox2x" }, true))
 	end)
 	task.wait()
-	check("제한 유저: 창 줄 수가 줄고 남는 줄은 숨는다", #handle._debug.robuxView() == 1 + #ShopConfig.GAMEPASS_ORDER - 3
-		and not handle._debug.robuxRows[#ShopConfig.GAMEPASS_ORDER + 1].frame.Visible)
+	local nR = #handle._debug.robuxView()
+	check("제한 유저: 창 줄 수가 줄고 남는 줄은 숨는다", nR == 1 + (#ShopConfig.BOOST_ORDER - 1) + #ShopConfig.GAMEPASS_ORDER - 3
+		and not handle._debug.robuxRows[nR + 1].frame.Visible)
+	-- 포션 묶음 켜기(지시서 #17): 보관 0이면 잠김 · 있으면 그 종류로 한 번만 요청
+	local function potionShop(n: number): any
+		local s = shop(nil, false)
+		s.potions = { strength = n, damage = 0, luck = 0 }
+		return s
+	end
+	store.setSource(function(setter)
+		setter("shop", potionShop(0))
+	end)
+	task.wait()
+	handle._debug.pressUse(2)
+	check("포션 켜기: 보관 0이면 켜기 잠김 · 요청 없음", #used == 0 and handle._debug.robuxRows[2].use.isDisabled()
+		and handle._debug.robuxRows[2].use.root.Visible)
+	store.setSource(function(setter)
+		setter("shop", potionShop(2))
+	end)
+	task.wait()
+	handle._debug.pressUse(2)
+	handle._debug.pressUse(2)
+	check("포션 켜기: 보관이 있으면 그 종류(strength)로 한 번만 요청", #used == 1 and used[1] == "strength", tostring(#used))
+	check("포션 줄: 제목에 보유 수 · 켜기 버튼은 게임패스 줄에 없다", string.find(handle._debug.robuxRows[2].title.Text, "2", 1, true) ~= nil
+		and not handle._debug.robuxRows[1].use.root.Visible)
+	handle._debug.selectTab(UpgradeShopWindow.TAB_UPGRADE)
+	handle._debug.openPotions()
+	check("openPotions: 로벅스 탭으로 연다(HUD 부스트 표시)", handle._debug.tab() == UpgradeShopWindow.TAB_ROBUX and handle._debug.robuxList.Visible)
 	handle._debug.selectTab(UpgradeShopWindow.TAB_UPGRADE)
 	check("탭: 다시 업그레이드로", handle._debug.list.Visible and not handle._debug.robuxList.Visible)
 	handle.root:Destroy()
@@ -466,6 +502,54 @@ do
 	print(string.format("[RobuxShopTests] 폰 705×338: 업그레이드 탭 최소 %.1fpx · 로벅스 탭 최소 %.1fpx · 부스트 줄 %.1fpx · 넘침 %d",
 		h1, h2, h3, bad1 + bad2 + bad3))
 	gui:Destroy()
+end
+
+-- 11. 포션 묶음 · 창별 상품 줄 (지시서 #17) ---------------------------------------------------------------
+do
+	local s = shop(nil, false)
+	s.potions = { strength = 3, damage = 0, luck = 1 }
+	local p = RobuxShopLogic.potionRows(s)
+	check("포션 줄: 힘 · 데미지 · 행운 순 + 번들 · 켜기 키 = 종류 · 보관 0이면 켜기 잠김", p[1].useKey == "strength" and p[1].canUse
+		and p[2].useKey == "damage" and not p[2].canUse and p[3].useKey == "luck" and p[3].canUse and p[4].useKey == nil
+		and p[4].buyKey == "potionBundle" and p[1].buyKey == "strengthPotion" and p[1].useText == RobuxShopLogic.USE_TEXT)
+	check("포션 줄: 제목 = 이름 + 보유 수", p[1].title == Locale.t("shop.potion.title", { name = Names.product("strengthPotion"), n = 3 }))
+	local pr = RobuxShopLogic.potionRows(shop(nil, true))
+	check("포션 줄: 제한 유저는 행운 포션 · 번들을 숨긴다(S13)", #pr == 2 and pr[1].useKey == "strength" and pr[2].useKey == "damage")
+	check("포션 결과 문구: 켬(+15분) · 거부 사유", RobuxShopLogic.potionResultText({ boost = "strength", ok = true, reason = "" })
+		== Locale.t("shop.potion.used", { name = Names.product("strengthPotion"), min = ShopConfig.BOOSTS.strength.durationSec // 60 })
+		and RobuxShopLogic.potionResultText({ boost = "luck", ok = false, reason = "none_owned" }) == Locale.t("shop.reason.none_owned"))
+	local aura = RobuxShopLogic.windowRows("aura", shop(nil, false), { auras = { selectedPack = 1 } })
+	check("아우라 창 상품: 럭키 5 · 15 · 슈퍼 5 · 15 · 10배 아우라 행운", #aura == 5 and aura[1].key == "luckyRoll5" and aura[4].key == "superRoll15"
+		and aura[5].key == "auraLuck10x" and aura[1].canBuy and aura[1].footText == RobuxShopLogic.priceText(49))
+	local tiers = AuraConfig.Packs[1].auras
+	local base = UpgradeConfig.getEffect("auraLuck", 0)
+	local before = RollOdds.percentages(RollOdds.distribution(tiers, base))
+	local after = RollOdds.percentages(RollOdds.distribution(tiers, base * 100))
+	check("슈퍼 롤 줄: 확률 변화 = 지금 → ×100(RollOdds)", aura[3].detail == string.format("%s %s → %s", Names.aura(tiers[#tiers].id),
+		before[#tiers], after[#tiers]), aura[3].detail)
+	check("창 상품: 제한 유저는 아우라 0줄 · 칭호 0줄 · 펫 3줄(펫 행운 숨김)", #RobuxShopLogic.windowRows("aura", shop(nil, true)) == 0
+		and #RobuxShopLogic.windowRows("title", shop(nil, true)) == 0 and #RobuxShopLogic.windowRows("pet", shop(nil, true)) == 3)
+	local pet = RobuxShopLogic.windowRows("pet", shop({ "hatch3x" }, false))
+	check("펫 창 상품: 3배 부화 보유면 '보유 중' · 나머지는 구매", pet[1].key == "hatch3x" and pet[1].state == "owned" and pet[2].state == "buy")
+	-- HUD 부스트 표시를 누르면 포션 묶음(지시서 #17): 줄이 있을 때만 누르는 칸이 켜진다
+	local bStore = Store.new()
+	local pressed = 0
+	local timers = BoostTimers.create({ store = bStore, autoTick = false, onPress = function()
+		pressed += 1
+	end })
+	timers._debug.press()
+	check("부스트 표시: 활성 부스트가 없으면 누르는 칸 꺼짐 · 눌러도 없음", timers._debug.hit ~= nil and not (timers._debug.hit :: TextButton).Visible
+		and pressed == 0)
+	bStore.setSource(function(setter)
+		setter("shop", shop(nil, false, { { type = "strength", mult = 2, remainingSec = 60, receivedAt = os.clock() } }))
+	end)
+	task.wait()
+	timers.refresh()
+	timers._debug.press()
+	check("부스트 표시: 줄이 보이면 누르는 칸 켜짐 · 누르면 onPress", (timers._debug.hit :: TextButton).Visible and pressed == 1)
+	timers.root:Destroy()
+	check("사유 문구(#17): already_unlocked · none_owned도 따로", RobuxShopLogic.reasonText("already_unlocked") ~= RobuxShopLogic.reasonText("???")
+		and RobuxShopLogic.reasonText("none_owned") ~= RobuxShopLogic.reasonText("???"))
 end
 
 print(string.format("[RobuxShopTests] %d passed, %d failed", passed, failed))

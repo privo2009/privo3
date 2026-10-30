@@ -7,6 +7,8 @@
 -- 글자: 소(2.5%) · 오른쪽 정렬 · 흰 글자 + 검은 테두리(8. 비주얼 스타일). 폰 하한 11px는 TextMinimum이 붙인다.
 -- 줄 문구 · 남은 시간 계산은 UI/Logic/BoostTimersLogic(순수). 1초마다 다시 그린다(인스턴스를 새로 만들지 않는다 — 줄 3개를 미리 둔다).
 -- "숨김" = 줄 라벨이 전부 Visible false(root는 투명한 틀로 열려 있다).
+-- 누르면 상점 "포션" 묶음을 연다(지시서 #17 — deps.onPress). 누르는 칸(HitArea)은 줄이 하나라도 보일 때만 켠다 —
+-- 안 보이는 틀이 월드 클릭을 가로막지 않게.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
@@ -29,12 +31,13 @@ export type Deps = {
 	store: any?,
 	now: (() -> number)?,
 	autoTick: boolean?, -- 기본 true(1초마다 다시 그림). 테스트는 false로 두고 refresh를 직접 부른다
+	onPress: (() -> ())?, -- 누르면(지시서 #17 — 상점 포션 묶음). 없으면 누르는 칸을 만들지 않는다
 }
 
 export type Handle = {
 	root: Frame,
 	refresh: () -> (),
-	_debug: { labels: { TextLabel } },
+	_debug: { labels: { TextLabel }, hit: TextButton?, press: () -> () },
 }
 
 function BoostTimers.create(deps: Deps?): Handle
@@ -76,12 +79,32 @@ function BoostTimers.create(deps: Deps?): Handle
 		labels[i] = label
 	end
 
+	local hit: TextButton? = nil
+	if d.onPress ~= nil then
+		local h = Instance.new("TextButton")
+		h.Name = "HitArea"
+		h.Size = UDim2.fromScale(1, 1)
+		h.BackgroundTransparency = 1
+		h.BorderSizePixel = 0
+		h.Text = ""
+		h.ZIndex = 10
+		h.Visible = false
+		h.Parent = root
+		h.Activated:Connect(function()
+			(d.onPress :: () -> ())()
+		end)
+		hit = h
+	end
+
 	local function refresh()
 		local lines = BoostTimersLogic.lines(source.get("shop"), now())
 		for i, label in ipairs(labels) do
 			local text = lines[i]
 			label.Visible = text ~= nil
 			label.Text = text or ""
+		end
+		if hit ~= nil then
+			hit.Visible = #lines > 0
 		end
 	end
 
@@ -125,7 +148,19 @@ function BoostTimers.create(deps: Deps?): Handle
 		end)
 	end
 
-	return { root = root, refresh = refresh, _debug = { labels = labels } }
+	return {
+		root = root,
+		refresh = refresh,
+		_debug = {
+			labels = labels,
+			hit = hit,
+			press = function()
+				if hit ~= nil and hit.Visible and d.onPress ~= nil then
+					d.onPress()
+				end
+			end,
+		},
+	}
 end
 
 return BoostTimers

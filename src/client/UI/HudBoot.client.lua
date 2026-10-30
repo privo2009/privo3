@@ -60,7 +60,8 @@ channels.autoClickResult.OnClientEvent:Connect(function(payload: Remotes.AutoCli
 	autoTools.onAutoClickResult(payload)
 end)
 -- 활성 부스트 남은 시간(지시서 #16). 활성이 없으면 숨어 있다 — HudVisibilityTests의 "항상 보이는 6종"에는 넣지 않는다
-local boostTimers = BoostTimers.create()
+-- 누르면 상점 로벅스 탭 "포션" 묶음(지시서 #17) — 창은 WindowBoot가 연다(Navigation)
+local boostTimers = BoostTimers.create({ onPress = require(script.Parent.Navigation).openPotions })
 
 -- 여섯 다 register 이전에 이미 만들어져 있다. ScreenController의 지연 생성은 나중에
 -- 열릴 수도 있는 창·오버레이의 로딩 비용을 아끼려는 것이고, HUD는 register 직후

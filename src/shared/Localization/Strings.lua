@@ -284,6 +284,10 @@ Strings.Entries = {
 	["aura.modal.detailEquipped"] = { en = "{rarity} · {mult} · Equipped", ko = "{rarity} · {mult} · 장착" },
 	["aura.reason.not_owned"] = { en = "You don't have this Aura yet", ko = "아직 없는 아우라예요" },
 	["aura.reason.pack_locked"] = { en = "This pack isn't unlocked yet", ko = "아직 열리지 않은 팩이에요" },
+	["aura.reason.none_owned"] = { en = "No rolls left", ko = "남은 롤이 없어요" }, -- 지시서 #17
+	["aura.useLucky"] = { en = "Use Lucky Roll ({n})", ko = "럭키 롤 사용 ({n})" },
+	["aura.useSuper"] = { en = "Use Super Roll ({n})", ko = "슈퍼 롤 사용 ({n})" },
+	["aura.robuxTab"] = { en = "Robux", ko = "로벅스" },
 	["pet.title"] = { en = "Pets", ko = "펫" },
 	["pet.equipBest"] = { en = "Equip Best", ko = "최고 장착" },
 	["pet.unequip"] = { en = "Unequip", ko = "해제" },
@@ -353,6 +357,11 @@ Strings.Entries = {
 	["shop.reason.not_registered"] = { en = "Coming soon", ko = "준비 중이에요" },
 	["shop.reason.already_owned"] = { en = "You already own this", ko = "이미 가지고 있어요" },
 	["shop.reason.ladder_owned_higher"] = { en = "You already own a higher Power tier", ko = "더 높은 힘 단계를 이미 가지고 있어요" },
+	["shop.reason.already_unlocked"] = { en = "This Gym is already unlocked", ko = "이미 열린 운동기구예요" }, -- 지시서 #17
+	["shop.reason.none_owned"] = { en = "You don't have any", ko = "보관한 것이 없어요" },
+	["shop.potion.title"] = { en = "{name}  Owned {n}", ko = "{name}  보유 {n}" },
+	["shop.potion.use"] = { en = "Use", ko = "켜기" },
+	["shop.potion.used"] = { en = "{name} on (+{min} min)", ko = "{name} 켬 (+{min}분)" },
 	["shop.reason.auto_owned_higher"] = { en = "You already own OP Auto Clicker", ko = "OP 자동 클리커를 이미 가지고 있어요" },
 	["shop.reason.restricted"] = { en = "This item isn't available in your region", ko = "이 지역에서는 살 수 없는 상품이에요" },
 	["shop.reason.invalid_key"] = { en = "This item can't be bought", ko = "살 수 없는 상품이에요" },

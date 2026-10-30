@@ -163,6 +163,10 @@ function PlayerStateClient.apply(setter: (string, any) -> (), payload: any, now:
 		paidRandomRestricted = payload.shop.paidRandomRestricted,
 		boosts = boosts,
 		autoClick = payload.shop.autoClick,
+		-- 보관함 · 롤 · 선해금(지시서 #17). 형태 검사는 Store가 한다(이상하면 0 · 빈 목록) — 옛 서버 payload에 없어도 받는다
+		potions = payload.shop.potions,
+		rollCredits = payload.shop.rollCredits,
+		gymUnlocks = payload.shop.gymUnlocks,
 	})
 	return true
 end

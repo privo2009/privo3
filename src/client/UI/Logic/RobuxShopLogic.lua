@@ -11,6 +11,11 @@
 --             계단(R1)은 한 줄에 다음 단계만 보이므로 가진 단계 이하가 화면에 나오지 않는다
 --   행운 줄   확률 변화를 숫자로: "<가장 귀한 것> 1.0% → 9.6%"(S13 — 구매 전에 숫자로 보인다)
 --   제한 유저 로벅스 행운 상품(paidRandom) 줄을 숨긴다(S13)
+--
+-- 지시서 #17: 같은 줄 모양을 창별 상품 버튼(아우라 · 펫 · 칭호 창 — windowRows)과 상점 "포션" 묶음(potionRows)이 쓴다.
+--   개발자 상품 줄  보유가 없다 — 등록됐으면 늘 "구매". 럭키 · 슈퍼 롤 줄의 설명은 그 롤의 행운으로 바뀌는 확률(아우라 고른 팩)
+--   포션 줄        "<이름>  보유 N" · 설명 · 구매(초록) + 켜기(하늘 — 보유 0이면 잠김). 켜기는 Net/PotionClient(useKey = 포션 종류)
+--   로벅스 탭 순서  계단 → 포션 묶음(포션 3 + 번들) → 게임패스(GAMEPASS_ORDER)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -47,6 +52,10 @@ export type Row = {
 	buttonText: string,
 	footText: string, -- 버튼 아래: 가격("49 R$") 또는 ""
 	canBuy: boolean,
+	-- 둘째 버튼(포션 줄의 "켜기" — 지시서 #17). 없는 줄은 useKey = nil · useText "" · canUse false
+	useKey: string?,
+	useText: string,
+	canUse: boolean,
 }
 
 function RobuxShopLogic.priceText(priceRobux: number): string
@@ -124,6 +133,9 @@ local function passRow(key: string, owns: (string) -> boolean, ctx: Context, sho
 			else RobuxShopLogic.BUY_TEXT,
 		footText = if state == "owned" or state == "ownedHigher" then "" else RobuxShopLogic.priceText(def.priceRobux),
 		canBuy = state == "buy",
+		useKey = nil,
+		useText = "",
+		canUse = false,
 	}
 end
 
@@ -142,6 +154,9 @@ local function ladderRow(owns: (string) -> boolean): Row
 			buttonText = RobuxShopLogic.MAX_TEXT,
 			footText = "",
 			canBuy = false,
+			useKey = nil,
+			useText = "",
+			canUse = false,
 		}
 	end
 	local def = ShopConfig.get(nextKey) :: ShopConfig.ProductDef
@@ -155,7 +170,123 @@ local function ladderRow(owns: (string) -> boolean): Row
 		buttonText = if state == "notRegistered" then RobuxShopLogic.NOT_REGISTERED_TEXT else RobuxShopLogic.BUY_TEXT,
 		footText = RobuxShopLogic.priceText(def.priceRobux),
 		canBuy = state == "buy",
+		useKey = nil,
+		useText = "",
+		canUse = false,
 	}
+end
+
+-- ===== 개발자 상품 · 포션 줄 (지시서 #17) =========================================================
+
+RobuxShopLogic.USE_TEXT = Locale.t("shop.potion.use")
+
+-- 개발자 상품 한 줄(보유 없음). 럭키 · 슈퍼 롤은 설명 대신 그 롤의 행운으로 바뀌는 아우라 확률.
+local function productRow(key: string, ctx: Context, shop: any): Row
+	local def = ShopConfig.get(key) :: ShopConfig.ProductDef
+	local detail = Names.productDesc(key)
+	if def.effect.type == "rollCredit" then
+		detail = RobuxShopLogic.oddsText("aura", def.effect.luckMult, ctx, shop)
+	end
+	local state: State = if def.id == 0 then "notRegistered" else "buy"
+	return {
+		key = key,
+		buyKey = if state == "buy" then key else nil,
+		title = Names.product(key),
+		detail = detail,
+		state = state,
+		buttonText = if state == "notRegistered" then RobuxShopLogic.NOT_REGISTERED_TEXT else RobuxShopLogic.BUY_TEXT,
+		footText = RobuxShopLogic.priceText(def.priceRobux),
+		canBuy = state == "buy",
+		useKey = nil,
+		useText = "",
+		canUse = false,
+	}
+end
+
+-- 게임패스 또는 개발자 상품 한 줄.
+function RobuxShopLogic.row(key: string, shop: any, ctx: Context?): Row
+	local def = ShopConfig.get(key) :: ShopConfig.ProductDef
+	local c: Context = ctx or {}
+	if def.kind == "product" then
+		return productRow(key, c, shop)
+	end
+	return passRow(key, ShopEffectsLogic.fromSummary(shop).owns, c, shop)
+end
+
+-- 포션 상품 키(그 종류 1개짜리) — ShopConfig에서 찾는다.
+function RobuxShopLogic.potionProductKey(boost: string): string?
+	for key, def in pairs(ShopConfig.Products) do
+		if def.effect.type == "potion" and def.effect.boost == boost then
+			return key
+		end
+	end
+	return nil
+end
+
+-- 보관 수(Store "shop".potions). 없으면 0.
+function RobuxShopLogic.potionCount(shop: any, boost: string): number
+	local p = if type(shop) == "table" then shop.potions else nil
+	local n = if type(p) == "table" then p[boost] else nil
+	return if type(n) == "number" then n else 0
+end
+
+-- "포션" 묶음: 종류마다 "<이름>  보유 N" · 구매 · 켜기, 그 뒤 번들(구매만). 제한 유저는 행운 포션 · 번들(행운 포함)을 숨긴다(S13).
+function RobuxShopLogic.potionRows(shop: any): { Row }
+	local restricted = ShopEffectsLogic.fromSummary(shop).restricted
+	local out: { Row } = {}
+	for _, boost in ipairs(ShopConfig.BOOST_ORDER) do
+		local key = RobuxShopLogic.potionProductKey(boost)
+		local def = if key ~= nil then ShopConfig.get(key) else nil
+		if def ~= nil and not (def.paidRandom and restricted) then
+			local r = productRow(key :: string, {}, shop)
+			local n = RobuxShopLogic.potionCount(shop, boost)
+			r.title = Locale.t("shop.potion.title", { name = Names.product(key :: string), n = n })
+			r.useKey = boost
+			r.useText = RobuxShopLogic.USE_TEXT
+			r.canUse = n > 0
+			table.insert(out, r)
+		end
+	end
+	for key, def in pairs(ShopConfig.Products) do
+		if def.effect.type == "potionBundle" and not (def.paidRandom and restricted) then
+			table.insert(out, productRow(key, {}, shop))
+		end
+	end
+	return out
+end
+
+-- 창별 상품 목록(DESIGN 9장 "창별 상품 버튼"). 제한 유저면 행운 상품을 뺀다.
+RobuxShopLogic.WINDOW_PRODUCTS = {
+	pet = { "hatch3x", "petLuck2x", "petStorage100", "petSlots3" },
+	aura = { "luckyRoll5", "luckyRoll15", "superRoll5", "superRoll15", "auraLuck10x" },
+	title = { "titleLuck10x" },
+} :: { [string]: { string } }
+
+function RobuxShopLogic.windowRows(window: string, shop: any, ctx: Context?): { Row }
+	local restricted = ShopEffectsLogic.fromSummary(shop).restricted
+	local out: { Row } = {}
+	for _, key in ipairs(RobuxShopLogic.WINDOW_PRODUCTS[window] or {}) do
+		local def = ShopConfig.get(key) :: ShopConfig.ProductDef
+		if not (def.paidRandom and restricted) then
+			table.insert(out, RobuxShopLogic.row(key, shop, ctx))
+		end
+	end
+	return out
+end
+
+-- PotionResult → 문구. 켰으면 "<이름> 켰다(+N분)", 거부면 사유.
+function RobuxShopLogic.potionResultText(payload: any): string?
+	if type(payload) ~= "table" then
+		return nil
+	end
+	local boost = tostring(payload.boost)
+	local key = RobuxShopLogic.potionProductKey(boost)
+	if payload.ok then
+		local def = ShopConfig.BOOSTS[boost]
+		return Locale.t("shop.potion.used", { name = if key ~= nil then Names.product(key) else boost,
+			min = if def ~= nil then math.floor(def.durationSec / 60) else 0 })
+	end
+	return RobuxShopLogic.reasonText(tostring(payload.reason))
 end
 
 -- 로벅스 탭 줄 전부. shop = Store "shop". 제한 유저면 로벅스 행운 상품 줄이 빠진다.
@@ -163,6 +294,9 @@ function RobuxShopLogic.rows(shop: any, ctx: Context?): { Row }
 	local view = ShopEffectsLogic.fromSummary(shop)
 	local c: Context = ctx or {}
 	local out: { Row } = { ladderRow(view.owns) }
+	for _, r in ipairs(RobuxShopLogic.potionRows(shop)) do
+		table.insert(out, r)
+	end
 	for _, key in ipairs(ShopConfig.GAMEPASS_ORDER) do
 		local def = ShopConfig.get(key) :: ShopConfig.ProductDef
 		if not (def.paidRandom and view.restricted) then
@@ -209,6 +343,10 @@ function RobuxShopLogic.reasonText(code: string): string
 		return Locale.t("shop.reason.invalid_key")
 	elseif code == "prompt_failed" then
 		return Locale.t("shop.reason.prompt_failed")
+	elseif code == "already_unlocked" then
+		return Locale.t("shop.reason.already_unlocked")
+	elseif code == "none_owned" then
+		return Locale.t("shop.reason.none_owned")
 	end
 	return Locale.t("shop.reason.failed")
 end

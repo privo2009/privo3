@@ -10,6 +10,8 @@
 --   로벅스 탭     힘 배수 계단 한 줄 + 게임패스(ShopConfig.GAMEPASS_ORDER). 줄 = 이름 · 설명(행운 상품은 확률 변화 숫자) · 버튼 · 가격.
 --                 보유 = "보유 중"(회색) · ID 0 = "준비 중"(회색) · 그 밖 = 초록 btn_green + 가격. 제한 유저는 행운 상품 줄을 숨긴다(S13).
 --                 값 · 상태 · 문구는 UI/Logic/RobuxShopLogic. 구매 요청은 Net/PurchaseClient(같은 키는 결과까지 한 번만).
+--                 지시서 #17: 계단 다음에 "포션" 묶음(포션 3 + 번들) — 보유 수 · 구매 · 켜기(Net/PotionClient). 줄 그리기는 Components/RobuxList.
+--                 openPotions()가 로벅스 탭을 열고 포션 줄로 내린다(HUD 부스트 표시를 누르면 — HudBoot).
 -- 이 파일은 그리기와 배선뿐이다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -27,6 +29,8 @@ local Store = require(script.Parent.Parent.Parent.Store)
 local UpgradeShopLogic = require(script.Parent.Parent.Parent.Logic.UpgradeShopLogic)
 local RobuxShopLogic = require(script.Parent.Parent.Parent.Logic.RobuxShopLogic)
 local PurchaseClient = require(script.Parent.Parent.Parent.Parent.Net.PurchaseClient)
+local PotionClient = require(script.Parent.Parent.Parent.Parent.Net.PotionClient)
+local RobuxList = require(script.Parent.Parent.Parent.Components.RobuxList)
 
 type BigNumber = BigNum.BigNumber
 
@@ -55,7 +59,8 @@ local STATUS_Y = LIST_Y + LIST_H + 0.01
 local STATUS_H = 1 - STATUS_Y
 local SCROLLBAR_PX = 6 -- ScrollBarThickness는 픽셀 정수 속성이라 Scale로 줄 수 없다(docs/UI.md "지시서 #12")
 local UPGRADE_ROWS = #UpgradeConfig.SHOP_ORDER
-local ROBUX_MAX_ROWS = 1 + #ShopConfig.GAMEPASS_ORDER -- 계단 한 줄 + 게임패스(제한 유저는 이보다 적다 — 남는 줄은 숨긴다)
+-- 계단 한 줄 + 포션 묶음(포션 종류 + 번들 — 지시서 #17) + 게임패스(제한 유저는 이보다 적다 — 남는 줄은 숨긴다)
+local ROBUX_MAX_ROWS = 1 + #ShopConfig.BOOST_ORDER + 1 + #ShopConfig.GAMEPASS_ORDER
 local function canvasK(rows: number): number
 	return math.max(1, (ROW_H + ROW_GAP) * rows / LIST_H)
 end
@@ -73,6 +78,7 @@ export type Deps = {
 	store: any?, -- Store 인스턴스. 생략하면 싱글톤
 	sendRequest: (name: string) -> (), -- 업그레이드 구매(블럭스)
 	purchase: PurchaseClient.Client?, -- 로벅스 구매 요청. 생략하면 실물(PurchaseClient.get)
+	potion: PurchaseClient.Client?, -- 포션 켜기 요청(지시서 #17). 생략하면 실물(PotionClient.get)
 	onClose: () -> (),
 	now: (() -> number)?, -- 테스트용 시계
 }
@@ -93,16 +99,19 @@ export type Handle = {
 	root: Frame,
 	refresh: () -> (),
 	onResult: (any) -> (),
+	openPotions: () -> (), -- 로벅스 탭 포션 묶음으로(지시서 #17)
 	_debug: {
 		press: (name: string) -> (),
 		pressRobux: (index: number) -> (),
+		pressUse: (index: number) -> (),
+		openPotions: () -> (),
 		selectTab: (tab: string) -> (),
 		tab: () -> string,
 		close: () -> (),
 		list: ScrollingFrame,
 		robuxList: ScrollingFrame,
 		rows: { [string]: RowParts },
-		robuxRows: { RowParts },
+		robuxRows: { RobuxList.RowParts },
 		tabs: { [string]: TabParts },
 		status: TextLabel,
 		view: () -> { UpgradeShopLogic.Row },
@@ -163,6 +172,7 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 	local source: any = deps.store or Store
 	local now = deps.now or os.clock
 	local purchase: PurchaseClient.Client = deps.purchase or PurchaseClient.get()
+	local potion: PurchaseClient.Client = deps.potion or PotionClient.get()
 	local panel = Panel.create("Small", UpgradeShopWindow.TITLE)
 	panel.root.Name = "UpgradeShopWindow"
 	local body = panel.body
@@ -194,21 +204,32 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 		rows[name] = makeRow("Row_" .. name, list, i, CANVAS_K, "blue", UpgradeShopLogic.BUY_TEXT, raise)
 	end
 
-	-- 로벅스 탭 목록(줄은 최대 수만큼 만들고, 그리는 순간의 줄 수만큼 보인다)
-	local robuxList = makeList("RobuxList", body, ROBUX_MAX_ROWS)
+	-- 로벅스 탭 목록(줄은 최대 수만큼 만들고, 그리는 순간의 줄 수만큼 보인다 — Components/RobuxList)
+	local resultText: string? = nil
+	local robux = RobuxList.create({
+		name = "RobuxList",
+		parent = body,
+		position = UDim2.fromScale(0, LIST_Y),
+		size = UDim2.fromScale(1, LIST_H),
+		rowH = ROW_H / LIST_H,
+		rowGap = ROW_GAP / LIST_H,
+		maxRows = ROBUX_MAX_ROWS,
+		raise = raise,
+		purchase = purchase,
+		potion = potion,
+		onPressed = function()
+			resultText = nil
+		end,
+	})
+	local robuxList = robux.list
 	robuxList.Visible = false
-	local robuxK = canvasK(ROBUX_MAX_ROWS)
-	local robuxRows: { RowParts } = {}
-	for i = 1, ROBUX_MAX_ROWS do
-		robuxRows[i] = makeRow("RobuxRow_" .. i, robuxList, i, robuxK, "green", RobuxShopLogic.BUY_TEXT, raise)
-	end
+	local robuxRows = robux.rows
 
 	local status = WindowParts.makeText("Status", body, "small", 0, STATUS_Y, 1, STATUS_H, Enum.TextXAlignment.Center)
 	local closeHit = WindowParts.hitArea(panel.closeButton.root)
 	WindowParts.raiseButtons(raise)
 
 	local pending = UpgradeShopLogic.newPending()
-	local resultText: string? = nil
 	local view: { UpgradeShopLogic.Row } = {}
 	local robuxView: { RobuxShopLogic.Row } = {}
 	local tab = UpgradeShopWindow.TAB_UPGRADE
@@ -237,24 +258,8 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 			lifetimeBlox = source.get("lifetimeBlox"),
 			pets = source.get("pets"),
 		})
-		for i, parts in ipairs(robuxRows) do
-			local r = robuxView[i]
-			parts.frame.Visible = r ~= nil
-			if r ~= nil then
-				parts.title.Text = r.title
-				parts.effect.Text = r.detail
-				parts.foot.Text = r.footText
-				parts.buttonLabel.Text = r.buttonText
-				parts.button.setDisabled(not r.canBuy or (r.buyKey ~= nil and purchase.isPending(r.buyKey :: string)))
-			end
-		end
-		-- 캔버스는 지금 줄 수에서 유도한다(제한 유저는 줄이 적다). 줄 위치 · 높이도 그 캔버스 기준으로 다시 잡는다
-		local k = canvasK(#robuxView)
-		robuxList.CanvasSize = UDim2.fromScale(0, k)
-		for i, parts in ipairs(robuxRows) do
-			parts.frame.Position = UDim2.fromScale(0, onCanvas((i - 1) * (ROW_H + ROW_GAP), k))
-			parts.frame.Size = UDim2.fromScale(1, onCanvas(ROW_H, k))
-		end
+		-- 캔버스 · 줄 위치는 지금 줄 수에서 유도한다(제한 유저는 줄이 적다 — RobuxList)
+		robux.render(robuxView)
 		status.Text = resultText or ""
 	end
 
@@ -285,15 +290,16 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 
 	local function pressRobux(index: number)
 		render()
-		local r = robuxView[index]
-		if r == nil or not r.canBuy or r.buyKey == nil then
-			return
-		end
-		if purchase.request(r.buyKey :: string) then
-			resultText = nil
-			render()
-			task.delay(PurchaseClient.PENDING_TIMEOUT_SEC + 0.05, render)
-		end
+		robux.pressBuy(index)
+		render()
+		task.delay(PurchaseClient.PENDING_TIMEOUT_SEC + 0.05, render)
+	end
+
+	local function pressUse(index: number)
+		render()
+		robux.pressUse(index)
+		render()
+		task.delay(PotionClient.PENDING_TIMEOUT_SEC + 0.05, render)
 	end
 
 	local function selectTab(key: string)
@@ -303,6 +309,19 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 		tab = key
 		resultText = nil
 		render()
+	end
+
+	-- 로벅스 탭을 열고 포션 묶음 첫 줄로 내린다(HUD 부스트 표시 — 지시서 #17)
+	local function openPotions()
+		tab = UpgradeShopWindow.TAB_ROBUX
+		resultText = nil
+		render()
+		for i, r in ipairs(robuxView) do
+			if r.useKey ~= nil then
+				robux.scrollTo(i)
+				break
+			end
+		end
 	end
 
 	local function close()
@@ -333,15 +352,14 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 		end
 		render()
 	end)
+	potion.onResult(function(payload)
+		resultText = RobuxShopLogic.potionResultText(payload)
+		render()
+	end)
 
 	for name, parts in pairs(rows) do
 		parts.hit.Activated:Connect(function()
 			press(name)
-		end)
-	end
-	for i, parts in ipairs(robuxRows) do
-		parts.hit.Activated:Connect(function()
-			pressRobux(i)
 		end)
 	end
 	for key, parts in pairs(tabs) do
@@ -360,9 +378,12 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 		root = panel.root,
 		refresh = render,
 		onResult = onResult,
+		openPotions = openPotions,
 		_debug = {
 			press = press,
 			pressRobux = pressRobux,
+			pressUse = pressUse,
+			openPotions = openPotions,
 			selectTab = selectTab,
 			tab = function()
 				return tab

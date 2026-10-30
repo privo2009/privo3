@@ -28,6 +28,11 @@ AuraWindowLogic.EQUIPPED_TEXT = Locale.t("common.equipped")
 AuraWindowLogic.LOCKED_TEXT = "-"
 AuraWindowLogic.TITLE_BUTTON_TEXT = Locale.t("aura.titleButton")
 AuraWindowLogic.ROLL_TEXT = Locale.t("aura.roll")
+-- 럭키 · 슈퍼 롤 쓰기 버튼(지시서 #17). n = 남은 횟수
+function AuraWindowLogic.useCreditText(credit: string, n: number): string
+	return Locale.t(if credit == "super" then "aura.useSuper" else "aura.useLucky", { n = n })
+end
+AuraWindowLogic.ROBUX_TAB_TEXT = Locale.t("aura.robuxTab")
 
 -- 아우라 등급(1 common ~ 4 legendary) → UiTheme.Rarity 단계(tier1~6). Claude가 정했다(docs/UI.md "지시서 #11").
 -- 일반 = 가장 수수한 tier1, 희귀 = 하늘 tier3, 영웅 = 보라 tier4, 전설 = 금 tier5. tier6(진분홍)은 칭호 신화만 쓴다 —
@@ -40,6 +45,8 @@ AuraWindowLogic.REASONS = {
 	no_profile = Locale.t("common.reason.no_profile"),
 	not_owned = Locale.t("aura.reason.not_owned"),
 	pack_locked = Locale.t("aura.reason.pack_locked"),
+	none_owned = Locale.t("aura.reason.none_owned"), -- 롤 쓰기: 남은 횟수 0(지시서 #17)
+	restricted = Locale.t("shop.reason.restricted"),
 	invalid_request = Locale.t("common.reason.invalid_request"),
 	partial_failure = Locale.t("common.reason.partial_failure"),
 } :: { [string]: string }
@@ -209,7 +216,7 @@ function AuraWindowLogic.resultText(payload: any): string?
 	if not payload.ok then
 		return AuraWindowLogic.reasonText(tostring(payload.reason))
 	end
-	if payload.action == "roll" then
+	if payload.action == "roll" or payload.action == "rollCredit" then
 		if payload.isNew then
 			return Locale.t("aura.result.new", { name = nameOf(payload.auraId) })
 		end
@@ -224,7 +231,7 @@ end
 
 -- 모달을 띄우는가: 롤 성공이고 새 아우라이거나 3등급(epic) 이상. 중복 하위 등급은 창 안 문구로만.
 function AuraWindowLogic.shouldModal(payload: any): boolean
-	return type(payload) == "table" and payload.ok == true and payload.action == "roll"
+	return type(payload) == "table" and payload.ok == true and (payload.action == "roll" or payload.action == "rollCredit")
 		and (payload.isNew == true or (type(payload.tier) == "number" and payload.tier >= AuraConfig.MODAL_MIN_TIER))
 end
 
@@ -256,7 +263,7 @@ function AuraWindowLogic.pendingKeyOf(payload: any): string?
 	if type(payload) ~= "table" then
 		return nil
 	end
-	if payload.action == "roll" or payload.action == "equip" or payload.action == "selectPack" then
+	if payload.action == "roll" or payload.action == "equip" or payload.action == "selectPack" or payload.action == "rollCredit" then
 		return payload.action
 	end
 	return nil
