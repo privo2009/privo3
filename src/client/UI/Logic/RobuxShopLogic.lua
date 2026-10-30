@@ -179,6 +179,7 @@ end
 -- ===== 개발자 상품 · 포션 줄 (지시서 #17) =========================================================
 
 RobuxShopLogic.USE_TEXT = Locale.t("shop.potion.use")
+RobuxShopLogic.ROBUX_TAB_TEXT = Locale.t("shop.tab.robux") -- 아우라 · 펫 창의 로벅스 탭(상점 탭과 같은 낱말)
 
 -- 개발자 상품 한 줄(보유 없음). 럭키 · 슈퍼 롤은 설명 대신 그 롤의 행운으로 바뀌는 아우라 확률.
 local function productRow(key: string, ctx: Context, shop: any): Row

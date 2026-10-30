@@ -9,6 +9,10 @@
 -- 확인 단계는 없다(소액 반복 — 상점 S8과 같다). 요청을 보낸 버튼은 결과가 올 때까지 잠근다.
 -- 자동 뽑기 토글은 자동 도구(AutoTools)와 같은 두 채널로 켜짐을 보인다: 테두리 색(켜짐 = 수령 · 안전 노랑 / 꺼짐 = 검정) +
 -- 글자 밝기(켜짐 = 중립 밝음 / 꺼짐 = 중립 기본). 색만으로는 색각 이상 사용자에게 안 읽힌다(AutoTools 상단).
+--
+-- 지시서 #17: 맨 윗줄 오른쪽에 "10배 칭호 행운 299 R$" 한 줄 버튼(초록 — 로벅스). 창이 작아 상품 목록 줄을 넣을 자리가 없어서다.
+-- 확률 변화 숫자(S13)는 평소 비어 있는 아래 상태 줄에 보인다(결과 문구가 오면 그것이 먼저). 보유면 "· 보유 중"(잠김),
+-- 제한 유저면 버튼과 숫자를 숨긴다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -19,6 +23,10 @@ local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local Store = require(script.Parent.Parent.Parent.Store)
 local TitleWindowLogic = require(script.Parent.Parent.Parent.Logic.TitleWindowLogic)
+local RobuxShopLogic = require(script.Parent.Parent.Parent.Logic.RobuxShopLogic)
+local PurchaseClient = require(script.Parent.Parent.Parent.Parent.Net.PurchaseClient)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 
 local TitleWindow = {}
 
@@ -37,14 +45,19 @@ local NOTE_H = 0.07
 local STATUS_Y = NOTE_Y + NOTE_H + 0.005
 local STATUS_H = 1 - STATUS_Y
 -- 줄 안 칸(줄 기준 비율)
+-- 2026-10-31(지시서 #17 폰 틀 검사): 상태 칸 0.11이 폰 본문(약 395px)에서 43px라 영어 "Not owned"(11px에서 50px)가 넘쳤다.
+-- K12 — 글자는 그대로, 칸을 다시 나눴다(각 칸의 가장 긴 영어를 11px로 잰 폭 + 여유: 이름 52 · 배수 78 · 확률 49 · 상태 52px).
 local COL = {
-	name = { x = 0.02, w = 0.21 },
-	mult = { x = 0.24, w = 0.28 },
-	chance = { x = 0.53, w = 0.16 },
-	status = { x = 0.70, w = 0.11 },
-	button = { x = 0.82, w = 0.17 },
+	name = { x = 0.02, w = 0.17 },
+	mult = { x = 0.20, w = 0.24 },
+	chance = { x = 0.45, w = 0.15 },
+	status = { x = 0.61, w = 0.16 },
+	button = { x = 0.78, w = 0.21 },
 }
 -- 아래 조작부(본문 기준)
+local LUCK_W = 0.52 -- 지시서 #17: 행운 줄을 줄이고 오른쪽에 상품 버튼
+local PRODUCT_X, PRODUCT_W = 0.54, 0.46
+TitleWindow.PRODUCT_KEY = "titleLuck10x"
 local ROLL_X, ROLL_W = 0, 0.49
 local AUTO_X, AUTO_W = 0.51, 0.49
 TitleWindow.Layout = { ROW_H = ROW_H, ROWS_H = ROWS_H, CONTROL_Y = CONTROL_Y, STATUS_Y = STATUS_Y }
@@ -57,6 +70,7 @@ local TOGGLE_OFF_TEXT = UiTheme.Colors.neutral.base
 export type Deps = {
 	store: any?, -- Store 인스턴스. 생략하면 싱글톤
 	sendRequest: (payload: { action: string, titleId: string?, on: boolean? }) -> (),
+	purchase: PurchaseClient.Client?, -- 로벅스 상품 구매(지시서 #17). 생략하면 실물(PurchaseClient.get)
 	onClose: () -> (),
 	now: (() -> number)?, -- 테스트용 시계
 }
@@ -90,12 +104,16 @@ export type Handle = {
 		note: TextLabel,
 		status: TextLabel,
 		luckLine: TextLabel,
+		pressProduct: () -> (),
+		productButton: Button.ButtonHandle,
+		productLabel: TextLabel,
 	},
 }
 
 function TitleWindow.create(deps: Deps): Handle
 	local source: any = deps.store or Store
 	local now = deps.now or os.clock
+	local purchase: PurchaseClient.Client = deps.purchase or PurchaseClient.get()
 	local panel = Panel.create("Small", TitleWindowLogic.TITLE)
 	panel.root.Name = "TitleWindow"
 	local body = panel.body
@@ -130,7 +148,15 @@ function TitleWindow.create(deps: Deps): Handle
 	end
 
 	-- 확률 표 위 "행운 ×N 적용"(P3) — 확률 칸 오른쪽 끝에 맞춘다
-	local luckLine = WindowParts.makeText("LuckLine", body, "small", 0, 0, COL.chance.x + COL.chance.w, LUCK_H, Enum.TextXAlignment.Right)
+	local luckLine = WindowParts.makeText("LuckLine", body, "small", 0, 0, LUCK_W, LUCK_H, Enum.TextXAlignment.Right)
+	-- 10배 칭호 행운(지시서 #17)
+	local productButton = Button.create({ size = "Small", color = "green", widthScale = PRODUCT_W, heightScale = LUCK_H })
+	productButton.root.Name = "ProductButton"
+	productButton.root.Position = UDim2.fromScale(PRODUCT_X, 0)
+	productButton.root.ZIndex = WindowParts.Z_BUTTON
+	productButton.root.Parent = body
+	local productLabel, productHit = WindowParts.decorateButton(productButton, "")
+	table.insert(raise, productButton.root)
 
 	-- 1회 뽑기
 	local rollButton = Button.create({ size = "Small", color = "blue", widthScale = ROLL_W, heightScale = CONTROL_H })
@@ -179,9 +205,20 @@ function TitleWindow.create(deps: Deps): Handle
 		return type(t) == "table" and t.autoRoll == true
 	end
 
+	local productRow: any = nil
+
 	local function render()
 		local t = now()
 		view = TitleWindowLogic.rows(source.get("titles"), source.get("upgrades"), source.get("shop"))
+		-- 10배 칭호 행운(지시서 #17) — 창별 목록의 첫(유일한) 줄. 제한 유저면 목록이 비어 숨는다
+		productRow = RobuxShopLogic.windowRows("title", source.get("shop"), { upgrades = source.get("upgrades") })[1]
+		productButton.root.Visible = productRow ~= nil
+		if productRow ~= nil then
+			local name = Names.product(TitleWindow.PRODUCT_KEY)
+			productLabel.Text = if productRow.state == "owned" then Locale.t("title.luckProductOwned", { name = name })
+				else Locale.t("title.luckProduct", { name = name, price = productRow.footText })
+			productButton.setDisabled(not productRow.canBuy or purchase.isPending(TitleWindow.PRODUCT_KEY))
+		end
 		luckLine.Text = TitleWindowLogic.luckText(source.get("upgrades"), source.get("shop"))
 		for i, r in ipairs(view) do
 			local parts = rows[i]
@@ -203,7 +240,11 @@ function TitleWindow.create(deps: Deps): Handle
 			stroke.Color = if on then TOGGLE_ON_STROKE else TOGGLE_OFF_STROKE
 		end
 		autoButton.setDisabled(pending.isPending("auto", t))
-		status.Text = resultText or ""
+		-- 결과 문구가 없으면 상품의 확률 변화 숫자(S13 — 사기 전에 숫자로 보인다)
+		status.Text = resultText
+			or (if productRow ~= nil and productRow.state == "buy" and productRow.detail ~= ""
+				then Locale.t("title.luckOdds", { name = Names.product(TitleWindow.PRODUCT_KEY), odds = productRow.detail })
+				else "")
 	end
 
 	local function send(key: string, payload: { action: string, titleId: string?, on: boolean? })
@@ -265,6 +306,22 @@ function TitleWindow.create(deps: Deps): Handle
 			end
 		end)
 	end
+	local function pressProduct()
+		render()
+		if productRow ~= nil and productRow.canBuy and purchase.request(TitleWindow.PRODUCT_KEY) then
+			resultText = nil
+			render()
+			task.delay(PurchaseClient.PENDING_TIMEOUT_SEC + 0.05, render)
+		end
+	end
+	productHit.Activated:Connect(pressProduct)
+	purchase.onResult(function(payload)
+		if type(payload) == "table" and payload.key == TitleWindow.PRODUCT_KEY then
+			resultText = RobuxShopLogic.resultText(payload)
+		end
+		render()
+	end)
+
 	rollHit.Activated:Connect(pressRoll)
 	autoHit.Activated:Connect(pressAuto)
 	closeHit.Activated:Connect(function()
@@ -299,6 +356,9 @@ function TitleWindow.create(deps: Deps): Handle
 			note = note,
 			status = status,
 			luckLine = luckLine,
+			pressProduct = pressProduct,
+			productButton = productButton,
+			productLabel = productLabel,
 		},
 	}
 end

@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
@@ -189,6 +190,24 @@ function PetWindowLogic.hatchState(summary: any, lifetimeBlox: any, blox: any, e
 	return { canHatch = true, buttonText = buttonText, footText = "" }
 end
 
+-- 3배 부화 버튼(지시서 #17 — S18). 3배 부화 게임패스가 있을 때만 누를 수 있다(없으면 보이되 잠김 — 로벅스 탭에서 산다).
+-- 비용 = 알 비용 × 마리 수, 저장 공간에 마리 수만큼 자리가 있어야 한다(서버 PetService.hatchMulti와 같은 조건 — 서버가 다시 판정).
+function PetWindowLogic.hatch3State(summary: any, lifetimeBlox: any, blox: any, eggId: number, shop: any): HatchState
+	local def = ShopConfig.get("hatch3x")
+	local count = if def ~= nil then def.effect.count else 3
+	local egg = PetConfig.Eggs[eggId]
+	if egg == nil then
+		return { canHatch = false, buttonText = Locale.t("pet.hatch3", { n = count, cost = "" }), footText = "" }
+	end
+	local cost = BigNum.mul(egg.rollCost, BigNum.fromNumber(count))
+	local buttonText = Locale.t("pet.hatch3", { n = count, cost = Formatter.format(cost) })
+	local owns = ShopEffectsLogic.fromSummary(shop).owns("hatch3x")
+	local storage = if type(summary) == "table" and type(summary.storage) == "number" then summary.storage else 0
+	local can = owns and PetConfig.isUnlocked(eggId, big(lifetimeBlox), worldOf(summary)) and #ownedList(summary) + count <= storage
+		and not BigNum.lt(big(blox), cost)
+	return { canHatch = can, buttonText = buttonText, footText = "" }
+end
+
 function PetWindowLogic.storageText(summary: any): string
 	local storage = if type(summary) == "table" and type(summary.storage) == "number" then summary.storage else 0
 	return Locale.t("pet.storage", { n = #ownedList(summary), max = storage })
@@ -351,6 +370,13 @@ function PetWindowLogic.resultText(payload: any): string?
 		return PetWindowLogic.reasonText(tostring(payload.reason))
 	end
 	local a = payload.action
+	if a == "hatch3" then
+		local names = {}
+		for _, p in ipairs(if type(payload.pets) == "table" then payload.pets else {}) do
+			table.insert(names, nameOf(p.petId))
+		end
+		return Locale.t("pet.result.hatch3", { n = #names, names = table.concat(names, ", ") })
+	end
 	if a == "hatch" then
 		return Locale.t(if payload.isNew then "pet.result.new" else "pet.result.hatch", { name = nameOf(payload.petId) })
 	elseif a == "craft" then
@@ -369,15 +395,40 @@ end
 
 -- ===== 결과 연출 (E8 — 아우라 A6과 같다) =======================================================
 
--- 모달을 띄우는가: 부화 성공이고 새 종이거나 3등급(영웅) 이상.
+-- 3배 부화 결과에서 연출할 한 마리(지시서 #17): 새 종 중 희귀도가 가장 높은 것, 없으면 희귀도가 가장 높은 것.
+-- 결과 연출(모달 · 토스트)은 보통 부화와 같은 모양을 쓴다 — action을 hatch로 바꾼 한 마리 payload를 돌려준다.
+function PetWindowLogic.primaryOf(payload: any): any
+	if type(payload) ~= "table" or payload.action ~= "hatch3" or type(payload.pets) ~= "table" then
+		return payload
+	end
+	local best: any = nil
+	for _, p in ipairs(payload.pets) do
+		if type(p) == "table" then
+			local better = best == nil or (p.isNew and not best.isNew)
+				or (p.isNew == best.isNew and (tonumber(p.rarity) or 0) > (tonumber(best.rarity) or 0))
+			if better then
+				best = p
+			end
+		end
+	end
+	if best == nil then
+		return payload
+	end
+	return { action = "hatch", ok = payload.ok, reason = payload.reason, uid = best.uid, petId = best.petId, rarity = best.rarity,
+		level = best.level, isNew = best.isNew, equipped = best.equipped }
+end
+
+-- 모달을 띄우는가: 부화 성공이고 새 종이거나 3등급(영웅) 이상. 3배 부화는 그중 가장 귀한 한 마리로 본다(primaryOf).
 function PetWindowLogic.shouldModal(payload: any): boolean
-	return type(payload) == "table" and payload.ok == true and payload.action == "hatch"
-		and (payload.isNew == true or (type(payload.rarity) == "number" and payload.rarity >= PetConfig.MODAL_MIN_TIER))
+	local p = PetWindowLogic.primaryOf(payload)
+	return type(p) == "table" and p.ok == true and p.action == "hatch"
+		and (p.isNew == true or (type(p.rarity) == "number" and p.rarity >= PetConfig.MODAL_MIN_TIER))
 end
 
 export type ResultView = { heading: string, name: string, rarityTier: number, detail: string }
 
 function PetWindowLogic.resultView(payload: any): ResultView?
+	payload = PetWindowLogic.primaryOf(payload)
 	local def, _, rarity = PetConfig.get(type(payload) == "table" and payload.petId or nil)
 	if def == nil or rarity == nil then
 		return nil
@@ -401,7 +452,7 @@ function PetWindowLogic.toastFor(payload: any): { text: string, tier: number }?
 	return { text = Locale.t("common.toast.result", { heading = v.heading, name = v.name, detail = v.detail }), tier = v.rarityTier }
 end
 
-local PENDING_KEYS: { [string]: boolean } = { hatch = true, equip = true, unequip = true, equipBest = true, craft = true, release = true }
+local PENDING_KEYS: { [string]: boolean } = { hatch = true, hatch3 = true, equip = true, unequip = true, equipBest = true, craft = true, release = true }
 
 function PetWindowLogic.pendingKeyOf(payload: any): string?
 	if type(payload) ~= "table" or type(payload.action) ~= "string" then

@@ -32,7 +32,7 @@ AuraWindowLogic.ROLL_TEXT = Locale.t("aura.roll")
 function AuraWindowLogic.useCreditText(credit: string, n: number): string
 	return Locale.t(if credit == "super" then "aura.useSuper" else "aura.useLucky", { n = n })
 end
-AuraWindowLogic.ROBUX_TAB_TEXT = Locale.t("aura.robuxTab")
+AuraWindowLogic.ROBUX_TAB_TEXT = Locale.t("shop.tab.robux")
 
 -- 아우라 등급(1 common ~ 4 legendary) → UiTheme.Rarity 단계(tier1~6). Claude가 정했다(docs/UI.md "지시서 #11").
 -- 일반 = 가장 수수한 tier1, 희귀 = 하늘 tier3, 영웅 = 보라 tier4, 전설 = 금 tier5. tier6(진분홍)은 칭호 신화만 쓴다 —
@@ -186,6 +186,17 @@ function AuraWindowLogic.cards(summary: any, levels: any, packId: number, shop: 
 end
 
 export type RollState = { canRoll: boolean, buttonText: string, footText: string }
+
+-- 럭키 · 슈퍼 롤 사용 버튼(지시서 #17). 제한 유저면 안 보인다(S13 — 서버도 restricted로 막는다).
+-- 쓸 수 있음 = 남은 횟수 > 0 · 고른 팩이 열림(블럭스는 상관없다 — 비용 없음).
+export type CreditState = { visible: boolean, canUse: boolean, text: string, left: number }
+function AuraWindowLogic.creditState(summary: any, lifetimeBlox: any, shop: any, packId: number, credit: string): CreditState
+	local restricted = type(shop) ~= "table" or shop.paidRandomRestricted ~= false
+	local credits = if type(shop) == "table" and type(shop.rollCredits) == "table" then shop.rollCredits[credit] else nil
+	local left = if type(credits) == "number" then credits else 0
+	local unlocked = AuraConfig.Packs[packId] ~= nil and AuraConfig.isUnlocked(packId, big(lifetimeBlox), worldOf(summary))
+	return { visible = not restricted, canUse = not restricted and left > 0 and unlocked, text = AuraWindowLogic.useCreditText(credit, left), left = left }
+end
 
 -- 뽑기 버튼 상태(안내 — 서버가 다시 판정한다). 잠긴 팩 → 해금 조건, 블럭스 부족 → 사유.
 function AuraWindowLogic.rollState(summary: any, lifetimeBlox: any, blox: any, packId: number): RollState

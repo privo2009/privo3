@@ -10,6 +10,11 @@
 --   왼쪽 아래: "보유 N / 저장 공간" + 보유 격자(스크롤 — 저장 공간 50, 게임패스면 150)
 --   오른쪽 아래: "장착 N / 슬롯" + 장착 슬롯(파생 슬롯 수) · 고른 펫 이름 · 정보 · 장착/해제 · 크래프팅 · 놓아주기(확인 단계)
 -- 값 · 문구는 UI/Logic/PetWindowLogic(순수). 결과 대기 중에는 그 버튼을 잠근다. 놓아주기는 되돌릴 수 없어 두 번 눌러야 한다(ConfirmFlow).
+--
+-- 지시서 #17(창별 상품 버튼 — docs/UI.md "지시서 #17"):
+--   알 탭 오른쪽 "로벅스" 탭 — 누르면 아래 칸(보유 격자 · 장착 · 고른 펫) 자리에 상품 목록(3배 부화 · 2배 펫 행운 · +100 저장 · +3 장착 —
+--   Components/RobuxList). 다시 누르거나 알 탭을 누르면 돌아온다.
+--   부화 버튼 오른쪽 "×3 부화" — 3배 부화 게임패스가 있으면 켜진다(없으면 잠김 · 로벅스 탭에서 산다). 비용 3배(S18)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -22,6 +27,9 @@ local Store = require(script.Parent.Parent.Parent.Store)
 local PetWindowLogic = require(script.Parent.Parent.Parent.Logic.PetWindowLogic)
 local TitleWindowLogic = require(script.Parent.Parent.Parent.Logic.TitleWindowLogic)
 local ConfirmFlow = require(script.Parent.Parent.Parent.Logic.ConfirmFlow)
+local RobuxShopLogic = require(script.Parent.Parent.Parent.Logic.RobuxShopLogic)
+local RobuxList = require(script.Parent.Parent.Parent.Components.RobuxList)
+local PurchaseClient = require(script.Parent.Parent.Parent.Parent.Net.PurchaseClient)
 
 local PetWindow = {}
 
@@ -30,8 +38,12 @@ local TAB_H, TAB_W, TAB_GAP, MAX_TABS = 0.09, 0.19, 0.015, 3
 local BEST_W = 0.2
 local INFO_Y, INFO_H = 0.1, 0.06
 local ODDS_Y, ODDS_H = 0.17, 0.07
-local HATCH_Y, HATCH_H, HATCH_W = 0.25, 0.1, 0.32
-local HATCH_FOOT_X, HATCH_FOOT_W = 0.34, 0.3
+-- 지시서 #17: 부화 줄에 ×3 부화 버튼을 넣으려고 부화 버튼 0.32 → 0.24, 잠긴 이유 칸을 그 오른쪽으로 옮겼다
+local HATCH_Y, HATCH_H, HATCH_W = 0.25, 0.1, 0.24
+local HATCH3_X, HATCH3_W = 0.26, 0.16
+local HATCH_FOOT_X, HATCH_FOOT_W = 0.43, 0.2
+local ROBUX_TAB_X, ROBUX_TAB_W = MAX_TABS * (TAB_W + TAB_GAP), 0.17 -- 알 탭 셋 다음(최고 장착 버튼 0.8 앞까지)
+local LIST_ROW_H, LIST_ROW_GAP = 0.24, 0.008 -- 상품 목록(아래 칸 높이 0.63) 기준 — 본문 약 0.15(상점 로벅스 탭 줄과 같은 높이)
 local STATUS_X = 0.64
 local LEFT_W = 0.62
 local RIGHT_X, RIGHT_W = 0.65, 0.35
@@ -50,6 +62,7 @@ PetWindow.Layout = { GRID_Y = GRID_Y, GRID_H = GRID_H, CELL_VH = CELL_VH, GRID_C
 export type Deps = {
 	store: any?,
 	sendRequest: (payload: { action: string, egg: number?, uid: string? }) -> (),
+	purchase: PurchaseClient.Client?, -- 로벅스 상품 구매(지시서 #17). 생략하면 실물(PurchaseClient.get)
 	onClose: () -> (),
 	now: (() -> number)?,
 }
@@ -65,6 +78,13 @@ export type Handle = {
 	onOpen: () -> (),
 	_debug: {
 		pressHatch: () -> (),
+		pressHatch3: () -> (),
+		pressRobuxTab: () -> (),
+		robuxShown: () -> boolean,
+		robux: RobuxList.Handle,
+		robuxTab: Button.ButtonHandle,
+		hatch3Button: Button.ButtonHandle,
+		hatch3Label: TextLabel,
 		pressTab: (index: number) -> (),
 		pressBest: () -> (),
 		select: (uid: string?) -> (),
@@ -101,6 +121,7 @@ export type Handle = {
 function PetWindow.create(deps: Deps): Handle
 	local source: any = deps.store or Store
 	local now = deps.now or os.clock
+	local purchase: PurchaseClient.Client = deps.purchase or PurchaseClient.get()
 	local panel = Panel.create("Large", PetWindowLogic.TITLE)
 	panel.root.Name = "PetWindow"
 	local body = panel.body
@@ -133,6 +154,8 @@ function PetWindow.create(deps: Deps): Handle
 		tabBlue[i] = blue
 	end
 	local _bestBtn, _bestLabel, bestHit = makeButton("BestButton", "gray", 1 - BEST_W, 0, BEST_W, TAB_H, body, PetWindowLogic.BEST_TEXT)
+	local robuxTab, _robuxTabLabel, robuxTabHit = makeButton("RobuxTab", "green", ROBUX_TAB_X, 0, ROBUX_TAB_W, TAB_H, body,
+		RobuxShopLogic.ROBUX_TAB_TEXT)
 
 	local info = WindowParts.makeText("Info", body, "small", 0, INFO_Y, 0.62, INFO_H)
 	local luck = WindowParts.makeText("LuckLine", body, "small", 0.62, INFO_Y, 0.38, INFO_H, Enum.TextXAlignment.Right)
@@ -142,6 +165,7 @@ function PetWindow.create(deps: Deps): Handle
 	end
 
 	local hatchButton, hatchLabel, hatchHit = makeButton("HatchButton", "blue", 0, HATCH_Y, HATCH_W, HATCH_H, body, PetWindowLogic.HATCH_TEXT)
+	local hatch3Button, hatch3Label, hatch3Hit = makeButton("Hatch3Button", "blue", HATCH3_X, HATCH_Y, HATCH3_W, HATCH_H, body, "")
 	local hatchFoot = WindowParts.makeText("HatchFoot", body, "small", HATCH_FOOT_X, HATCH_Y, HATCH_FOOT_W, HATCH_H, Enum.TextXAlignment.Center)
 	hatchFoot.TextWrapped = true
 	local status = WindowParts.makeText("Status", body, "small", STATUS_X, HATCH_Y, 1 - STATUS_X, HATCH_H, Enum.TextXAlignment.Center)
@@ -212,12 +236,33 @@ function PetWindow.create(deps: Deps): Handle
 	local craftButton, craftLabel, craftHit = makeButton("CraftButton", "blue", RIGHT_X, CRAFT_Y, RIGHT_W, BTN_H, body, PetWindowLogic.CRAFT_TEXT)
 	local releaseButton, releaseLabel, releaseHit = makeButton("ReleaseButton", "gray", RIGHT_X, RELEASE_Y, RIGHT_W, BTN_H, body, PetWindowLogic.RELEASE_TEXT)
 
+	-- 상품 목록(아래 칸 자리 — 로벅스 탭을 골랐을 때만, 지시서 #17)
+	local resultText: string? = nil
+	local robux = RobuxList.create({
+		name = "RobuxList",
+		parent = body,
+		position = UDim2.fromScale(0, HEAD_Y),
+		size = UDim2.fromScale(1, 1 - HEAD_Y),
+		rowH = LIST_ROW_H,
+		rowGap = LIST_ROW_GAP,
+		maxRows = #RobuxShopLogic.WINDOW_PRODUCTS.pet,
+		raise = raise,
+		purchase = purchase,
+		onPressed = function()
+			resultText = nil
+		end,
+	})
+	robux.list.Visible = false
+	local robuxShown = false
+	-- 로벅스 탭을 고르면 숨기는 아래 칸(격자 · 장착 · 고른 펫). 슬롯 칸은 원래 표시(파생 슬롯 수만큼)를 render가 정하므로
+	-- 로벅스 탭일 때 숨기기만 한다(돌아오면 render가 다시 켠다)
+	local lower: { GuiObject } = { storage, grid, slotsText, selName, selInfo, equipButton.root, craftButton.root, releaseButton.root }
+
 	local closeHit = WindowParts.hitArea(panel.closeButton.root)
 	WindowParts.raiseButtons(raise)
 
 	local pending = TitleWindowLogic.newPending()
 	local hatchCooldownUntil = -math.huge
-	local resultText: string? = nil
 	local cellView: { PetWindowLogic.Cell } = {}
 	local tabView: { PetWindowLogic.EggTab } = {}
 	local shownEgg: number? = nil -- 세션 안 선택(저장하지 않는다 — 스키마를 늘리지 않는다)
@@ -257,6 +302,13 @@ function PetWindow.create(deps: Deps): Handle
 		hatchLabel.Text = hatch.buttonText
 		hatchButton.setDisabled(not hatch.canHatch or pending.isPending("hatch", t) or t < hatchCooldownUntil)
 		hatchFoot.Text = hatch.footText
+		local hatch3 = PetWindowLogic.hatch3State(summary, source.get("lifetimeBlox"), source.get("blox"), eggId, source.get("shop"))
+		hatch3Label.Text = hatch3.buttonText
+		hatch3Button.setDisabled(not hatch3.canHatch or pending.isPending("hatch3", t) or pending.isPending("hatch", t) or t < hatchCooldownUntil)
+		-- 로벅스 탭(지시서 #17)
+		robux.render(RobuxShopLogic.windowRows("pet", source.get("shop"), { upgrades = source.get("upgrades"), pets = summary,
+			lifetimeBlox = source.get("lifetimeBlox") }))
+		robux.list.Visible = robuxShown
 
 		-- 격자
 		storage.Text = PetWindowLogic.storageText(summary)
@@ -310,6 +362,14 @@ function PetWindow.create(deps: Deps): Handle
 		releaseLabel.Text = if d ~= nil and releaseFlow.isArmed(t) then PetWindowLogic.RELEASE_CONFIRM_TEXT else PetWindowLogic.RELEASE_TEXT
 		releaseButton.setDisabled(d == nil or not d.canRelease or pending.isPending("release", t))
 		status.Text = resultText or ""
+		for _, g in ipairs(lower) do
+			g.Visible = not robuxShown
+		end
+		if robuxShown then
+			for _, s in ipairs(slotParts) do
+				s.frame.Visible = false
+			end
+		end
 	end
 
 	local function send(key: string, payload: { action: string, egg: number?, uid: string? })
@@ -331,7 +391,27 @@ function PetWindow.create(deps: Deps): Handle
 		send("hatch", { action = "hatch", egg = eggId })
 	end
 
+	local function pressHatch3()
+		render()
+		local eggId = egg()
+		if not PetWindowLogic.hatch3State(source.get("pets"), source.get("lifetimeBlox"), source.get("blox"), eggId, source.get("shop")).canHatch
+			or now() < hatchCooldownUntil then
+			return
+		end
+		send("hatch3", { action = "hatch3", egg = eggId })
+	end
+
+	local function pressRobuxTab()
+		robuxShown = not robuxShown
+		resultText = nil
+		render()
+	end
+
 	local function pressTab(index: number)
+		if robuxShown then
+			robuxShown = false -- 알 탭을 누르면 아래 칸으로 돌아온다
+			render()
+		end
 		local tab = tabView[index]
 		if tab == nil or tab.eggId == egg() then
 			return
@@ -394,11 +474,11 @@ function PetWindow.create(deps: Deps): Handle
 			return
 		end
 		pending.finish(key)
-		if key == "hatch" then
+		if key == "hatch" or key == "hatch3" then
 			hatchCooldownUntil = now() + PetConfig.HATCH_INTERVAL_SEC
 			task.delay(PetConfig.HATCH_INTERVAL_SEC + 0.05, render)
 		end
-		if payload.ok and (key == "hatch" or key == "craft") and type(payload.uid) == "string" and payload.uid ~= "" then
+		if payload.ok and (key == "hatch" or key == "hatch3" or key == "craft") and type(payload.uid) == "string" and payload.uid ~= "" then
 			selected = payload.uid -- 새로 생긴 펫을 고른다(PlayerState가 곧 그 펫을 실어 온다)
 			releaseFlow.cancel()
 		end
@@ -442,6 +522,14 @@ function PetWindow.create(deps: Deps): Handle
 		end)
 	end
 	hatchHit.Activated:Connect(pressHatch)
+	hatch3Hit.Activated:Connect(pressHatch3)
+	robuxTabHit.Activated:Connect(pressRobuxTab)
+	purchase.onResult(function(payload)
+		if robuxShown then
+			resultText = RobuxShopLogic.resultText(payload)
+		end
+		render()
+	end)
 	bestHit.Activated:Connect(pressBest)
 	equipHit.Activated:Connect(pressEquip)
 	craftHit.Activated:Connect(pressCraft)
@@ -467,6 +555,15 @@ function PetWindow.create(deps: Deps): Handle
 		onOpen = onOpen,
 		_debug = {
 			pressHatch = pressHatch,
+			pressHatch3 = pressHatch3,
+			pressRobuxTab = pressRobuxTab,
+			robuxShown = function()
+				return robuxShown
+			end,
+			robux = robux,
+			robuxTab = robuxTab,
+			hatch3Button = hatch3Button,
+			hatch3Label = hatch3Label,
 			pressTab = pressTab,
 			pressBest = pressBest,
 			select = select,

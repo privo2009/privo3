@@ -287,7 +287,11 @@ Strings.Entries = {
 	["aura.reason.none_owned"] = { en = "No rolls left", ko = "남은 롤이 없어요" }, -- 지시서 #17
 	["aura.useLucky"] = { en = "Use Lucky Roll ({n})", ko = "럭키 롤 사용 ({n})" },
 	["aura.useSuper"] = { en = "Use Super Roll ({n})", ko = "슈퍼 롤 사용 ({n})" },
-	["aura.robuxTab"] = { en = "Robux", ko = "로벅스" },
+	["pet.hatch3"] = { en = "x{n} ({cost})", ko = "×{n} ({cost})" }, -- 3배 부화 버튼(지시서 #17)
+	["pet.result.hatch3"] = { en = "Hatched {n}: {names}", ko = "{n}마리 부화: {names}" },
+	["title.luckProduct"] = { en = "{name} {price}", ko = "{name} {price}" }, -- 칭호 창 10배 칭호 행운 버튼
+	["title.luckProductOwned"] = { en = "{name} · Owned", ko = "{name} · 보유 중" },
+	["title.luckOdds"] = { en = "With {name}: {odds}", ko = "{name} 사면: {odds}" },
 	["pet.title"] = { en = "Pets", ko = "펫" },
 	["pet.equipBest"] = { en = "Equip Best", ko = "최고 장착" },
 	["pet.unequip"] = { en = "Unequip", ko = "해제" },

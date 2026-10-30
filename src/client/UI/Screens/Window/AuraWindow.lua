@@ -9,6 +9,11 @@
 --   뽑기 버튼(하늘 btn_blue + 비용) · 그 아래 잠긴 이유 · 오른쪽 상태 문구
 -- 캐릭터 미리보기는 두지 않는다 — ViewportFrame에서는 파티클이 그려지지 않는다(A5). 장착하면 실제 캐릭터에 보인다.
 -- 값 · 문구는 UI/Logic/AuraWindowLogic(순수). 확인 단계 없음(상점 S8과 같다) — 결과 대기 중 · 롤 시계 동안 뽑기 버튼을 잠근다.
+--
+-- 지시서 #17(창별 상품 버튼 — docs/UI.md "지시서 #17"):
+--   팩 탭 오른쪽 "로벅스" 탭 — 누르면 카드 자리에 상품 목록(럭키 롤 5 · 15 · 슈퍼 롤 5 · 15 · 10배 아우라 행운 — Components/RobuxList,
+--   롤 줄은 그 롤의 행운으로 바뀌는 확률). 다시 누르거나 팩 탭을 누르면 카드로 돌아온다. 제한 유저는 탭이 없다(S13).
+--   뽑기 줄 오른쪽 "럭키 롤 사용(N)" · "슈퍼 롤 사용(N)" — 고른 팩으로 1회(블럭스 비용 없음). 제한 유저면 숨긴다. 상태 문구는 아랫줄 오른쪽.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -20,6 +25,9 @@ local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local Store = require(script.Parent.Parent.Parent.Store)
 local AuraWindowLogic = require(script.Parent.Parent.Parent.Logic.AuraWindowLogic)
 local TitleWindowLogic = require(script.Parent.Parent.Parent.Logic.TitleWindowLogic)
+local RobuxShopLogic = require(script.Parent.Parent.Parent.Logic.RobuxShopLogic)
+local RobuxList = require(script.Parent.Parent.Parent.Components.RobuxList)
+local PurchaseClient = require(script.Parent.Parent.Parent.Parent.Net.PurchaseClient)
 
 local AuraWindow = {}
 
@@ -36,11 +44,20 @@ local CARD_W = (1 - CARD_GAP * 3) / 4
 local ROLL_Y, ROLL_H, ROLL_W = 0.76, 0.12, 0.4
 local FOOT_Y, FOOT_H = 0.89, 0.09
 local STATUS_X = 0.42
-AuraWindow.Layout = { CARD_Y = CARD_Y, CARD_H = CARD_H, CARD_W = CARD_W, ROLL_Y = ROLL_Y }
+-- 지시서 #17: 로벅스 탭(팩 탭 셋 다음 자리) · 롤 사용 버튼 둘(뽑기 버튼 오른쪽) · 상품 목록(카드 자리)
+local ROBUX_TAB_X = MAX_TABS * (TAB_W + TAB_GAP)
+local USE_W = 0.28
+local USE_GAP = 0.02
+local LUCKY_X = ROLL_W + USE_GAP
+local SUPER_X = LUCKY_X + USE_W + USE_GAP
+local LIST_ROW_H = 0.27 -- 상품 목록(카드 자리 높이) 기준 줄 높이 — 본문 약 0.15(상점 로벅스 탭 줄과 같은 높이)
+local LIST_ROW_GAP = 0.008
+AuraWindow.Layout = { CARD_Y = CARD_Y, CARD_H = CARD_H, CARD_W = CARD_W, ROLL_Y = ROLL_Y, LUCKY_X = LUCKY_X, SUPER_X = SUPER_X, USE_W = USE_W }
 
 export type Deps = {
 	store: any?,
-	sendRequest: (payload: { action: string, pack: number?, auraId: string? }) -> (),
+	sendRequest: (payload: { action: string, pack: number?, auraId: string?, credit: string? }) -> (),
+	purchase: PurchaseClient.Client?, -- 로벅스 상품 구매(지시서 #17). 생략하면 실물(PurchaseClient.get)
 	onClose: () -> (),
 	openTitles: () -> (),
 	now: (() -> number)?,
@@ -69,6 +86,13 @@ export type Handle = {
 		pressTab: (index: number) -> (),
 		pressEquip: (index: number) -> (),
 		pressTitles: () -> (),
+		pressRobuxTab: () -> (),
+		pressUse: (credit: string) -> (),
+		robuxShown: () -> boolean,
+		robux: RobuxList.Handle,
+		robuxTab: Button.ButtonHandle,
+		useButtons: { [string]: Button.ButtonHandle },
+		useLabels: { [string]: TextLabel },
 		cards: { CardParts },
 		tabs: { TabParts },
 		view: () -> { AuraWindowLogic.Card },
@@ -85,6 +109,7 @@ export type Handle = {
 function AuraWindow.create(deps: Deps): Handle
 	local source: any = deps.store or Store
 	local now = deps.now or os.clock
+	local purchase: PurchaseClient.Client = deps.purchase or PurchaseClient.get()
 	local panel = Panel.create("Large", AuraWindowLogic.TITLE)
 	panel.root.Name = "AuraWindow"
 	local body = panel.body
@@ -117,6 +142,8 @@ function AuraWindow.create(deps: Deps): Handle
 		tabBlue[i] = blue
 	end
 	local _titleBtn, _titleLabel, titleHit = makeButton("TitleButton", "gray", 1 - TITLE_BTN_W, 0, TITLE_BTN_W, TAB_H, body, AuraWindowLogic.TITLE_BUTTON_TEXT)
+	-- 로벅스 탭(지시서 #17) — 초록(로벅스 역할색). 누르면 카드 자리가 상품 목록으로 바뀐다
+	local robuxTab, _robuxTabLabel, robuxTabHit = makeButton("RobuxTab", "green", ROBUX_TAB_X, 0, TAB_W, TAB_H, body, AuraWindowLogic.ROBUX_TAB_TEXT)
 
 	local info = WindowParts.makeText("Info", body, "small", 0, INFO_Y, 0.6, INFO_H)
 	local luck = WindowParts.makeText("LuckLine", body, "small", 0.6, INFO_Y, 0.4, INFO_H, Enum.TextXAlignment.Right)
@@ -143,15 +170,41 @@ function AuraWindow.create(deps: Deps): Handle
 
 	local rollButton, rollLabel, rollHit = makeButton("RollButton", "blue", 0, ROLL_Y, ROLL_W, ROLL_H, body, AuraWindowLogic.ROLL_TEXT)
 	local rollFoot = WindowParts.makeText("RollFoot", body, "small", 0, FOOT_Y, ROLL_W, FOOT_H, Enum.TextXAlignment.Center)
-	local status = WindowParts.makeText("Status", body, "small", STATUS_X, ROLL_Y, 1 - STATUS_X, ROLL_H, Enum.TextXAlignment.Center)
+	-- 롤 사용 버튼 둘(지시서 #17). 상태 문구는 그 아랫줄 오른쪽으로 옮겼다
+	local useButtons: { [string]: Button.ButtonHandle } = {}
+	local useLabels: { [string]: TextLabel } = {}
+	local useHits: { [string]: TextButton } = {}
+	for credit, x in pairs({ lucky = LUCKY_X, super = SUPER_X }) do
+		local b, label, hit = makeButton("Use_" .. credit, "blue", x, ROLL_Y, USE_W, ROLL_H, body, "")
+		useButtons[credit], useLabels[credit], useHits[credit] = b, label, hit
+	end
+	local status = WindowParts.makeText("Status", body, "small", STATUS_X, FOOT_Y, 1 - STATUS_X, FOOT_H, Enum.TextXAlignment.Center)
 	status.TextWrapped = true
+
+	-- 상품 목록(카드 자리 — 로벅스 탭을 골랐을 때만)
+	local resultText: string? = nil
+	local robux = RobuxList.create({
+		name = "RobuxList",
+		parent = body,
+		position = UDim2.fromScale(0, CARD_Y),
+		size = UDim2.fromScale(1, CARD_H),
+		rowH = LIST_ROW_H,
+		rowGap = LIST_ROW_GAP,
+		maxRows = #RobuxShopLogic.WINDOW_PRODUCTS.aura,
+		raise = raise,
+		purchase = purchase,
+		onPressed = function()
+			resultText = nil
+		end,
+	})
+	robux.list.Visible = false
+	local robuxShown = false
 
 	local closeHit = WindowParts.hitArea(panel.closeButton.root)
 	WindowParts.raiseButtons(raise)
 
 	local pending = TitleWindowLogic.newPending()
 	local rollCooldownUntil = -math.huge
-	local resultText: string? = nil
 	local view: { AuraWindowLogic.Card } = {}
 	local tabView: { AuraWindowLogic.PackTab } = {}
 	-- 화면에서 고른 팩(서버 selectPack 응답 전에도 바로 바뀌게). 서버 값이 오면 그것을 따른다.
@@ -197,10 +250,28 @@ function AuraWindow.create(deps: Deps): Handle
 		rollLabel.Text = roll.buttonText
 		rollButton.setDisabled(not roll.canRoll or pending.isPending("roll", t) or t < rollCooldownUntil)
 		rollFoot.Text = roll.footText
+		-- 롤 사용 · 로벅스 탭(지시서 #17)
+		local shop = source.get("shop")
+		for credit, b in pairs(useButtons) do
+			local c = AuraWindowLogic.creditState(summary, source.get("lifetimeBlox"), shop, packId, credit)
+			b.root.Visible = c.visible
+			useLabels[credit].Text = c.text
+			b.setDisabled(not c.canUse or pending.isPending("rollCredit", t) or t < rollCooldownUntil)
+		end
+		local rows = RobuxShopLogic.windowRows("aura", shop, { upgrades = source.get("upgrades"), auras = { selectedPack = packId } })
+		robuxTab.root.Visible = #rows > 0
+		if #rows == 0 then
+			robuxShown = false
+		end
+		robux.render(rows)
+		robux.list.Visible = robuxShown
+		for _, parts in ipairs(cards) do
+			parts.frame.Visible = not robuxShown
+		end
 		status.Text = resultText or ""
 	end
 
-	local function send(key: string, payload: { action: string, pack: number?, auraId: string? })
+	local function send(key: string, payload: { action: string, pack: number?, auraId: string?, credit: string? })
 		if not pending.tryBegin(key, now()) then
 			return
 		end
@@ -221,6 +292,10 @@ function AuraWindow.create(deps: Deps): Handle
 
 	local function pressTab(index: number)
 		local tab = tabView[index]
+		if robuxShown and tab ~= nil then
+			robuxShown = false -- 팩 탭을 누르면 카드로 돌아온다
+			render()
+		end
 		if tab == nil or tab.packId == shown() then
 			return
 		end
@@ -239,6 +314,22 @@ function AuraWindow.create(deps: Deps): Handle
 		end
 	end
 
+	local function pressRobuxTab()
+		robuxShown = not robuxShown
+		resultText = nil
+		render()
+	end
+
+	local function pressUse(credit: string)
+		render()
+		local packId = shown()
+		local c = AuraWindowLogic.creditState(source.get("auras"), source.get("lifetimeBlox"), source.get("shop"), packId, credit)
+		if not c.canUse or now() < rollCooldownUntil then
+			return
+		end
+		send("rollCredit", { action = "rollCredit", pack = packId, credit = credit })
+	end
+
 	local function onResult(payload: any)
 		if type(payload) ~= "table" then
 			return
@@ -255,7 +346,7 @@ function AuraWindow.create(deps: Deps): Handle
 			return
 		end
 		pending.finish(key)
-		if key == "roll" then
+		if key == "roll" or key == "rollCredit" then
 			rollCooldownUntil = now() + AuraConfig.ROLL_INTERVAL_SEC
 			task.delay(AuraConfig.ROLL_INTERVAL_SEC + 0.05, render)
 		end
@@ -274,6 +365,18 @@ function AuraWindow.create(deps: Deps): Handle
 		end)
 	end
 	rollHit.Activated:Connect(pressRoll)
+	robuxTabHit.Activated:Connect(pressRobuxTab)
+	for credit, hit in pairs(useHits) do
+		hit.Activated:Connect(function()
+			pressUse(credit)
+		end)
+	end
+	purchase.onResult(function(payload)
+		if robuxShown then
+			resultText = RobuxShopLogic.resultText(payload)
+		end
+		render()
+	end)
 	titleHit.Activated:Connect(function()
 		deps.openTitles()
 	end)
@@ -307,6 +410,15 @@ function AuraWindow.create(deps: Deps): Handle
 			pressTitles = function()
 				deps.openTitles()
 			end,
+			pressRobuxTab = pressRobuxTab,
+			pressUse = pressUse,
+			robuxShown = function()
+				return robuxShown
+			end,
+			robux = robux,
+			robuxTab = robuxTab,
+			useButtons = useButtons,
+			useLabels = useLabels,
 			cards = cards,
 			tabs = tabs,
 			view = function()
