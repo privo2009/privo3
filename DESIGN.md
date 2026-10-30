@@ -1971,6 +1971,7 @@ HP · 보상 곡선      hpBase, hpGrowthSegments, bloxBase, bloxGrowthSegments
 
 **2026-10-25 사람 결정(지시서 #16)으로 다시 썼다.** 가격 · 효과 수치의 원본은 `Shared/Config/ShopConfig`다(게임패스 · 개발자 상품 · 힘 배수 계단 ·
 운동기구 선해금). 아래는 읽기용 목록이다 — 값이 어긋나면 **코드가 기준이다**. 대시보드 등록용 한 장은 `docs/DASHBOARD_PRODUCTS.md`.
+**2026-10-30 대시보드 등록 완료(사람) — 39개 ID와 가격은 지시서 #17이 ShopConfig에 넣는다.** ShopConfig 가격 = 대시보드 가격이어야 한다.
 
 ### 게임패스 (가격 R$)
 ```
@@ -1991,14 +1992,16 @@ OP 자동 클리커        89   초당 30회. 둘 다 있으면 높은 쪽만
 
 ### 힘 배수 계단 (핵심 수익원)
 ```
-2x      3      64x    799
-4x      9     128x  1,499
-8x     29     256x  2,499
-16x    79     512x  3,999
-32x   249    1024x  5,999
+2x      3      64x    249
+4x      9     128x    399
+8x     29     256x    499
+16x    79     512x    599
+32x   149    1024x    699
 ```
+가격은 2026-10-30 사람 결정(지시서 #17 — 대시보드 등록 가격). 32x부터 바뀌었다(옛 249 · 799 · 1,499 · 2,499 · 3,999 · 5,999).
 ⚠️ **보유한 단계 중 최고 하나만** 적용한다(S4). 누적 곱셈 금지. 공허 훈련 구역 배수와는 곱한다(다른 자리 — 기구는 클릭 1회 값).
 3 로벅스가 첫 결제 장벽을 무너뜨리는 장치.
+⚠️ 공허 훈련 구역(799)이 계단 최고 단계(1024x 699)보다 비싸다 — 공허 배수 · 기구 수와 함께 사람 결정으로 미뤘다(`docs/PENDING.md`).
 
 ### 개발자 상품 (가격 R$)
 ```
@@ -2012,7 +2015,34 @@ OP 자동 클리커        89   초당 30회. 둘 다 있으면 높은 쪽만
 포션 번들         999   세 포션 각 99개
 운동기구 선해금 8종     기구 1 ~ 8을 환생 수와 상관없이 연다. 가격은 ShopConfig(29 ~ 449)
 ```
-개발자 상품의 **지급 처리**(포션 보관함 · 롤 충전 · 선해금 기록)는 #17이다. #16은 영수증 기반(S2 · S3)과 등록 구조까지 한다.
+개발자 상품의 **지급 처리**(포션 보관함 · 롤 충전 · 선해금 기록)는 #17이다. #16은 영수증 기반(S2 · S3)과 등록 구조까지 했다.
+대시보드 이름(영어)은 `docs/DASHBOARD_PRODUCTS.md` — 운동기구 선해금은 "Gym {n} Unlock"(2026-10-30, Strings도 이 이름).
+
+### 구매 규칙 · 지급 · 사용 (2026-10-30 사람 결정 — 지시서 #17)
+- **R1 힘 배수 계단** — 보유한 최고 단계 **이하**의 단계는 살 수 없다. 서버가 프롬프트 전에 `ladder_owned_higher`로 거부한다.
+  HUD 2배 힘 구좌는 다음 단계를 보이고(최고 단계 보유면 "보유"), 상점 로벅스 탭 계단 줄도 같은 규칙으로 잠근다
+- **R2 자동 클리커** — OP 자동 클리커를 가졌으면 기본 자동 클리커는 "보유(상위)"로 잠근다(살 필요가 없다)
+- **지급은 전부 ProductService 영수증 순서(S3 · 절대 규칙 6)** — 같은 영수증이 다시 오면 PurchaseGranted만 돌려주고 두 번 주지 않는다.
+  지급 직후 PlayerState에 알린다(화면이 바로 바뀐다)
+```
+포션 3종           보관함 potions[종류] +1(번들은 세 종류 각 +99). 사면 바로 켜지지 않는다
+포션 켜기          PotionRequest 채널: 보관함 −1 → BoostService에 15분 더하기(같은 종류면 시간 연장 — S7)
+                   거부 사유 none_owned(보관함 0) · invalid(없는 종류). 행운 포션은 제한 유저면 restricted — 보관함 그대로
+럭키 · 슈퍼 롤     rollCredits[lucky | super] +5 또는 +15
+롤 쓰기            아우라 창 "럭키 롤 사용" · "슈퍼 롤 사용": 1회 차감 · 블럭스 비용 없음 · 행운 ×5(럭키) · ×100(슈퍼)
+                   — computeLuck rollProductMult 자리. 결과 모달 · 토스트는 블럭스 뽑기와 같다.
+                   제한 유저는 쓸 수 없다(restricted) — 충전은 그대로 남는다
+운동기구 선해금    gymUnlocks[번호] 기록. 이미 열린 기구(환생 수 · 선해금)면 프롬프트 전에 already_unlocked로 거부
+```
+- **창별 상품 버튼**(초록 btn_green · 보유 = "보유" · ID 0 또는 판매 안 함 = "준비 중") — 펫 창: 3배 부화(보유면 ×3 부화 버튼 켜짐) ·
+  2배 펫 행운 · +100 저장 · +3 장착 / 아우라 창: 럭키 · 슈퍼 롤 5 · 15회 · 남은 횟수 + 사용 버튼 · 10배 아우라 행운 /
+  칭호 창: 10배 칭호 행운 / 운동기구: 잠긴 기구 옆 "로벅스로 열기" 프롬프트(공허는 게임패스) /
+  포션: 상점 로벅스 탭 "포션" 묶음(보유 수 · 구매 · 켜기), HUD 부스트 표시를 누르면 그 자리로 연다.
+  행운 상품 버튼은 확률 변화를 숫자로 보이고(S13) 제한 유저에게는 숨긴다. 배치 수치는 `docs/UI.md` "지시서 #17"
+- **가격 확인(GetProductInfoAsync)** — 서버 시작 때 등록된 상품 가격을 한 번 읽어 ShopConfig와 다르면 **WARN만** 한다(자동으로 고치지 않는다 —
+  화면 가격과 대시보드가 어긋난 것을 사람이 알게 하는 것이 목적). 공식 문서(create.roblox.com/docs/reference/engine/classes/MarketplaceService
+  #GetProductInfoAsync, 2026-10-30 확인): 없는 ID면 오류를 던진다 · 동시에 부르면 엔진이 요청을 묶는다(Transparent Batching) ·
+  이 메서드에는 분당 한도 서술이 없다 · 옛 `GetProductInfo`는 deprecated. 가격 필드는 `PriceInRobux`(할인 뒤) · `UserBasePriceInRobux`(할인 전)
 
 ### 폐기 · 출시 후로 미룸 (2026-10-25 사람 결정)
 ```
@@ -2057,6 +2087,9 @@ OP 자동 클리커        89   초당 30회. 둘 다 있으면 높은 쪽만
 - **가짜 소유(Studio 전용)** — Bootstrap `TEST_GAMEPASSES`(기본 nil)에 패스 키를 적으면 Studio에서만 그 패스를 가진 것으로 친다.
   저장하지 않는다 · 커밋 값 nil은 테스트가 잰다(TEST_PRESET과 같은 방식)
 - 실제 구매 프롬프트는 MCP로 누르지 않는다 — 구매 경로는 테스트용 가짜 게이트웨이로 잰다. ID가 0인 상품은 "준비 중"으로 보이고 구매가 막힌다
+- Studio 구매: 공식 문서(MarketplaceService `PromptGamePassPurchase` · `PromptProductPurchase`, 2026-10-30 확인)에
+  "In Studio, mocked purchases don't check that the pass/product belongs to the current game" — **Studio 구매는 모의(mocked)다.**
+  로벅스가 실제로 빠지는지 · 영수증이 어떻게 오는지는 서술이 없다 → #17 7단계에서 사람이 한 번 사 보고 관측해 기록한다
 
 ### 보상형 광고 (출시 후로 미룸 — 자리만 기록)
 ```
@@ -2077,6 +2110,13 @@ OP 자동 클리커        89   초당 30회. 둘 다 있으면 높은 쪽만
 ### Roblox Plus 유치
 환생 연출 직후 + 상점 진입 시 `PromptRobloxSubscriptionPurchase`(#17).
 신규 구독자당 월 250 로벅스 × 3개월 = 최대 750(유료 전환 뒤 · 60일 보류 — 공식 roblox-plus, 2026-10-25 확인).
+- **S16 (2026-10-30, 지시서 #17)** — 세션에 한 번, 환생 직후 또는 상점을 열 때. 이미 구독자(`Player.HasRobloxSubscription`)면 띄우지 않는다
+- 공식 문서(2026-10-30 확인 — create.roblox.com/docs/reference/engine/classes/MarketplaceService#PromptRobloxSubscriptionPurchase ·
+  /docs/reference/engine/classes/Player#HasRobloxSubscription · /docs/production/monetization/roblox-plus):
+  `PromptRobloxSubscriptionPurchase(user)` 보안 None · 공식 예제는 서버 Script에서 부른다 · 닫힐 때 `PromptRobloxSubscriptionPurchaseFinished(user, didTryPurchasing)`.
+  `HasRobloxSubscription` 읽기 None(서버가 세움 · 스크립트가 못 바꿈). 구독 확인은 서버에서 그 속성의 변경 신호로 한다(공식 권장)
+- **Studio에서 어떻게 동작하는지는 확인 못 함**(세 페이지 모두 서술 없음). 실제 구독(실제 결제) 프롬프트이고 MCP로 누르지 않는다 —
+  그래서 코드는 넣되 **플래그를 끈 채로** 둔다. 켜는 시점은 사람이 정한다(`docs/PENDING.md`)
 
 ### 가격 원칙
 - 최저가 19~49 구간 필수. 첫 결제 장벽이 가장 어렵다

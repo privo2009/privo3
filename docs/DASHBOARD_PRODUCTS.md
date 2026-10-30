@@ -11,17 +11,16 @@ Creator Dashboard에 만들 로벅스 상품 전부와, 만든 뒤 ID를 적을 
 한국어(Strings의 ko — 아래 표의 이름 · 설명)는 대시보드 번역 자리(Localization → Translate → 한국어 → Products 탭)에 사람이 넣는다
 (`docs/LOCALIZATION.md` 3절 "대시보드 상품 이름의 번역"). 영어 목록은 `python3 -I tools/export_localization_csv.py`의 `shop.` 줄로도 뽑을 수 있다.
 
-문서 갱신: 2026-10-25 (지시서 #L1 — 이름 · 설명 원본이 Strings로 옮겨 감)
+문서 갱신: 2026-10-30 (지시서 #17 — 대시보드 등록 완료 · 39개 ID · 가격 · 대시보드 이름)
 
 ---
 
-## 1. 지금 상태
+## 1. 지금 상태 (2026-10-30)
 
-- ShopConfig의 상품 **39개 전부 `id = 0`(미등록)이다.** 게임에서는 "준비 중"으로 보이고 구매가 막힌다.
-  서버 MarketplaceGateway가 ID 0이면 프롬프트를 띄우지 않고 `not_registered`를 돌려준다.
-- 게임패스 23(일반 13 · 힘 배수 계단 10) · 개발자 상품 16(롤 4 · 포션 3 · 포션 번들 1 · 운동기구 선해금 8).
-- 개발자 상품은 **ID를 넣어도 아직 팔리지 않는다.** 지급 함수가 없는 상품은 서버가 `not_available`로 거부한다
-  (ProductService — 결제는 됐는데 지급은 안 되는 상태를 만들지 않는다). 지급 함수는 지시서 #17이 채운다.
+- **39개 전부 대시보드에 등록됐다(사람).** 게임패스 23(일반 13 · 힘 배수 계단 10) · 개발자 상품 16(롤 4 · 포션 3 · 포션 번들 1 · 운동기구 선해금 8).
+- 아래 ID · 가격은 사람이 대시보드에서 옮겨 준 값이다(지시서 #17). 지시서 #17 3단계가 ShopConfig에 넣는다 — 넣기 전에는 게임에서 여전히 "준비 중"이다.
+- ShopConfig 가격은 대시보드 가격과 같아야 한다. 서버가 시작할 때 GetProductInfoAsync로 읽어 다르면 WARN만 한다(자동으로 고치지 않는다 — `DESIGN.md` 9장).
+- 개발자 상품 지급 함수는 지시서 #17 4단계가 넣는다. 그 전에는 ID가 있어도 서버가 `not_available`로 거부한다(결제되고 지급 안 되는 상태를 만들지 않는다).
 
 ## 2. 대시보드 절차 (공식 문서 — 2026-10-25 확인)
 
@@ -41,76 +40,81 @@ ID 복사   Monetization ⟩ Developer Products → 썸네일에 마우스 → �
 주의      "팔기 전에 영수증을 제대로 처리하고 지급할 것 — ProcessReceipt API" (같은 페이지)
 ```
 
-Studio에서 테스트 구매가 되는지는 위 두 페이지와 player-data-purchasing 페이지에서 **확인 못 함**(지시서 #15 · #16 조사).
-그래서 구매 경로는 테스트용 가짜 게이트웨이(`MarketplaceGateway.fake`)로만 잰다 — 실제 프롬프트를 MCP로 누르지 않는다.
+Studio 구매 — MarketplaceService 레퍼런스(2026-10-30 확인,
+https://create.roblox.com/docs/reference/engine/classes/MarketplaceService#PromptProductPurchase)에
+"In Studio, mocked purchases don't check that the product belongs to the current game"(게임패스도 같은 문장)가 있다 — **Studio 구매는 모의다.**
+로벅스가 빠지는지 · 영수증이 어떻게 오는지는 서술이 없다(확인 못 함) → 지시서 #17 7단계에서 사람이 한 번 사 보고 관측한다.
+MCP로는 실제 프롬프트를 누르지 않는다 — 구매 경로는 테스트용 가짜 게이트웨이(`MarketplaceGateway.fake`)로 잰다.
 
 ## 3. ID를 넣는 자리
 
-`src/shared/Config/ShopConfig.lua`에서 그 키의 `id = 0`을 복사한 Asset ID로 바꾼다.
-```
-pass("damage2x", 149, ...)   →  add({ key = "damage2x", kind = "gamepass", id = 0, ... })
-```
-지금은 `pass(...)` · `product(...)` 함수가 `id = 0`을 넣는다. ID를 넣을 때 키별 ID 표를 ShopConfig에 두는 방식으로 바꾼다
-(코드 담당 — Rojo · Git 작업이라 디자인 담당이 하지 않는다). `ShopConfig.validate`가 같은 ID 두 번 · 음수 · 소수 ID를 거부한다.
+`src/shared/Config/ShopConfig.lua`의 키별 ID 표. 키 하나에 ID 하나 — `ShopConfig.validate`가 ID 0 이하 · 같은 ID 두 번 ·
+게임패스 ID와 개발자 상품 ID가 섞이는 것을 거부한다(지시서 #17).
 
 넣은 뒤 확인:
 - Play 서버 로그 `[Bootstrap][VERIFY][SHOP]` 줄 — 그 패스를 가진 계정이면 `owned=`에 키가 보인다
 - 상점 창 로벅스 탭에서 "준비 중"이 초록 구매 버튼 + 가격으로 바뀐다
-- 가격은 대시보드 값과 ShopConfig `priceRobux`가 같아야 한다(화면은 ShopConfig 값을 보인다)
+- 가격 WARN 줄이 없어야 한다(서버 시작 때 GetProductInfoAsync 대조)
 
 ## 4. 게임패스 (23)
 
-로벅스 행운 상품(★)은 제한 지역 유저에게 숨기고 보유해도 효과를 끈다(DESIGN 9장 S13).
+대시보드 이름은 영어 그대로 적는다. 로벅스 행운 상품(★)은 제한 지역 유저에게 숨기고 보유해도 효과를 끈다(DESIGN 9장 S13).
 ```
-키                 이름               가격   설명
-autoClicker        자동 클리커          49   켜 두면 초당 15번 자동으로 클릭해요
-autoClickerOP      OP 자동 클리커       89   켜 두면 초당 30번 자동으로 클릭해요
-damage2x           2배 데미지          149   1펀치 데미지가 2배예요
-blox2x             2배 블럭스          199   수령할 때 받는 블럭스가 2배예요
-rebirth2x          2배 환생             99   환생할 때 얻는 환생 수가 2배예요
-voidTrainingZone   공허 훈련 구역      799   가장 센 운동기구를 열어요
-autoAdvance        자동 진행           199   목표층까지 멈추지 않고 진행해요        (효과는 #18)
-petSlots3          +3 펫 장착          199   펫을 3마리 더 장착해요
-petStorage100      +100 펫 저장 공간    49   펫을 100마리 더 보관해요
-hatch3x            3배 부화             99   알을 한 번에 3개 부화해요(비용 3배)    (창 버튼은 #17)
-petLuck2x        ★ 2배 펫 행운          99   펫 부화 행운이 2배예요
-auraLuck10x      ★ 10배 아우라 행운    299   아우라 뽑기 행운이 10배예요
-titleLuck10x     ★ 10배 칭호 행운      299   칭호 뽑기 행운이 10배예요
+키                 대시보드 이름          ID            R$
+autoClicker        Auto Clicker           2052132045     49
+autoClickerOP      OP Auto Clicker        2053242108     89
+rebirth2x          x2 Rebirths            2054058093     99
+damage2x           x2 Damage              2052696040    149
+blox2x             x2 Blox                2054262102    199
+hatch3x            Triple Hatch           2052474059     99
+petLuck2x        ★ x2 Pet Luck            2052954089     99
+petStorage100      +100 Pet Storage       2054172019     49
+petSlots3          +3 Pet Slots           2053284114    199
+auraLuck10x      ★ x10 Aura Luck          2053680063    299
+titleLuck10x     ★ x10 Title Luck         2052546070    299
+voidTrainingZone   Void Training Zone     2054052054    799
+autoAdvance        Auto Advance           2053542093    199   (효과는 #18)
 ```
-힘 배수 계단 — 보유한 단계 중 **가장 높은 하나만** 적용된다(곱하지 않는다).
-설명은 전부 "클릭으로 얻는 힘이 N배예요(가장 높은 단계 하나만)".
+힘 배수 계단 — 보유한 단계 중 **가장 높은 하나만** 적용된다(곱하지 않는다). 가진 단계 이하는 살 수 없다(R1).
 ```
-strength2x    2배 힘       3      strength64x    64배 힘     799
-strength4x    4배 힘       9      strength128x   128배 힘  1,499
-strength8x    8배 힘      29      strength256x   256배 힘  2,499
-strength16x   16배 힘     79      strength512x   512배 힘  3,999
-strength32x   32배 힘    249      strength1024x  1024배 힘 5,999
+strength2x     x2 Power      2052216044      3
+strength4x     x4 Power      2052702002      9
+strength8x     x8 Power      2052210043     29
+strength16x    x16 Power     2052438033     79
+strength32x    x32 Power     2054039990    149
+strength64x    x64 Power     2052954081    249
+strength128x   x128 Power    2052480115    399
+strength256x   x256 Power    2053890027    499
+strength512x   x512 Power    2053164055    599
+strength1024x  x1024 Power   2052390076    699
 ```
 
 ## 5. 개발자 상품 (16)
 
 ```
-키              이름              가격   설명
-luckyRoll5    ★ 럭키 롤 5회         49   아우라 뽑기 5회 · 행운 ×5 · 블럭스 없이
-luckyRoll15   ★ 럭키 롤 15회       149   아우라 뽑기 15회 · 행운 ×5 · 블럭스 없이
-superRoll5    ★ 슈퍼 롤 5회         99   아우라 뽑기 5회 · 행운 ×100 · 블럭스 없이
-superRoll15   ★ 슈퍼 롤 15회       249   아우라 뽑기 15회 · 행운 ×100 · 블럭스 없이
-strengthPotion  힘 포션             19   15분 동안 힘 ×2
-damagePotion    데미지 포션         19   15분 동안 1펀치 데미지 ×2
-luckPotion    ★ 행운 포션           29   15분 동안 칭호 · 아우라 · 펫 행운 ×2
-potionBundle  ★ 포션 번들          999   힘 · 데미지 · 행운 포션 각 99개
-gymUnlock1      운동기구 1 열기     29   환생 수와 상관없이 운동기구 1을 열어요
-gymUnlock2      운동기구 2 열기     49   (같은 꼴 — 번호만 다르다)
-gymUnlock3      운동기구 3 열기     79
-gymUnlock4      운동기구 4 열기     99
-gymUnlock5      운동기구 5 열기    149
-gymUnlock6      운동기구 6 열기    199
-gymUnlock7      운동기구 7 열기    299
-gymUnlock8      운동기구 8 열기    449
+키              대시보드 이름       ID            R$
+luckyRoll5    ★ Lucky Roll x5      3722238324     49
+luckyRoll15   ★ Lucky Roll x15     3722238413    149
+superRoll5    ★ Super Roll x5      3722238507     99
+superRoll15   ★ Super Roll x15     3722238589    249
+strengthPotion  Power Potion       3722238698     19
+damagePotion    Damage Potion      3722238762     19
+luckPotion    ★ Luck Potion        3722238841     29
+potionBundle  ★ Potion Bundle      3722238982    999
+gymUnlock1      Gym 1 Unlock       3722239093     29
+gymUnlock2      Gym 2 Unlock       3722239174     49
+gymUnlock3      Gym 3 Unlock       3722239239     79
+gymUnlock4      Gym 4 Unlock       3722239675     99
+gymUnlock5      Gym 5 Unlock       3722239721    149
+gymUnlock6      Gym 6 Unlock       3722239888    199
+gymUnlock7      Gym 7 Unlock       3722240101    299
+gymUnlock8      Gym 8 Unlock       3722240268    449
 ```
-지급 함수(#17 전까지 없음): 롤 → `rollCredits` · 포션 → `potions` 보관함 · 선해금 → `gymUnlocks` 기록(전부 스키마 v7).
+지급(지시서 #17): 롤 → `rollCredits` · 포션 → `potions` 보관함(번들은 종류마다 +99) · 선해금 → `gymUnlocks` 기록. 규칙은 `DESIGN.md` 9장 "구매 규칙 · 지급 · 사용".
+
+⚠️ 게임 화면 이름(Strings en)과 대시보드 이름이 다른 것 3개 — `rebirth2x` "x2 Rebirth" · `hatch3x` "x3 Hatch" · `petSlots3` "+3 Pet Equip".
+지시서 #17은 운동기구 선해금 이름만 대시보드에 맞췄다("Unlock Gym {n}" → "Gym {n} Unlock"). 나머지 3개를 맞출지는 사람 결정(`docs/PENDING.md`).
 
 ## 6. 아이콘
 
-상품 아이콘 이미지는 아직 없다(디자인 담당 제작 목록에 없다 — HUD 구좌도 초록 역할색 칸으로 그린다).
-공식 절차에 아이콘 업로드 단계가 있다(반드시 올려야 하는지는 확인 못 함). 등록 전에 사람이 정한다: 임시 아이콘으로 먼저 등록할지, 아이콘을 기다릴지.
+**임시 아이콘으로 등록했다(2026-10-30 사람).** 단색 원 + 글자. 나중에 정식 아이콘으로 바꾼다(디자인 담당 제작 목록에 올릴 것 — `docs/PENDING.md`).
