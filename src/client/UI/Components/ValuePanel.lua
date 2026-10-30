@@ -15,6 +15,7 @@
 -- (FormatterTests가 이미 그 계약을 검증한다).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
@@ -54,7 +55,7 @@ function ValuePanel.create(level: TextScale.Level, maxChars: number?): ValuePane
 	label.BorderSizePixel = 0
 	label.TextScaled = true
 	label.TextColor3 = Color3.new(1, 1, 1)
-	label.Font = Enum.Font.SourceSansBold
+	label.Font = UiTheme.FONT
 	label.Text = ""
 
 	local sizeConstraint = Instance.new("UITextSizeConstraint")

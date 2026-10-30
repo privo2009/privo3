@@ -61,7 +61,7 @@ local function makeText(name: string, parent: Instance): TextLabel
 	label.BackgroundTransparency = 1
 	label.TextScaled = true
 	label.TextColor3 = Color3.new(1, 1, 1)
-	label.Font = Enum.Font.SourceSansBold
+	label.Font = UiTheme.FONT
 	local size = Instance.new("UITextSizeConstraint")
 	size.MaxTextSize = TextScale.Levels.large.maxTextSize
 	size.Parent = label

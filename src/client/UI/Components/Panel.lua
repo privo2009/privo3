@@ -12,6 +12,7 @@
 -- 기준으로는 항상 같은 크기·같은 위치가 되게 한다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local AssetRegistry = require(ReplicatedStorage.Shared.Config.AssetRegistry)
 local AssetImage = require(ReplicatedStorage.Shared.UI.AssetImage)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
@@ -97,7 +98,7 @@ function Panel.create(size: Size, title: string): PanelHandle
 	titleLabel.Text = title
 	titleLabel.TextScaled = true
 	titleLabel.TextColor3 = Color3.new(1, 1, 1)
-	titleLabel.Font = Enum.Font.SourceSansBold
+	titleLabel.Font = UiTheme.FONT
 	titleLabel.ZIndex = 3
 
 	local titleSizeConstraint = Instance.new("UITextSizeConstraint")

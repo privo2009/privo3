@@ -9,6 +9,7 @@
 -- "숨김" = 줄 라벨이 전부 Visible false(root는 투명한 틀로 열려 있다).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local Store = require(script.Parent.Parent.Parent.Store)
@@ -63,7 +64,7 @@ function BoostTimers.create(deps: Deps?): Handle
 		label.TextScaled = true
 		label.TextXAlignment = Enum.TextXAlignment.Right
 		label.TextColor3 = Color3.new(1, 1, 1)
-		label.Font = Enum.Font.SourceSansBold
+		label.Font = UiTheme.FONT
 		label.Visible = false
 		label.Parent = root
 		local size = Instance.new("UITextSizeConstraint")

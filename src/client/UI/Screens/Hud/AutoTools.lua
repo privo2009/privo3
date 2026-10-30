@@ -154,7 +154,7 @@ local function createItem(name: string, assetKey: string, label: string, layoutO
 	textLabel.Text = label
 	textLabel.TextScaled = true
 	textLabel.TextColor3 = Color3.new(1, 1, 1)
-	textLabel.Font = Enum.Font.SourceSansBold
+	textLabel.Font = UiTheme.FONT
 	textLabel.Parent = itemRow
 
 	local labelSizeConstraint = Instance.new("UITextSizeConstraint")

@@ -21,6 +21,7 @@
 -- 자연스럽게 피한다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local RunService = game:GetService("RunService")
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
@@ -79,7 +80,7 @@ function ChallengeInfo.create(): ChallengeInfoHandle
 	stageLabel.Text = INACTIVE_STAGE_TEXT
 	stageLabel.TextScaled = true
 	stageLabel.TextColor3 = Color3.new(1, 1, 1)
-	stageLabel.Font = Enum.Font.SourceSansBold
+	stageLabel.Font = UiTheme.FONT
 	stageLabel.Parent = root
 
 	local stageSizeConstraint = Instance.new("UITextSizeConstraint")

@@ -80,6 +80,10 @@ UiTheme.Rarity = {
 	tier6 = Color3.fromHex("FF1470"),
 } :: { [RarityTier]: Color3 }
 
+-- 화면 글꼴 하나(지시서 #17 F1 · 2026-10-30 사람 결정 — #L2 후보 비교: 폭이 지금과 거의 같고 한글 대체 글꼴과 굵기 차이가 작다).
+-- 코드에서 Enum.Font를 직접 쓰지 않는다 — 글꼴을 바꾸면 여기 한 줄만 바꾼다(tools/check_fonts.py · LocaleClientTests가 잰다).
+UiTheme.FONT = Enum.Font.BuilderSansBold
+
 -- 단계 번호(1~6) → 색. 범위 밖은 가장 가까운 끝 단계.
 function UiTheme.rarityColor(tier: number): Color3
 	local i = math.clamp(math.floor(tonumber(tier) or 1), 1, #UiTheme.RARITY_TIERS)

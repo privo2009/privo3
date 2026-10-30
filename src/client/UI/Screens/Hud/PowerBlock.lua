@@ -29,6 +29,7 @@
 -- 다음 세션으로 미룬다(docs/PENDING.md "미결" 참고).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextService = game:GetService("TextService")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local AssetRegistry = require(ReplicatedStorage.Shared.Config.AssetRegistry)
 local AssetImage = require(ReplicatedStorage.Shared.UI.AssetImage)
@@ -89,6 +90,7 @@ local SPEED_Y1 = 1
 local MULT_X = 0.74
 local MULT_W = 0.26
 local MULT_CAPTION_H = 0.4 -- 행 기준
+local MULT_GAP = 0.02 -- 폰 맞춤에서 힘 수치 칸 오른쪽 끝과 띄우는 간격(root 폭 기준)
 PowerBlock.MultiplierX = MULT_X
 
 -- ===== 레벨 진행 바 내부 =====================================================
@@ -167,7 +169,7 @@ function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
 	multCaption.Text = Locale.t("hud.power.rebirthMult")
 	multCaption.TextScaled = true
 	multCaption.TextColor3 = Color3.new(1, 1, 1)
-	multCaption.Font = Enum.Font.SourceSansBold
+	multCaption.Font = UiTheme.FONT
 	multCaption.Parent = multFrame
 	local multCaptionSize = Instance.new("UITextSizeConstraint")
 	multCaptionSize.MaxTextSize = TextScale.Levels.small.maxTextSize
@@ -183,6 +185,36 @@ function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
 	multValue.label.Size = UDim2.fromScale(1, 1 - MULT_CAPTION_H)
 	multValue.label.TextColor3 = UiTheme.Colors.power.light
 	multValue.label.Parent = multFrame
+
+	-- 폰 맞춤(#17 F2): 낮은 화면(Galaxy A06 338px)에서는 캡션 줄이 행의 40% = 9.5px로 글자 하한(11px)보다 낮고,
+	-- 영어 "Rebirth Multiplier ×"가 칸 폭(26%)에 한 줄로 안 들어가 두 줄로 쪼개져 아래 값에 붙었다.
+	-- K12 순서대로 레이아웃 먼저 — 캡션 줄을 하한 + 1px로 키우고(값 줄이 하한 아래로 내려가지 않는 데까지),
+	-- 한 줄 폭이 모자라면 칸을 왼쪽으로 넓힌다. 왼쪽 끝은 힘 수치 칸 오른쪽 끝 + 간격 — 힘 수치와 겹치지 않는다.
+	-- 넉넉한 화면(PC)에서는 아무것도 안 바뀐다. Scale로 다시 쓴다(Offset 금지 — 환생 안내 · 구좌 가격 줄과 같은 방식).
+	local function fitMultiplier()
+		local rootSize = root.AbsoluteSize
+		local rowPx = rootSize.Y * (POWER_Y1 - POWER_Y0)
+		if rootSize.X <= 0 or rowPx <= 0 then
+			return
+		end
+		local minPx = TextScale.MIN_TEXT_PX + 1
+		local captionH = math.min(math.max(MULT_CAPTION_H, minPx / rowPx), 1 - TextScale.MIN_TEXT_PX / rowPx)
+		local textPx = math.min(captionH * rowPx, multCaptionSize.MaxTextSize)
+		local need = TextService:GetTextSize(multCaption.Text, textPx, multCaption.Font, Vector2.new(10000, 10000)).X
+		local x = MULT_X
+		if need > MULT_W * rootSize.X then
+			local valueRight = (powerValue.label.AbsolutePosition.X + powerValue.label.AbsoluteSize.X - root.AbsolutePosition.X) / rootSize.X
+			x = math.min(MULT_X, math.max(valueRight + MULT_GAP, 1 - need / rootSize.X))
+		end
+		multFrame.Position = UDim2.fromScale(x, POWER_Y0)
+		multFrame.Size = UDim2.fromScale(1 - x, POWER_Y1 - POWER_Y0)
+		multCaption.Size = UDim2.fromScale(1, captionH)
+		multValue.label.Position = UDim2.fromScale(0.5, captionH)
+		multValue.label.Size = UDim2.fromScale(1, 1 - captionH)
+	end
+	root:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitMultiplier)
+	powerValue.label:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitMultiplier)
+	fitMultiplier()
 
 	-- 행 2: 레벨 진행 바 ----------------------------------------------------------------
 
@@ -205,7 +237,7 @@ function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
 	currentLabel.Text = "0"
 	currentLabel.TextScaled = true
 	currentLabel.TextColor3 = Color3.new(1, 1, 1)
-	currentLabel.Font = Enum.Font.SourceSansBold
+	currentLabel.Font = UiTheme.FONT
 	currentLabel.Parent = levelRow
 
 	local currentSizeConstraint = Instance.new("UITextSizeConstraint")
@@ -226,7 +258,7 @@ function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
 	nextLabel.Text = "1"
 	nextLabel.TextScaled = true
 	nextLabel.TextColor3 = Color3.new(1, 1, 1)
-	nextLabel.Font = Enum.Font.SourceSansBold
+	nextLabel.Font = UiTheme.FONT
 	nextLabel.Parent = levelRow
 
 	local nextSizeConstraint = Instance.new("UITextSizeConstraint")
@@ -292,7 +324,7 @@ function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
 	maxLabel.Text = Locale.t("hud.power.maxSpeed", { n = 0 })
 	maxLabel.TextScaled = true
 	maxLabel.TextColor3 = Color3.new(1, 1, 1)
-	maxLabel.Font = Enum.Font.SourceSansBold
+	maxLabel.Font = UiTheme.FONT
 	maxLabel.Parent = speedRow
 
 	local maxSizeConstraint = Instance.new("UITextSizeConstraint")

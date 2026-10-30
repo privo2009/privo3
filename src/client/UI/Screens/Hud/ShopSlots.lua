@@ -62,7 +62,7 @@ local PRICE_LABEL_HEIGHT_TILE_REL = TextScale.Levels[PRICE_LEVEL].heightFraction
 -- STROKE_THICKNESS(3)과 같은 값 — 그 헬퍼는 local이라 가져다 쓸 수 없어 재현한다.
 local STROKE_THICKNESS = 3
 
-local PRICE_FONT = Enum.Font.SourceSansBold
+local PRICE_FONT = UiTheme.FONT
 
 -- 가격 표기. 칸에 "199 R$"가 다 들어가면 그대로, 안 들어가면 숫자만(지시서 #7 1단계).
 -- 폰에서는 타일이 22px 안팎이라 글자 하한(TextScale.MIN_TEXT_PX)으로 "199 R$"를 찍으면 칸보다 넓다.

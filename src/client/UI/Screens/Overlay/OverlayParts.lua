@@ -32,7 +32,7 @@ function OverlayParts.textRow(name: string, text: string, level: TextScale.Level
 	label.Text = text
 	label.TextScaled = true
 	label.TextColor3 = Color3.new(1, 1, 1)
-	label.Font = Enum.Font.SourceSansBold
+	label.Font = UiTheme.FONT
 	label.BorderSizePixel = 0
 	if role ~= nil then
 		label.BackgroundColor3 = UiTheme.Colors[role].base

@@ -267,6 +267,64 @@ do
 	gui:Destroy()
 end
 
+-- 글꼴 하나 (#17 F1) — 우리 화면의 글자는 전부 UiTheme.FONT. 소스 쪽 검사(Enum.Font 직접 사용 금지)는 tools/check_fonts.py
+-- (게임 스크립트는 다른 스크립트의 Source를 읽을 수 없어 Play 테스트로는 화면 쪽만 잰다)
+do
+	local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
+	local wrong, n = {}, 0
+	for _, gui in ipairs(playerGui:GetChildren()) do
+		if gui:IsA("LayerCollector") and gui.Name ~= "Freecam" and StarterGui:FindFirstChild(gui.Name) == nil then
+			for _, o in ipairs(gui:GetDescendants()) do
+				if (o:IsA("TextLabel") or o:IsA("TextButton")) and o.Text ~= "" then
+					n += 1
+					if (o :: any).Font ~= UiTheme.FONT then
+						table.insert(wrong, gui.Name .. "." .. o.Name)
+					end
+				end
+			end
+		end
+	end
+	check(string.format("F1: 글자 %d칸 전부 UiTheme.FONT(%s)", n, UiTheme.FONT.Name), n > 0 and #wrong == 0, table.concat(wrong, ", "))
+end
+
+-- 힘 블록 환생 배수 라벨 (#17 F2) — 폰 틀(705×338)에서 한 줄 · 넘침 0 · 아래 값과 안 겹침(그 Play의 언어)
+do
+	local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
+	local Store = require(script.Parent.Parent.UI.Store)
+	local TextMinimum = require(script.Parent.Parent.UI.TextMinimum)
+	local PowerBlock = require(script.Parent.Parent.UI.Screens.Hud.PowerBlock)
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "LocalePowerBlockFit"
+	gui.ResetOnSpawn = false
+	gui.AutoLocalize = false -- K10
+	local phone = Instance.new("Frame")
+	phone.Size = UDim2.fromOffset(705, 338) -- 테스트 틀만 Offset
+	phone.BackgroundTransparency = 1
+	phone.Parent = gui
+	TextMinimum.attach(gui)
+	gui.Parent = playerGui
+	local block = PowerBlock.create(Store.new())
+	block.root.Parent = phone
+	task.wait()
+	task.wait()
+	local caption = block.root:FindFirstChild("Caption", true) :: TextLabel
+	local value = block._debug.multiplierLabel
+	local oneLine = caption.TextBounds.Y <= TextScale.MIN_TEXT_PX * 1.8
+	check(string.format("F2: 폰 환생 배수 라벨 한 줄 · 넘침 0 · %.1fpx ≥ 11 (%s)", caption.AbsoluteSize.Y, caption.Text),
+		caption.TextFits and oneLine and caption.AbsoluteSize.Y >= TextScale.MIN_TEXT_PX - 0.5,
+		string.format("fits=%s bounds=%.0fx%.0f box=%.0fx%.0f", tostring(caption.TextFits), caption.TextBounds.X, caption.TextBounds.Y,
+			caption.AbsoluteSize.X, caption.AbsoluteSize.Y))
+	check("F2: 라벨 아래 끝이 값 위 끝을 넘지 않는다", caption.AbsolutePosition.Y + caption.AbsoluteSize.Y <= value.AbsolutePosition.Y + 0.5,
+		string.format("caption bottom %.1f value top %.1f", caption.AbsolutePosition.Y + caption.AbsoluteSize.Y, value.AbsolutePosition.Y))
+	local power = block.root:FindFirstChild("PowerValue", true) :: TextLabel
+	check("F2: 배수 칸이 힘 수치 칸과 안 겹친다", caption.AbsolutePosition.X >= power.AbsolutePosition.X + power.AbsoluteSize.X - 0.5,
+		string.format("caption left %.1f power right %.1f", caption.AbsolutePosition.X, power.AbsolutePosition.X + power.AbsoluteSize.X))
+	check(string.format("F2: 폰 배수 값 칸 %.1fpx ≥ 11", value.AbsoluteSize.Y), value.AbsoluteSize.Y >= TextScale.MIN_TEXT_PX - 0.5)
+	print(string.format("[LocaleClientTests] F2 폰 705×338(%s): 라벨 %.0fx%.0f 글자 %.0fx%.0f fits=%s", Locale.current(), caption.AbsoluteSize.X,
+		caption.AbsoluteSize.Y, caption.TextBounds.X, caption.TextBounds.Y, tostring(caption.TextFits)))
+	gui:Destroy()
+end
+
 print(string.format("[LocaleClientTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[LocaleClientTests] %d test(s) failed", failed))

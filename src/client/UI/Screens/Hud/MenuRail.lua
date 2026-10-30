@@ -20,6 +20,7 @@
 -- 제작 규격이라(docs "7. 아이콘 > 타일 규격") 코드가 처리할 몫이 없다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local AssetRegistry = require(ReplicatedStorage.Shared.Config.AssetRegistry)
 local AssetImage = require(ReplicatedStorage.Shared.UI.AssetImage)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
@@ -128,7 +129,7 @@ local function createTile(item: { assetKey: string, label: string, screenName: s
 	label.Text = item.label
 	label.TextScaled = true
 	label.TextColor3 = Color3.new(1, 1, 1)
-	label.Font = Enum.Font.SourceSansBold
+	label.Font = UiTheme.FONT
 	label.Parent = itemRow
 
 	local labelSizeConstraint = Instance.new("UITextSizeConstraint")

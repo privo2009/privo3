@@ -49,7 +49,7 @@ local function newTag(): Tag
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
 	label.TextScaled = true
-	label.Font = Enum.Font.SourceSansBold
+	label.Font = UiTheme.FONT
 	label.Parent = gui
 	local size = Instance.new("UITextSizeConstraint")
 	size.MaxTextSize = TextScale.Levels.medium.maxTextSize

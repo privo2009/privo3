@@ -6,6 +6,7 @@
 -- 위치 · 크기는 부모 기준 Scale이다. Offset을 쓰지 않는다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local Button = require(script.Parent.Button)
 
@@ -34,7 +35,7 @@ function WindowParts.makeText(
 	label.Size = UDim2.fromScale(w, h)
 	label.TextScaled = true
 	label.TextColor3 = Color3.new(1, 1, 1)
-	label.Font = Enum.Font.SourceSansBold
+	label.Font = UiTheme.FONT
 	label.TextXAlignment = align or Enum.TextXAlignment.Left
 	label.ZIndex = WindowParts.Z_TEXT
 	local size = Instance.new("UITextSizeConstraint")
