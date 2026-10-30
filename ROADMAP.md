@@ -98,7 +98,7 @@
 | `Systems/PolicyGateTests.server.lua` | 7 | 유료 랜덤 아이템 제한 S13 — 확인 전 · 판정 실패 · 필드 없음은 제한 · false만 허용 · 퇴장(#16) |
 | `Systems/ProductServiceTests.server.lua` | 21 | 영수증 S2 · S3 — 같은 PurchaseId 두 번 지급 1회 · 프로필 미로드 · 저장 실패 NotProcessedYet · 지급 함수 없음 ERROR · 기록 상한 100 · ProfileStore Mock 실물 저장 확인(#16) |
 | `Systems/PurchaseRequestServiceTests.server.lua` | 31 | 구매 요청 채널 — payload · 빈도 · 판정 순서(invalid_key · already_owned · restricted · not_registered · not_available) · 프롬프트 · 닫힘 결과 · 실물 게이트웨이 ID 0(#16) · 상위 보유 거부 ladder_owned_higher · auto_owned_higher · 선해금 already_unlocked(#17) |
-| `Systems/ProductGrantsTests.server.lua` | 20 | 개발자 상품 지급 16 — 포션 · 번들(반쪽 지급 없음) · 롤 · 선해금 · 표 없음 거부 · 등록 16 · 같은 영수증 지급 1회 · 알림(#17) |
+| `Systems/ProductGrantsTests.server.lua` | 25 | 개발자 상품 지급 16 — 포션 · 번들(반쪽 지급 없음) · 롤 · 선해금 · 표 없음 거부 · 등록 16 · 같은 영수증 지급 1회 · 알림(#17) · 가짜 영수증 TEST_RECEIPTS(Studio + Mock만 · 커밋 값 nil — #17 단계 6) |
 | `Systems/PotionRequestServiceTests.server.lua` | 12 | 포션 켜기 — payload · invalid · none_owned · 보관 −1 · 부스트 · 연장 · 제한 유저 행운 포션 · 부스트 실패 되돌림 · 빈도(#17) |
 | `Systems/PlusPromptServiceTests.server.lua` | 8 | Roblox Plus(S16) — 꺼짐 · 커밋 플래그 false · 세션 한 번 · 구독자 제외 · 모르는 이유 · 새 세션 · 환생 알림(#17) |
 | `Systems/ShopPriceCheckTests.server.lua` | 12 | 대시보드 가격 대조 — 일치 · 할인 전 값 일치 · 다름 · 판매 안 함 · 조회 실패 · 등록 상품만 · WARN만 · 고치지 않음 · 실제 표 39개(#17) |
@@ -109,7 +109,7 @@
 | `Tests/WindowProductTests.client.lua` | 30 | 창별 상품 버튼 — 아우라 로벅스 탭 · 롤 사용 · 펫 로벅스 탭 · ×3 부화 · 칭호 10배 행운 버튼 · 운동기구 프롬프트 · 선해금 표시 · 폰 705×338 넘침 0 · 11px(#17) |
 | `Tests/LocaleTests.server.lua` | 39 | 다국어 표 · 고르기(#L1) — 모든 키에 en · 자리 표시 집합 = en · 없는 키 "?" + WARN · ko 없으면 en · 치환 · 언어 고르기(K2) · TEST_LOCALE 관문(Studio 전용) · Config id → 이름 키(K6) · 커밋된 TEST_LOCALE = nil · K11 신호 기다리기(바로 · 늦게 · 상한) · 서버가 LocaleReady를 세운다(#L2) |
 | `Tests/LocaleClientTests.client.lua` | 26 | K10 우리 GUI 루트 전수 AutoLocalize = false(예외: Freecam · 플레이스 StarterGui 복사본) · K11 지금 언어 = TEST_LOCALE 또는 계정 언어 · 첫 언어는 서버 신호 뒤 · 신호 전 기억 없는 호출 0 · 토스트 setLimit · 알림층 폰 705×338 틀(런 안내 3 · 오류 · 로딩 · 환생 안내 · 가장 긴 칭호 · 아우라 · 펫 토스트 · 결과 모달 — 넘침 0 · 11px · 그 Play의 언어) · 토스트 폰 예외(2개 · 두 줄)(#L2) · 글자 전부 UiTheme.FONT · 힘 블록 환생 배수 라벨 폰 한 줄 · 값 · 힘 수치와 안 겹침(#17 F1 · F2) |
-| **합계** | **4168** | |
+| **합계** | **4173** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는

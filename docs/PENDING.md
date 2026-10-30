@@ -411,6 +411,16 @@ D1 ~ D3 → `docs/DASHBOARD_PRODUCTS.md`(#16 7단계) · D4 · D5 광고와 함�
   재접속 뒤 UserOwnsGamePassAsync. #17 7단계는 개발자 상품(Power Potion 19 R$)만 산다(2026-10-31 사람 결정)
 - 가격 대조 실측: `[ShopPriceCheck] 39개 — 일치 39 · 다름 0 · 판매 안 함 0 · 조회 실패 0`
 
+#17 단계 6 실물 확인 (2026-10-31 — TEST_PRESET floor9 Mock + TEST_RECEIPTS + TEST_GAMEPASSES { strength8x }, 실제 프로필 무변경)
+```
+가짜 영수증  힘 포션 · 럭키 롤 5 · 운동기구 5 선해금 → 3건 PurchaseGranted. 같은 PurchaseId 다시 → PurchaseGranted · 보관 1 그대로(멱등)
+포션 켜기    상점 로벅스 탭 "Use" → 보관 1 → 0 · HUD "Power ×2 14:58" · 서버 strengthMult 50.82 → 101.64(계단 ×8 · 포션 ×2)
+롤 쓰기      아우라 "Use Lucky Roll (5)" → 새 아우라 영웅 · 남은 4 · 블럭스 1.63K 그대로. 첫 시도는 거부 — 배선 버그(credit 누락) 찾아 고침
+선해금       기구 5(필요 환생 50, 프리셋 환생 4) → 프롬프트 꺼짐 · 라벨 "Gym ×3 In use" · 본체 열린 색. 잠긴 3 · 4 · 6 · 7 · 8 · 공허는 켜짐
+계단 R1      8배 보유 → 로벅스 탭 "Now ×8 · Next x16 79 R$" · HUD 2배 힘 구좌 79 R$. 낮은 단계 서버 거부는 단위 테스트(화면에 낮은 단계가 안 나온다)
+```
+캡처 `HANDOFF/screens-2026-10-30/f17/6_*`. 플래그는 전부 nil로 되돌렸다(서버 61행 2634 · 클라 30행 1539 / 0 failed)
+
 관측 (2026-10-31, #17 단계 5)
 - 운동기구 ProximityPrompt UI는 로블록스가 그린다(CoreGui) — MCP screen_capture에 안 찍힌다. 켜짐 · 글자 · 거리는 읽기로 확인했다
   (기구 5: "Unlock with Robux" · "Gym 5 Unlock · 149 R$" · 거리 3.6 / 10). 누르면 실제 구매 창이 떠서 MCP로 누르지 않는다
