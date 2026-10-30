@@ -200,6 +200,18 @@ check("ShopConfig ID 표: 게임패스 23 · 개발자 상품 16 · 각 상품 i
 	end
 	return ng == 23 and np == 16
 end)
+check("ShopConfig.rollCreditLuck(지시서 #17): 럭키 = 럭키 상품 luckMult · 슈퍼 = 슈퍼 상품 · 모르면 nil · 다르면 validate 거부", function()
+	local lucky = (ShopConfig.get("luckyRoll5") :: any).effect
+	local super = (ShopConfig.get("superRoll15") :: any).effect
+	local ok1 = ShopConfig.rollCreditLuck("lucky") == lucky.luckMult and ShopConfig.rollCreditLuck("super") == super.luckMult
+		and ShopConfig.rollCreditLuck("mega") == nil and ShopConfig.rollCreditLuck(5) == nil
+	local e15 = (ShopConfig.get("luckyRoll15") :: any).effect
+	local saved = e15.luckMult
+	e15.luckMult = saved + 1
+	local okBad = pcall(ShopConfig.validate)
+	e15.luckMult = saved
+	return ok1 and not okBad and ShopConfig.validate()
+end)
 check("ShopConfig.ownedHigher(지시서 #17 R1 · R2)", function()
 	local function owns(set: { [string]: boolean })
 		return function(k: string)

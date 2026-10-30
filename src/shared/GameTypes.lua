@@ -79,11 +79,15 @@ export type PlayerStateView = {
 -- boosts = 활성 부스트(BoostService — ShopConfig.BOOST_ORDER 순서, 남은 초 올림). 제한 유저의 행운 포션은 뺀다. 없으면 빈 목록
 --   ⚠️ 남은 초는 매초 바뀌지만 매초 보내지 않는다 — 서버는 BOOST_RESYNC_SEC 넘게 어긋날 때만 다시 보내고 클라가 받은 뒤로 센다
 -- autoClick = 자동 클리커가 켜져 있는가(세션 값 — 접속하면 false)
+-- potions = 보관한 포션 수(프로필 — 지시서 #17) · rollCredits = 남은 럭키 · 슈퍼 롤 · gymUnlocks = 선해금한 기구 번호(오름차순)
 export type ShopSummary = {
 	gamepasses: { string },
 	paidRandomRestricted: boolean,
 	boosts: { BoostView },
 	autoClick: boolean,
+	potions: { strength: number, damage: number, luck: number },
+	rollCredits: { lucky: number, super: number },
+	gymUnlocks: { number },
 }
 
 export type BoostView = {

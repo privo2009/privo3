@@ -252,6 +252,20 @@ function ShopConfig.ownedHigher(key: string, owns: (string) -> boolean): string?
 	return nil
 end
 
+-- 럭키 · 슈퍼 롤 1회의 행운 배수(지시서 #17). 그 credit을 주는 상품 effect.luckMult — 모르는 credit이면 nil.
+-- 상품이 둘(5회 · 15회)이라도 배수는 같다 — validate가 잰다.
+function ShopConfig.rollCreditLuck(credit: any): number?
+	if type(credit) ~= "string" then
+		return nil
+	end
+	for _, def in pairs(Products) do
+		if def.effect.type == "rollCredit" and def.effect.credit == credit then
+			return def.effect.luckMult
+		end
+	end
+	return nil
+end
+
 -- 그 뽑기(title · aura · pet)의 행운 패스 배수. 보유한 패스 중 그 뽑기 것만(지금은 뽑기마다 하나).
 function ShopConfig.luckPassMult(roll: string, owns: (string) -> boolean): number
 	local m = 1
@@ -329,6 +343,10 @@ function ShopConfig.validate(): boolean
 		ids[def.id] = key
 		if def.effect.type == "potion" then
 			assert(ShopConfig.BOOSTS[def.effect.boost] ~= nil, "ShopConfig: 없는 포션 - " .. key)
+		end
+		if def.effect.type == "rollCredit" then
+			assert(def.effect.luckMult == ShopConfig.rollCreditLuck(def.effect.credit),
+				"ShopConfig: 같은 롤(" .. tostring(def.effect.credit) .. ")의 행운 배수가 상품마다 다름 - " .. key)
 		end
 	end
 	-- 계단: 배수 · 가격 순증가

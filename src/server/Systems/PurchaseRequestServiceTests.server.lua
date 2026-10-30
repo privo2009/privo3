@@ -1,7 +1,8 @@
 --!strict
 -- PurchaseRequestService 검증 (지시서 #16 3단계). 가짜 게이트웨이 · 가짜 상품표로 굴린다 — 실제 로벅스 프롬프트를 띄우지 않는다.
 --   payload 거르기 · 빈도 상한 · 판정 순서(invalid_key · already_owned · restricted · not_registered · not_available) ·
---   통과면 프롬프트 · 게임패스 프롬프트가 닫힌 결과(산 것 · 취소) · 상위 보유 거부(지시서 #17 R1 계단 · R2 자동 클리커)
+--   통과면 프롬프트 · 게임패스 프롬프트가 닫힌 결과(산 것 · 취소) · 상위 보유 거부(지시서 #17 R1 계단 · R2 자동 클리커) ·
+--   운동기구 선해금 이미 열림 already_unlocked(#17)
 
 local ServerScriptService = game:GetService("ServerScriptService")
 
@@ -25,7 +26,7 @@ end
 
 -- 이 표의 상품만 등록된 것으로 친다(fakeCatalog — 나머지는 ID 0). blox2x · damagePotion은 미등록.
 local IDS = { damage2x = 9301, petLuck2x = 9302, strengthPotion = 9303, luckyRoll5 = 9304, strength2x = 9311, strength4x = 9312,
-	strength8x = 9313, strength16x = 9314, autoClicker = 9321, autoClickerOP = 9322 }
+	strength8x = 9313, strength16x = 9314, autoClicker = 9321, autoClickerOP = 9322, gymUnlock2 = 9332, gymUnlock5 = 9335 }
 local catalog = MarketplaceGateway.fakeCatalog(IDS)
 
 local function newWorld(opts: { owned: { [string]: boolean }?, restricted: boolean?, grants: { [string]: boolean }? }?)
@@ -122,6 +123,39 @@ do
 	check("R1: 더 높은 단계는 프롬프트", higher.ok and #w.gateway.prompts == 1 and w.gateway.prompts[1].id == IDS.strength16x)
 	local w2 = newWorld({ owned = { autoClicker = true } })
 	check("R2: 기본만 보유면 OP는 프롬프트", w2.handler.onRequest(player, { key = "autoClickerOP" }, 0).ok and #w2.gateway.prompts == 1)
+end
+
+-- 3c. 운동기구 선해금 이미 열림 (지시서 #17) ---------------------------------------------------------------
+do
+	local w: any = { gateway = MarketplaceGateway.fake(), sent = {} }
+	local asked: { number } = {}
+	w.handler = pure.createHandler({
+		gateway = w.gateway,
+		owns = function()
+			return false
+		end,
+		isRestricted = function()
+			return false
+		end,
+		hasGrant = function()
+			return true
+		end,
+		send = function(_p, payload)
+			table.insert(w.sent, payload)
+		end,
+		gymUnlocked = function(_p, index: number)
+			table.insert(asked, index)
+			return index == 2 -- 기구 2는 이미 열림(환생 수 또는 선해금)
+		end,
+		catalog = catalog,
+	})
+	local r1 = w.handler.onRequest(player, { key = "gymUnlock2" }, 0)
+	check("선해금: 이미 열린 기구 → already_unlocked · 프롬프트 없음", not r1.ok and r1.reason == R.REASON_ALREADY_UNLOCKED and r1.kind == "product"
+		and #w.gateway.prompts == 0 and asked[1] == 2)
+	local r2 = w.handler.onRequest(player, { key = "gymUnlock5" }, STEP)
+	check("선해금: 안 열린 기구 → 프롬프트(그 ID)", r2.ok and #w.gateway.prompts == 1 and w.gateway.prompts[1].id == IDS.gymUnlock5)
+	local r3 = w.handler.onRequest(player, { key = "damage2x" }, STEP * 2)
+	check("선해금 검사는 운동기구 상품에만(다른 상품은 묻지 않는다)", r3.ok and #asked == 2)
 end
 
 -- 4. 빈도 상한 -----------------------------------------------------------------------------------------

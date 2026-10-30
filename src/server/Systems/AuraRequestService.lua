@@ -20,9 +20,10 @@ AuraRequestService.REASON_RATE_LIMITED = "rate_limited"
 
 local MAX_ID_LEN = 64
 local MAX_PACK = 99
-local ACTIONS: { [string]: boolean } = { roll = true, equip = true, selectPack = true }
+local ACTIONS: { [string]: boolean } = { roll = true, equip = true, selectPack = true, rollCredit = true }
+local CREDITS: { [string]: boolean } = { lucky = true, super = true } -- 롤 쓰기(지시서 #17)
 
-export type Request = { action: string, pack: number?, auraId: string? }
+export type Request = { action: string, pack: number?, auraId: string?, credit: string? }
 
 local function readPack(v: any): number?
 	if type(v) ~= "number" or v ~= v or v % 1 ~= 0 or v < 1 or v > MAX_PACK then
@@ -50,6 +51,13 @@ local function readRequest(payload: any): Request?
 	if pack == nil then
 		return nil
 	end
+	if action == "rollCredit" then
+		local credit = payload.credit
+		if type(credit) ~= "string" or not CREDITS[credit] then
+			return nil
+		end
+		return { action = action, pack = pack, credit = credit }
+	end
 	return { action = action, pack = pack }
 end
 
@@ -68,6 +76,8 @@ end
 
 export type Deps = {
 	roll: (Player, number) -> (boolean, any),
+	-- 럭키 · 슈퍼 롤 쓰기(지시서 #17). 없으면 invalid
+	rollCredit: ((Player, number, string) -> (boolean, any))?,
 	equip: (Player, string) -> (boolean, string?),
 	selectPack: (Player, number) -> (boolean, string?),
 	send: (Player, Remotes.AuraResultPayload) -> (),
@@ -91,12 +101,19 @@ local function createHandler(deps: Deps)
 			out = result(shownAction, false, RollService.REASON_INVALID)
 		else
 			lastAt[player] = now
-			if req.action == "roll" then
-				local ok, value = deps.roll(player, req.pack :: number)
-				if ok and type(value) == "table" then
-					out = result("roll", true, nil, value)
+			if req.action == "roll" or req.action == "rollCredit" then
+				local ok, value
+				if req.action == "roll" then
+					ok, value = deps.roll(player, req.pack :: number)
+				elseif deps.rollCredit ~= nil then
+					ok, value = deps.rollCredit(player, req.pack :: number, req.credit :: string)
 				else
-					out = result("roll", false, if type(value) == "string" then value else "unknown")
+					ok, value = false, RollService.REASON_INVALID
+				end
+				if ok and type(value) == "table" then
+					out = result(req.action, true, nil, value)
+				else
+					out = result(req.action, false, if type(value) == "string" then value else "unknown")
 				end
 			elseif req.action == "equip" then
 				local ok, reason = deps.equip(player, req.auraId :: string)
@@ -135,6 +152,9 @@ function AuraRequestService.init()
 	local handler = createHandler({
 		roll = function(player: Player, pack: number)
 			return AuraService.roll(player, pack, "manual")
+		end,
+		rollCredit = function(player: Player, pack: number, credit: string)
+			return AuraService.roll(player, pack, "credit", credit)
 		end,
 		equip = AuraService.equip,
 		selectPack = AuraService.selectPack,

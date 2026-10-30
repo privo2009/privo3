@@ -30,6 +30,8 @@
 --   PurchaseResult  서버→클라. 그 요청의 판정(프롬프트를 띄웠나 · 거부 사유) + 게임패스 프롬프트가 닫힌 결과
 --   AutoClickRequest 클라→서버. 자동 클리커 켜기 · 끄기(지시서 #16 S8). 세션 값 — 저장하지 않는다
 --   AutoClickResult  서버→클라. 그 요청의 결과 + 보유가 사라져 서버가 끈 알림
+--   PotionRequest   클라→서버. 보관함의 포션 하나 켜기(종류) (Phase 8 지시서 #17)
+--   PotionResult    서버→클라. 그 요청의 결과(보관 수 · 남은 시간은 PlayerState가 보낸다)
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --
@@ -106,6 +108,8 @@ Remotes.PURCHASE_REQUEST = "PurchaseRequest"
 Remotes.PURCHASE_RESULT = "PurchaseResult"
 Remotes.AUTO_CLICK_REQUEST = "AutoClickRequest"
 Remotes.AUTO_CLICK_RESULT = "AutoClickResult"
+Remotes.POTION_REQUEST = "PotionRequest"
+Remotes.POTION_RESULT = "PotionResult"
 
 -- ===== payload 타입 ====================================================================
 --
@@ -335,11 +339,13 @@ export type TitleResultPayload = {
 }
 
 -- AuraRequest: 아우라 창 요청 (클라 → 서버). 결과 · 비용 · 확률을 싣지 않는다(규약 2).
---   action  "roll" | "equip" | "selectPack" / pack roll · selectPack일 때 팩 번호 / auraId equip일 때
+--   action  "roll" | "equip" | "selectPack" | "rollCredit" / pack roll · selectPack · rollCredit일 때 팩 번호 / auraId equip일 때
+--   credit  rollCredit일 때 "lucky" | "super"(럭키 · 슈퍼 롤 1회 쓰기 — 지시서 #17). 행운 배수는 서버가 ShopConfig에서 찾는다
 export type AuraRequestPayload = {
 	action: string,
 	pack: number?,
 	auraId: string?,
+	credit: string?,
 }
 
 -- AuraResult: 요청 결과 1건 (서버 → 클라). 바뀐 블럭스 · 보유 목록은 PlayerState가 따로 보낸다. 선택 필드 금지.
@@ -439,6 +445,20 @@ export type AutoClickResultPayload = {
 	rate: number,
 }
 
+-- PotionRequest: 보관함 포션 하나를 켜 달라 (클라 → 서버). 종류만 싣는다 — 시간 · 배수는 서버가 ShopConfig에서 찾는다(규약 2).
+--   boost "strength" | "damage" | "luck"
+export type PotionRequestPayload = {
+	boost: string,
+}
+
+-- PotionResult: 결과 (서버 → 클라). 선택 필드 금지.
+--   boost  요청한 종류(형태가 틀렸으면 "") / reason rate_limited · invalid · none_owned · restricted · 성공이면 ""
+export type PotionResultPayload = {
+	boost: string,
+	ok: boolean,
+	reason: string,
+}
+
 export type Channels = {
 	blockDamaged: RemoteEvent,
 	runStateChanged: RemoteEvent,
@@ -466,6 +486,8 @@ export type Channels = {
 	purchaseResult: RemoteEvent,
 	autoClickRequest: RemoteEvent,
 	autoClickResult: RemoteEvent,
+	potionRequest: RemoteEvent,
+	potionResult: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -540,6 +562,8 @@ function Remotes.getServer(): Channels
 		purchaseResult = ensureEvent(folder, Remotes.PURCHASE_RESULT),
 		autoClickRequest = ensureEvent(folder, Remotes.AUTO_CLICK_REQUEST),
 		autoClickResult = ensureEvent(folder, Remotes.AUTO_CLICK_RESULT),
+		potionRequest = ensureEvent(folder, Remotes.POTION_REQUEST),
+		potionResult = ensureEvent(folder, Remotes.POTION_RESULT),
 	}
 	cached = channels
 	return channels
@@ -600,6 +624,8 @@ function Remotes.getClient(): Channels
 		purchaseResult = waitFor(folder, Remotes.PURCHASE_RESULT) :: RemoteEvent,
 		autoClickRequest = waitFor(folder, Remotes.AUTO_CLICK_REQUEST) :: RemoteEvent,
 		autoClickResult = waitFor(folder, Remotes.AUTO_CLICK_RESULT) :: RemoteEvent,
+		potionRequest = waitFor(folder, Remotes.POTION_REQUEST) :: RemoteEvent,
+		potionResult = waitFor(folder, Remotes.POTION_RESULT) :: RemoteEvent,
 	}
 	cached = channels
 	return channels

@@ -10,6 +10,7 @@
 --   3. 이미 보유 — 그 게임패스를 가졌으면 already_owned(소유는 GamepassService 세션 값)
 --   3b. 상위 보유 — 더 높은 단계를 가졌으면 ShopConfig.ownedHigher의 사유(지시서 #17 — 2026-10-30 사람 결정):
 --       R1 힘 배수 계단 최고 단계 이하 → ladder_owned_higher · R2 OP 자동 클리커 보유 중 기본 자동 클리커 → auto_owned_higher
+--   3c. 이미 열림 — 운동기구 선해금인데 그 기구가 이미 열려 있으면(환생 수 또는 선해금 기록) already_unlocked(지시서 #17)
 --   4. 제한 — 로벅스 행운 상품(paidRandom)이고 제한 유저면 restricted(S13 — 판정 실패 · 확인 전도 제한)
 --   5. 미등록 — ID 0이면 not_registered(클라는 "준비 중")
 --   6. 지급 불가 — 개발자 상품인데 지급 함수가 없으면 not_available(결제는 되고 지급은 안 되는 상태를 만들지 않는다 — #17이 채운다)
@@ -25,11 +26,14 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
+local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local MarketplaceGateway = require(script.Parent.MarketplaceGateway)
 local GamepassService = require(script.Parent.GamepassService)
 local PolicyGate = require(script.Parent.PolicyGate)
 local ProductService = require(script.Parent.ProductService)
+local CurrencyService = require(script.Parent.CurrencyService)
+local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 
 local PurchaseRequestService = {}
 
@@ -39,6 +43,7 @@ PurchaseRequestService.REASON_INVALID_KEY = "invalid_key"
 PurchaseRequestService.REASON_ALREADY_OWNED = "already_owned"
 PurchaseRequestService.REASON_LADDER_OWNED_HIGHER = ShopConfig.REASON_LADDER_OWNED_HIGHER
 PurchaseRequestService.REASON_AUTO_OWNED_HIGHER = ShopConfig.REASON_AUTO_OWNED_HIGHER
+PurchaseRequestService.REASON_ALREADY_UNLOCKED = "already_unlocked"
 PurchaseRequestService.REASON_RESTRICTED = "restricted"
 PurchaseRequestService.REASON_NOT_REGISTERED = MarketplaceGateway.REASON_NOT_REGISTERED
 PurchaseRequestService.REASON_NOT_AVAILABLE = "not_available"
@@ -60,6 +65,8 @@ export type Deps = {
 	isRestricted: (Player) -> boolean,
 	hasGrant: (string) -> boolean,
 	send: (Player, Remotes.PurchaseResultPayload) -> (),
+	-- 그 기구가 이미 열렸는가(환생 수 · 선해금 기록 — 지시서 #17). 없으면 안 열린 것으로 친다(테스트 deps 생략 가능)
+	gymUnlocked: ((Player, number) -> boolean)?,
 	-- 상품표(기본 ShopConfig). 테스트가 ID를 채운 표로 바꿔 끼운다
 	catalog: any?,
 }
@@ -87,6 +94,9 @@ local function createHandler(deps: Deps)
 		end)
 		if higher ~= nil then
 			return higher, def
+		end
+		if def.effect.type == "gymUnlock" and deps.gymUnlocked ~= nil and deps.gymUnlocked(player, def.effect.gymIndex) then
+			return PurchaseRequestService.REASON_ALREADY_UNLOCKED, def
 		end
 		if def.paidRandom and deps.isRestricted(player) then
 			return PurchaseRequestService.REASON_RESTRICTED, def
@@ -170,6 +180,18 @@ function PurchaseRequestService.init()
 		owns = GamepassService.owns,
 		isRestricted = PolicyGate.isPaidRandomRestricted,
 		hasGrant = ProductService.hasGrant,
+		gymUnlocked = function(player: Player, index: number): boolean
+			local profile = ProfileManager.get(player)
+			local data = if profile ~= nil then profile.Data else nil
+			if type(data) ~= "table" then
+				return false
+			end
+			if type(data.gymUnlocks) == "table" and data.gymUnlocks[tostring(index)] == true then
+				return true
+			end
+			local rebirths = CurrencyService.get(player, "rebirths")
+			return rebirths ~= nil and not GymConfig.isRobuxOnly(index) and GymConfig.isUnlockedByRebirths(index, rebirths)
+		end,
 		send = function(player: Player, payload: Remotes.PurchaseResultPayload)
 			channels.purchaseResult:FireClient(player, payload)
 		end,

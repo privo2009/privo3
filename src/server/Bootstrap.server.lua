@@ -185,6 +185,31 @@ local BoostService = require(script.Parent.Systems.BoostService)
 BoostService.init()
 local ProductService = require(script.Parent.Systems.ProductService)
 ProductService.init()
+-- 개발자 상품 16개 지급 함수(지시서 #17 4단계). 지급하면 PlayerState에 알린다 — 모듈만 먼저 불러 둔다(init은 아래 원래 자리)
+local PlayerStateService = require(script.Parent.Systems.PlayerStateService)
+-- [Bootstrap][VERIFY][SHOP] 줄을 지급 · 포션 켜기 뒤에도 찍는다(아래 VERIFY 절에서 채운다 — 효과 값 전후 대조용)
+local printShopLine: ((Player) -> ())? = nil
+local function notifyState(player: Player)
+	PlayerStateService.notify(player)
+	if printShopLine ~= nil then
+		(printShopLine :: (Player) -> ())(player)
+	end
+end
+local granted = require(script.Parent.Systems.ProductGrants).registerAll({
+	register = ProductService.register,
+	notify = notifyState,
+})
+print(string.format("[Bootstrap] 개발자 상품 지급 함수 %d개 등록", #granted))
+-- 포션 켜기 채널(지시서 #17 4단계): 보관함 −1 → 부스트 15분
+require(script.Parent.Systems.PotionRequestService).init({
+	getData = function(player: Player)
+		local profile = ProfileManager.get(player)
+		return if profile ~= nil then profile.Data else nil
+	end,
+	isRestricted = PolicyGate.isPaidRandomRestricted,
+	addBoost = BoostService.add,
+	notify = notifyState,
+})
 local PurchaseRequestService = require(script.Parent.Systems.PurchaseRequestService)
 PurchaseRequestService.init()
 -- 대시보드 가격 대조(지시서 #17 3단계) — 시작 때 한 번, 다르면 WARN만(자동으로 고치지 않는다). 기다리지 않는다(조회는 뒤에서)
@@ -222,6 +247,12 @@ do
 			bloxGain = UpgradeService.getEffect(player, "bloxGain"), titleMult = TitleServiceV.getMult(player), passMult = ShopEffects.blox(player) })))
 		table.insert(parts, "autoRate=" .. ShopEffects.autoClickRate(player))
 		if profile ~= nil then
+			local d = profile.Data
+			local inv = PlayerStateService.inventoryInto({}, d)
+			table.insert(parts, string.format("potions=%d/%d/%d credits=%d/%d gymUnlocks=%s", inv.potions.strength, inv.potions.damage,
+				inv.potions.luck, inv.rollCredits.lucky, inv.rollCredits.super, table.concat(inv.gymUnlocks, ",")))
+		end
+		if profile ~= nil then
 			local data = profile.Data
 			local preview = RebirthService.previewGain(player)
 			table.insert(parts, string.format("blox=%s rebirthGain=%s", BigNum.tostring(data.blox), if preview ~= nil then BigNum.tostring(preview) else "-"))
@@ -243,13 +274,15 @@ do
 			print(shopLine(player))
 		end)
 	end)
+	printShopLine = function(player: Player)
+		print(shopLine(player))
+	end
 end
 
 -- 플레이어 상태 채널을 연다 (Phase 6 지시서 #5 — HUD가 서버 값을 보인다).
 -- ⚠️ 순서: ProfileManager · PadService · SpeedService · ChallengeService가 준비된 뒤여야 한다.
 -- 스냅샷은 그 넷에서 읽고, 접속 직후 런 상태 sync는 ChallengeService.syncRunState가 보낸다.
 -- 아무 상태도 바꾸지 않는다(읽기 + 통지).
-local PlayerStateService = require(script.Parent.Systems.PlayerStateService)
 PlayerStateService.init()
 
 -- 프로필 읽기 print. 검증용 임시 코드가 아니라 상시 유지 대상이다.

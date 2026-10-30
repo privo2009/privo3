@@ -85,6 +85,29 @@ end
 
 -- 프로필 Data와 서비스 값으로 스냅샷을 만든다. 항상 모든 필드를 채운다(선택 필드 금지 —
 -- nil인 키는 직렬화에서 사라진다). BigNum은 복사본이고 숫자는 유한하다(inf·nan이면 0).
+-- 보관함 · 롤 · 선해금(프로필 — 지시서 #17)을 상점 요약 shop에 채운다. 값이 이상하면 0 · 빈 목록(직렬화 — 선택 필드 금지).
+local function count(t: any, k: string): number
+	local v = if type(t) == "table" then t[k] else nil
+	return if type(v) == "number" and v == v and v >= 0 and v ~= math.huge then math.floor(v) else 0
+end
+function PlayerStateService.inventoryInto(shop: any, data: any): any
+	local d = if type(data) == "table" then data else {}
+	shop.potions = { strength = count(d.potions, "strength"), damage = count(d.potions, "damage"), luck = count(d.potions, "luck") }
+	shop.rollCredits = { lucky = count(d.rollCredits, "lucky"), super = count(d.rollCredits, "super") }
+	local gyms: { number } = {}
+	if type(d.gymUnlocks) == "table" then
+		for key, value in pairs(d.gymUnlocks) do
+			local n = tonumber(key)
+			if value == true and n ~= nil and n % 1 == 0 then
+				table.insert(gyms, n)
+			end
+		end
+	end
+	table.sort(gyms)
+	shop.gymUnlocks = gyms
+	return shop
+end
+
 local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number?, padIndex: number?, pets: any?, shop: any?): PlayerStateView
 	local progress = if type(data.progress) == "table" then data.progress else {}
 	return {
@@ -103,17 +126,45 @@ local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number
 		-- pets는 호출자가 게임패스(세션 값)를 넣어 만든 요약을 넘긴다(readSnapshot). 없으면 게임패스 없음으로 만든다
 		pets = pets or PetService.summarize(data),
 		-- shop도 호출자가 세션 값으로 만들어 넘긴다. 없으면 보유 없음 · 제한(확인 전과 같다) · 부스트 없음 · 자동 꺼짐
-		shop = shop or { gamepasses = {}, paidRandomRestricted = true, boosts = {}, autoClick = false },
+		shop = shop or PlayerStateService.inventoryInto({ gamepasses = {}, paidRandomRestricted = true, boosts = {}, autoClick = false }, data),
 	}
 end
 
--- 상점 요약이 같은가. gamepasses는 이름순이라 순서까지 같으면 같다.
+-- 상점 요약이 같은가. gamepasses는 이름순 · gymUnlocks는 번호순이라 순서까지 같으면 같다.
+local function countsEqual(a: any, b: any, keys: { string }): boolean
+	if type(a) ~= "table" or type(b) ~= "table" then
+		return a == b
+	end
+	for _, k in ipairs(keys) do
+		if a[k] ~= b[k] then
+			return false
+		end
+	end
+	return true
+end
+
 local function shopEqual(a: any, b: any): boolean
 	if type(a) ~= "table" or type(b) ~= "table" then
 		return a == b
 	end
 	if a.paidRandomRestricted ~= b.paidRandomRestricted or a.autoClick ~= b.autoClick then
 		return false
+	end
+	-- 보관함 · 롤 · 선해금(지시서 #17)
+	if not countsEqual(a.potions, b.potions, ShopConfig.BOOST_ORDER) or not countsEqual(a.rollCredits, b.rollCredits, { "lucky", "super" }) then
+		return false
+	end
+	if type(a.gymUnlocks) == "table" and type(b.gymUnlocks) == "table" then
+		if #a.gymUnlocks ~= #b.gymUnlocks then
+			return false
+		end
+		for i, n in ipairs(a.gymUnlocks) do
+			if b.gymUnlocks[i] ~= n then
+				return false
+			end
+		end
+	elseif a.gymUnlocks ~= b.gymUnlocks then
+		return false -- 한쪽만 있다
 	end
 	if type(a.boosts) ~= "table" or type(b.boosts) ~= "table" or #a.boosts ~= #b.boosts then
 		return false
@@ -317,6 +368,15 @@ local function createRuntime(deps: Deps)
 		requestedBeforeLoad[player] = nil
 	end
 
+	-- 서버가 바꾼 값을 다음 틱에 바로 보낸다(지시서 #17 — 상품 지급 · 포션 켜기). 빈도 상한(SEND_PERIOD)을 이번 한 번 건너뛴다.
+	-- 값이 같으면 여전히 보내지 않는다(비교는 tick이 한다).
+	function runtime.notify(player: Player)
+		local entry = entries[player]
+		if entry ~= nil then
+			entry.lastSentAt = -math.huge
+		end
+	end
+
 	-- 루프 한 틱. 모아 둔 sync가 만기면 전체를 강제로 보내고 런 상태도 보낸다.
 	-- 아니면 SEND_PERIOD가 지났고 값이 바뀐 플레이어에게만 보낸다.
 	function runtime.tick(now: number)
@@ -360,7 +420,8 @@ local initialized = false
 
 local function shopSummaryOf(player: Player): any
 	local restricted = PolicyGate.isPaidRandomRestricted(player)
-	return {
+	local profile = ProfileManager.get(player)
+	return PlayerStateService.inventoryInto({
 		gamepasses = GamepassService.ownedKeys(player),
 		paidRandomRestricted = restricted,
 		-- 제한 유저면 로벅스 행운 상품인 부스트(행운 포션)를 숨긴다(S13 — 효과도 ShopEffects가 끈다)
@@ -369,7 +430,16 @@ local function shopSummaryOf(player: Player): any
 			return restricted and def ~= nil and def.paidRandom
 		end),
 		autoClick = AutoClickService.isOn(player),
-	}
+	}, if profile ~= nil then profile.Data else nil)
+end
+
+local liveRuntime: any = nil
+
+-- 지급 · 포션 켜기 뒤 다음 틱에 바로 보낸다(ProductGrants · PotionRequestService가 부른다). init 전이면 아무것도 안 한다.
+function PlayerStateService.notify(player: Player)
+	if liveRuntime ~= nil then
+		liveRuntime.notify(player)
+	end
 end
 
 local function readSnapshot(player: Player): PlayerStateView?
@@ -402,6 +472,7 @@ function PlayerStateService.init()
 			ChallengeService.syncRunState(player)
 		end,
 	})
+	liveRuntime = runtime
 
 	local function hookCharacter(player: Player)
 		player.CharacterAdded:Connect(function()

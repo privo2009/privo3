@@ -346,6 +346,59 @@ do
 	check("부스트: JSON 왕복 뒤에도 같다", okB and pure.snapshotsEqual(withBoost(321, true), HttpService:JSONDecode(encB)))
 end
 
+-- 3y. 보관함 · 롤 · 선해금 (지시서 #17) · 알림(notify) ------------------------------------------------------
+do
+	local data = sampleData()
+	data.potions = { strength = 3, damage = 0, luck = 99 }
+	data.rollCredits = { lucky = 5, super = 15 }
+	data.gymUnlocks = { ["5"] = true, ["2"] = true }
+	local snap = pure.buildSnapshot(data, 20, 36, 3)
+	check("보관함: 포션 · 롤 · 선해금(번호 오름차순)이 상점 요약에 실린다", snap.shop.potions.strength == 3 and snap.shop.potions.luck == 99
+		and snap.shop.rollCredits.lucky == 5 and snap.shop.rollCredits.super == 15 and #snap.shop.gymUnlocks == 2
+		and snap.shop.gymUnlocks[1] == 2 and snap.shop.gymUnlocks[2] == 5)
+	local broken = sampleData()
+	broken.potions = { strength = 0 / 0, damage = -2 }
+	broken.rollCredits = nil
+	broken.gymUnlocks = { abc = true, ["3"] = false }
+	local b = pure.buildSnapshot(broken, 20, 36, 3)
+	check("보관함: 깨진 값은 0 · 빈 목록(필드는 항상 있다 — 선택 필드 금지)", b.shop.potions.strength == 0 and b.shop.potions.damage == 0
+		and b.shop.potions.luck == 0 and b.shop.rollCredits.lucky == 0 and b.shop.rollCredits.super == 0 and #b.shop.gymUnlocks == 0)
+	local function variant(f: (any) -> ())
+		local d = sampleData()
+		d.potions = { strength = 3, damage = 0, luck = 99 }
+		d.rollCredits = { lucky = 5, super = 15 }
+		d.gymUnlocks = { ["5"] = true, ["2"] = true }
+		f(d)
+		return pure.buildSnapshot(d, 20, 36, 3)
+	end
+	check("비교: 같은 보관함이면 같다", pure.snapshotsEqual(snap, variant(function() end)))
+	check("비교: 포션 수 · 롤 수 · 선해금이 다르면 다르다", not pure.snapshotsEqual(snap, variant(function(d)
+		d.potions.luck = 98
+	end)) and not pure.snapshotsEqual(snap, variant(function(d)
+		d.rollCredits.super = 14
+	end)) and not pure.snapshotsEqual(snap, variant(function(d)
+		d.gymUnlocks["7"] = true
+	end)))
+	local ok, encoded = pcall(HttpService.JSONEncode, HttpService, snap)
+	check("보관함: JSON 왕복 뒤에도 같다", ok and pure.snapshotsEqual(snap, HttpService:JSONDecode(encoded)))
+
+	local w, runtime = newWorld()
+	runtime.onLoaded(fakePlayer, 100)
+	w.snapshot = variant(function(d)
+		d.potions.strength = 4
+	end)
+	runtime.tick(100 + pure.SEND_PERIOD * 0.1)
+	check("알림 없음: 빈도 상한 안이면 바뀌어도 아직 안 보낸다", w.sends == 1)
+	runtime.notify(fakePlayer)
+	runtime.tick(100 + pure.SEND_PERIOD * 0.2)
+	check("알림(notify): 빈도 상한을 이번 한 번 건너뛰고 바로 보낸다", w.sends == 2)
+	runtime.notify(fakePlayer)
+	runtime.tick(100 + pure.SEND_PERIOD * 0.3)
+	check("알림: 값이 같으면 여전히 안 보낸다", w.sends == 2)
+	runtime.notify({ Name = "Nobody" } :: any)
+	check("알림: 모르는 플레이어는 무시(오류 없음)", true)
+end
+
 print(string.format("[PlayerStateServiceTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[PlayerStateServiceTests] %d test(s) failed", failed))

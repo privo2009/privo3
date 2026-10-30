@@ -2,11 +2,13 @@
 -- AuraService 검증 (지시서 #11 4단계). 가짜 deps로 Player 없이 굴린다:
 -- 거부 경로 부작용 0(잠긴 팩 · 월드 밖 팩 · 잔액 부족 · 롤 시계 · 잘못된 팩) · 차감 → 판정 순서 · 신규 / 중복 · 자동 장착(더 높은 m만) ·
 -- 저장 1회 · 장착 · 팩 선택 · 행운 전달 · 요약 · 배수 두 자리 "한 번만". 기대값은 Config에서 읽는다.
+-- 럭키 · 슈퍼 롤 쓰기(지시서 #17): 블럭스 비용 없음 · 남은 횟수 −1 · 행운 ×rollCreditLuck · 제한 유저 restricted(충전 그대로) · 0이면 none_owned
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
@@ -87,6 +89,9 @@ local function world(opts: { blox: BigNum.BigNumber?, lifetime: BigNum.BigNumber
 		end,
 		setAttribute = function(_p, id)
 			w.attr = id
+		end,
+		isRestricted = function(_p)
+			return w.restricted == true
 		end,
 	}
 	return w, AuraService._pure.createRuntime(deps)
@@ -214,6 +219,42 @@ do
 	local e = AuraService.summarize(Schema.new())
 	check("요약: 빈 프로필 equipped \"\" · 팩 1 · 숨김 끔", e.equipped == "" and e.selectedPack == 1 and e.hideOtherAuras == false and #e.owned == 0)
 	check("요약: 깨진 데이터도 안 죽는다", AuraService.summarize(nil).equipped == "")
+end
+
+-- 5b. 럭키 · 슈퍼 롤 쓰기 (지시서 #17) -------------------------------------------------------------------
+do
+	local w, rt = world()
+	w.data.rollCredits.lucky = 2
+	w.data.rollCredits.super = 1
+	local blox = w.blox
+	w.rolls = { 3 }
+	local ok, r = rt.roll(P, 1, "credit", "lucky")
+	local luckyMult = ShopConfig.rollCreditLuck("lucky") :: number
+	check("럭키 롤: 성공 · 남은 횟수 −1 · 블럭스 차감 없음(차감 호출도 없음)", ok and r.isNew and w.data.rollCredits.lucky == 1 and BigNum.eq(w.blox, blox)
+		and w.log[1] == "roll")
+	check("럭키 롤: 행운 = 업그레이드 × rollCreditLuck(럭키 5)", luckyMult == 5 and w.lastLuck ~= nil
+		and math.abs((w.lastLuck :: number) - UpgradeConfig.getEffect("auraLuck", 0) * luckyMult) < 1e-9)
+	w.clock += INTERVAL
+	rt.roll(P, 1, "credit", "super")
+	check("슈퍼 롤: 행운 ×100 · 남은 0", ShopConfig.rollCreditLuck("super") == 100 and w.data.rollCredits.super == 0
+		and math.abs((w.lastLuck :: number) - UpgradeConfig.getEffect("auraLuck", 0) * 100) < 1e-9)
+	w.clock += INTERVAL
+	local okNone, none = rt.roll(P, 1, "credit", "super")
+	check("남은 횟수 0 → none_owned · 블럭스 그대로", not okNone and none == AuraService.REASON_NONE_OWNED and BigNum.eq(w.blox, blox))
+	local okBad, bad = rt.roll(P, 1, "credit", "mega")
+	check("모르는 롤 → invalid", not okBad and bad == RollService.REASON_INVALID)
+	w.restricted = true
+	w.clock += INTERVAL
+	local okR, rr = rt.roll(P, 1, "credit", "lucky")
+	check("제한 유저 → restricted · 충전 그대로(1)", not okR and rr == AuraService.REASON_RESTRICTED and w.data.rollCredits.lucky == 1)
+	w.restricted = false
+	local outside = packOutsideWorld() :: number
+	local okL, rl = rt.roll(P, outside, "credit", "lucky")
+	check("롤 쓰기도 열린 팩만 → pack_locked · 충전 그대로", not okL and rl == AuraService.REASON_PACK_LOCKED and w.data.rollCredits.lucky == 1)
+	w.clock += INTERVAL * 0.3
+	rt.roll(P, 1, "credit", "lucky")
+	local okRate, rate = rt.roll(P, 1, "credit", "lucky")
+	check("롤 시계는 롤 쓰기에도 걸린다 → rate_limited", not okRate and rate == RollService.REASON_RATE_LIMITED)
 end
 
 -- 6. 배수 두 자리 — 각 자리 한 번만 (A10) ---------------------------------------------------------------

@@ -18,6 +18,12 @@
 --   7. 새 id      보유 추가 · 더 높은 m이면 자동 장착 · 저장 1회(Profile:Save, S11)
 --      중복 id    아무것도 하지 않는다(알림 · 저장 없음). 결과 1건은 요청 응답으로만 돌아간다(브로드캐스트 없음)
 --
+-- ===== 럭키 · 슈퍼 롤 쓰기 (지시서 #17 — DESIGN 9장 "구매 규칙 · 지급 · 사용") ===========================
+--
+-- 같은 순서에 세 곳만 다르다: 0. 제한 유저면 restricted(충전은 그대로 — S13) · 4. 잔액 대신 rollCredits[credit] ≥ 1(아니면 none_owned) ·
+-- 5. 블럭스 차감 대신 rollCredits −1. 행운은 computeLuck의 rollProductMult 자리에 ShopConfig.rollCreditLuck(럭키 5 · 슈퍼 100).
+-- 블럭스 비용은 없다. 결과 · 자동 장착 · 저장(새 id일 때만)은 블럭스 롤과 같다.
+--
 -- ===== 표시 =============================================================================
 --
 -- 장착 아우라 id를 Player Attribute(ATTRIBUTE)로 세팅한다 — 모든 클라에 복제된다. 각 클라가 캐릭터에 파티클을 붙인다
@@ -28,11 +34,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 local CurrencyService = require(script.Parent.CurrencyService)
 local RollService = require(script.Parent.RollService)
 -- 로벅스 행운(지시서 #16 S5 · S13): 행운 패스 · 행운 포션. 제한 유저면 1 — ShopEffects 한 곳에서 판정한다.
 local ShopEffects = require(script.Parent.ShopEffects)
+local PolicyGate = require(script.Parent.PolicyGate)
 
 type BigNumber = BigNum.BigNumber
 
@@ -41,6 +49,8 @@ local AuraService = {}
 AuraService.ATTRIBUTE = "EquippedAura"
 AuraService.REASON_PACK_LOCKED = "pack_locked"
 AuraService.REASON_NOT_OWNED = "not_owned"
+AuraService.REASON_RESTRICTED = "restricted" -- 롤 쓰기: 제한 유저(S13)
+AuraService.REASON_NONE_OWNED = "none_owned" -- 롤 쓰기: 남은 횟수 0
 local CLOCK_EPSILON_SEC = 0.02 -- 롤 시계 부동소수 여유(TitleService와 같은 이유)
 
 export type RollResult = {
@@ -61,6 +71,8 @@ export type Deps = {
 	luckOptions: ((Player) -> RollService.LuckOptions)?,
 	save: (Player) -> (),
 	setAttribute: (Player, string?) -> (),
+	-- 롤 쓰기의 제한 판정(PolicyGate). 없으면 제한 아님 — 테스트 deps는 생략할 수 있다
+	isRestricted: ((Player) -> boolean)?,
 }
 
 local function tables(data: any): (any?, any?)
@@ -100,7 +112,8 @@ local function createRuntime(deps: Deps)
 	local lastRollAt: { [Player]: number } = {}
 	local runtime = {}
 
-	function runtime.roll(player: Player, packId: any, source: string): (boolean, any)
+	-- credit = nil이면 블럭스 롤, "lucky" | "super"면 롤 쓰기(위 "럭키 · 슈퍼 롤 쓰기")
+	function runtime.roll(player: Player, packId: any, source: string, credit: string?): (boolean, any)
 		-- 1. 프로필
 		local data = deps.getData(player)
 		local cosmetics = tables(data)
@@ -109,6 +122,17 @@ local function createRuntime(deps: Deps)
 		end
 		if type(packId) ~= "number" or packId % 1 ~= 0 then
 			return false, RollService.REASON_INVALID
+		end
+		local creditLuck: number? = nil
+		if credit ~= nil then
+			creditLuck = ShopConfig.rollCreditLuck(credit)
+			if creditLuck == nil or type(data.rollCredits) ~= "table" then
+				return false, RollService.REASON_INVALID
+			end
+			-- 0. 제한 유저는 쓸 수 없다 — 충전은 그대로 남는다
+			if deps.isRestricted ~= nil and deps.isRestricted(player) then
+				return false, AuraService.REASON_RESTRICTED
+			end
 		end
 
 		-- 2. 롤 시계
@@ -124,22 +148,35 @@ local function createRuntime(deps: Deps)
 			return false, AuraService.REASON_PACK_LOCKED
 		end
 
-		-- 4. 잔액 미리 보기
-		local blox = deps.getBlox(player)
-		if blox == nil or BigNum.lt(blox, pack.rollCost) then
-			return false, RollService.REASON_INSUFFICIENT_BLOX
+		-- 4. 잔액(또는 남은 롤) 미리 보기
+		if credit ~= nil then
+			local left = data.rollCredits[credit]
+			if type(left) ~= "number" or left < 1 then
+				return false, AuraService.REASON_NONE_OWNED
+			end
+		else
+			local blox = deps.getBlox(player)
+			if blox == nil or BigNum.lt(blox, pack.rollCost) then
+				return false, RollService.REASON_INSUFFICIENT_BLOX
+			end
 		end
 
 		-- ===== 여기부터 부작용 =====
 
-		-- 5. 차감
-		if not deps.subtractBlox(player, pack.rollCost, string.format("aura_roll_pack%d_%s", packId, source)) then
+		-- 5. 차감(롤 쓰기는 남은 횟수 −1 — 블럭스 비용 없음)
+		if credit ~= nil then
+			data.rollCredits[credit] -= 1
+		elseif not deps.subtractBlox(player, pack.rollCost, string.format("aura_roll_pack%d_%s", packId, source)) then
 			return false, RollService.REASON_INSUFFICIENT_BLOX
 		end
 
 		-- 6. 판정
 		lastRollAt[player] = now
-		local luck = RollService.computeLuck("aura", data, if deps.luckOptions ~= nil then deps.luckOptions(player) else nil)
+		local opts: RollService.LuckOptions = if deps.luckOptions ~= nil then table.clone(deps.luckOptions(player)) else {}
+		if creditLuck ~= nil then
+			opts.rollProductMult = creditLuck
+		end
+		local luck = RollService.computeLuck("aura", data, opts)
 		local def, tier = deps.roll(pack.auras, luck)
 
 		-- 7. 반영
@@ -263,6 +300,7 @@ local REAL: Deps = {
 	luckOptions = function(player: Player)
 		return ShopEffects.luckOptions(player, "aura")
 	end,
+	isRestricted = PolicyGate.isPaidRandomRestricted,
 	save = function(player: Player)
 		ProfileManager.save(player) -- S11: 새 id를 처음 얻었을 때만
 	end,
@@ -271,12 +309,12 @@ local REAL: Deps = {
 
 local runtime = createRuntime(REAL)
 
-function AuraService.roll(player: Player, packId: any, source: string): (boolean, any)
-	local ok, value = runtime.roll(player, packId, source)
+function AuraService.roll(player: Player, packId: any, source: string, credit: string?): (boolean, any)
+	local ok, value = runtime.roll(player, packId, source, credit)
 	if ok then
 		print(string.format(
-			"[AuraService] %s(%d) 팩 %d → %s (등급 %d)%s%s",
-			player.Name, player.UserId, value.packId, value.auraId, value.tier,
+			"[AuraService] %s(%d) 팩 %d%s → %s (등급 %d)%s%s",
+			player.Name, player.UserId, value.packId, if credit ~= nil then " " .. credit .. " 롤" else "", value.auraId, value.tier,
 			if value.isNew then " 새 아우라" else " 중복", if value.equipped then " → 자동 장착" else ""
 		))
 	end

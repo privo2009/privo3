@@ -42,6 +42,10 @@ do
 		and r({ action = "equip", auraId = 3 }) == nil)
 	check("selectPack: 팩 번호", (r({ action = "selectPack", pack = 3 }) :: any).pack == 3)
 	check("모르는 action · 표가 아님은 nil", r({ action = "buy", pack = 1 }) == nil and r("roll") == nil and r(nil) == nil)
+	local rc = r({ action = "rollCredit", pack = 1, credit = "super", luck = 9999 }) :: any
+	check("rollCredit(#17): 팩 · credit만 읽는다(행운 배수는 버린다)", rc ~= nil and rc.pack == 1 and rc.credit == "super" and rc.luck == nil)
+	check("rollCredit: credit이 lucky · super가 아니거나 팩이 없으면 nil", r({ action = "rollCredit", pack = 1, credit = "mega" }) == nil
+		and r({ action = "rollCredit", pack = 1 }) == nil and r({ action = "rollCredit", credit = "lucky" }) == nil)
 end
 
 -- 2. 핸들러 ---------------------------------------------------------------------------------------
@@ -60,11 +64,40 @@ local function harness()
 			table.insert(h.calls, "select:" .. pack)
 			return true, nil
 		end,
+		rollCredit = function(_p, pack, credit)
+			table.insert(h.calls, "credit:" .. pack .. ":" .. credit)
+			return h.rollResult[1], h.rollResult[2]
+		end,
 		send = function(_p, payload)
 			table.insert(h.sent, payload)
 		end,
 	})
 	return h
+end
+
+-- 2b. 롤 쓰기 경로 (지시서 #17) -----------------------------------------------------------------------
+do
+	local h = harness()
+	local out = h.handler.onRequest(P, { action = "rollCredit", pack = 1, credit = "lucky" }, 0)
+	check("rollCredit: 서비스로 팩 · credit 전달 · 결과 그대로 · 필드 전부", h.calls[1] == "credit:1:lucky" and out.ok and out.action == "rollCredit"
+		and out.auraId == ID and complete(out))
+	h.rollResult = { false, "none_owned" }
+	local denied = h.handler.onRequest(P, { action = "rollCredit", pack = 1, credit = "super" }, 1)
+	check("rollCredit: 거부 사유 그대로(none_owned)", not denied.ok and denied.reason == "none_owned" and denied.action == "rollCredit" and complete(denied))
+	local h2 = pure.createHandler({
+		roll = function()
+			return false, "x"
+		end,
+		equip = function()
+			return false, "x"
+		end,
+		selectPack = function()
+			return false, "x"
+		end,
+		send = function() end,
+	})
+	local noDep = h2.onRequest(P, { action = "rollCredit", pack = 1, credit = "lucky" }, 0)
+	check("rollCredit: 서비스가 없으면 invalid", not noDep.ok and noDep.reason == RollService.REASON_INVALID)
 end
 
 do
