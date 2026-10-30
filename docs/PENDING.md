@@ -368,10 +368,10 @@ D1 ~ D3 → `docs/DASHBOARD_PRODUCTS.md`(#16 7단계) · D4 · D5 광고와 함�
    → **2026-10-30 결정: #17 7단계에서 사람이 Studio에서 한 번 산다**(MarketplaceService 레퍼런스 "In Studio, mocked purchases" — 모의 구매)
 
 #17이 할 것(코드)
-4. 개발자 상품 지급 함수 16개(`ProductService.register`) — 지금은 ID를 넣어도 `not_available`로 막힌다(결제 안 됨)
-5. 포션 보관함 → 켜기(`BoostService.add` 엔진은 있다) · 롤 충전 사용(computeLuck `rollProductMult` 자리는 있다) · 3배 부화 창 버튼
+4. ✅ 개발자 상품 지급 함수 16개 — #17 단계 4(`2352184`, ProductGrants)
+5. ◐ 서버 완료 #17 단계 4(PotionRequest · 롤 쓰기 · 선해금 기록) · 창 버튼은 #17 단계 5. 원래 항목: 포션 보관함 → 켜기(`BoostService.add` 엔진은 있다) · 롤 충전 사용(computeLuck `rollProductMult` 자리는 있다) · 3배 부화 창 버튼
    (`PetRequest` action `hatch3` 서버는 있다) · 운동기구 선해금 기록 쓰기(`gymUnlocks` — 서버 판정은 이미 OR로 본다)
-6. 선해금 기록을 PlayerState에 싣기 — 지금 클라 기구 표시(3D 라벨 · 클릭 팝업 · 본체 색)는 게임패스 소유만 본다
+6. ◐ PlayerState에 실었다(#17 단계 4 — shop.gymUnlocks). 클라 표시는 #17 단계 5. 원래 항목: 선해금 기록을 PlayerState에 싣기 — 지금 클라 기구 표시(3D 라벨 · 클릭 팝업 · 본체 색)는 게임패스 소유만 본다
 
 관찰(결정 아님 — 사람이 볼 것)
 7. ✅ **2026-10-30 사람 결정 R1**(`DESIGN.md` 9장) — 가진 단계 이하는 `ladder_owned_higher`로 거부 · HUD 구좌는 다음 단계. 아래는 당시 관찰.
