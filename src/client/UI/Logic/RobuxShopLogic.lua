@@ -7,6 +7,8 @@
 --
 --   줄 순서   힘 배수 계단 한 줄 → ShopConfig.GAMEPASS_ORDER(게임패스 13)
 --   상태      owned = "보유 중"(회색) · notRegistered = ID 0 "준비 중"(회색) · max = 계단 최고 단계 보유 · buy = 초록 버튼 + 가격
+--             ownedHigher = 더 높은 것을 가져 살 필요가 없다 "보유(상위)"(R2 — OP 자동 클리커 보유 중 기본 자동 클리커, 지시서 #17).
+--             계단(R1)은 한 줄에 다음 단계만 보이므로 가진 단계 이하가 화면에 나오지 않는다
 --   행운 줄   확률 변화를 숫자로: "<가장 귀한 것> 1.0% → 9.6%"(S13 — 구매 전에 숫자로 보인다)
 --   제한 유저 로벅스 행운 상품(paidRandom) 줄을 숨긴다(S13)
 
@@ -29,11 +31,12 @@ local RobuxShopLogic = {}
 
 RobuxShopLogic.BUY_TEXT = Locale.t("common.buy")
 RobuxShopLogic.OWNED_TEXT = Locale.t("shop.owned")
+RobuxShopLogic.OWNED_HIGHER_TEXT = Locale.t("shop.ownedHigher")
 RobuxShopLogic.NOT_REGISTERED_TEXT = Locale.t("shop.comingSoon")
 RobuxShopLogic.MAX_TEXT = Locale.t("shop.ladder.maxButton")
 RobuxShopLogic.LADDER_KEY = "strengthLadder" -- 계단 줄의 화면 키(상품 키가 아니다 — 누르면 다음 단계 키로 요청한다)
 
-export type State = "buy" | "owned" | "notRegistered" | "max"
+export type State = "buy" | "owned" | "ownedHigher" | "notRegistered" | "max"
 
 export type Row = {
 	key: string, -- 화면 키(게임패스 키 또는 LADDER_KEY)
@@ -105,16 +108,21 @@ local function passRow(key: string, owns: (string) -> boolean, ctx: Context, sho
 	if def.effect.type == "luckPass" then
 		detail = RobuxShopLogic.oddsText(def.effect.roll, def.effect.mult, ctx, shop)
 	end
-	local state: State = if owns(key) then "owned" elseif def.id == 0 then "notRegistered" else "buy"
+	local state: State = if owns(key) then "owned"
+		elseif ShopConfig.ownedHigher(key, owns) ~= nil then "ownedHigher"
+		elseif def.id == 0 then "notRegistered"
+		else "buy"
 	return {
 		key = key,
 		buyKey = if state == "buy" then key else nil,
 		title = Names.product(key),
 		detail = detail,
 		state = state,
-		buttonText = if state == "owned" then RobuxShopLogic.OWNED_TEXT elseif state == "notRegistered" then RobuxShopLogic.NOT_REGISTERED_TEXT
+		buttonText = if state == "owned" then RobuxShopLogic.OWNED_TEXT
+			elseif state == "ownedHigher" then RobuxShopLogic.OWNED_HIGHER_TEXT
+			elseif state == "notRegistered" then RobuxShopLogic.NOT_REGISTERED_TEXT
 			else RobuxShopLogic.BUY_TEXT,
-		footText = if state == "owned" then "" else RobuxShopLogic.priceText(def.priceRobux),
+		footText = if state == "owned" or state == "ownedHigher" then "" else RobuxShopLogic.priceText(def.priceRobux),
 		canBuy = state == "buy",
 	}
 end
@@ -189,6 +197,10 @@ function RobuxShopLogic.reasonText(code: string): string
 		return Locale.t("shop.reason.not_registered")
 	elseif code == "already_owned" then
 		return Locale.t("shop.reason.already_owned")
+	elseif code == ShopConfig.REASON_LADDER_OWNED_HIGHER then
+		return Locale.t("shop.reason.ladder_owned_higher")
+	elseif code == ShopConfig.REASON_AUTO_OWNED_HIGHER then
+		return Locale.t("shop.reason.auto_owned_higher")
 	elseif code == "restricted" then
 		return Locale.t("shop.reason.restricted")
 	elseif code == "rate_limited" then

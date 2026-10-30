@@ -82,9 +82,16 @@ do
 		end
 	end
 	check("표시 값: 순서 · 이름 · 가격 = ShopConfig 원본", allMatch)
-	local dmg = rowByKey(rows, "damage2x") :: RobuxShopLogic.Row
-	check("준비 중: ID 0이면 '준비 중' · 누를 수 없음 · 가격은 보인다", dmg.state == "notRegistered" and not dmg.canBuy
-		and dmg.buttonText == RobuxShopLogic.NOT_REGISTERED_TEXT and dmg.buyKey == nil and dmg.footText == "149 R$")
+	withIds({ damage2x = 0 }, function()
+		local dmg = rowByKey(RobuxShopLogic.rows(shop(nil, false)), "damage2x") :: RobuxShopLogic.Row
+		check("준비 중: ID 0이면 '준비 중' · 누를 수 없음 · 가격은 보인다", dmg.state == "notRegistered" and not dmg.canBuy
+			and dmg.buttonText == RobuxShopLogic.NOT_REGISTERED_TEXT and dmg.buyKey == nil and dmg.footText == "149 R$")
+	end)
+	local autoRow = rowByKey(RobuxShopLogic.rows(shop({ "autoClickerOP" }, false)), "autoClicker") :: RobuxShopLogic.Row
+	check("R2: OP 자동 클리커 보유면 기본 자동 클리커 '보유(상위)' · 누를 수 없음 · 가격 숨김(지시서 #17)", autoRow.state == "ownedHigher"
+		and not autoRow.canBuy and autoRow.buyKey == nil and autoRow.buttonText == RobuxShopLogic.OWNED_HIGHER_TEXT and autoRow.footText == "")
+	local opRow = rowByKey(RobuxShopLogic.rows(shop({ "autoClicker" }, false)), "autoClickerOP") :: RobuxShopLogic.Row
+	check("R2: 기본만 보유면 OP는 살 수 있다", opRow.state == "buy" and opRow.canBuy)
 	local owned = rowByKey(RobuxShopLogic.rows(shop({ "damage2x" }, false)), "damage2x") :: RobuxShopLogic.Row
 	check("보유: '보유 중' · 누를 수 없음 · 가격 숨김", owned.state == "owned" and not owned.canBuy and owned.buttonText == RobuxShopLogic.OWNED_TEXT
 		and owned.footText == "")
@@ -101,8 +108,8 @@ do
 	check("계단: 보유 없음 → '지금 ×1' · 다음 2배 힘 · 가격 3 R$", none.title == Locale.t("shop.ladder.title", { mult = 1 })
 		and string.find(none.detail, Names.product("strength2x"), 1, true) ~= nil and none.footText == "3 R$")
 	local mid = RobuxShopLogic.rows(shop({ "strength2x", "strength8x" }))[1]
-	check("계단: 2 · 8 보유 → '지금 ×8'(최고 하나) · 다음 16배", mid.title == Locale.t("shop.ladder.title", { mult = 8 })
-		and string.find(mid.detail, Names.product("strength16x"), 1, true) ~= nil)
+	check("계단: 2 · 8 보유 → '지금 ×8'(최고 하나) · 다음 16배 · R1 가진 단계 이하는 줄에 없다", mid.title == Locale.t("shop.ladder.title", { mult = 8 })
+		and string.find(mid.detail, Names.product("strength16x"), 1, true) ~= nil and mid.buyKey == "strength16x")
 	withIds({ strength16x = 888 }, function()
 		local r = RobuxShopLogic.rows(shop({ "strength8x" }))[1]
 		check("계단: 다음 단계 ID가 있으면 그 키로 요청", r.canBuy and r.buyKey == "strength16x")
@@ -142,7 +149,8 @@ do
 	check("문구: 구매 완료 = 이름 + 완료", RobuxShopLogic.resultText({ key = "damage2x", phase = "finished", ok = true, reason = "" }) == Locale.t("shop.purchased", { name = Names.product("damage2x") }))
 	local generic = RobuxShopLogic.reasonText("???")
 	local distinct = true
-	for _, code in ipairs({ "already_owned", "restricted", "rate_limited", "invalid_key", "prompt_failed", "not_registered" }) do
+	for _, code in ipairs({ "already_owned", "restricted", "rate_limited", "invalid_key", "prompt_failed", "not_registered", "ladder_owned_higher",
+		"auto_owned_higher" }) do
 		if RobuxShopLogic.reasonText(code) == generic then
 			distinct = false
 		end
@@ -243,12 +251,39 @@ do
 	local tile = slots.root:FindFirstChild("blox2x") :: Frame
 	check("구좌: 타일마다 HitArea(누르면 구매 요청)", tile ~= nil and tile:FindFirstChild("HitArea") ~= nil)
 	slots._debug.press("blox2x")
-	check("구좌: 누르면 그 상품 키로 요청(ID 0도 보낸다 — 서버가 '준비 중'으로 답한다)", #requested == 1 and requested[1] == "blox2x")
+	check("구좌: 누르면 그 상품 키로 요청(판정은 서버)", #requested == 1 and requested[1] == "blox2x")
 	store.setSource(function(setter)
 		setter("shop", shop({ "blox2x" }))
 	end)
 	task.wait()
 	check("구좌: 보유면 가격 대신 '보유'", (tile:FindFirstChild("Price") :: TextLabel).Text == ShopSlots.OWNED_TEXT)
+	-- R1(지시서 #17): 힘 배수 계단 구좌는 다음 단계 · R2: OP 보유면 자동 클리커 구좌 "보유"
+	local ladderTile = slots.root:FindFirstChild("strength2x") :: Frame
+	local autoTile = slots.root:FindFirstChild("autoClicker") :: Frame
+	local function price(key: string): string
+		return ShopSlots.priceText((ShopConfig.get(key) :: ShopConfig.ProductDef).priceRobux, false)
+	end
+	store.setSource(function(setter)
+		setter("shop", shop({ "strength2x", "strength8x", "autoClickerOP" }))
+	end)
+	task.wait()
+	slots._debug.press("strength2x")
+	local ladderText = (ladderTile:FindFirstChild("Price") :: TextLabel).Text
+	check("R1 구좌: 8배 보유면 다음 16배 — 가격 · 누르면 strength16x로 요청", slots._debug.buyKeyOf("strength2x") == "strength16x"
+		and requested[#requested] == "strength16x" and (ladderText == price("strength16x")
+			or ladderText == ShopSlots.priceText((ShopConfig.get("strength16x") :: ShopConfig.ProductDef).priceRobux, true)), ladderText)
+	check("R2 구좌: OP 보유면 자동 클리커 구좌 '보유'", (autoTile:FindFirstChild("Price") :: TextLabel).Text == ShopSlots.OWNED_TEXT)
+	store.setSource(function(setter)
+		setter("shop", shop({ "strength1024x" }))
+	end)
+	task.wait()
+	check("R1 구좌: 최고 단계 보유면 '보유'", (ladderTile:FindFirstChild("Price") :: TextLabel).Text == ShopSlots.OWNED_TEXT
+		and slots._debug.buyKeyOf("strength2x") == "strength1024x")
+	store.setSource(function(setter)
+		setter("shop", shop())
+	end)
+	task.wait()
+	check("R1 구좌: 보유 없음이면 2배 힘(3 R$)", slots._debug.buyKeyOf("strength2x") == "strength2x")
 	slots.root:Destroy()
 
 	local toolStore = Store.new()
@@ -336,10 +371,16 @@ do
 		and BigNum.eq(v2.gained, BigNum.fromNumber(6)) and BigNum.eq(v1.wasted, v2.wasted))
 	local voidIndex = GymConfig.findByGamepass("voidTrainingZone") :: number
 	local zero = BigNum.new(0, 0)
-	local notOwned = WorldLabelLogic.gym(voidIndex, zero, false, GymLayout.shopUnlocked(nil, function()
+	withIds({ voidTrainingZone = 0 }, function()
+		local notOwned = WorldLabelLogic.gym(voidIndex, zero, false, GymLayout.shopUnlocked(nil, function()
+			return false
+		end))
+		check("공허 표시: 미보유 · ID 0 → '로벅스 전용(준비 중)'", notOwned.detail == Locale.t("world.gym.robuxOnlySoon"))
+	end)
+	local notOwnedReg = WorldLabelLogic.gym(voidIndex, zero, false, GymLayout.shopUnlocked(nil, function()
 		return false
 	end))
-	check("공허 표시: 미보유 · ID 0 → '로벅스 전용(준비 중)'", notOwned.detail == Locale.t("world.gym.robuxOnlySoon"))
+	check("공허 표시: 미보유 · 등록됨 → '로벅스 전용'", notOwnedReg.detail == Locale.t("world.gym.robuxOnly"))
 	local owned = WorldLabelLogic.gym(voidIndex, zero, true, GymLayout.shopUnlocked(nil, function(k: string)
 		return k == "voidTrainingZone"
 	end))

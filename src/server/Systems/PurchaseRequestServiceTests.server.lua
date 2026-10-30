@@ -1,7 +1,7 @@
 --!strict
 -- PurchaseRequestService 검증 (지시서 #16 3단계). 가짜 게이트웨이 · 가짜 상품표로 굴린다 — 실제 로벅스 프롬프트를 띄우지 않는다.
 --   payload 거르기 · 빈도 상한 · 판정 순서(invalid_key · already_owned · restricted · not_registered · not_available) ·
---   통과면 프롬프트 · 게임패스 프롬프트가 닫힌 결과(산 것 · 취소)
+--   통과면 프롬프트 · 게임패스 프롬프트가 닫힌 결과(산 것 · 취소) · 상위 보유 거부(지시서 #17 R1 계단 · R2 자동 클리커)
 
 local ServerScriptService = game:GetService("ServerScriptService")
 
@@ -23,8 +23,9 @@ local function check(name: string, ok: boolean, detail: string?)
 	end
 end
 
--- damage2x · petLuck2x(행운) · strengthPotion만 등록된 것으로 친다. blox2x · damagePotion은 ID 0(미등록) 그대로.
-local IDS = { damage2x = 9301, petLuck2x = 9302, strengthPotion = 9303, luckyRoll5 = 9304 }
+-- 이 표의 상품만 등록된 것으로 친다(fakeCatalog — 나머지는 ID 0). blox2x · damagePotion은 미등록.
+local IDS = { damage2x = 9301, petLuck2x = 9302, strengthPotion = 9303, luckyRoll5 = 9304, strength2x = 9311, strength4x = 9312,
+	strength8x = 9313, strength16x = 9314, autoClicker = 9321, autoClickerOP = 9322 }
 local catalog = MarketplaceGateway.fakeCatalog(IDS)
 
 local function newWorld(opts: { owned: { [string]: boolean }?, restricted: boolean?, grants: { [string]: boolean }? }?)
@@ -100,6 +101,27 @@ do
 		and w.gateway.prompts[2].kind == "product" and w.gateway.prompts[2].id == IDS.strengthPotion)
 	local r3 = w.handler.onRequest(player, { key = "petLuck2x" }, STEP * 2)
 	check("행운 상품 + 제한 아님 → 프롬프트", r3.ok and #w.gateway.prompts == 3)
+end
+
+-- 3b. 상위 보유 거부 (지시서 #17 — 2026-10-30 사람 결정 R1 · R2) -------------------------------------------
+do
+	local w = newWorld({ owned = { strength8x = true, autoClickerOP = true } })
+	local t = 0
+	local function ask(key: string)
+		t += STEP
+		return w.handler.onRequest(player, { key = key }, t)
+	end
+	local lower = ask("strength4x")
+	check("R1: 8배 보유 중 4배 → ladder_owned_higher", not lower.ok and lower.reason == R.REASON_LADDER_OWNED_HIGHER and lower.kind == "gamepass")
+	local same = ask("strength8x")
+	check("R1: 같은 단계는 already_owned(먼저 걸린다)", not same.ok and same.reason == R.REASON_ALREADY_OWNED)
+	local auto = ask("autoClicker")
+	check("R2: OP 보유 중 기본 자동 클리커 → auto_owned_higher", not auto.ok and auto.reason == R.REASON_AUTO_OWNED_HIGHER)
+	check("상위 보유 거부는 프롬프트를 띄우지 않는다", #w.gateway.prompts == 0)
+	local higher = ask("strength16x")
+	check("R1: 더 높은 단계는 프롬프트", higher.ok and #w.gateway.prompts == 1 and w.gateway.prompts[1].id == IDS.strength16x)
+	local w2 = newWorld({ owned = { autoClicker = true } })
+	check("R2: 기본만 보유면 OP는 프롬프트", w2.handler.onRequest(player, { key = "autoClickerOP" }, 0).ok and #w2.gateway.prompts == 1)
 end
 
 -- 4. 빈도 상한 -----------------------------------------------------------------------------------------

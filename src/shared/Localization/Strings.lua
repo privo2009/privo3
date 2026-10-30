@@ -155,7 +155,7 @@ Strings.Entries = {
 	["shop.luckPotion.desc"] = { en = "Title · Aura · Pet luck x2 for 15 minutes", ko = "15분 동안 칭호 · 아우라 · 펫 행운 ×2" },
 	["shop.potionBundle.name"] = { en = "Potion Bundle", ko = "포션 번들" },
 	["shop.potionBundle.desc"] = { en = "99 each of Power · Damage · Luck Potions", ko = "힘 · 데미지 · 행운 포션 각 99개" },
-	["shop.gymUnlock.name"] = { en = "Unlock Gym {n}", ko = "운동기구 {n} 열기" },
+	["shop.gymUnlock.name"] = { en = "Gym {n} Unlock", ko = "운동기구 {n} 열기" }, -- en = 대시보드 이름(지시서 #17)
 	["shop.gymUnlock.desc"] = { en = "Unlocks Gym {n} regardless of Rebirths", ko = "환생 수와 상관없이 운동기구 {n}을 열어요" },
 	-- ===== HUD ===========================================================================================
 	["hud.menu.shop"] = { en = "Shop", ko = "상점" },
@@ -342,6 +342,7 @@ Strings.Entries = {
 	["upgrade.reason.invalid_upgrade"] = { en = "This can't be bought", ko = "살 수 없는 항목이에요" },
 	["upgrade.reason.failed"] = { en = "Couldn't buy it", ko = "사지 못했어요" },
 	["shop.owned"] = { en = "Owned", ko = "보유 중" },
+	["shop.ownedHigher"] = { en = "Owned (Higher)", ko = "보유(상위)" }, -- R2: OP 자동 클리커 보유 중 기본 자동 클리커(지시서 #17)
 	["shop.comingSoon"] = { en = "Coming soon", ko = "준비 중" },
 	["shop.product"] = { en = "Item", ko = "상품" },
 	["shop.purchased"] = { en = "{name} purchased!", ko = "{name} 구매 완료!" },
@@ -351,6 +352,8 @@ Strings.Entries = {
 	["shop.ladder.maxButton"] = { en = "Max tier", ko = "최고 단계" },
 	["shop.reason.not_registered"] = { en = "Coming soon", ko = "준비 중이에요" },
 	["shop.reason.already_owned"] = { en = "You already own this", ko = "이미 가지고 있어요" },
+	["shop.reason.ladder_owned_higher"] = { en = "You already own a higher Power tier", ko = "더 높은 힘 단계를 이미 가지고 있어요" },
+	["shop.reason.auto_owned_higher"] = { en = "You already own OP Auto Clicker", ko = "OP 자동 클리커를 이미 가지고 있어요" },
 	["shop.reason.restricted"] = { en = "This item isn't available in your region", ko = "이 지역에서는 살 수 없는 상품이에요" },
 	["shop.reason.invalid_key"] = { en = "This item can't be bought", ko = "살 수 없는 상품이에요" },
 	["shop.reason.prompt_failed"] = { en = "Couldn't open the purchase window", ko = "구매 창을 열지 못했어요" },

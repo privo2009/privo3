@@ -8,6 +8,8 @@
 --   PromptGamePassPurchaseFinished(player, gamePassId, wasPurchased) · PromptProductPurchase(player, productId) ·
 --   ProcessReceipt(receiptInfo) → Enum.ProductPurchaseDecision.PurchaseGranted / NotProcessedYet ·
 --   PolicyService:GetPolicyInfoForPlayerAsync(player).ArePaidRandomItemsRestricted
+--   GetProductInfoAsync(id, Enum.InfoType.GamePass | Product) → { PriceInRobux, UserBasePriceInRobux, IsForSale, ... } — 없는 ID면 오류.
+--     동시에 부르면 엔진이 요청을 묶는다(Transparent Batching). 옛 GetProductInfo는 deprecated (2026-10-30 확인, 지시서 #17)
 --
 -- ⚠️ ID 0(대시보드 미등록)은 여기서 막는다 — 프롬프트를 띄우지 않고 "not_registered"를 돌려준다.
 
@@ -36,6 +38,8 @@ export type Gateway = {
 	setProcessReceipt: (callback: (ReceiptInfo) -> string) -> (),
 	-- (조회 성공, 정책 표) — 실패면 (false, nil)
 	getPolicy: (player: Player) -> (boolean, any),
+	-- (조회 성공, 상품 정보 표) — 실패면 (false, 오류 문구). kind = "gamepass" | "product". 양보(yield)한다
+	getProductInfo: (id: number, kind: string) -> (boolean, any),
 }
 
 -- ===== 실물 ======================================================================================
@@ -96,17 +100,29 @@ function MarketplaceGateway.real(): Gateway
 		end
 		return true, info
 	end
+	gateway.getProductInfo = function(id: number, kind: string): (boolean, any)
+		local infoType = if kind == "gamepass" then Enum.InfoType.GamePass else Enum.InfoType.Product
+		local ok, info = pcall(function()
+			return MarketplaceService:GetProductInfoAsync(id, infoType)
+		end)
+		if not ok or type(info) ~= "table" then
+			return false, tostring(info)
+		end
+		return true, info
+	end
 	return gateway
 end
 
 -- ===== 가짜 (테스트 전용) =========================================================================
 --
--- 표를 직접 고쳐 결과를 정한다: owned[userId][passId] = true · failOwns[passId] = true(조회 실패) · policy[userId] = 정보 표 / false(조회 실패)
+-- 표를 직접 고쳐 결과를 정한다: owned[userId][passId] = true · failOwns[passId] = true(조회 실패) · policy[userId] = 정보 표 / false(조회 실패) ·
+-- productInfo[id] = 정보 표(없으면 조회 실패)
 -- prompts에 띄운 프롬프트가 쌓인다. finish(player, passId, wasPurchased)로 구매 완료 이벤트를, receipt(info)로 영수증을 흉내 낸다.
 export type Fake = Gateway & {
 	owned: { [number]: { [number]: boolean } },
 	failOwns: { [number]: boolean },
 	policy: { [number]: any },
+	productInfo: { [number]: any },
 	prompts: { { kind: string, player: Player, id: number } },
 	ownsCalls: number,
 	finish: (Player, number, boolean) -> (),
@@ -114,7 +130,7 @@ export type Fake = Gateway & {
 }
 
 function MarketplaceGateway.fake(): Fake
-	local fake: any = { owned = {}, failOwns = {}, policy = {}, prompts = {}, ownsCalls = 0 }
+	local fake: any = { owned = {}, failOwns = {}, policy = {}, productInfo = {}, prompts = {}, ownsCalls = 0 }
 	local finishedCallbacks: { (Player, number, boolean) -> () } = {}
 	local receiptCallback: ((ReceiptInfo) -> string)? = nil
 	fake.ownsGamePass = function(userId: number, passId: number): (boolean, boolean)
@@ -149,6 +165,13 @@ function MarketplaceGateway.fake(): Fake
 		end
 		return true, info
 	end
+	fake.getProductInfo = function(id: number, _kind: string): (boolean, any)
+		local info = fake.productInfo[id]
+		if info == nil then
+			return false, "fake: no info"
+		end
+		return true, info
+	end
 	fake.finish = function(player: Player, passId: number, wasPurchased: boolean)
 		for _, cb in ipairs(finishedCallbacks) do
 			cb(player, passId, wasPurchased)
@@ -164,19 +187,24 @@ function MarketplaceGateway.fake(): Fake
 end
 
 -- 테스트용 상품표: ShopConfig의 정의를 복사해 ID만 바꾼다(공유 Config를 고치지 않는다 — Play 중 다른 서비스가 같은 표를 본다).
--- 서비스의 deps.catalog에 넘긴다. ids에 없는 키는 ShopConfig 그대로(ID 0 = 미등록).
+-- 서비스의 deps.catalog에 넘긴다. ids에 없는 키는 ID 0(미등록)으로 친다 — 테스트가 실제 대시보드 ID와 상관없이
+-- "이 상품들만 등록됐다"를 정한다(지시서 #17에서 ShopConfig에 실제 ID가 들어간 뒤로).
 function MarketplaceGateway.fakeCatalog(ids: { [string]: number }): any
 	local defs: { [string]: any } = {}
-	for key, id in pairs(ids) do
-		local def = ShopConfig.get(key)
-		assert(def ~= nil, "MarketplaceGateway.fakeCatalog: 없는 키 - " .. key)
+	for key, def in pairs(ShopConfig.Products) do
 		local copy = table.clone(def :: any)
-		copy.id = id
+		copy.id = ids[key] or 0
 		defs[key] = copy
+	end
+	for key in pairs(ids) do
+		assert(defs[key] ~= nil, "MarketplaceGateway.fakeCatalog: 없는 키 - " .. key)
 	end
 	local catalog = {}
 	catalog.get = function(key: any): any
-		return defs[key] or ShopConfig.get(key)
+		if type(key) ~= "string" then
+			return nil
+		end
+		return defs[key]
 	end
 	catalog.isRegistered = function(key: any): boolean
 		local def = catalog.get(key)

@@ -8,6 +8,8 @@
 --   1. 빈도 — 플레이어당 MIN_INTERVAL_SEC에 1회. 넘으면 rate_limited(WarpRequestService와 같은 구조)
 --   2. 키 — ShopConfig에 없는 키면 invalid_key
 --   3. 이미 보유 — 그 게임패스를 가졌으면 already_owned(소유는 GamepassService 세션 값)
+--   3b. 상위 보유 — 더 높은 단계를 가졌으면 ShopConfig.ownedHigher의 사유(지시서 #17 — 2026-10-30 사람 결정):
+--       R1 힘 배수 계단 최고 단계 이하 → ladder_owned_higher · R2 OP 자동 클리커 보유 중 기본 자동 클리커 → auto_owned_higher
 --   4. 제한 — 로벅스 행운 상품(paidRandom)이고 제한 유저면 restricted(S13 — 판정 실패 · 확인 전도 제한)
 --   5. 미등록 — ID 0이면 not_registered(클라는 "준비 중")
 --   6. 지급 불가 — 개발자 상품인데 지급 함수가 없으면 not_available(결제는 되고 지급은 안 되는 상태를 만들지 않는다 — #17이 채운다)
@@ -35,6 +37,8 @@ local MIN_INTERVAL_SEC = 1.0
 PurchaseRequestService.REASON_RATE_LIMITED = "rate_limited"
 PurchaseRequestService.REASON_INVALID_KEY = "invalid_key"
 PurchaseRequestService.REASON_ALREADY_OWNED = "already_owned"
+PurchaseRequestService.REASON_LADDER_OWNED_HIGHER = ShopConfig.REASON_LADDER_OWNED_HIGHER
+PurchaseRequestService.REASON_AUTO_OWNED_HIGHER = ShopConfig.REASON_AUTO_OWNED_HIGHER
 PurchaseRequestService.REASON_RESTRICTED = "restricted"
 PurchaseRequestService.REASON_NOT_REGISTERED = MarketplaceGateway.REASON_NOT_REGISTERED
 PurchaseRequestService.REASON_NOT_AVAILABLE = "not_available"
@@ -77,6 +81,12 @@ local function createHandler(deps: Deps)
 		end
 		if def.kind == "gamepass" and deps.owns(player, def.key) then
 			return PurchaseRequestService.REASON_ALREADY_OWNED, def
+		end
+		local higher = ShopConfig.ownedHigher(def.key, function(key: string): boolean
+			return deps.owns(player, key)
+		end)
+		if higher ~= nil then
+			return higher, def
 		end
 		if def.paidRandom and deps.isRestricted(player) then
 			return PurchaseRequestService.REASON_RESTRICTED, def

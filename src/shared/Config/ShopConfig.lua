@@ -3,10 +3,13 @@
 -- 규칙 원본은 DESIGN.md "9. 수익화"(상품 목록 · 폐기 · 미룸 · S1 ~ S18). **가격 · 효과 수치의 원본은 이 파일이다.**
 -- 대시보드 등록용 한 장은 docs/DASHBOARD_PRODUCTS.md(이 표를 사람이 대시보드에 옮기고, 받은 ID를 여기 id에 넣는다).
 --
--- ===== id = 0 =====================================================================================
+-- ===== 대시보드 ID (2026-10-30 등록 — 지시서 #17) ======================================================
 --
--- 0은 "아직 대시보드에 없다"이다. 0인 상품은 화면에 "준비 중"으로 보이고 구매 요청은 서버가 not_registered로 막는다
--- (MarketplaceGateway — 프롬프트를 띄우지 않는다). 소유 조회도 하지 않는다(없는 패스는 아무도 갖지 않는다).
+-- 키 하나에 ID 하나. 게임패스와 개발자 상품은 표를 나눈다 — validate가 섞임(게임패스 키가 상품 표에 있는 것 등) · 같은 ID 두 번 ·
+-- 0 이하 ID를 거부한다. 값은 사람이 Creator Dashboard에서 옮겨 준 것(docs/DASHBOARD_PRODUCTS.md — 이름 · 가격도 거기).
+-- 가격은 대시보드 가격과 같아야 한다. 서버가 시작할 때 GetProductInfoAsync로 대조해 다르면 WARN만 한다(ShopPriceCheck).
+-- id 0("대시보드에 없다")의 처리는 그대로 남아 있다 — 화면 "준비 중" · 서버 not_registered(MarketplaceGateway — 프롬프트를 띄우지 않는다).
+-- 지금 표에는 0이 없다. 테스트는 MarketplaceGateway.fakeCatalog로 원하는 상품만 등록된 표를 만든다.
 --
 -- ===== 행운 상품 (paidRandom) =====================================================================
 --
@@ -41,6 +44,51 @@ ShopConfig.BOOSTS = {
 } :: { [string]: BoostDef }
 ShopConfig.BOOST_ORDER = { "strength", "damage", "luck" }
 
+ShopConfig.GAMEPASS_IDS = {
+	strength2x       = 2052216044, -- x2 Power · 3 R$
+	strength4x       = 2052702002, -- x4 Power · 9 R$
+	strength8x       = 2052210043, -- x8 Power · 29 R$
+	strength16x      = 2052438033, -- x16 Power · 79 R$
+	strength32x      = 2054039990, -- x32 Power · 149 R$
+	strength64x      = 2052954081, -- x64 Power · 249 R$
+	strength128x     = 2052480115, -- x128 Power · 399 R$
+	strength256x     = 2053890027, -- x256 Power · 499 R$
+	strength512x     = 2053164055, -- x512 Power · 599 R$
+	strength1024x    = 2052390076, -- x1024 Power · 699 R$
+	autoClicker      = 2052132045, -- Auto Clicker · 49 R$
+	autoClickerOP    = 2053242108, -- OP Auto Clicker · 89 R$
+	rebirth2x        = 2054058093, -- x2 Rebirths · 99 R$
+	damage2x         = 2052696040, -- x2 Damage · 149 R$
+	blox2x           = 2054262102, -- x2 Blox · 199 R$
+	hatch3x          = 2052474059, -- Triple Hatch · 99 R$
+	petLuck2x        = 2052954089, -- x2 Pet Luck · 99 R$
+	petStorage100    = 2054172019, -- +100 Pet Storage · 49 R$
+	petSlots3        = 2053284114, -- +3 Pet Slots · 199 R$
+	auraLuck10x      = 2053680063, -- x10 Aura Luck · 299 R$
+	titleLuck10x     = 2052546070, -- x10 Title Luck · 299 R$
+	voidTrainingZone = 2054052054, -- Void Training Zone · 799 R$
+	autoAdvance      = 2053542093, -- Auto Advance · 199 R$
+} :: { [string]: number }
+
+ShopConfig.PRODUCT_IDS = {
+	luckyRoll5     = 3722238324, -- Lucky Roll x5 · 49 R$
+	luckyRoll15    = 3722238413, -- Lucky Roll x15 · 149 R$
+	superRoll5     = 3722238507, -- Super Roll x5 · 99 R$
+	superRoll15    = 3722238589, -- Super Roll x15 · 249 R$
+	strengthPotion = 3722238698, -- Power Potion · 19 R$
+	damagePotion   = 3722238762, -- Damage Potion · 19 R$
+	luckPotion     = 3722238841, -- Luck Potion · 29 R$
+	potionBundle   = 3722238982, -- Potion Bundle · 999 R$
+	gymUnlock1     = 3722239093, -- Gym 1 Unlock · 29 R$
+	gymUnlock2     = 3722239174, -- Gym 2 Unlock · 49 R$
+	gymUnlock3     = 3722239239, -- Gym 3 Unlock · 79 R$
+	gymUnlock4     = 3722239675, -- Gym 4 Unlock · 99 R$
+	gymUnlock5     = 3722239721, -- Gym 5 Unlock · 149 R$
+	gymUnlock6     = 3722239888, -- Gym 6 Unlock · 199 R$
+	gymUnlock7     = 3722240101, -- Gym 7 Unlock · 299 R$
+	gymUnlock8     = 3722240268, -- Gym 8 Unlock · 449 R$
+} :: { [string]: number }
+
 local Products: { [string]: ProductDef } = {}
 ShopConfig.Products = Products
 
@@ -50,11 +98,11 @@ local function add(def: ProductDef)
 end
 
 local function pass(key: string, price: number, effect: { [string]: any }, paidRandom: boolean?)
-	add({ key = key, kind = "gamepass", id = 0, priceRobux = price, effect = effect, paidRandom = paidRandom == true })
+	add({ key = key, kind = "gamepass", id = ShopConfig.GAMEPASS_IDS[key] or 0, priceRobux = price, effect = effect, paidRandom = paidRandom == true })
 end
 
 local function product(key: string, price: number, effect: { [string]: any }, paidRandom: boolean?)
-	add({ key = key, kind = "product", id = 0, priceRobux = price, effect = effect, paidRandom = paidRandom == true })
+	add({ key = key, kind = "product", id = ShopConfig.PRODUCT_IDS[key] or 0, priceRobux = price, effect = effect, paidRandom = paidRandom == true })
 end
 
 -- ===== 게임패스 ==================================================================================
@@ -73,8 +121,9 @@ pass("voidTrainingZone", 799, { type = "gymPass" }) -- 기구는 GymConfig(gamep
 pass("autoAdvance", 199, { type = "autoAdvance" }) -- 효과는 #18
 
 -- ===== 힘 배수 계단 (게임패스 10단계 — 보유한 단계 중 최고 하나만, S4) ============================
+-- 가격 2026-10-30 사람 결정(지시서 #17 — 대시보드 가격): 32x부터 149 · 249 · 399 · 499 · 599 · 699
 ShopConfig.STRENGTH_TIERS = {} :: { string }
-for _, t in ipairs({ { 2, 3 }, { 4, 9 }, { 8, 29 }, { 16, 79 }, { 32, 249 }, { 64, 799 }, { 128, 1499 }, { 256, 2499 }, { 512, 3999 }, { 1024, 5999 } }) do
+for _, t in ipairs({ { 2, 3 }, { 4, 9 }, { 8, 29 }, { 16, 79 }, { 32, 149 }, { 64, 249 }, { 128, 399 }, { 256, 499 }, { 512, 599 }, { 1024, 699 } }) do
 	local key = string.format("strength%dx", t[1])
 	pass(key, t[2], { type = "strengthTier", mult = t[1] })
 	table.insert(ShopConfig.STRENGTH_TIERS, key)
@@ -178,6 +227,31 @@ function ShopConfig.strengthTierState(owns: (string) -> boolean): (string?, stri
 	return current, nextKey
 end
 
+-- 더 높은 단계를 이미 가져서 이 상품을 살 필요가 없는가(지시서 #17 — 2026-10-30 사람 결정). 사유 코드 또는 nil.
+--   R1 힘 배수 계단: 보유한 최고 단계 이하 → "ladder_owned_higher"(같은 단계는 이 함수가 아니라 already_owned가 먼저 막는다)
+--   R2 자동 클리커: OP를 가졌으면 기본 자동 클리커 → "auto_owned_higher"
+-- 서버 PurchaseRequestService(프롬프트 전 거부)와 화면(로벅스 탭 · HUD 구좌 잠금)이 같은 함수를 쓴다.
+ShopConfig.REASON_LADDER_OWNED_HIGHER = "ladder_owned_higher"
+ShopConfig.REASON_AUTO_OWNED_HIGHER = "auto_owned_higher"
+function ShopConfig.ownedHigher(key: string, owns: (string) -> boolean): string?
+	local def = Products[key]
+	if def == nil then
+		return nil
+	end
+	if def.effect.type == "strengthTier" then
+		if ShopConfig.strengthTierMult(owns) > def.effect.mult then
+			return ShopConfig.REASON_LADDER_OWNED_HIGHER
+		end
+	elseif def.effect.type == "autoClick" then
+		for otherKey, other in pairs(Products) do
+			if other.effect.type == "autoClick" and other.effect.clicksPerSec > def.effect.clicksPerSec and owns(otherKey) then
+				return ShopConfig.REASON_AUTO_OWNED_HIGHER
+			end
+		end
+	end
+	return nil
+end
+
 -- 그 뽑기(title · aura · pet)의 행운 패스 배수. 보유한 패스 중 그 뽑기 것만(지금은 뽑기마다 하나).
 function ShopConfig.luckPassMult(roll: string, owns: (string) -> boolean): number
 	local m = 1
@@ -231,21 +305,28 @@ end
 ShopConfig._effectIsPaidRandom = effectIsPaidRandom
 
 function ShopConfig.validate(): boolean
-	local ids: { [string]: string } = {}
+	local ids: { [number]: string } = {}
+	-- ID 표: 섞임 없음(게임패스 표의 키는 게임패스, 상품 표의 키는 개발자 상품) · 표에 없는 상품 키 없음(지시서 #17)
+	for key in pairs(ShopConfig.GAMEPASS_IDS) do
+		assert(Products[key] ~= nil and Products[key].kind == "gamepass", "ShopConfig: GAMEPASS_IDS에 게임패스가 아닌 키 - " .. key)
+	end
+	for key in pairs(ShopConfig.PRODUCT_IDS) do
+		assert(Products[key] ~= nil and Products[key].kind == "product", "ShopConfig: PRODUCT_IDS에 개발자 상품이 아닌 키 - " .. key)
+	end
 	for key, def in pairs(Products) do
 		assert(def.key == key, "ShopConfig: 키가 표 키와 다름 - " .. key)
 		assert(def.kind == "gamepass" or def.kind == "product", "ShopConfig: kind가 이상함 - " .. key)
 		assert(type(def.priceRobux) == "number" and def.priceRobux > 0 and def.priceRobux % 1 == 0, "ShopConfig: 가격은 양의 정수 - " .. key)
-		assert(type(def.id) == "number" and def.id >= 0 and def.id % 1 == 0, "ShopConfig: id는 0 이상 정수 - " .. key)
+		assert(type(def.id) == "number" and def.id > 0 and def.id % 1 == 0, "ShopConfig: id는 양의 정수(대시보드 ID) - " .. key)
+		local fromTable = if def.kind == "gamepass" then ShopConfig.GAMEPASS_IDS[key] else ShopConfig.PRODUCT_IDS[key]
+		assert(fromTable == def.id, "ShopConfig: id가 그 종류의 ID 표와 다름(게임패스 · 상품 섞임) - " .. key)
 		assert(type(def.effect) == "table" and type(def.effect.type) == "string", "ShopConfig: effect.type이 없음 - " .. key)
 		-- P1: 블럭스를 로벅스로 파는 상품 금지(CLAUDE.md 금지 사항)
 		assert(def.effect.type ~= "blox", "ShopConfig: " .. key .. "이 블럭스를 판다 — 금지(P1, 뽑기가 유료 랜덤 아이템이 된다)")
 		assert(def.paidRandom == effectIsPaidRandom(def), "ShopConfig: 행운 상품 표시(paidRandom)가 효과와 다름 - " .. key)
-		if def.id ~= 0 then
-			local slot = def.kind .. ":" .. def.id
-			assert(ids[slot] == nil, "ShopConfig: 같은 ID를 두 상품이 씀 - " .. key .. " · " .. tostring(ids[slot]))
-			ids[slot] = key
-		end
+		-- 같은 ID 두 번 금지 — 종류가 달라도(게임패스 ID를 개발자 상품에 넣는 실수를 잡는다)
+		assert(ids[def.id] == nil, "ShopConfig: 같은 ID를 두 상품이 씀 - " .. key .. " · " .. tostring(ids[def.id]))
+		ids[def.id] = key
 		if def.effect.type == "potion" then
 			assert(ShopConfig.BOOSTS[def.effect.boost] ~= nil, "ShopConfig: 없는 포션 - " .. key)
 		end

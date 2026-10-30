@@ -112,7 +112,8 @@ do
 		and string.find(locked.detail, Formatter.format(GymConfig.getUnlockRebirths(4)), 1, true) ~= nil, locked.detail)
 	check("기구 표시: 잠긴 기구 위면 잠김", WorldLabelLogic.gym(4, zero, true).detail == Locale.t("world.gym.lockedNeed", { amount = Formatter.format(GymConfig.getUnlockRebirths(4)) }))
 	local void = WorldLabelLogic.gym(count, BigNum.new(1, 30), true)
-	check("기구 표시: 공허는 로벅스 전용(준비 중) · 프리미엄", void.role == "premium" and void.detail == Locale.t("world.gym.robuxOnlySoon"))
+	-- 지시서 #17부터 공허 게임패스 ID가 등록돼 "(준비 중)"이 빠진다. ID 0일 때의 문구는 RobuxShopTests가 잰다
+	check("기구 표시: 공허는 로벅스 전용 · 프리미엄(ID 등록됨)", void.role == "premium" and void.detail == Locale.t("world.gym.robuxOnly"))
 
 	-- 서 있는 기구 판정은 서버와 같은 함수(GymLayout.resolve)
 	local c = GymLayout.computeLayout(count)[1]

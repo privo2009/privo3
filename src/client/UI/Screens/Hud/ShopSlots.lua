@@ -6,6 +6,8 @@
 -- ID 0이면 서버가 not_registered로 답하고 토스트가 "준비 중"을 띄운다(OverlayBoot). 판정을 클라에 두지 않는다.
 -- 보유는 서버 세션 값(Store "shop".gamepasses — 절대 규칙 5)이다. 보유한 구좌는 가격 대신 "보유"를 적는다.
 -- 가격은 ShopSlotConfig(→ ShopConfig) 값이다.
+-- 지시서 #17(2026-10-30 사람 결정): 힘 배수 계단 구좌는 **다음 단계**를 보인다(가격 · 누르면 그 키로 요청) — 최고 단계 보유면 "보유"(R1).
+-- 자동 클리커 구좌는 OP 자동 클리커를 가졌으면 "보유"(R2 — 칸이 작아 "보유(상위)"는 로벅스 탭에만 적는다). 판정은 ShopConfig.ownedHigher.
 --
 -- ⚠️ 아이콘. AssetRegistry 아이콘 16종 중 이 4개 상품에 대응하는 엔트리가 없다
 -- (메뉴 아이콘을 상품 그림으로 재사용하면 같은 그림이 다른 뜻으로 두 번 쓰여 혼란을
@@ -23,6 +25,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local ShopSlotConfig = require(ReplicatedStorage.Shared.Config.ShopSlotConfig)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local TextService = game:GetService("TextService")
@@ -82,7 +85,7 @@ local PRICE_SIDE_PADDING_PX = 2
 -- 그 높이가 글자 하한보다 작으면 하한만큼 키운다(Scale로 다시 쓴다 — Offset 금지).
 -- 표기는 네 구좌가 같이 정한다 — 하나라도 긴 꼴이 안 들어가면 전부 짧은 꼴. "3 R$" 옆에 "79"가 서면
 -- 서로 다른 단위처럼 읽힌다(2026-10-22 폰 실측에서 섞여 나왔다).
-type PriceEntry = { tile: Frame, label: TextLabel, priceRobux: number, owned: boolean }
+type PriceEntry = { tile: Frame, label: TextLabel, priceRobux: number, owned: boolean, buyKey: string }
 
 local function fitPrices(entries: { PriceEntry })
 	local first = entries[1]
@@ -167,6 +170,8 @@ export type ShopSlotsHandle = {
 	root: Frame,
 	_debug: {
 		press: (key: string) -> (),
+		-- 구좌(ShopSlotConfig 키)를 누르면 요청할 상품 키 — 계단 구좌는 다음 단계(지시서 #17 R1)
+		buyKeyOf: (slotKey: string) -> string?,
 	},
 }
 
@@ -207,7 +212,8 @@ function ShopSlots.create(deps: Deps?): ShopSlotsHandle
 
 		local tile, priceLabel = createSlot(slot, x, y, cellWidthScale, cellHeightScale)
 		tile.Parent = root
-		table.insert(priceEntries, { tile = tile, label = priceLabel, priceRobux = slot.priceRobux, owned = false })
+		local entry: PriceEntry = { tile = tile, label = priceLabel, priceRobux = slot.priceRobux, owned = false, buyKey = slot.key }
+		table.insert(priceEntries, entry)
 
 		-- 탭 감지(타일 전체). 판정은 서버 — 여기서는 요청만 보낸다
 		local hit = Instance.new("TextButton")
@@ -220,7 +226,7 @@ function ShopSlots.create(deps: Deps?): ShopSlotsHandle
 		hit.Parent = tile
 		hit.Activated:Connect(function()
 			if d.requestPurchase ~= nil then
-				d.requestPurchase(slot.key)
+				d.requestPurchase(entry.buyKey)
 			end
 		end)
 	end
@@ -234,8 +240,22 @@ function ShopSlots.create(deps: Deps?): ShopSlotsHandle
 				owned[key] = true
 			end
 		end
+		local function owns(key: string): boolean
+			return owned[key] == true
+		end
 		for i, entry in ipairs(priceEntries) do
-			entry.owned = owned[slots[i].key] == true
+			local key = slots[i].key
+			local def = ShopConfig.get(key)
+			if def ~= nil and def.effect.type == "strengthTier" then
+				-- R1: 다음 단계를 보인다. 최고 단계 보유면 "보유"(누르면 서버가 already_owned로 답한다)
+				local current, nextKey = ShopConfig.strengthTierState(owns)
+				entry.owned = nextKey == nil
+				entry.buyKey = if nextKey ~= nil then nextKey else (current or key)
+				entry.priceRobux = (ShopConfig.get(entry.buyKey) :: ShopConfig.ProductDef).priceRobux
+			else
+				entry.owned = owns(key) or ShopConfig.ownedHigher(key, owns) ~= nil
+				entry.buyKey = key
+			end
 		end
 		fitPrices(priceEntries)
 	end
@@ -255,8 +275,22 @@ function ShopSlots.create(deps: Deps?): ShopSlotsHandle
 		_debug = {
 			press = function(key: string)
 				if d.requestPurchase ~= nil then
+					for i, entry in ipairs(priceEntries) do
+						if slots[i].key == key then
+							d.requestPurchase(entry.buyKey)
+							return
+						end
+					end
 					d.requestPurchase(key)
 				end
+			end,
+			buyKeyOf = function(slotKey: string): string?
+				for i, entry in ipairs(priceEntries) do
+					if slots[i].key == slotKey then
+						return entry.buyKey
+					end
+				end
+				return nil
 			end,
 		},
 	}
