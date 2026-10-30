@@ -140,7 +140,8 @@ local AuraWindow = require(script.Parent.Screens.Window.AuraWindow)
 
 local auraWindow = AuraWindow.create({
 	sendRequest = function(payload)
-		local p: Remotes.AuraRequestPayload = { action = payload.action, pack = payload.pack, auraId = payload.auraId }
+		-- credit: 럭키 · 슈퍼 롤 쓰기(지시서 #17 — 빠뜨리면 서버가 invalid로 거부한다. 단계 6 실물 확인에서 찾음)
+		local p: Remotes.AuraRequestPayload = { action = payload.action, pack = payload.pack, auraId = payload.auraId, credit = payload.credit }
 		channels.auraRequest:FireServer(p)
 	end,
 	onClose = function()
