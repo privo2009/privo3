@@ -94,7 +94,7 @@
 | `Systems/PetServiceTests.server.lua` | 84 | 부화 거부 부작용 0(잠긴 알 · 월드 밖 · 저장 공간 가득 · 잔액 · 경합 · 시계 · 잘못된 알) · 차감 → 판정 · uid 문자열 · 깨진 nextUid · 새 종만 저장 · 빈 슬롯 자동 장착 · 장착 ≤ 파생 슬롯 · 해제 · equipBest · 크래프팅(재료 순서 · 장착 자리 이어받기 · 부족 · 최대 · 연쇄) · 놓아주기 · 로드 정리 · E3 · 한 번만 · 데미지 없음 · 요약 · 프로필 크기 · 펫 게임패스(슬롯 · 저장 · 잘라내기는 소유 확인 뒤에만) · 3배 부화(거부 부작용 0 · 비용 3배 한 번 · 3마리 · 롤 시계 1회 — #16) |
 | `Systems/PetRequestServiceTests.server.lua` | 28 | payload 위생(알 번호 · uid 숫자 문자열) · 빈도 상한 · 사유 그대로 · 응답 필드 전부 · 퇴장 정리 · 설정 hideOtherPets · hatch3(결과 1건에 3마리 · pets 목록 — #16) |
 | `Tests/PetWindowTests.client.lua` | 62 | 알 탭 · 잠김 사유(해금 · 보관함 · 잔액) · 실제 확률 합 100 · 행운 · 희귀도 매핑 · 격자 · 슬롯 수 = 파생값 · 상세(크래프팅 가능 · 놓아주기 막힘) · 결과 판정(모달 · 토스트) · 요청 한 번만 · 놓아주기 확인 단계 · 추적 계획(내 펫 먼저 · 숨기기 · 파트 상한 · 자리 · 치는 모습) |
-| `Systems/GamepassServiceTests.server.lua` | 23 | 게임패스 소유 S1 — 조회 성공 · 실패 · RETRY_SEC 재시도 · 구매 완료 즉시 소유 · ID 0 조회 안 함 · 가짜 소유 Studio 전용(밖이면 무시 + ERROR) · 커밋된 TEST_GAMEPASSES = nil(#16) |
+| `Systems/GamepassServiceTests.server.lua` | 29 | 게임패스 소유 S1 — 조회 성공 · 실패 · RETRY_SEC 재시도 · 구매 완료 즉시 소유 · ID 0 조회 안 함 · 가짜 소유 Studio 전용(밖이면 무시 + ERROR) · 커밋된 TEST_GAMEPASSES = nil(#16) · G-OWN Studio 실제 소유 무시 · 실서버 그대로 · 구매 완료 반영 · 가짜 소유만(#17) |
 | `Systems/PolicyGateTests.server.lua` | 7 | 유료 랜덤 아이템 제한 S13 — 확인 전 · 판정 실패 · 필드 없음은 제한 · false만 허용 · 퇴장(#16) |
 | `Systems/ProductServiceTests.server.lua` | 21 | 영수증 S2 · S3 — 같은 PurchaseId 두 번 지급 1회 · 프로필 미로드 · 저장 실패 NotProcessedYet · 지급 함수 없음 ERROR · 기록 상한 100 · ProfileStore Mock 실물 저장 확인(#16) |
 | `Systems/PurchaseRequestServiceTests.server.lua` | 28 | 구매 요청 채널 — payload · 빈도 · 판정 순서(invalid_key · already_owned · restricted · not_registered · not_available) · 프롬프트 · 닫힘 결과 · 실물 게이트웨이 ID 0(#16) · 상위 보유 거부 ladder_owned_higher · auto_owned_higher(#17) |
@@ -105,7 +105,7 @@
 | `Tests/RobuxShopTests.client.lua` | 67 | 로벅스 상점 UI — 탭 전환 · 표시 값(ShopConfig) · 보유 / 준비 중 / 구매 가능 · 계단 지금 단계 · 행운 줄 확률 숫자 · 제한 숨김 · 요청 한 번만 · HUD 구좌 · 자동 클리커 잠김 · 부스트 표시 · 뽑기 창 행운 · 환생 창 2배 · 공허 표시 · 폰 705×338 틀(11px · 넘침 0)(#16) · R2 보유(상위) · HUD 계단 구좌 다음 단계 · 사유 문구 2(#17) |
 | `Tests/LocaleTests.server.lua` | 39 | 다국어 표 · 고르기(#L1) — 모든 키에 en · 자리 표시 집합 = en · 없는 키 "?" + WARN · ko 없으면 en · 치환 · 언어 고르기(K2) · TEST_LOCALE 관문(Studio 전용) · Config id → 이름 키(K6) · 커밋된 TEST_LOCALE = nil · K11 신호 기다리기(바로 · 늦게 · 상한) · 서버가 LocaleReady를 세운다(#L2) |
 | `Tests/LocaleClientTests.client.lua` | 26 | K10 우리 GUI 루트 전수 AutoLocalize = false(예외: Freecam · 플레이스 StarterGui 복사본) · K11 지금 언어 = TEST_LOCALE 또는 계정 언어 · 첫 언어는 서버 신호 뒤 · 신호 전 기억 없는 호출 0 · 토스트 setLimit · 알림층 폰 705×338 틀(런 안내 3 · 오류 · 로딩 · 환생 안내 · 가장 긴 칭호 · 아우라 · 펫 토스트 · 결과 모달 — 넘침 0 · 11px · 그 Play의 언어) · 토스트 폰 예외(2개 · 두 줄)(#L2) · 글자 전부 UiTheme.FONT · 힘 블록 환생 배수 라벨 폰 한 줄 · 값 · 힘 수치와 안 겹침(#17 F1 · F2) |
-| **합계** | **4046** | |
+| **합계** | **4052** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
