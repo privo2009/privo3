@@ -33,6 +33,9 @@ Locale.DEFAULT = "en"
 Locale.SUPPORTED = { "en", "ko" }
 Locale.MISSING_TEXT = "?"
 Locale.TEST_LOCALE_ATTRIBUTE = "TestLocale"
+-- K11(#L2): 서버 LocaleGate.init이 TEST_LOCALE을 정한 뒤 true로 세운다(TEST_LOCALE이 nil이어도). 클라는 Studio에서만 이것을 기다린다
+Locale.READY_ATTRIBUTE = "LocaleReady"
+Locale.READY_WAIT_SEC = 5 -- Studio 대기 상한(넘으면 WARN + 계정 언어)
 Locale.CLOUD_TRANSLATOR_ENABLED = false
 
 local supportedSet: { [string]: boolean } = {}
@@ -165,6 +168,33 @@ local function startCloudTranslator(player: any, localeId: any)
 	end)
 end
 
+-- ===== TEST_LOCALE 신호 기다리기 (K11, #L2) ===========================================================
+--
+-- 클라 스크립트가 서버 속성보다 먼저 첫 글자를 고르면, TEST_LOCALE을 켜도 첫 화면이 계정 언어로 뜬다(#L1 체크리스트 3 경고).
+-- Studio에서만 서버의 "언어를 정했다" 신호(READY_ATTRIBUTE)를 READY_WAIT_SEC까지 기다린다. 실서버에서는 기다리지 않는다
+-- (TEST_LOCALE이 Studio 전용이라 쓸 일이 없다). 넘으면 WARN 한 줄 + 계정 언어.
+-- 기다릴 수 없는 자리(yield 불가 — 정렬 비교 함수 등)에서 처음 불리면 기다리지 않고 지금 값으로 고르되 기억하지 않는다(다음 호출이 다시 고른다).
+export type WaitDeps = {
+	isReady: () -> boolean,
+	wait: (number) -> (),
+	now: () -> number,
+}
+
+-- 신호가 왔는가(시간 안에). 순수 — 테스트가 deps를 바꿔 끼운다.
+function Locale.waitForReady(deps: WaitDeps, timeoutSec: number): boolean
+	if deps.isReady() then
+		return true
+	end
+	local deadline = deps.now() + timeoutSec
+	while deps.now() < deadline do
+		deps.wait(0.05)
+		if deps.isReady() then
+			return true
+		end
+	end
+	return false
+end
+
 -- ===== 지금 언어 ==================================================================================
 
 local current: LocaleCode? = nil
@@ -186,11 +216,58 @@ local function resolveCurrent(): LocaleCode
 	return Locale.fromLocaleId(localeId)
 end
 
+local readySettled = false -- Studio 대기를 한 번 마쳤는가(왔든 시간이 넘었든)
+-- 관측(테스트 · 확인용): 처음 기억한 언어와 그때 신호가 있었는가 · 기다리기 전에 기억 없이 고른 호출 수
+local firstPick: { code: LocaleCode, ready: boolean }? = nil
+local earlyPicks = 0
+
+local function settleReady(): boolean
+	if readySettled then
+		return true
+	end
+	local RunService = game:GetService("RunService")
+	if not RunService:IsClient() or not RunService:IsStudio() then
+		readySettled = true
+		return true
+	end
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local function isReady(): boolean
+		return ReplicatedStorage:GetAttribute(Locale.READY_ATTRIBUTE) == true
+	end
+	if isReady() then
+		readySettled = true
+		return true
+	end
+	if not coroutine.isyieldable() then
+		return false -- 여기서는 기다릴 수 없다 — 이번 호출만 지금 값으로
+	end
+	local ok = Locale.waitForReady({ isReady = isReady, wait = task.wait, now = os.clock }, Locale.READY_WAIT_SEC)
+	readySettled = true
+	if not ok then
+		warnSink(string.format("[Locale] WARN 서버 언어 신호(%s)를 %d초 안에 못 받았다 — 계정 언어로 보인다", Locale.READY_ATTRIBUTE,
+			Locale.READY_WAIT_SEC))
+	end
+	return true
+end
+
 function Locale.current(): LocaleCode
 	if current == nil then
+		if not settleReady() then
+			earlyPicks += 1
+			return resolveCurrent()
+		end
 		current = resolveCurrent()
+		if firstPick == nil then
+			firstPick = { code = current :: LocaleCode,
+				ready = game:GetService("ReplicatedStorage"):GetAttribute(Locale.READY_ATTRIBUTE) == true }
+		end
 	end
 	return current :: LocaleCode
+end
+
+-- 관측 전용(K11 확인): (처음 기억한 언어 · 그때 서버 신호가 있었는가, 신호 전에 기억 없이 고른 호출 수)
+function Locale._firstPick(): ({ code: LocaleCode, ready: boolean }?, number)
+	return firstPick, earlyPicks
 end
 
 -- 테스트 전용. 지금 언어를 정한다(nil이면 다음 current()에서 다시 고른다).

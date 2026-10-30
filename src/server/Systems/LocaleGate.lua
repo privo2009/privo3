@@ -31,6 +31,8 @@ function LocaleGate.init(testLocale: any)
 		end
 	end
 	ReplicatedStorage:SetAttribute(Locale.TEST_LOCALE_ATTRIBUTE, chosen)
+	-- K11(#L2): 언어 신호를 정했다 — 클라는 Studio에서 이것을 기다린 뒤 첫 글자를 고른다(TEST_LOCALE이 nil이어도 세운다)
+	ReplicatedStorage:SetAttribute(Locale.READY_ATTRIBUTE, true)
 end
 
 function LocaleGate.isRegistered(): boolean

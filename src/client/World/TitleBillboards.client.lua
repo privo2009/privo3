@@ -34,6 +34,8 @@ local connections: { [Player]: { RBXScriptConnection } } = {}
 local function newTag(): Tag
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "TitleTag"
+	-- K10(#L2): 번역은 Strings(Locale.t)가 한다 — 로블록스 자동 번역이 우리 번역 위에 한 번 더 덮이지 않게 끈다
+	gui.AutoLocalize = false
 	gui.Size = UDim2.fromScale(SIZE.X, SIZE.Y)
 	gui.StudsOffset = Vector3.new(0, HEIGHT, 0)
 	gui.AlwaysOnTop = false

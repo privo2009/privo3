@@ -355,6 +355,7 @@ do
 	local TextMinimum = require(script.Parent.Parent.UI.TextMinimum)
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "RobuxShopPhoneFit"
+	gui.AutoLocalize = false -- K10(#L2): 우리 코드가 만드는 GUI 루트는 전부 끈다(LocaleTests 검사 대상)
 	gui.ResetOnSpawn = false
 	local phone = Instance.new("Frame")
 	phone.Name = "Phone"

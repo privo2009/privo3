@@ -211,6 +211,44 @@ do
 	check("상품 이름: 힘 배수 계단은 배수를 채운다", string.find(Locale.tFor("en", "shop.strengthTier.name", { mult = 8 }), "8", 1, true) ~= nil)
 end
 
+-- 7b. TEST_LOCALE 신호 기다리기 (K11, #L2) — 순수 waitForReady · 서버가 신호를 세운다 ----------------------------------
+do
+	local function fake(readyAt: number?)
+		local clock = 0
+		local waits = 0
+		return {
+			isReady = function()
+				return readyAt ~= nil and clock >= readyAt
+			end,
+			wait = function(dt: number)
+				waits += 1
+				clock += dt
+			end,
+			now = function()
+				return clock
+			end,
+		}, function()
+			return waits, clock
+		end
+	end
+	local d1, s1 = fake(0)
+	check("K11: 신호가 이미 있으면 기다리지 않는다", Locale.waitForReady(d1, 5) and select(1, s1()) == 0)
+	local d2, s2 = fake(1.2)
+	local ok2 = Locale.waitForReady(d2, 5)
+	local _w2, t2 = s2()
+	check("K11: 신호가 늦게 오면 온 순간까지 기다린다(1.2초)", ok2 and t2 >= 1.2 and t2 < 1.3, tostring(t2))
+	local d3, s3 = fake(nil)
+	local ok3 = Locale.waitForReady(d3, Locale.READY_WAIT_SEC)
+	local _w3, t3 = s3()
+	check("K11: 안 오면 상한(READY_WAIT_SEC)에서 멈추고 false", not ok3 and t3 >= Locale.READY_WAIT_SEC and t3 < Locale.READY_WAIT_SEC + 0.1, tostring(t3))
+	local deadline = os.clock() + 15
+	while not LocaleGate.isRegistered() and os.clock() < deadline do
+		task.wait(0.1)
+	end
+	check("K11: 서버가 언어 신호(LocaleReady)를 세운다 — TEST_LOCALE이 nil이어도",
+		game:GetService("ReplicatedStorage"):GetAttribute(Locale.READY_ATTRIBUTE) == true)
+end
+
 -- 8. 커밋된 TEST_LOCALE = nil (Bootstrap이 LocaleGate.init으로 넘긴 값) -----------------------------------
 do
 	local deadline = os.clock() + 15
