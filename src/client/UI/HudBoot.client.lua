@@ -19,6 +19,7 @@ local PowerBlock = require(script.Parent.Screens.Hud.PowerBlock)
 local ShopSlots = require(script.Parent.Screens.Hud.ShopSlots)
 local AutoTools = require(script.Parent.Screens.Hud.AutoTools)
 local BoostTimers = require(script.Parent.Screens.Hud.BoostTimers)
+local DailyIcon = require(script.Parent.Screens.Hud.DailyIcon)
 local Store = require(script.Parent.Store)
 local PlayerStateClient = require(script.Parent.Parent.Net.PlayerStateClient)
 local PurchaseClient = require(script.Parent.Parent.Net.PurchaseClient)
@@ -33,12 +34,16 @@ PlayerStateClient.start(Store)
 -- 실제로 차지한 영역(Layout.getBounds)에서 그대로 읽는다 — BloxDisplay의 크기가
 -- 나중에 바뀌어도 이 계산이 따라간다.
 local MENU_RAIL_TOP_GAP = 0.02 -- BloxDisplay와 메뉴 사이 여백. Panel.lua 여백(2%)과 같은 급의 시각 튜닝값
+local DAILY_ICON_TOP_GAP = 0.01 -- 블럭스 표시와 일일 보상 아이콘 사이(지시서 #20 D5 — 아이콘은 블럭스 바로 아래, 메뉴는 그 아래)
 
 local bloxDisplay = BloxDisplay.create()
 local _, _, _, bloxDisplayBottom = Layout.getBounds(bloxDisplay.root)
+-- 일일 보상 아이콘(지시서 #20 D5): 누르면 일일 보상 창(OverlayBoot가 Navigation으로 받아 차단층 큐에 넣는다)
+local dailyIcon = DailyIcon.create({ top = bloxDisplayBottom + DAILY_ICON_TOP_GAP, onPress = require(script.Parent.Navigation).openDaily })
+local _, _, _, dailyIconBottom = Layout.getBounds(dailyIcon.root)
 
 local challengeInfo = ChallengeInfo.create()
-local menuRail = MenuRail.create(bloxDisplayBottom + MENU_RAIL_TOP_GAP)
+local menuRail = MenuRail.create(dailyIconBottom + MENU_RAIL_TOP_GAP)
 -- PowerBlock은 하단 중앙에 스스로 자리를 잡는다(바닥을 하단 여백 위에 고정하고 위로
 -- 연다) — BloxDisplay/MenuRail처럼 다른 HUD 요소의 경계에서 위치를 유도할 필요가
 -- 없다(PowerBlock.lua 상단 참고).
@@ -94,6 +99,9 @@ end)
 ScreenController.register("BoostTimers", "Hud", function()
 	return boostTimers.root
 end)
+ScreenController.register("DailyIcon", "Hud", function()
+	return dailyIcon.root
+end)
 
 ScreenController.open("BloxDisplay")
 ScreenController.open("ChallengeInfo")
@@ -102,6 +110,7 @@ ScreenController.open("PowerBlock")
 ScreenController.open("ShopSlots")
 ScreenController.open("AutoTools")
 ScreenController.open("BoostTimers") -- 열어 두고, 활성 부스트가 있을 때만 root.Visible
+ScreenController.open("DailyIcon")
 
 -- 폰 대응 (Phase 6 지시서 #6) -------------------------------------------------------------
 -- 글자 높이 하한: 세 ScreenGui 전부(지금 있는 글자 + 나중에 열리는 창 · 오버레이 글자).

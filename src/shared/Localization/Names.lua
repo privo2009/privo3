@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Locale = require(script.Parent.Locale)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
+local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 
 local Names = {}
 
@@ -34,7 +35,11 @@ function Names.world(worldId: number): string -- 1 → world.name.1
 end
 
 -- 희귀도 단계(1 ~ 4) — 아우라 · 펫이 같은 낱말을 쓴다(K8 Common · Rare · Epic · Legendary).
+-- 펫 리미티드 묶음(PetConfig.LIMITED_RARITY — 지시서 #20 D4)은 "Limited / 리미티드"
 function Names.rarity(tier: number): string
+	if tier == PetConfig.LIMITED_RARITY then
+		return Locale.t("rarity.limited")
+	end
 	local key = Names.RARITY_KEYS[math.clamp(math.floor(tier), 1, #Names.RARITY_KEYS)]
 	return Locale.t("rarity." .. key)
 end

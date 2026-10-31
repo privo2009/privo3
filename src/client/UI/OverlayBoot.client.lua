@@ -8,6 +8,9 @@
 --   토스트     TitleResult가 새 칭호면 "새 칭호! 이름 (힘·블럭스 ×N)"(알림층, 최대 3개 · 큐, 지시서 #10)
 --   결과 모달  AuraResult가 새 아우라이거나 epic 이상이면 차단층 큐(한 번에 하나). 런 중이면 모달 대신 토스트(지시서 #11 A6)
 --              PetResult(부화)가 새 펫이거나 영웅 이상이면 같은 큐 · 같은 규칙(지시서 #12 E8)
+--   일일 보상  받을 게 있고 · 첫 접속 안내가 끝났고 · 런 중이 아니면 세션마다 그 일 번호에 한 번 차단층 큐 3번(지시서 #20 D5).
+--              HUD 일일 보상 아이콘(Navigation.openDaily)으로도 연다. 결과 모달과 같은 큐 — 한 번에 하나
+--   안내 띠    첫 접속 안내(런 표시층 — 비차단, 지시서 #20 O1). 끝나면(다 마침) 토스트 "안내 끝!"
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
@@ -132,19 +135,78 @@ ScreenController.register("ResultModal", "Overlay", function()
 	return resultModal.root
 end)
 ScreenController.open("ResultModal") -- 열어 두고, 보일지는 show / hide가 정한다
-local blockingQueue = BlockingQueueLogic.new() :: BlockingQueueLogic.Queue<ResultModal.View>
+
+-- 일일 보상 창(지시서 #20 D5) — 같은 차단층 큐를 쓴다. 큐 칸은 { kind = "result", view } 또는 { kind = "daily" }
+local DailyRewardWindow = require(script.Parent.Screens.Overlay.DailyRewardWindow)
+local DailyRewardWindowLogic = require(script.Parent.Logic.DailyRewardWindowLogic)
+local Store = require(script.Parent.Store)
+local dailyWindow = DailyRewardWindow.create({
+	sendClaim = function()
+		local payload: Remotes.DailyRequestPayload = { action = "claim" }
+		channels.dailyRequest:FireServer(payload)
+	end,
+})
+ScreenController.register("DailyRewardWindow", "Overlay", function()
+	return dailyWindow.root
+end)
+ScreenController.open("DailyRewardWindow") -- 열어 두고, 보일지는 show / hide가 정한다
+channels.dailyResult.OnClientEvent:Connect(function(payload: Remotes.DailyResultPayload)
+	dailyWindow.onResult(payload)
+end)
+
+type QueueItem = { kind: string, view: ResultModal.View? }
+local blockingQueue = BlockingQueueLogic.new() :: BlockingQueueLogic.Queue<QueueItem>
+local dailyQueued = false
 
 local function renderQueue()
-	local v = blockingQueue.current()
-	if v ~= nil then
-		resultModal.show(v)
+	local item = blockingQueue.current()
+	if item ~= nil and item.kind == "result" and item.view ~= nil then
+		dailyWindow.hide()
+		resultModal.show(item.view)
+	elseif item ~= nil and item.kind == "daily" then
+		resultModal.hide()
+		dailyWindow.show()
 	else
 		resultModal.hide()
+		dailyWindow.hide()
 	end
 end
-resultModal.onConfirm(function()
+local function dismissQueue()
+	local item = blockingQueue.current()
+	if item ~= nil and item.kind == "daily" then
+		dailyQueued = false
+	end
 	blockingQueue.dismiss()
 	renderQueue()
+end
+resultModal.onConfirm(dismissQueue)
+dailyWindow.onClose(dismissQueue)
+
+local function pushDaily()
+	if dailyQueued then
+		return
+	end
+	dailyQueued = true
+	if blockingQueue.push(BlockingQueueLogic.PRIORITY.dailyReward, { kind = "daily" }) then
+		renderQueue()
+	end
+end
+require(script.Parent.Navigation).onOpenDaily(pushDaily)
+
+-- 자동 등장(D5): 세션마다 그 일 번호에 한 번. 안내가 끝나고 · 런이 끝나면 다시 판정한다
+local shownDay: number? = nil
+local function maybeAutoShowDaily()
+	local daily = Store.get("daily")
+	if DailyRewardWindowLogic.shouldAutoShow(daily, Store.get("onboarding"), runActive, shownDay) then
+		shownDay = DailyRewardWindowLogic.read(daily).today
+		print(string.format("[OverlayBoot] 일일 보상 자동 등장 — 오늘 UTC 일 %d · 칸 %d", shownDay :: number, DailyRewardWindowLogic.read(daily).day))
+		pushDaily()
+	end
+end
+Store.subscribe("daily", maybeAutoShowDaily)
+Store.subscribe("onboarding", maybeAutoShowDaily)
+channels.runStateChanged.OnClientEvent:Connect(function()
+	task.defer(maybeAutoShowDaily) -- runActive가 위 연결에서 먼저 바뀐 뒤
 end)
 
 channels.auraResult.OnClientEvent:Connect(function(payload: Remotes.AuraResultPayload)
@@ -159,7 +221,7 @@ channels.auraResult.OnClientEvent:Connect(function(payload: Remotes.AuraResultPa
 		return
 	end
 	local view = AuraWindowLogic.resultView(payload)
-	if view ~= nil and blockingQueue.push(BlockingQueueLogic.PRIORITY.rollResult, view) then
+	if view ~= nil and blockingQueue.push(BlockingQueueLogic.PRIORITY.rollResult, { kind = "result", view = view }) then
 		renderQueue()
 	end
 end)
@@ -176,8 +238,28 @@ channels.petResult.OnClientEvent:Connect(function(payload: Remotes.PetResultPayl
 		return
 	end
 	local view = PetWindowLogic.resultView(payload)
-	if view ~= nil and blockingQueue.push(BlockingQueueLogic.PRIORITY.rollResult, view) then
+	if view ~= nil and blockingQueue.push(BlockingQueueLogic.PRIORITY.rollResult, { kind = "result", view = view }) then
 		renderQueue()
+	end
+end)
+
+-- ===== 첫 접속 안내 띠 (지시서 #20 O1 ~ O3) ======================================================
+local OnboardingBand = require(script.Parent.Screens.Overlay.OnboardingBand)
+local OnboardingLogic = require(script.Parent.Logic.OnboardingLogic)
+local onboardingBand = OnboardingBand.create({
+	send = function(action: string)
+		local payload: Remotes.OnboardingRequestPayload = { action = action }
+		channels.onboardingRequest:FireServer(payload)
+	end,
+})
+ScreenController.register("OnboardingBand", "Overlay", function()
+	return onboardingBand.root
+end)
+ScreenController.open("OnboardingBand") -- 열어 두고, 보일지는 안내 상태(PlayerState onboarding)가 정한다
+channels.onboardingResult.OnClientEvent:Connect(function(payload: Remotes.OnboardingResultPayload)
+	onboardingBand.onResult(payload)
+	if type(payload) == "table" and payload.ok and payload.action == "finish" then
+		toastStack.push({ text = OnboardingLogic.doneText(), tier = 1 })
 	end
 end)
 

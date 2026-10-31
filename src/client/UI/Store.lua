@@ -58,6 +58,10 @@ export type State = {
 	shop: ShopSummary, -- 상점 요약 (지시서 #16). 서버 세션 값 — 보유 게임패스 · 행운 상품 제한 · 활성 부스트 · 자동 클리커
 	-- 자동 진행 요약 (지시서 #18). 서버 세션 값 — 켜짐 · 목표층 · 안전층 · 반복 횟수 · 목표층 상한
 	autoAdvance: { active: boolean, target: number, safeFloor: number, runs: number, maxTarget: number },
+	-- 일일 보상 요약 (지시서 #20 D5). 서버 os.time 기준. receivedAt = 클라가 받은 os.clock(남은 초를 그 뒤로 센다 — PlayerStateClient가 채운다)
+	daily: { canClaim: boolean, claimedToday: boolean, day: number, streak: number, secondsToReset: number, today: number, receivedAt: number },
+	-- 첫 접속 안내 요약 (지시서 #20 O4). 프로필 그대로
+	onboarding: { step: number, done: boolean },
 }
 
 -- boosts[i].receivedAt = 클라가 그 값을 받은 os.clock(남은 시간을 받은 뒤로 센다 — PlayerStateClient가 채운다)
@@ -90,6 +94,8 @@ export type Key =
 	| "pets"
 	| "shop"
 	| "autoAdvance"
+	| "daily"
+	| "onboarding"
 
 export type Setter = (Key, any) -> ()
 export type Source = (Setter) -> ()
@@ -127,6 +133,9 @@ local DUMMY_STATE: State = {
 	shop = { gamepasses = {}, paidRandomRestricted = true, boosts = {}, autoClick = false,
 		potions = { strength = 0, damage = 0, luck = 0 }, rollCredits = { lucky = 0, super = 0 }, gymUnlocks = {} },
 	autoAdvance = { active = false, target = 0, safeFloor = 0, runs = 0, maxTarget = 25 }, -- 첫 PlayerState 전(지시서 #18)
+	-- 첫 PlayerState 전(지시서 #20): 받을 것 없음 · 안내 끝남 — 서버 값이 오기 전에는 자동 등장도 안내 띠도 없다
+	daily = { canClaim = false, claimedToday = false, day = 1, streak = 0, secondsToReset = 0, today = 0, receivedAt = 0 },
+	onboarding = { step = 1, done = true },
 }
 
 local BIG_NUM_KEYS: { [Key]: boolean } = {
@@ -141,6 +150,8 @@ local BIG_NUM_KEYS: { [Key]: boolean } = {
 local TABLE_KEYS: { [Key]: boolean } = {
 	upgrades = true,
 	autoAdvance = true, -- 숫자 · boolean만 든 얕은 표(지시서 #18)
+	daily = true, -- 숫자 · boolean만 든 얕은 표(지시서 #20)
+	onboarding = true, -- 숫자 · boolean만 든 얕은 표(지시서 #20)
 }
 
 -- 칭호 요약은 owned 배열까지 깊게 뜬다(얕은 복사면 get으로 받은 배열을 고쳐 내부 상태가 바뀐다).

@@ -189,10 +189,38 @@ local settingsWindow = SettingsWindow.create({
 	onClose = function()
 		ScreenController.close("Settings")
 	end,
+	-- 코드 입력 창(지시서 #20 C6). Window 단일 오픈 — 설정 창이 닫히고 코드 창이 열린다
+	openCode = function()
+		ScreenController.open("Code")
+	end,
 })
 
 ScreenController.register("Settings", "Window", function()
 	return settingsWindow.root
+end)
+
+-- ===== 코드 입력 창 (지시서 #20 C4 · C6) ==========================================================
+-- 요청은 CodeRequest{code}(서버가 정리 · 판정), 결과는 CodeResult(입력 글자를 싣지 않는다). 창은 입력칸을 보낼 때 바로 비운다.
+local CodeWindow = require(script.Parent.Screens.Window.CodeWindow)
+local codeWindow = CodeWindow.create({
+	send = function(code: string)
+		local payload: Remotes.CodeRequestPayload = { code = code }
+		channels.codeRequest:FireServer(payload)
+	end,
+	onClose = function()
+		ScreenController.close("Code")
+	end,
+})
+ScreenController.register("Code", "Window", function()
+	return codeWindow.root
+end)
+codeWindow.root:GetPropertyChangedSignal("Visible"):Connect(function()
+	if not codeWindow.root.Visible then
+		codeWindow.reset() -- 다른 창으로 바뀌어 닫혀도 남은 결과 · 글자를 지운다
+	end
+end)
+channels.codeResult.OnClientEvent:Connect(function(payload: Remotes.CodeResultPayload)
+	codeWindow.onResult(payload)
 end)
 
 channels.settingsResult.OnClientEvent:Connect(function(payload: Remotes.SettingsResultPayload)

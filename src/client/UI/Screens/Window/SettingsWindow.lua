@@ -4,6 +4,7 @@
 -- 항목 둘: "다른 사람 아우라 숨기기"(#11 A8) · "다른 사람 펫 숨기기"(#12 E10). 줄은 ROWS 표에서 나온다.
 -- 토글은 자동 도구 · 칭호 창과 같은 두 채널: 테두리 색(켜짐 = 수령 · 안전 노랑 / 꺼짐 = 검정 — 버튼 그림의 UIStroke) + 글자 밝기.
 -- 요청은 SettingsRequest{key, value}(서버 화이트리스트가 다시 판정), 결과는 SettingsResult. 저장된 값은 PlayerState(Store "auras" · "pets")가 돌려준다.
+-- 셋째 줄: "코드 입력" 버튼(지시서 #20 C6) — 코드 입력 창을 연다(Window 단일 오픈이라 이 창은 닫힌다).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -63,6 +64,7 @@ export type Deps = {
 	store: any?,
 	sendRequest: (payload: { key: string, value: any }) -> (),
 	onClose: () -> (),
+	openCode: (() -> ())?,
 	now: (() -> number)?,
 }
 
@@ -72,7 +74,7 @@ export type Handle = {
 	root: Frame,
 	refresh: () -> (),
 	onResult: (any) -> (),
-	_debug: { press: (index: number) -> (), rows: { RowParts }, status: TextLabel },
+	_debug: { press: (index: number) -> (), rows: { RowParts }, status: TextLabel, codeHit: TextButton, codeLabel: TextLabel },
 }
 
 function SettingsWindow.create(deps: Deps): Handle
@@ -103,6 +105,14 @@ function SettingsWindow.create(deps: Deps): Handle
 		table.insert(raise, button.root)
 		rows[i] = { label = label, button = button, buttonLabel = buttonLabel, hit = hit, strokes = strokes }
 	end
+	-- 코드 입력 버튼(지시서 #20 C6): 토글 줄 아래 한 줄
+	local codeButton = Button.create({ size = "Small", color = "gray", widthScale = 0.5, heightScale = ROW_H })
+	codeButton.root.Name = "CodeButton"
+	codeButton.root.Position = UDim2.fromScale(0, #ROWS * (ROW_H + ROW_GAP) + ROW_GAP)
+	codeButton.root.ZIndex = WindowParts.Z_BUTTON
+	codeButton.root.Parent = body
+	local codeLabel, codeHit = WindowParts.decorateButton(codeButton, Locale.t("settings.codeButton"))
+	table.insert(raise, codeButton.root)
 	local status = WindowParts.makeText("Status", body, "small", 0, 0.85, 1, 0.15, Enum.TextXAlignment.Center)
 	local closeHit = WindowParts.hitArea(panel.closeButton.root)
 	WindowParts.raiseButtons(raise)
@@ -155,11 +165,16 @@ function SettingsWindow.create(deps: Deps): Handle
 		render()
 		deps.onClose()
 	end)
+	codeHit.Activated:Connect(function()
+		if deps.openCode ~= nil then
+			deps.openCode()
+		end
+	end)
 	source.subscribe("auras", render)
 	source.subscribe("pets", render)
 	render()
 
-	return { root = panel.root, refresh = render, onResult = onResult, _debug = { press = press, rows = rows, status = status } }
+	return { root = panel.root, refresh = render, onResult = onResult, _debug = { press = press, rows = rows, status = status, codeHit = codeHit, codeLabel = codeLabel } }
 end
 
 return SettingsWindow

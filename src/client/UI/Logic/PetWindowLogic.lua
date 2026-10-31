@@ -37,7 +37,7 @@ PetWindowLogic.EMPTY_SLOT_TEXT = Locale.t("pet.emptySlot")
 PetWindowLogic.NO_SELECTION_TEXT = Locale.t("pet.noSelection")
 
 -- 종 희귀도(1 일반 ~ 4 전설) → UiTheme.Rarity 단계. 아우라와 같은 매핑(docs/UI.md "지시서 #12") — tier6은 칭호 신화 전용.
-PetWindowLogic.RARITY_TIER = { 1, 3, 4, 5 }
+PetWindowLogic.RARITY_TIER = { 1, 3, 4, 5, 6 } -- 5 = 리미티드(PetConfig.LIMITED_RARITY — 지시서 #20 D4, tier6 진분홍)
 
 PetWindowLogic.REASONS = {
 	insufficient_blox = Locale.t("common.reason.insufficient_blox"),

@@ -28,7 +28,8 @@ local function petOf(p: PetConfig.OwnedPet): Pet?
 		petId = p.petId,
 		level = p.tier,
 		rarityTier = PetWindowLogic.rarityTier(rarity),
-		size = d.SIZE_BY_LEVEL[p.tier],
+		-- 리미티드는 같은 단계보다 크다(지시서 #20 D4 — 색 tier6과 함께 두 채널)
+		size = d.SIZE_BY_LEVEL[p.tier] * (if PetConfig.isLimited(p.petId) then d.LIMITED_SIZE_SCALE else 1),
 		shell = shell,
 		parts = if shell then 2 else 1,
 	}

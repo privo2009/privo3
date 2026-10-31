@@ -177,6 +177,22 @@ function PlayerStateClient.apply(setter: (string, any) -> (), payload: any, now:
 		runs = if type(a.runs) == "number" then a.runs else 0,
 		maxTarget = if type(a.maxTarget) == "number" then a.maxTarget else 25,
 	})
+	-- 일일 보상 · 첫 접속 안내(지시서 #20). 옛 서버 payload에 없으면 받을 것 없음 · 안내 끝남(띄우지 않는다)
+	local function num(v: any, fallback: number): number
+		return if type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge then v else fallback
+	end
+	local d = if type(payload.daily) == "table" then payload.daily else {}
+	setter("daily", {
+		canClaim = d.canClaim == true,
+		claimedToday = d.claimedToday == true,
+		day = num(d.day, 1),
+		streak = num(d.streak, 0),
+		secondsToReset = num(d.secondsToReset, 0),
+		today = num(d.today, 0),
+		receivedAt = receivedAt,
+	})
+	local o = if type(payload.onboarding) == "table" then payload.onboarding else {}
+	setter("onboarding", { step = num(o.step, 1), done = if type(o.done) == "boolean" then o.done else true })
 	return true
 end
 
