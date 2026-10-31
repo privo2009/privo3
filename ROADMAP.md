@@ -50,10 +50,10 @@
 | `Tests/ChallengeInfoTests.client.lua` | 17 | 상단 정보 15% 안·타이머 특대 단계·active=false 레이아웃 유지 |
 | `Tests/MenuRailTests.client.lua` | 59 | 6개 생성·좌측 레일 폭·세로 합계·BloxDisplay 비침범·AspectRatio·라벨 2~4자·격자 열 수 구성값 ※ |
 | `Tests/HudVisibilityTests.client.lua` | 31 | PlayerGui 부착·Visible·Enabled·AbsoluteSize·10프레임 지속 관찰 ※ |
-| `Tests/HudLayoutTests.client.lua` | 463 | 뷰포트 게이트 뒤 실물 HudGui — 크기 0·인셋/뷰포트 경계 침범·형제 겹침·MenuRail 격자 배치(AbsolutePosition)·칸 안 자식·컴포넌트 간 겹침·글자 하한·터치 조작부 겹침·구좌 가격이 칸 안 · 표기 통일 ※ · 부스트 남은 시간 · 구좌 HitArea(#16) |
+| `Tests/HudLayoutTests.client.lua` | 469 | 뷰포트 게이트 뒤 실물 HudGui — 크기 0·인셋/뷰포트 경계 침범·형제 겹침·MenuRail 격자 배치(AbsolutePosition)·칸 안 자식·컴포넌트 간 겹침·글자 하한·터치 조작부 겹침·구좌 가격이 칸 안 · 표기 통일 ※ · 부스트 남은 시간 · 구좌 HitArea(#16) · 자동 진행 상태 줄 · HitArea(#18 — 검사 대상 늘어 +6) |
 | `Tests/PowerBlockTests.client.lua` | 50 | 세 행 Y 범위·하단 띠·8자/4자 규격·진행률 경계·Store 구독 반영·다른 인스턴스 미유출 · 레벨 바 L1(2^k → 레벨 k · 그 레벨 안 위치 · LevelConfig 그대로 — #13) |
 | `Tests/ShopSlotsTests.client.lua` | 36 | 상점 4구좌 배치·ShopConfig 원본 참조·가격 표기 2꼴 |
-| `Tests/AutoToolsTests.client.lua` | 29 | 자동 도구 아이콘 배치 · 미보유 잠김 · 꺼짐 비교는 보유 Store(#16) |
+| `Tests/AutoToolsTests.client.lua` | 29 | 자동 도구 아이콘 배치 · 미보유 잠김 · 꺼짐 비교는 보유 Store(#16) · 자동 진행 HitArea 있음(#18 AA11 — 옛 "없음" 검사를 바꿨다) |
 | `Systems/ArenaServiceTests.server.lua` | 130 | 스폰 좌표·경계 높이·스테이지 수에 따른 경계 확장·출입구 개방·어깨 벽·바닥 파생과 파트 상한 분할(층 수 흔들기)·전 층 바닥 위 |
 | `Systems/CashoutPadServiceTests.server.lua` | 47 | 발판 좌표·측면 오프셋·디바운스·런당 1회·플레이어별 격리·source 경로·층 불일치 무시·UiTheme 색 |
 | `Tests/SuccessRateReportTests.server.lua` | 151 | 확률 시뮬레이터 식 — 펀치 간격·속도 미곱·반경 밖 지연·런 중 클릭·걷기 시간·진행 규칙 2종·모델 범위·seed 결정성·워프 비교(판단·워프 런)·문턱 구간 비교(구간 수·순서·합산·seed 재현)·운동기구 훈련·공허 구매자·업그레이드 S5(가장 싼 것부터 · 예산 = getLeftover · 최대 레벨 건너뜀)·TEMP 후보 교체 되돌림 · 칭호 S7(자동 롤 기준 · 지출 · 장착 · 배수 한 번씩 · 후보 권한) · S5' 1차 4종 · 아우라 A4(20% · 가장 높은 팩 · 장착 · m 클릭 · 1펀치 한 번씩 · 후보 G4) · 펫 E11(15% · 슬롯 먼저 · 가장 높은 알 · 크래프팅 연쇄 · 실효 증가분 순 장착 · 가득 차면 약한 것 놓아주기 · 클릭 힘 한 번 · 데미지 없음 · 후보 되돌림) · S5' 3종(L3) · 걷기 L1 · L2 · 배수 세 자리 공개 함수 · rebirth 공개 · 관측 고리가 결과를 안 바꿈 · StandardPathReport cliffRatio · boundaries · TARGETS · metrics(#13) |
@@ -108,9 +108,10 @@
 | `Systems/AutoClickServiceTests.server.lua` | 20 | 자동 클리커 S8 — 초당 15 · 30 · 소수 이월 · 수동 무시 · 수동 상한 10 불변 · 미보유 not_owned · 보유가 사라지면 끔 · 세션 토글(#16) |
 | `Tests/RobuxShopTests.client.lua` | 82 | 로벅스 상점 UI — 탭 전환 · 표시 값(ShopConfig) · 보유 / 준비 중 / 구매 가능 · 계단 지금 단계 · 행운 줄 확률 숫자 · 제한 숨김 · 요청 한 번만 · HUD 구좌 · 자동 클리커 잠김 · 부스트 표시 · 뽑기 창 행운 · 환생 창 2배 · 공허 표시 · 폰 705×338 틀(11px · 넘침 0)(#16) · R2 보유(상위) · HUD 계단 구좌 다음 단계 · 사유 문구 2(#17) · 포션 묶음(줄 · 켜기 한 번 · 제한 숨김) · openPotions · 창별 상품 줄 · 부스트 표시 누르기(#17) |
 | `Tests/WindowProductTests.client.lua` | 30 | 창별 상품 버튼 — 아우라 로벅스 탭 · 롤 사용 · 펫 로벅스 탭 · ×3 부화 · 칭호 10배 행운 버튼 · 운동기구 프롬프트 · 선해금 표시 · 폰 705×338 넘침 0 · 11px(#17) |
+| `Tests/AutoAdvanceWindowTests.client.lua` | 28 | 자동 진행 UI — 창 값 = 서버 요약 · 목표층 범위 · 기본 = 안전층 · 버튼 색 · 글자(안전층 경계) · 요청 한 번만 · 켜지면 닫힘 · HUD 세 상태 · 상태 줄 · 사유 · 워프 · 환생 auto_active 문구 · 17키 en · ko · 폰 705×338(#18) |
 | `Tests/LocaleTests.server.lua` | 39 | 다국어 표 · 고르기(#L1) — 모든 키에 en · 자리 표시 집합 = en · 없는 키 "?" + WARN · ko 없으면 en · 치환 · 언어 고르기(K2) · TEST_LOCALE 관문(Studio 전용) · Config id → 이름 키(K6) · 커밋된 TEST_LOCALE = nil · K11 신호 기다리기(바로 · 늦게 · 상한) · 서버가 LocaleReady를 세운다(#L2) |
 | `Tests/LocaleClientTests.client.lua` | 26 | K10 우리 GUI 루트 전수 AutoLocalize = false(예외: Freecam · 플레이스 StarterGui 복사본) · K11 지금 언어 = TEST_LOCALE 또는 계정 언어 · 첫 언어는 서버 신호 뒤 · 신호 전 기억 없는 호출 0 · 토스트 setLimit · 알림층 폰 705×338 틀(런 안내 3 · 오류 · 로딩 · 환생 안내 · 가장 긴 칭호 · 아우라 · 펫 토스트 · 결과 모달 — 넘침 0 · 11px · 그 Play의 언어) · 토스트 폰 예외(2개 · 두 줄)(#L2) · 글자 전부 UiTheme.FONT · 힘 블록 환생 배수 라벨 폰 한 줄 · 값 · 힘 수치와 안 겹침(#17 F1 · F2) |
-| **합계** | **4220** | |
+| **합계** | **4254** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는

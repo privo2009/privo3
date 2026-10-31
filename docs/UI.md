@@ -1200,3 +1200,15 @@ HUD 상태 줄       켜져 있을 때만 자동 도구 바로 위 한 줄: "자
 사유 문구         run_active · character_lost · auto_active(자동 진행 중 — 자동을 끄고 다시) · not_owned → Strings
 글자             새 문장 전부 Strings(en · ko) · Locale.t · 새 GUI AutoLocalize = false · 폰 틀(705×338) 넘침 0 · 11px(K12)
 ```
+
+실측 · 정한 값 (2026-10-31, #18 단계 4 — 코드 원본은 괄호 안 파일)
+```
+설정 창(본문 기준)  안전층 y 0 · 높이 0.14(중) · 안내 y 0.16 · 0.25 · 높이 0.08(소) · "목표층" y 0.35 · 0.08
+                   [-] x 0.18 · 숫자 x 0.35 폭 0.3(중) · [+] x 0.67 — 폭 0.15 · y 0.45 · 높이 0.15
+                   시작 x 0.15 · y 0.65 · 폭 0.7 · 높이 0.17 — 노랑 · 보라 두 벌을 겹쳐 하나만 보인다 · 상태 줄 y 0.85 · 0.13
+                   (Screens/Window/AutoAdvanceWindow)
+HUD 상태 줄        자동 도구 root 안 · 바닥이 도구 윗변(0.005 위) · 폭 = 도구 폭 · 소(2.5%) · 오른쪽 정렬 · 흰 글자 + 검은 테두리
+                   폰: 줄 높이 하한 + 1px, 한 줄 폭이 모자라면 두 줄(글자 감싸기) — 영어 "Auto · Floor 25 · 999 runs" 99px 칸
+                   TouchSafeLayout이 도구를 올리면 같이 올라간다 (Screens/Hud/AutoTools)
+폰 틀 실측          en · ko 설정 창 최소 14.7px · 상태 줄 99×24(두 줄) — 넘침 0 (AutoAdvanceWindowTests)
+```
