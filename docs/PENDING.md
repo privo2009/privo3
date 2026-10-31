@@ -9,7 +9,7 @@
 `docs/UI_HANDOFF.md`와 합치지 않는다. 그것은 인계 절차와 검증 관문 문서이고
 이것은 대기 큐다. 성격이 다르다.
 
-문서 갱신: 2026-10-25
+문서 갱신: 2026-10-31
 
 ---
 
@@ -216,6 +216,130 @@ ModuleScript **67개 중 아무도 require하지 않는 고아는
 ---
 
 ## 미결
+
+### Phase 6 남은 화면 착수 전 결정 (2026-10-31 지시서 #19 조사 — 읽기만) · 불일치 · 결정 항목
+
+조사 범위: `docs/UI.md`(화면 목록 · 메뉴 진입 · 레이어 · 차단층 큐 · 제작 우선순위 · UI Phase) · `DESIGN.md` 1 · 9 · 10장 · `ROADMAP.md` Phase 6 ·
+`Schema` · `Migrations` · `ProfileManager` · `CurrencyService` · `ProductGrants` · `BoostService` · `*RequestService` · `Remotes` · `BlockingQueueLogic` ·
+`OverlayBoot` · `ErrorNotice` · `MenuRail` · `AssetRegistry` · `AutoAdvanceLogic` · `AutoAdvanceService` · `AttackService` · `ChallengeService` · `ArenaConfig` ·
+`UpgradeConfig` · `AttackConfig` · 로블록스 공식 문서(github.com/Roblox/creator-docs `c8f5276` 2026-10-29 — create.roblox.com은 이 세션에서 막혔다).
+**추천은 적지 않는다.** 코드 변경 없음 · Play 미실행.
+
+**화면 현황 (UI.md 화면 목록 31 기준 — 있음 26 · 없음 5)**
+```
+HUD 7        전부 있음  BloxDisplay · ChallengeInfo · PowerBlock · MenuRail · ShopSlots · AutoTools(자동 클리커 · 자동 진행 → 설정 창)
+3D 5         전부 있음  WorldLabels(수령 발판 · 진행 벽 · 패드 · 입장 게이트) · TitleBillboards(머리 위 칭호)
+작은 창 8    있음 6     상점(UpgradeShopWindow) · 환생 · 설정 · 타이틀 · 월드 · 워프 · 자동 진행 설정(AutoAdvanceWindow #18)
+             없음 2     코드 입력 · 출석 보상
+큰 창 2      전부 있음  아우라 · 펫 인벤토리(+ 크래프팅)
+자동 등장 9  있음 6     로딩 · 클리어 선택 · 실패(RunNotice) · 뽑기 결과(ResultModal) · 토스트 · 오류(ErrorNotice — 로딩 시간 초과 한 문장만 = 부분)
+             없음 3     첫 접속 안내 · 일일 보상 · 게이트 안내(오버레이 — 3D 게이트 라벨만 있다)
+목록 밖 코드 화면   HUD 부스트 남은 시간(#16) · 자동 진행 상태 줄(#18) · 3D 운동기구 표시(#8) · 운동기구 구매 프롬프트(GymPrompts #17) ·
+                    클릭 팝업(#8) · 환생 안내(RebirthNotice #8)
+```
+**자세히 본 것**
+- 출석 보상(작은 창) · 일일 보상(자동 등장, 차단층 큐 3 — `BlockingQueueLogic.dailyReward = 3`): 둘 다 코드 없음. DESIGN에 출석 · 일일 보상 정의 없음 —
+  같은 것인지 다른 것인지 어디에도 서술이 없다. 스키마 `daily { streak · lastClaimDay(주석 "UTC 일 단위 정수") · freePotionDay }`는 템플릿에만 있다
+- 매일 무료 포션: DESIGN 9장 "무료 요소 — 매일 무료 포션 1개 (랜덤) — 출시 후 · 일일 보상과 함께(스키마 daily 있음)" · #15 G10 "출시 후".
+  포션 보관함(#17 — `potions` 필드 · 상점 로벅스 탭 "포션 묶음" · `PotionRequestService` 켜기)과 잇는 서술은 없다(보관함으로 가는가 · 바로 켜지는가)
+- 코드 입력: 코드 없음 · DESIGN 없음(코드 목록 · 한 번만 받기 · 보상 종류 · 만료 모두 정의 없음). 프로젝트에 `TextBox`가 아직 하나도 없다
+- 첫 접속 안내: 코드 없음 · DESIGN 없음. `ProfileManager`의 `isNewProfile`(firstJoin == 0)은 서버 로그에만 쓰이고 클라로 가지 않는다
+  (PlayerState 요약에 없음). 알려 줄 내용(게이트 · 발판 · 벽 · 패드 · 운동기구 · 환생) 정의 없음. UI.md 제작 우선순위 3순위
+- 진입점: 메뉴 레일은 6칸 고정(UI.md "메뉴 진입은 6개다" — 다른 화면 안 진입은 타이틀 · 월드만 적혀 있다). `icon_code` · `icon_attend`는
+  `AssetRegistry` · `UI_ASSET_SPEC`에 있고 쓰는 곳은 0
+- 계획 없는 것: 리더보드(제작 우선순위 3순위에만 · 화면 목록 31에 없음) · 크래프팅 연출(3순위에만 — 지금 크래프팅 결과는 펫 창 상태 문구뿐,
+  `PetWindowLogic.shouldModal`은 부화만) · "인벤토리"(UI Phase U7 — 펫 인벤토리 큰 창 · 포션 묶음(#17)으로 이미 채워졌는지 서술 없음)
+
+**데이터 · 서버**
+- `daily` 필드: 템플릿(v7)에 있음 · `Schema.validate`가 검사하지 않음(boosts · potions 등은 검사한다) · 읽고 쓰는 코드 0 · Migrations에서도 안 다룬다
+- 하루 경계: Schema · DESIGN 10장 주석 "UTC 일 단위 정수" 한 곳뿐 · 일 번호 계산 함수 없음(서버 `os.time` — 절대 규칙 3)
+- 보상 지급 경로: 블럭스 `CurrencyService.add(player, currency, amount, reason)` · 포션 보관 `ProductGrants.apply(data, def)`(상품 def를 받는 순수 함수 —
+  내부 `addCount`는 local) · 바로 켜기 `BoostService.add(player, boostType)` · 화면 반영 `PlayerStateService.notify`
+- 요청 채널 패턴: `*RequestService`(채널 하나 · 플레이어당 `MIN_INTERVAL_SEC` 0.2 ~ 0.5 · 사유 코드 `rate_limited` 등 · `Remotes` 결과 payload) ·
+  화이트리스트 꼴은 `SettingsRequestService.ALLOWED`. 서버에 문자열 정규화(대소문자 · 공백) 코드 없음
+- 코드 한 번만 받기: 기록할 프로필 필드 없음 → 프로필에 남기려면 새 필드(스키마 v8 · Migrations · validate · LIMITS)가 필요하다.
+  ProfileStore `Reconcile`이 템플릿에 없는 필드를 채우지만, 이 프로젝트는 필드를 더할 때마다 schemaVersion을 올려 왔다(v3 ~ v7)
+
+불일치 (문서 ↔ 코드 · 문서 ↔ 문서)
+1. UI.md 자동 등장 "게이트 안내"(런 표시층) — 코드에 오버레이 게이트 안내가 없다. 3D 게이트 라벨(`WorldLabelLogic.gate`)만 있다
+2. 일일 보상 시점 — UI.md 화면 목록 · 차단층 큐 3번(Phase 6 화면) ↔ DESIGN 9장 · #15 G10 "매일 무료 포션 — 출시 후 · 일일 보상과 함께"
+3. 출석 보상(작은 창) · 일일 보상(자동 등장) 두 칸 — DESIGN에 둘 다 정의가 없고 관계 서술도 없다. 스키마 `streak`은 연속 출석처럼 보이나 정의 없음
+4. 코드 · 출석 진입점 — UI.md "메뉴 진입은 6개 · 나머지는 다른 화면 안에서"의 목록에 없다 · 아이콘 둘은 등록돼 있고 쓰는 곳 0
+5. 리더보드 — UI.md 제작 우선순위 3순위에 있고 화면 목록 31에 없다 · DESIGN 없음
+6. 크래프팅 연출 — 제작 우선순위 3순위에 있고 화면 목록에 따로 없다(뽑기 결과 연출에 드는지 서술 없음) · 코드는 상태 문구뿐
+7. 코드에 있는 화면 6종이 화면 목록 31에 없다(위 "목록 밖 코드 화면") — 캐릭터 표현처럼 화면이 아니라고 본 것인지 서술 없음
+8. UI.md "UI Phase" U7 상태 칸 — 설정(#11) · 펫 인벤토리(#12) · 자동 진행 설정(#18)이 끝났는데 갱신되지 않았다 ·
+   ROADMAP Phase 6 "다음: Phase 6 남은 화면 또는 Phase 8" 줄도 Phase 8 코드 완료(#18) 뒤 그대로
+9. 자동 등장 "오류" — 코드는 로딩 시간 초과 한 문장만 쓴다(다른 거부는 창 상태 문구 · 토스트). UI.md에 오류 칸의 범위 서술 없음
+10. 스키마 `daily` — 템플릿에만 있고 validate · 코드 0. 하루 경계 근거는 주석 한 줄
+11. 첫 접속 신호 — 서버 `isNewProfile`이 클라로 가지 않는다. 첫 세션에 안내를 닫지 않고 나가면 다시 볼 기록도 없다
+12. "일일 무료"라는 이름이 둘 — 무료 요소 "매일 무료 포션 1개 (랜덤)" ↔ 광고 "일일 무료 → 힘 포션 15분"(랜덤 아님 — 광고 보상 랜덤 금지)
+
+결정 — 게임 수치 (G)
+- G1 일일 보상(또는 출석) 보상 종류 · 양(블럭스 · 포션 · 롤 횟수 등) — DESIGN 없음
+- G2 연속 출석(streak) 단계 수 · 단계별 보상 · 끊기면 처음부터인가 — DESIGN 없음
+- G3 매일 무료 포션 — 종류(3종 중 랜덤 / 고정) · 개수 · 보관함으로 가는가 바로 켜지는가 — DESIGN 있음("1개 랜덤"만)
+- G4 코드 목록 — 코드 문자열 · 보상 · 만료일 — DESIGN 없음
+- G5 첫 접속 보상(시작 아이템 · 블럭스 — 공식 onboarding "starter items") 두는가 — DESIGN 없음
+- G6 자동 진행 안전층 여유 값(조사 4 — 값은 정하지 않았다) — DESIGN 있음(AA5 정의 · 여유 없음)
+
+결정 — 구조 (S)
+- S1 출석 보상 창과 일일 보상 자동 등장의 관계(같은 기능의 두 진입 / 다른 기능) — DESIGN 없음
+- S2 하루 경계 — UTC 0시(주석) / 다른 기준 · 일 번호 계산 함수 자리(서버 os.time) — DESIGN 없음(주석만)
+- S3 `daily` 필드 — 지금 형태로 충분한가 · validate 추가 · 스키마 v8 필요한가 — DESIGN 있음(10장 필드만)
+- S4 일일 보상 · 무료 포션 시점 — Phase 6(UI.md) / 출시 후(DESIGN 9장 · #15 G10) — DESIGN 있음(문서끼리 다름)
+- S5 코드 원본 자리(Config 파일 / 다른 곳) · 대소문자 · 공백 정규화 · 만료 판정(서버 os.time) — DESIGN 없음
+- S6 코드 한 번만 받기 기록 — 프로필 필드(받은 코드 목록 · 상한) · 스키마 v8 · Migrations · validate — DESIGN 없음
+- S7 코드 요청 채널 — Remotes 새 채널 · 빈도 상한(기존 MIN_INTERVAL 꼴) · 틀린 코드 연속 입력 제한 · 사유 코드(다국어 K5) — DESIGN 없음
+- S8 코드 입력 TextBox(프로젝트 첫 TextBox) — 입력 글자를 화면에 되보이는가 · 되보이면 필터링 대상인가(조사 3 — 확인 못 함) — DESIGN 없음
+- S9 첫 접속 안내 — 신호(서버 → 클라 필드) · 한 번만 보이기 기록(첫 세션 판정만 / 프로필 기록) · 내용(게이트 · 발판 · 벽 · 패드 · 기구 · 환생 중 무엇) ·
+  형식(모달 한 장 / 단계별 / 3D 표시) — DESIGN 없음
+- S10 코드 · 출석 진입점 — 레일 6칸 결정(UI.md) 유지 시 어느 화면 안에 두는가 / 레일 칸 추가 — DESIGN 없음(UI.md 6칸 결정 있음)
+- S11 보상 지급 경로 공용화 — CurrencyService.add · ProductGrants.apply(상품 def 전용) · BoostService.add 중 무엇을 열어 쓰는가 — DESIGN 없음
+- S12 게이트 안내(오버레이) — 만드는가 · 3D 게이트 라벨로 대신했다고 보고 목록에서 빼는가 — DESIGN 없음
+- S13 화면 목록 개수 — 목록 밖 코드 화면 6종(불일치 7)을 셀 것인가 · U7 상태 갱신 — DESIGN 없음
+- S14 리더보드 · 크래프팅 연출 — 계획에 넣는가 · 화면 목록에 넣는가 — DESIGN 없음
+- S15 자동 진행 안전층 여유를 넣는다면 자리(조사 4 — `dealTotal`의 시간 항 / `safeFloor` 비교 / timerSec 인자) — DESIGN 있음(AA5)
+- S16 첫 접속 단계 기록 — 공식 문서가 `AnalyticsService:LogOnboardingFunnelStepEvent`를 소개한다(Phase 9 Analytics와 함께 볼지) — DESIGN 없음
+
+사람이 할 일 (H)
+- H1 일일 보상 · 출석 · 무료 포션을 Phase 6에서 할지 출시 후로 둘지(S4)
+- H2 코드 목록 · 보상(G4) — 코드를 알리는 곳(그룹 · SNS 등)은 사람 몫
+- H3 첫 접속 안내 내용(S9) — 직접 플레이 관점에서
+- H4 `icon_code` · `icon_attend` PNG(지환 · 희준) — U2 아이콘 16종에 이미 들어 있다(진행 상태 확인)
+- H5 자동 진행 경계 층 실패(조사 4)를 실플레이로 볼지 · 여유 값을 정할지(값은 사람)
+
+**조사 4 — 자동 진행 안전층 경계 (#18 후속, 읽기만)**
+결론: **경계 층(총HP가 D에 한 펀치 이내로 붙은 층)에서는 실패할 수 있다.** 확률은 재지 않았다(추정만).
+- 펀치 시계는 런과 무관하게 플레이어마다 돈다 — `AttackService.lua:384-392`(첫 등장 때 `now + 주기`, 그 뒤 `scheduleNext`). 런이 서면 첫 펀치는
+  그 시계의 다음 차례라 런 시작부터 0 ~ 1주기 뒤다
+- 초당 펀치 = 2 + 0.15 × 레벨(`AttackConfig.lua:67-68` · `UpgradeConfig.lua:118`) → 20초 펀치 수 N = 40 + 3 × 레벨로 언제나 정수 · D = N × 1펀치 데미지
+  (`AutoAdvanceLogic.lua:35`). 20초 안 예정 시각은 N개다
+- 그런데 펀치는 예정 시각 뒤 첫 루프 틱에 나간다(틱 0.05초 — `AttackService.lua:173` · `:384`). 시간 초과는 Heartbeat가 따로 본다
+  (`ChallengeService.lua:344-353`) · `applyDamage`는 시간을 다시 보지 않는다(`:377`). N번째 예정이 20초 끝에 틱보다 가깝게 붙으면
+  그 펀치가 시간 초과 뒤로 밀려 **N − 1번**만 들어간다. 그러면 총HP > (N − 1) × 데미지인 층(`safeFloor`는 `BigNum.lte(hpOf(stage), d)` — `:46`)이 실패한다.
+  추정 빈도 ≈ 틱 ÷ 주기(2회/초 약 10% · 5회/초 약 25%) — 실측 아님
+- 순간 이동: 시작은 `startRun` 다음 `moveToEntrance`(`AutoAdvanceService.lua:106-109`) · 진행은 `advance` 다음 이동(`:213`) — 같은 단계라 서버 쪽 지연 없음.
+  입구는 클러스터 중심에서 74 · 판정 반경 92.8(`ArenaConfig.lua:59 · 263`) → 서버 위치로는 바로 반경 안.
+  클라 소유 캐릭터를 서버가 `PivotTo`한 직후 서버가 옛 위치를 잠깐 받는지는 **확인 못 함**(공식 network-ownership 문서에 서술 없음)
+- 그 밖: 1펀치 데미지 · 펀치 속도는 펀치마다 다시 읽고(`runPunch`) 안전층은 시작값 고정(AA5) — 부스트가 끝나면 어긋난다(이미 문서화된 AA5 안내)
+- 여유를 넣는다면 자리(값은 정하지 않는다): ① `AutoAdvanceLogic.dealTotal`의 `perSec * timerSec` 항(`:35`) ② `safeFloor`의 비교 `BigNum.lte(hpOf(stage), d)`(`:46`)
+  ③ `safeFloor`의 `timerSec` 인자(`:41`)
+
+**공식 문서 확인 (2026-10-31 — creator-docs `c8f5276` 원본으로 읽음)**
+- 텍스트 필터링 https://create.roblox.com/docs/ui/text-filtering — "직접 통제하지 않는 표시 글자는 개발자가 필터링" · 시나리오에 TextBox 입력 ·
+  "입력하는 사람에게만 보이는 글자를 글자마다 실시간 필터링하지 말 것(제출 뒤에)" · `FilterStringAsync(text, fromUserId)` →
+  `GetNonChatStringForBroadcastAsync` / `GetNonChatStringForUserAsync`
+- https://create.roblox.com/docs/ui/text-input · https://create.roblox.com/docs/reference/engine/classes/TextService#FilterStringAsync
+  ("실패하면 어떤 유저에게도 글자를 보이지 말 것")
+- 온보딩 https://create.roblox.com/docs/production/game-design/onboarding — 필수 조작 · 코어 루프를 가르친다 · 빨리 재미로 · 시작 아이템 ·
+  목표와 즐거운 순간 · https://create.roblox.com/docs/production/analytics/retention — 짧은 튜토리얼 · 툴팁 · 5분 이내 ·
+  https://create.roblox.com/docs/production/analytics/funnel-events — `LogOnboardingFunnelStepEvent`
+- 유료 랜덤 아이템 https://create.roblox.com/docs/production/monetization/paid-random-items — 대상은 "로벅스로 직 · 간접 구매한" 랜덤 아이템
+- 광고 보상 https://create.roblox.com/docs/production/promotion/rewarded-video-ads — "Rewards for video ads cannot be randomized items"
+- 확인 못 함: ① 자기 화면에만 되보이는 입력(코드 입력)의 필터링 의무를 직접 적은 문장 ② 무료 랜덤 보상(매일 무료 포션 랜덤)이 유료 랜덤 정책 밖이라는
+  명시 문장(문서는 로벅스 구매만 다룬다) ③ 매일 보상 · 출석에 대한 권장 사항(광고 최적화 문서에 "Daily rewards … opt-in bonus" 한 줄뿐)
+  ④ 서버 `PivotTo` 직후 클라 소유 캐릭터 위치(조사 4)
 
 ### 다국어 — #L1(클라우드) · #L2(집 PC 검증) (2026-10-25 사람 결정)
 
@@ -536,6 +660,10 @@ Phase 7(#12 펫)이 끝나면 세부 스탯과 플레이 경험 조정은 **사�
 - #12에서는 9~16 · 17~25층 성공률을 맞추지 않고 값만 보고한다(지시서 #12 5단계)
 
 ### 그 밖의 미결
+
+- **자동 진행 안전층 경계 층은 실패할 수 있다(지시서 #19 조사 4 — 읽기만).** — 2026-10-31.
+  펀치는 예정 뒤 첫 틱(0.05초)에 나가고 시간 초과는 Heartbeat가 따로 봐서, 총HP가 D에 한 펀치 이내인 층은 N − 1펀치로 끝날 수 있다(추정 · 실측 아님).
+  여유 자리 후보 `AutoAdvanceLogic.dealTotal` 시간 항 · `safeFloor` 비교 · `timerSec` — 값 · 채택은 사람(위 "Phase 6 남은 화면 착수 전 결정" H5 · S15 · G6)
 
 - **⚠️ S14 — 2배 블럭스 게임패스와 유료 랜덤 아이템 정책.** — 2026-10-25 사람 결정(판다) · 위험 기록.
   블럭스를 직접 파는 것은 아니지만(P1 지킴), 공식 문서에 "버는 양을 늘리는" 로벅스 상품이 그 화폐로 사는 뽑기를 유료 랜덤 아이템으로
