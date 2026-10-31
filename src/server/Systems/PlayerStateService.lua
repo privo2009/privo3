@@ -52,6 +52,8 @@ local AutoAdvanceLogic = require(ReplicatedStorage.Shared.AutoAdvanceLogic)
 local AutoAdvanceService = require(script.Parent.AutoAdvanceService)
 -- 일일 보상 요약(지시서 #20 D5). 읽기 규칙은 DailyService.summary가 원본이다(서버 os.time — TEST_DAY_OFFSET 포함)
 local DailyService = require(script.Parent.DailyService)
+-- 첫 접속 안내 요약(지시서 #20 O4). 프로필 onboarding 그대로 — 읽기 규칙은 OnboardingService.summary
+local OnboardingService = require(script.Parent.OnboardingService)
 
 type BigNumber = BigNum.BigNumber
 type PlayerStateView = Remotes.PlayerStateView
@@ -113,7 +115,7 @@ function PlayerStateService.inventoryInto(shop: any, data: any): any
 end
 
 local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number?, padIndex: number?, pets: any?, shop: any?, auto: any?,
-	daily: any?): PlayerStateView
+	daily: any?, onboarding: any?): PlayerStateView
 	local progress = if type(data.progress) == "table" then data.progress else {}
 	return {
 		blox = copyBig(data.blox),
@@ -136,6 +138,8 @@ local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number
 		autoAdvance = auto or { active = false, target = 0, safeFloor = 0, runs = 0, maxTarget = AutoAdvanceLogic.maxTarget() },
 		-- 일일 보상(지시서 #20) — 호출자가 서버 시각으로 만든 요약을 넘긴다. 없으면 받을 것 없음
 		daily = daily or DailyService._pure.idleSummary(),
+		-- 첫 접속 안내(지시서 #20) — 없으면 끝남(안내를 띄우지 않는다)
+		onboarding = onboarding or { step = 1, done = true },
 	}
 end
 
@@ -313,6 +317,7 @@ local function snapshotsEqual(a: PlayerStateView?, b: PlayerStateView?): boolean
 		and aurasEqual((a :: any).auras, (b :: any).auras) and petsEqual((a :: any).pets, (b :: any).pets)
 		and shopEqual((a :: any).shop, (b :: any).shop) and autoEqual((a :: any).autoAdvance, (b :: any).autoAdvance)
 		and dailyEqual((a :: any).daily, (b :: any).daily)
+		and (a :: any).onboarding.step == (b :: any).onboarding.step and (a :: any).onboarding.done == (b :: any).onboarding.done
 end
 
 export type Deps = {
@@ -480,7 +485,8 @@ local function readSnapshot(player: Player): PlayerStateView?
 		PetService.summarizeFor(player, profile.Data),
 		shopSummaryOf(player),
 		AutoAdvanceService.summary(player),
-		DailyService.summary(player))
+		DailyService.summary(player),
+		OnboardingService.summary(player))
 end
 
 function PlayerStateService.init()

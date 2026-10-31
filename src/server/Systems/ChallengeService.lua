@@ -257,9 +257,18 @@ end
 -- seeds: 이번 전이로 새 블록 세트가 생겼으면 그 시드 목록, 아니면 빈 배열.
 -- 클라가 블록 모델을 직접 만들기 때문에 필요하다 (4-2-a2). 빈 배열을 쓰는 이유와
 -- 채널을 따로 파지 않은 이유는 Remotes.lua의 RunStateChangedPayload 주석에 있다.
+-- 런 전이를 듣는 쪽(첫 접속 안내 신호 — 지시서 #20 O2). 듣기만 한다(판정에 끼어들지 않는다) — task.spawn으로 떼어 부른다.
+local runListeners: { (Player, string, number) -> () } = {}
+function ChallengeService.onRunEvent(callback: (player: Player, reason: string, stage: number) -> ())
+	table.insert(runListeners, callback)
+end
+
 local function notifyRunState(player: Player, run: RunState, active: boolean, reason: string, seeds: { number }?)
 	if not isRealPlayer(player) then
 		return
+	end
+	for _, callback in ipairs(runListeners) do
+		task.spawn(callback, player, reason, run.stage)
 	end
 
 	local payload: Remotes.RunStateChangedPayload = {

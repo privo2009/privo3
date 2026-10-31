@@ -79,6 +79,13 @@ export type PlayerStateView = {
 	-- claimedToday = 오늘 이미 받았나 · day = 받을 칸(또는 오늘 받은 칸) 1 ~ 7 · streak = 창에 "받음"으로 칠할 칸 수 ·
 	-- secondsToReset = 다음 UTC 0시까지 초(매초 보내지 않는다 — 클라가 받은 뒤로 센다) · today = 서버 UTC 일 번호(자동 등장 한 번 판정용)
 	daily: DailySummary,
+	-- 첫 접속 안내 요약 (지시서 #20 O4). 프로필 onboarding 그대로 — step 1 ~ 5 · done(다 마침 · 건너뜀 · 기존 프로필)
+	onboarding: OnboardingSummary,
+}
+
+export type OnboardingSummary = {
+	step: number,
+	done: boolean,
 }
 
 export type DailySummary = {

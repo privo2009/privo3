@@ -259,6 +259,18 @@ require(script.Parent.Systems.CodeService).init({
 	end,
 	grant = require(script.Parent.Systems.RewardService).grant,
 })
+-- 첫 접속 안내(지시서 #20 O1 ~ O5): 클릭 · 런 신호로 단계를 넘기고 프로필 onboarding에 남긴다. 완료 보상은 RewardService
+-- ⚠️ 순서: ClickService · ChallengeService 뒤(신호 훅을 단다 — 둘 다 모듈 로드로 준비돼 있다)
+require(script.Parent.Systems.OnboardingService).init({
+	getData = function(player: Player)
+		local profile = ProfileManager.get(player)
+		return if profile ~= nil then profile.Data else nil
+	end,
+	grant = require(script.Parent.Systems.RewardService).grant,
+	notify = notifyState,
+	onRunEvent = require(script.Parent.Systems.ChallengeService).onRunEvent,
+	onManualAccepted = ClickService.onManualAccepted,
+})
 local PurchaseRequestService = require(script.Parent.Systems.PurchaseRequestService)
 PurchaseRequestService.init()
 -- 대시보드 가격 대조(지시서 #17 3단계) — 시작 때 한 번, 다르면 WARN만(자동으로 고치지 않는다). 기다리지 않는다(조회는 뒤에서)

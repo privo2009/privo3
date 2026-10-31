@@ -341,6 +341,12 @@ function ClickService.processClicks(player: Player, count: number, source: strin
 	return accepted, rejected
 end
 
+-- 받아 준 **수동** 클릭 수를 듣는 쪽(첫 접속 안내 1단계 — 지시서 #20 O2). 자동 클리커는 여기로 오지 않는다(processClicks를 직접 부른다).
+local manualListeners: { (Player, number) -> () } = {}
+function ClickService.onManualAccepted(callback: (player: Player, accepted: number) -> ())
+	table.insert(manualListeners, callback)
+end
+
 -- ClickInput 수신을 연결한다.
 function ClickService.init()
 	if initialized then
@@ -358,7 +364,12 @@ function ClickService.init()
 		end
 
 		-- ⚠️ source는 여기서 고정된다. payload에서 읽지 말 것 (위 SOURCE_MANUAL 주석).
-		ClickService.processClicks(player, count, SOURCE_MANUAL)
+		local accepted = ClickService.processClicks(player, count, SOURCE_MANUAL)
+		if accepted > 0 then
+			for _, callback in ipairs(manualListeners) do
+				task.spawn(callback, player, accepted)
+			end
+		end
 	end)
 
 	print(string.format(

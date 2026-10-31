@@ -39,6 +39,8 @@
 --   DailyResult     서버→클라. 그 요청의 결과(받은 칸 · 거부 사유). 상태(오늘 받았나 · 연속)는 PlayerState가 보낸다
 --   CodeRequest     클라→서버. 코드 입력(입력 글자 그대로 — 서버가 정리 · 판정한다) (지시서 #20 C1 ~ C6)
 --   CodeResult      서버→클라. 결과(받은 보상 · 거부 사유). 입력 글자를 되보내지 않는다(C4)
+--   OnboardingRequest 클라→서버. 첫 접속 안내 끝(5단계 확인) · 건너뛰기 (지시서 #20 O2 · O3). 단계 판정은 서버 신호로 한다
+--   OnboardingResult  서버→클라. 그 요청의 결과. 지금 단계는 PlayerState가 보낸다
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --
@@ -124,6 +126,8 @@ Remotes.DAILY_REQUEST = "DailyRequest"
 Remotes.DAILY_RESULT = "DailyResult"
 Remotes.CODE_REQUEST = "CodeRequest"
 Remotes.CODE_RESULT = "CodeResult"
+Remotes.ONBOARDING_REQUEST = "OnboardingRequest"
+Remotes.ONBOARDING_RESULT = "OnboardingResult"
 
 -- ===== payload 타입 ====================================================================
 --
@@ -534,6 +538,21 @@ export type CodeResultPayload = {
 	blox: BigNum.BigNumber,
 }
 
+-- OnboardingRequest: 첫 접속 안내 (클라 → 서버). action "finish"(5단계 확인 — 완료 보상) | "skip"(건너뛰기 — 보상 없음).
+-- 1 ~ 4단계는 요청으로 넘어가지 않는다 — 서버가 클릭 · 런 신호로 넘긴다(규약 2).
+export type OnboardingRequestPayload = {
+	action: string,
+}
+
+-- OnboardingResult: 결과 (서버 → 클라). 선택 필드 금지.
+--   action 요청한 것(형태가 틀렸으면 "") / reason rate_limited · invalid · no_profile · already_done · not_ready(5단계 전 finish) ·
+--          grant_failed 등(완료 보상 거부) · 성공이면 ""
+export type OnboardingResultPayload = {
+	action: string,
+	ok: boolean,
+	reason: string,
+}
+
 export type Channels = {
 	blockDamaged: RemoteEvent,
 	runStateChanged: RemoteEvent,
@@ -570,6 +589,8 @@ export type Channels = {
 	dailyResult: RemoteEvent,
 	codeRequest: RemoteEvent,
 	codeResult: RemoteEvent,
+	onboardingRequest: RemoteEvent,
+	onboardingResult: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -653,6 +674,8 @@ function Remotes.getServer(): Channels
 		dailyResult = ensureEvent(folder, Remotes.DAILY_RESULT),
 		codeRequest = ensureEvent(folder, Remotes.CODE_REQUEST),
 		codeResult = ensureEvent(folder, Remotes.CODE_RESULT),
+		onboardingRequest = ensureEvent(folder, Remotes.ONBOARDING_REQUEST),
+		onboardingResult = ensureEvent(folder, Remotes.ONBOARDING_RESULT),
 	}
 	cached = channels
 	return channels
@@ -722,6 +745,8 @@ function Remotes.getClient(): Channels
 		dailyResult = waitFor(folder, Remotes.DAILY_RESULT) :: RemoteEvent,
 		codeRequest = waitFor(folder, Remotes.CODE_REQUEST) :: RemoteEvent,
 		codeResult = waitFor(folder, Remotes.CODE_RESULT) :: RemoteEvent,
+		onboardingRequest = waitFor(folder, Remotes.ONBOARDING_REQUEST) :: RemoteEvent,
+		onboardingResult = waitFor(folder, Remotes.ONBOARDING_RESULT) :: RemoteEvent,
 	}
 	cached = channels
 	return channels
