@@ -438,6 +438,7 @@ D1 ~ D3 → `docs/DASHBOARD_PRODUCTS.md`(#16 7단계) · D4 · D5 광고와 함�
 
 잔재 확인
 - 플레이스 StarterGui의 빈 `ScreenGui`("다국어 — #L2 뒤" 잔재) — 사람이 지운다. #17 8단계에서 search_game_tree로 없어졌는지만 본다
+  → 2026-10-31 확인: **아직 있다**(`StarterGui.ScreenGui`). 사람이 지운 뒤 다음 지시서에서 다시 본다
 
 #18 계획 — 자동 진행 모드(게임패스 `autoAdvance` 2053542093 · 199 — 소유 판정은 #16에 있다, 효과 없음)
 ```
