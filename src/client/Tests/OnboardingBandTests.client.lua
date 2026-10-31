@@ -76,6 +76,13 @@ do
 		setter("onboarding", { step = 2, done = true })
 	end)
 	check("끝나면(서버 done) 띠가 숨는다", not b._debug.panel.Visible)
+	store.setSource(function(setter)
+		setter("onboarding", { step = 3, done = false })
+	end)
+	b.setSuppressed(true)
+	local hidden = not b._debug.panel.Visible
+	b.setSuppressed(false)
+	check("창이 열려 있으면 숨고(창 X 버튼을 가리지 않게) 닫히면 다시 보인다", hidden and b._debug.panel.Visible)
 	b.root:Destroy()
 
 	local s5 = Store.new()

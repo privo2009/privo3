@@ -181,6 +181,10 @@ function PlayerStateClient.apply(setter: (string, any) -> (), payload: any, now:
 	local function num(v: any, fallback: number): number
 		return if type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge then v else fallback
 	end
+	-- ⚠️ onboarding을 daily보다 먼저 넣는다 — 일일 보상 자동 등장은 daily가 바뀔 때 "안내가 끝났나"를 읽는다. 순서가 바뀌면 첫 상태에서
+	-- 기본값(끝남)을 읽고 안내 중인데 창이 뜬다(2026-11-01 #20 단계 8 fresh 실측)
+	local o = if type(payload.onboarding) == "table" then payload.onboarding else {}
+	setter("onboarding", { step = num(o.step, 1), done = if type(o.done) == "boolean" then o.done else true })
 	local d = if type(payload.daily) == "table" then payload.daily else {}
 	setter("daily", {
 		canClaim = d.canClaim == true,
@@ -191,8 +195,6 @@ function PlayerStateClient.apply(setter: (string, any) -> (), payload: any, now:
 		today = num(d.today, 0),
 		receivedAt = receivedAt,
 	})
-	local o = if type(payload.onboarding) == "table" then payload.onboarding else {}
-	setter("onboarding", { step = num(o.step, 1), done = if type(o.done) == "boolean" then o.done else true })
 	return true
 end
 

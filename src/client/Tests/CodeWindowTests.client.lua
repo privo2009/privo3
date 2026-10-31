@@ -63,8 +63,9 @@ do
 	end, now = function()
 		return clock
 	end })
-	check("입력칸: PlaceholderText = Strings · 처음엔 빈칸 · 포커스해도 안 지움(ClearTextOnFocus false)", w._debug.box.PlaceholderText == Locale.t("code.placeholder")
-		and w._debug.box.Text == "" and w._debug.box.ClearTextOnFocus == false)
+	check("입력칸: PlaceholderText = Strings · 처음엔 빈칸 · 포커스해도 안 지움(ClearTextOnFocus false) · 결과 줄도 빈칸(기본 'Label' 아님)",
+		w._debug.box.PlaceholderText == Locale.t("code.placeholder") and w._debug.box.Text == "" and w._debug.box.ClearTextOnFocus == false
+			and w._debug.result.Text == "")
 	w._debug.box.Text = SECRET
 	w._debug.submit()
 	check("확인: 입력 글자 그대로 1건 보냄 · 입력칸을 바로 비움", #sent == 1 and sent[1] == SECRET and w._debug.box.Text == "")

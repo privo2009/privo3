@@ -203,8 +203,13 @@ local function maybeAutoShowDaily()
 		pushDaily()
 	end
 end
-Store.subscribe("daily", maybeAutoShowDaily)
-Store.subscribe("onboarding", maybeAutoShowDaily)
+-- 한 PlayerState의 setter가 다 끝난 뒤에 판정한다(task.defer — 키 하나만 바뀐 중간 상태를 읽지 않게)
+Store.subscribe("daily", function()
+	task.defer(maybeAutoShowDaily)
+end)
+Store.subscribe("onboarding", function()
+	task.defer(maybeAutoShowDaily)
+end)
 channels.runStateChanged.OnClientEvent:Connect(function()
 	task.defer(maybeAutoShowDaily) -- runActive가 위 연결에서 먼저 바뀐 뒤
 end)
@@ -256,6 +261,10 @@ ScreenController.register("OnboardingBand", "Overlay", function()
 	return onboardingBand.root
 end)
 ScreenController.open("OnboardingBand") -- 열어 두고, 보일지는 안내 상태(PlayerState onboarding)가 정한다
+-- 창이 열려 있으면 띠를 숨긴다(큰 창의 X 버튼 자리와 겹친다 — 창을 닫으면 다시 보인다)
+ScreenController.onWindowChanged(function(anyOpen: boolean)
+	onboardingBand.setSuppressed(anyOpen)
+end)
 channels.onboardingResult.OnClientEvent:Connect(function(payload: Remotes.OnboardingResultPayload)
 	onboardingBand.onResult(payload)
 	if type(payload) == "table" and payload.ok and payload.action == "finish" then

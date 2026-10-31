@@ -3,7 +3,8 @@
 --
 -- 입력칸(TextBox) 하나 · 확인 · 결과 문구. 요청은 CodeRequest{code}(서버가 정리 · 판정한다), 결과는 CodeResult.
 -- ⚠️ 입력 글자를 화면에 되보이지 않는다(C4): 확인을 누르면 입력칸을 바로 비우고, 결과 문구는 CodeWindowLogic.resultText(서버 결과 · Strings)뿐이다.
--- 폰 키보드: 창을 화면 위쪽에 붙이고(위 4%부터) 입력칸과 확인 버튼을 본문 첫 줄 한 줄에 둔다 — 키보드가 올라와도 가리지 않게.
+-- 폰 키보드: 입력칸과 확인 버튼을 본문 첫 줄 한 줄(창 위쪽)에 둔다 — 키보드가 올라와도 가리지 않게. 창 자리는 다른 작은 창과 같다(가운데 —
+-- 처음엔 위 4%에 붙였는데 첫 접속 안내 띠가 X 버튼을 덮어 되돌렸다, 2026-11-01 #20 단계 8 실측).
 -- Enter(FocusLost enterPressed)로도 보낸다. 배치값은 Claude가 정했다(docs/UI.md "지시서 #20").
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,7 +19,6 @@ local CodeWindowLogic = require(script.Parent.Parent.Parent.Logic.CodeWindowLogi
 
 local CodeWindow = {}
 
-CodeWindow.TOP = 0.04 -- 창 윗변(화면 높이 기준)
 local ROW_H = 0.2
 local INPUT_W = 0.62
 local SUBMIT_X, SUBMIT_W = 0.66, 0.34
@@ -41,8 +41,6 @@ function CodeWindow.create(deps: Deps): Handle
 	local now = deps.now or os.clock
 	local panel = Panel.create("Small", Locale.t("code.title"))
 	panel.root.Name = "CodeWindow"
-	panel.root.AnchorPoint = Vector2.new(0.5, 0)
-	panel.root.Position = UDim2.fromScale(0.5, CodeWindow.TOP)
 	local body = panel.body
 
 	local box = Instance.new("TextBox")
@@ -76,6 +74,7 @@ function CodeWindow.create(deps: Deps): Handle
 	submit.root.Parent = body
 	local _, submitHit = WindowParts.decorateButton(submit, Locale.t("code.submit"))
 	local result = WindowParts.makeText("Result", body, "small", 0, RESULT_Y, 1, RESULT_H, Enum.TextXAlignment.Center)
+	result.Text = "" -- TextLabel 기본 글자("Label")가 결과 전 화면에 보였다(2026-11-01 #20 단계 8 실측)
 	local closeHit = WindowParts.hitArea(panel.closeButton.root)
 	WindowParts.raiseButtons({ panel.closeButton.root, submit.root })
 

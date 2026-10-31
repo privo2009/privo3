@@ -50,6 +50,8 @@ export type ScreenControllerInstance = {
 	close: (name: string) -> (),
 	closeAll: () -> (),
 	isOpen: (name: string) -> boolean,
+	-- Window 층에 열린 창이 생기거나 없어질 때 부른다(지시서 #20 — 첫 접속 안내 띠가 창을 가리지 않게 숨는다). 인자 = 지금 열린 창이 있나
+	onWindowChanged: (callback: (anyOpen: boolean) -> ()) -> (),
 	-- 이 인스턴스의 ScreenGui 3장을 전부 파괴한다. 테스트가 끝나고 자기 트리를
 	-- 통째로 버릴 때 쓴다 — 기본 인스턴스는 게임이 끝날 때까지 부르지 않는다.
 	destroy: () -> (),
@@ -116,9 +118,16 @@ local function createInstance(namePrefix: string): ScreenControllerInstance
 		Overlay = {},
 	}
 
+	local windowListeners: { (boolean) -> () } = {}
 	local function updateBlur()
 		local visible = next(openInLayer.Window) ~= nil
+		local changed = blur.Visible ~= visible
 		blur.Visible = visible
+		if changed then
+			for _, cb in ipairs(windowListeners) do
+				task.spawn(cb, visible)
+			end
+		end
 	end
 
 	-- Overlay 레이어 안에서 여러 개가 동시에 열렸을 때의 순서·대기열 규칙은 아직 없다
@@ -214,6 +223,9 @@ local function createInstance(namePrefix: string): ScreenControllerInstance
 		close = close,
 		closeAll = closeAll,
 		isOpen = isOpen,
+		onWindowChanged = function(callback: (boolean) -> ())
+			table.insert(windowListeners, callback)
+		end,
 		destroy = destroy,
 		-- 테스트 전용 내부 접근. 화면 코드는 쓰지 않는다.
 		_debug = {
@@ -238,6 +250,7 @@ ScreenController.open = defaultInstance.open
 ScreenController.close = defaultInstance.close
 ScreenController.closeAll = defaultInstance.closeAll
 ScreenController.isOpen = defaultInstance.isOpen
+ScreenController.onWindowChanged = defaultInstance.onWindowChanged
 ScreenController._debug = defaultInstance._debug
 
 -- 자기만의 entries·ScreenGui 3장을 가진 새 인스턴스를 만든다. 테스트 전용이다 —

@@ -6,6 +6,7 @@
 -- 잠깐이다(Claude 판단 — docs/UI.md "지시서 #20").
 -- 첫 줄: "n/5단계"(왼쪽) + 버튼(오른쪽 — 1 ~ 4단계 건너뛰기(두 번 누름) / 5단계 확인). 아래 두 줄: 단계 문장(글자 감싸기).
 -- 요청은 OnboardingRequest(finish · skip) 한 번만(대기 중이면 버튼 잠김 — 결과 또는 시간 초과로 풀린다).
+-- 창(Window 층)이 열려 있으면 띠를 숨긴다(setSuppressed) — 큰 창(0.075 ~)의 X 버튼이 띠 자리와 겹친다(2026-11-01 #20 단계 8 실측).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
@@ -34,6 +35,7 @@ export type Handle = {
 	root: Frame,
 	onResult: (any) -> (),
 	refresh: () -> (),
+	setSuppressed: (boolean) -> (),
 	_debug: { panel: Frame, progress: TextLabel, text: TextLabel, buttonLabel: TextLabel, hit: TextButton, press: () -> (), sent: { string } },
 }
 
@@ -84,13 +86,14 @@ function OnboardingBand.create(deps: Deps): Handle
 	buttonLabel.ZIndex = Z + 3
 	hit.ZIndex = Z + 4
 
+	local suppressed = false
 	local skipConfirm = OnboardingLogic.newSkipConfirm()
 	local pendingUntil = 0
 	local sent: { string } = {}
 
 	local function render()
 		local v = OnboardingLogic.view(source.get("onboarding"), skipConfirm.isArmed(now()))
-		panel.Visible = v.visible
+		panel.Visible = v.visible and not suppressed
 		progress.Text = v.progress
 		text.Text = v.text
 		buttonLabel.Text = if v.showFinish then v.finishText else v.skipText
@@ -132,6 +135,10 @@ function OnboardingBand.create(deps: Deps): Handle
 			render()
 		end,
 		refresh = render,
+		setSuppressed = function(on: boolean)
+			suppressed = on
+			render()
+		end,
 		_debug = { panel = panel, progress = progress, text = text, buttonLabel = buttonLabel, hit = hit, press = press, sent = sent },
 	}
 end

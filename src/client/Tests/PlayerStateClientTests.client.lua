@@ -220,6 +220,27 @@ do
 		and #store.get("shop").gymUnlocks == 1 and store.get("shop").gymUnlocks[1] == 2)
 end
 
+-- 일일 보상 · 첫 접속 안내(지시서 #20) — 값 · 기본값 · 넣는 순서(onboarding이 daily보다 먼저 — 자동 등장이 daily 때 안내 상태를 읽는다)
+do
+	local order: { string } = {}
+	local got: { [string]: any } = {}
+	local p = samplePayload()
+	p.daily = { canClaim = true, claimedToday = false, day = 3, streak = 2, secondsToReset = 500, today = 20758 }
+	p.onboarding = { step = 2, done = false }
+	PlayerStateClient.apply(function(key, value)
+		table.insert(order, key)
+		got[key] = value
+	end, p, 7)
+	local oi, di = table.find(order, "onboarding"), table.find(order, "daily")
+	check("일일 보상 · 안내: 서버 값 그대로 · 받은 시각 · onboarding을 daily보다 먼저 넣는다", got.daily.day == 3 and got.daily.canClaim
+		and got.daily.receivedAt == 7 and got.onboarding.step == 2 and got.onboarding.done == false and oi ~= nil and di ~= nil and oi < di)
+	local bare: { [string]: any } = {}
+	PlayerStateClient.apply(function(key, value)
+		bare[key] = value
+	end, samplePayload())
+	check("옛 payload(없음) → 받을 것 없음 · 안내 끝남(띄우지 않는다)", bare.daily.canClaim == false and bare.onboarding.done == true)
+end
+
 print(string.format("[PlayerStateClientTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[PlayerStateClientTests] %d test(s) failed", failed))
