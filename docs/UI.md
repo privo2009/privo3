@@ -1208,7 +1208,8 @@ HUD 상태 줄       켜져 있을 때만 자동 도구 바로 위 한 줄: "자
                    시작 x 0.15 · y 0.65 · 폭 0.7 · 높이 0.17 — 노랑 · 보라 두 벌을 겹쳐 하나만 보인다 · 상태 줄 y 0.85 · 0.13
                    (Screens/Window/AutoAdvanceWindow)
 HUD 상태 줄        자동 도구 root 안 · 바닥이 도구 윗변(0.005 위) · 폭 = 도구 폭 · 소(2.5%) · 오른쪽 정렬 · 흰 글자 + 검은 테두리
-                   폰: 줄 높이 하한 + 1px, 한 줄 폭이 모자라면 두 줄(글자 감싸기) — 영어 "Auto · Floor 25 · 999 runs" 99px 칸
+                   폰: 줄 높이 하한 + 1px, 한 줄 폭이 모자라면 두 줄(글자 감싸기) — 영어 "Auto · Floor 25 · Run 999" 99px 칸(c5afb9a — "1 runs" 문법 때문에 바꿨다)
                    TouchSafeLayout이 도구를 올리면 같이 올라간다 (Screens/Hud/AutoTools)
 폰 틀 실측          en · ko 설정 창 최소 14.7px · 상태 줄 99×24(두 줄) — 넘침 0 (AutoAdvanceWindowTests)
+워프 · 환생 창      자동 중 워프 창은 auto_active로 먼저 잠근다(런 중 잠김보다 앞 — c5afb9a) · 환생 창은 서버 거부 문구를 보이고 자동이 꺼지면 지운다
 ```

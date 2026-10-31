@@ -68,15 +68,15 @@
 | `Tests/PlayerStateClientTests.client.lua` | 46 | payload 형태 판정 · Store 반영 · 틀린 payload 통째로 버림 · 업그레이드 표(키 · 음수 · 복사) · 칭호 · 아우라 · 펫 요약(형태 · 깊은 복사) · 상점 요약(형태 · 받은 시각 · 깊은 복사 — #16) · 보관함 · 롤 · 선해금 수신(옛 payload · 이상한 값 · 통지 — #17) |
 | `Tests/CoreScreensTests.client.lua` | 56 | 런 안내 · 로딩 판정, 3D 안내 내용(서버 · Config 원본), 화면 규칙(Offset 0 · 금지 구역 밖 · 층 순서 · 역할 색), 패드 표시 역할 3종 · 역할별 높이 · 다음 해금 크기 · 벽 표시 서버 nextReward |
 | `Systems/RebirthRequestServiceTests.server.lua` | 12 | 환생 요청 거부 경로(블럭스 부족 · 빈도 상한 · 부분 실패) · 성공 결과 형태 |
-| `Tests/RebirthWindowTests.client.lua` | 52 | 표시 값(서버와 같은 함수) · 사유 문구 · 확인 단계 없이는 요청 안 나감 · 잠김 · 창 규격 · 버튼 그림 ZIndex · 남는 것에 업그레이드 · 상점 안내 · 상점으로 |
+| `Tests/RebirthWindowTests.client.lua` | 53 | 표시 값(서버와 같은 함수) · 사유 문구 · 확인 단계 없이는 요청 안 나감 · 잠김 · 창 규격 · 버튼 그림 ZIndex · 남는 것에 업그레이드 · 상점 안내 · 상점으로 · 자동이 꺼지면 auto_active 문구 지움(#18) |
 | `Tests/TouchSafeLayoutTests.client.lua` | 13 | 폰 실측 사각형으로 겹침 판정(구좌 · 자동 도구 겹침, 힘 블록 안 겹침) · 점프 버튼 위로 올림 양(간격 포함) · 올릴 필요 없으면 0 · Scale 환산 |
 | `Systems/WarpRequestServiceTests.server.lua` | 12 | 워프 요청 payload 위생(invalid_stage) · 서버 거부 사유 그대로(W1 · 블럭스 부족) · 성공 결과 형태 · 빈도 상한 · 결과 매번 송신 |
-| `Tests/WarpWindowTests.client.lua` | 36 | 표시 값(WarpConfig.cost 원본) · 잠김(블럭스 부족 · W1 런 중) · 사유 문구 · 확인 단계 · 쪽 넘김 · 창 규격 · 행 색 3단계 |
+| `Tests/WarpWindowTests.client.lua` | 41 | 표시 값(WarpConfig.cost 원본) · 잠김(블럭스 부족 · W1 런 중) · 사유 문구 · 확인 단계 · 쪽 넘김 · 창 규격 · 행 색 3단계 · 자동 중 auto_active 잠김이 먼저(런 사이 · 런 중 — #18 AA9) |
 | `Tests/UpgradeConfigTests.server.lua` | 61 | 노출 7종(칭호 #10 · 아우라 행운 #11 · 펫 슬롯 · 펫 행운 #12 · 이동 속도 삭제 L3 #13) · 비노출 없음 · 펫 슬롯 최대 1레벨 · 스키마 7키 · 효과 선형(S1) · 펀치 속도 증가량 유도 · 최대 레벨 = 상한(S2) · 최대 속도는 레벨로만(L2 · L3 — moveSpeed 구매 invalid · 되살리면 validate 거부) · 비용 단조 증가 · canBuy 사유 3종 · validate 거부 |
 | `Systems/UpgradeServiceTests.server.lua` | 35 | 구매 거부 경로(잘못된 항목 · 최대 레벨 · 블럭스 부족 · 프로필 없음) 부작용 0 · 차감 → 레벨 → 통지 순서 · 부분 실패 · 저장값 읽기 · 환생 경로가 업그레이드를 안 건드림 · moveSpeed 요청 거부(L3 — #13) · 환생이 2배 환생 배수를 읽기만(#16) |
 | `Systems/UpgradeRequestServiceTests.server.lua` | 13 | 구매 요청 payload 위생 · 서버 거부 사유 그대로 · 성공 결과 형태 · 빈도 상한(중복 요청) · 퇴장 정리 |
 | `Data/TestPresetGateTests.server.lua` | 40 | 테스트 프리셋 — 이름 = 뽑기 도구 시점 목록 · 6종 스키마 검증 · 값 = 프리셋 · id가 Config에 있다 · 장착 ≤ 슬롯 · Studio가 아니면 무시 + ERROR · 없는 이름 무시 · 켜지면 새 스토어 .Mock만(실제 스토어 호출 0) · ProfileStore Mock 실물 왕복(UserMockStore에만) · 커밋된 TEST_PRESET = nil(#13) |
-| `Tests/BalanceSummaryTests.server.lua` | 9 | 튜닝 요약 줄 — 30줄 안팎 · 측정 조건 앞머리 · 구간 · 목표 밖 층 · 25층 · 레벨 상한 · 표준 경로 · 절벽 임계 · 뽑기 분포(#13) |
+| `Tests/BalanceSummaryTests.server.lua` | 20 | 튜닝 요약 줄 — 30줄 안팎 · 측정 조건 앞머리 · 구간 · 목표 밖 층 · 25층 · 레벨 상한 · 표준 경로 · 절벽 임계 · 뽑기 분포(#13) · 자동 진행 줄 — 프리셋 → 플레이어 · 안전층 경계 · 수령 · 런 길이 · 분당 · 손 모델 · 줄 형식(#18 AA14) |
 | `Tests/UpgradeShopTests.client.lua` | 45 | 상점 표시 값(UpgradeConfig 원본) · 잠김(MAX · 블럭스 부족) · 사유 문구 · 요청 한 번만(결과 대기 · 시간 뒤 풀림 · 잠긴 줄) · 로벅스 자리 숨김 · 창 규격 · 행운 줄 문구(#11) · 8줄 스크롤 목록 · 줄 높이 유지 · 펫 슬롯 · 펫 행운 문구(#12) · 7줄(이동 속도 삭제 · '최대 속도 도달' 없음 — #13) · RobuxSlot 삭제 · 처음 탭 업그레이드(#16) |
 | `Tests/FeedbackTests.client.lua` | 44 | 클릭 팝업 증가분 · 문구 · 진행, HUD 환생 배수(서버와 같은 함수), 환생 안내(×이전 → ×이후 · 알림층 · 상단 띠 안), 운동기구 3D 표시 역할 · 문구, 패드 · 기구 본체 색 |
 | `Systems/LogFoldTests.server.lua` | 11 | 첫 줄은 찍는다 · 창 안 반복은 접는다 · 창 뒤 'N번 더' 요약 + 새 줄 · 키(플레이어 · 사유)별 · ChallengeService 판정은 그대로 |
@@ -111,7 +111,7 @@
 | `Tests/AutoAdvanceWindowTests.client.lua` | 28 | 자동 진행 UI — 창 값 = 서버 요약 · 목표층 범위 · 기본 = 안전층 · 버튼 색 · 글자(안전층 경계) · 요청 한 번만 · 켜지면 닫힘 · HUD 세 상태 · 상태 줄 · 사유 · 워프 · 환생 auto_active 문구 · 17키 en · ko · 폰 705×338(#18) |
 | `Tests/LocaleTests.server.lua` | 39 | 다국어 표 · 고르기(#L1) — 모든 키에 en · 자리 표시 집합 = en · 없는 키 "?" + WARN · ko 없으면 en · 치환 · 언어 고르기(K2) · TEST_LOCALE 관문(Studio 전용) · Config id → 이름 키(K6) · 커밋된 TEST_LOCALE = nil · K11 신호 기다리기(바로 · 늦게 · 상한) · 서버가 LocaleReady를 세운다(#L2) |
 | `Tests/LocaleClientTests.client.lua` | 26 | K10 우리 GUI 루트 전수 AutoLocalize = false(예외: Freecam · 플레이스 StarterGui 복사본) · K11 지금 언어 = TEST_LOCALE 또는 계정 언어 · 첫 언어는 서버 신호 뒤 · 신호 전 기억 없는 호출 0 · 토스트 setLimit · 알림층 폰 705×338 틀(런 안내 3 · 오류 · 로딩 · 환생 안내 · 가장 긴 칭호 · 아우라 · 펫 토스트 · 결과 모달 — 넘침 0 · 11px · 그 Play의 언어) · 토스트 폰 예외(2개 · 두 줄)(#L2) · 글자 전부 UiTheme.FONT · 힘 블록 환생 배수 라벨 폰 한 줄 · 값 · 힘 수치와 안 겹침(#17 F1 · F2) |
-| **합계** | **4254** | |
+| **합계** | **4271** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -1590,6 +1590,12 @@ Phase 8  롤 상품(아우라 전용) · 행운 게임패스 · 3x 부화 · 슬
 테스트 서버 57행 2536 · 클라 29행 1477 / 0 failed(플래그 전부 끈 Play — l10n-base 최종과 master merge 뒤가 행 · 개수 같다).
 언어별 확인(TEST_LOCALE en · ko, PC): HUD · 3D 안내 · 창 7 · 상점 두 탭 — 그 언어가 아닌 글자 0 · "?" 0 · [Locale] WARN 0 · 넘침 0 ·
 최소 12.4px. 알림층은 폰 틀 테스트로 두 언어 다. 폰 실물(기기 에뮬레이터)과 폰트 고르기는 사람 몫(`docs/PENDING.md` "다국어 — #L2 뒤")
+
+**#18 완료 (2026-10-31) — Phase 8 코드 끝.** 자동 진행 모드(AutoAdvanceService 단일 루프 · 안전층 AutoAdvanceLogic · 설정 창 · HUD 세 상태 ·
+상태 줄 · 워프 · 환생 auto_active) · 상품 영어 이름 3개(N1 — 대시보드 39개 이름 일치) · 튜닝 요약 자동 진행 줄(AA14).
+코드 `a77fadb` · `2fbfca5` · `c5a3629` · `c5afb9a` · `314f2bd`. 테스트 서버 62행 2692 · 클라 31행 1579 / 0 failed(플래그 전부 끈 Play —
+#18 시작 61행 2634 · 30행 1539). 실물: floor9 Mock + 가짜 소유로 1 ~ 7 확인(`docs/PENDING.md` "#18 단계 5 실측").
+Phase 8에 남은 것(코드 아님): 보상형 광고는 출시 후 · Roblox Plus 켜기는 Phase 9 · 실서버 게임패스 구매 확인은 Phase 9(다른 계정).
 
 **#17 완료 (2026-10-30 ~ 31).** 글꼴 BuilderSansBold(F1) · 환생 배수 라벨 폰 한 줄(F2) · 대시보드 ID 39 · 계단 가격 · R1 · R2 ·
 가격 대조(39 일치, WARN만) · G-OWN(Studio 실제 소유 무시) · 개발자 상품 지급 16 · 포션 켜기 · 롤 쓰기 · 선해금 중복 거부 · 창별 상품 버튼
