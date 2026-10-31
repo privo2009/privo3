@@ -39,6 +39,11 @@ local TEST_RECEIPTS: { string }? = nil
 -- "en" 또는 "ko"를 적고 Play하면 계정 언어 대신 그 언어로 보인다(클라 · Kick 안내문 둘 다 — Server/Systems/LocaleGate).
 -- Studio가 아니면 무시하고 ERROR 로그를 남긴다. ⚠️ 커밋 값은 언제나 nil이다(LocaleTests가 잰다 — 켠 Play에서는 그 줄이 실패한다).
 local TEST_LOCALE: string? = nil
+
+-- ── 날짜 오프셋: TEST_DAY_OFFSET (Studio · Mock 프리셋 전용, 지시서 #20 T1) ───────────────────────
+-- 정수(일)를 적고 TEST_PRESET과 함께 Play하면 서버 "오늘"(UTC 일 번호)에 더한다 — 일일 보상 연속 · 끊김을 날짜를 기다리지 않고 본다.
+-- 프리셋 없이 켜면 무시한다(실제 프로필에 가짜 날짜 기록을 남기지 않는다 — DailyService.resolveOffset). ⚠️ 커밋 값은 언제나 nil(DailyServiceTests)
+local TEST_DAY_OFFSET: number? = nil
 local LocaleGate = require(script.Parent.Systems.LocaleGate)
 LocaleGate.init(TEST_LOCALE)
 
@@ -232,6 +237,18 @@ require(script.Parent.Systems.RewardService).init({
 	grantPet = function(player: Player, petId: string, source: string)
 		return (PetService.grant(player, petId, source))
 	end,
+	notify = notifyState,
+})
+-- 일일 보상(지시서 #20 D1 ~ D5): 7일 출석표 · 받기 채널 · PlayerState 요약. 지급은 RewardService(전부 아니면 0)
+require(script.Parent.Systems.DailyService).init({
+	testDayOffset = TEST_DAY_OFFSET,
+	isStudio = game:GetService("RunService"):IsStudio(),
+	mockPreset = ProfileManager.mockPreset(),
+	getData = function(player: Player)
+		local profile = ProfileManager.get(player)
+		return if profile ~= nil then profile.Data else nil
+	end,
+	grant = require(script.Parent.Systems.RewardService).grant,
 	notify = notifyState,
 })
 local PurchaseRequestService = require(script.Parent.Systems.PurchaseRequestService)

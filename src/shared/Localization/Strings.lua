@@ -61,6 +61,8 @@ Strings.Entries = {
 	["rarity.rare"] = { en = "Rare", ko = "희귀" },
 	["rarity.epic"] = { en = "Epic", ko = "영웅" },
 	["rarity.legendary"] = { en = "Legendary", ko = "전설" },
+	-- 리미티드 묶음(펫 — 지시서 #20 D4). 알 4등급 밖의 종 희귀도 칸
+	["rarity.limited"] = { en = "Limited", ko = "리미티드" },
 	-- 칭호 6종 (TitleConfig id)
 	["title.name.novice"] = { en = "Novice", ko = "초보자" },
 	["title.name.apprentice"] = { en = "Apprentice", ko = "견습생" },
@@ -106,6 +108,8 @@ Strings.Entries = {
 	["pet.name.egg3_rare"] = { en = "Mech Hawk", ko = "기계매" },
 	["pet.name.egg3_epic"] = { en = "Steel Drake", ko = "강철드레이크" },
 	["pet.name.egg3_legendary"] = { en = "Machine God", ko = "기계신" },
+	-- 리미티드 펫(일일 보상 7일째 — 지시서 #20 D4). 이름은 Claude가 지었다(바꿀 수 있다)
+	["pet.name.limited_dawn"] = { en = "Dawn Phoenix", ko = "새벽불사조" },
 	-- 펫 강화 단계 1 ~ 4 (종 희귀도와 다른 낱말 — E4 · G10)
 	["pet.level.1"] = { en = "Normal", ko = "기본" },
 	["pet.level.2"] = { en = "Gold", ko = "황금" },

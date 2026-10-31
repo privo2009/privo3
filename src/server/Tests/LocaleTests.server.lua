@@ -170,6 +170,10 @@ do
 			need("pet.name." .. def.id)
 		end
 	end
+	for _, id in ipairs(PetConfig.LIMITED_IDS) do -- 리미티드 묶음(지시서 #20 D4)
+		need("pet.name." .. id)
+	end
+	need("rarity.limited")
 	for level = 1, PetConfig.MAX_LEVEL do
 		need("pet.level." .. tostring(level))
 	end

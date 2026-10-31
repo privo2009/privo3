@@ -9,6 +9,8 @@
 --       StrengthMultiplier.compute 한 자리에서만 곱한다(petMult). 데미지 항은 없다(S9)
 --   E4  크래프팅: petId와 강화 단계가 같은 CRAFT_REQUIREMENT마리 → 같은 petId 다음 단계 1마리. 최대 MAX_LEVEL단계
 --   G4 같은 규칙  알 N 최저 m > 알 N−1 최고 m (validate)
+--   D4  리미티드 묶음(지시서 #20 — DESIGN 6장 "펫 > 리미티드 묶음"): 일일 보상 7일째로만 얻는다. 알 표(Eggs)와 별도 · 알 간 규칙 대상 아님 ·
+--       어느 알 확률표에도 없다(validate). 크래프팅 · 장착 · 놓아주기 · 강화 단계는 일반 펫과 같다(get이 찾는다 — 알 번호 0 · 희귀도 LIMITED_RARITY)
 --
 -- ===== 무엇이 사람 결정이고 무엇이 TEMP인가 ==================================================
 --
@@ -60,6 +62,13 @@ PetConfig.CRAFT_REQUIREMENT = 3 -- 같은 petId · 같은 단계 3마리 → 다
 
 PetConfig.HATCH_INTERVAL_SEC = 0.25 -- 남용 방지. 플레이어당 초당 4회
 
+-- ===== 리미티드 묶음 (D4 — 2026-11-01 사람 결정, 지시서 #20) =====
+-- m 시작값 = 알 2 전설과 같은 값(1.4 × 1.4 = 1.96). TEMP — 사람이 튜닝한다(docs/TUNING.md). 이름은 Strings "pet.name.<id>"
+PetConfig.LIMITED_MULT = 1.96
+PetConfig.LIMITED_IDS = { "limited_dawn" }
+PetConfig.LIMITED_RARITY = 5 -- 종 희귀도 칸 코드(알 4등급 1 ~ 4 밖). 화면 "Limited / 리미티드" · 색 UiTheme.Rarity tier6(docs/UI.md)
+PetConfig.LIMITED_EGG_ID = 0 -- 알 번호 자리(알에서 나오지 않는다)
+
 -- 장착 슬롯: 기본 2 + 업그레이드 최대 +1 + 게임패스 +3 = 최대 6
 PetConfig.BaseSlots = 2
 PetConfig.UpgradeSlotBonus = 1
@@ -76,6 +85,7 @@ PetConfig.DISPLAY = {
 	SHELL_SCALE = 1.25, -- 껍질 지름 = 구 × 이 값 (단계 2 이상)
 	SHELL_HEX = { "", "ffd24a", "bff4ff", "ff7bd8" }, -- 단계별 껍질 색(1단계는 껍질 없음). 무지개는 클라가 색상을 돌린다
 	MAX_TOTAL_PARTS = 72, -- 한 클라가 그리는 펫 파트 합 상한(넘는 펫은 그리지 않는다 — 내 펫 먼저)
+	LIMITED_SIZE_SCALE = 1.15, -- 리미티드는 같은 단계의 일반 펫보다 이만큼 크다(색 tier6과 함께 — 색만으로 가르지 않게, D4)
 	BEHIND = 4, -- 캐릭터 뒤 거리(스터드)
 	SPACING = 2.6, -- 펫 사이 가로 간격
 	HEIGHT = 1.2, -- 허리 높이 기준 위로
@@ -92,12 +102,20 @@ PetConfig.Eggs = Eggs
 
 local indexById: { [string]: { eggId: number, tier: number } } = {}
 
+-- 리미티드 정의(id → PetDef). baseChance 없음(뽑기가 아니다). m은 LIMITED_MULT를 rebuild가 다시 읽는다
+local Limited: { [string]: PetDef } = {}
+PetConfig.Limited = Limited
+
 local function rebuildIndex()
 	table.clear(indexById)
 	for eggId, egg in pairs(Eggs) do
 		for tier, def in ipairs(egg.pets) do
 			indexById[def.id] = { eggId = eggId, tier = tier }
 		end
+	end
+	table.clear(Limited)
+	for _, id in ipairs(PetConfig.LIMITED_IDS) do
+		Limited[id] = { id = id, baseChance = nil, mult = PetConfig.LIMITED_MULT }
 	end
 end
 
@@ -133,9 +151,18 @@ function PetConfig.get(id: any): (PetDef?, number?, number?)
 	end
 	local at = indexById[id]
 	if at == nil then
+		local limited = Limited[id]
+		if limited ~= nil then
+			return limited, PetConfig.LIMITED_EGG_ID, PetConfig.LIMITED_RARITY
+		end
 		return nil, nil, nil
 	end
 	return Eggs[at.eggId].pets[at.tier], at.eggId, at.tier
+end
+
+-- 리미티드 묶음의 id인가(D4).
+function PetConfig.isLimited(id: any): boolean
+	return type(id) == "string" and Limited[id] ~= nil
 end
 
 function PetConfig.multOf(id: any): number
@@ -312,6 +339,19 @@ function PetConfig.validate(): boolean
 			assert(BigNum.gt(egg.rollCost, prevCost), string.format("PetConfig: 알 %d의 rollCost가 이전 알보다 크지 않음", id))
 		end
 		prevCost = egg.rollCost
+	end
+
+	-- 리미티드(D4): 어느 알 확률표에도 없다 · m ≥ 1 유한수 · 희귀도 코드는 알 4등급 밖
+	assert(#PetConfig.LIMITED_IDS >= 1, "PetConfig: 리미티드가 하나 이상 있어야 함(일일 보상 7일째)")
+	assert(PetConfig.LIMITED_RARITY > PetConfig.TIER_COUNT, "PetConfig: LIMITED_RARITY는 알 희귀도(1 ~ TIER_COUNT) 밖")
+	for _, id in ipairs(PetConfig.LIMITED_IDS) do
+		for eggId, egg in pairs(Eggs) do
+			for _, pet in ipairs(egg.pets) do
+				assert(pet.id ~= id, string.format("PetConfig: 리미티드 %s가 알 %d 확률표에 있음(D4 — 알에서 나오지 않는다)", id, eggId))
+			end
+		end
+		local def = Limited[id]
+		assert(def ~= nil and def.mult >= 1 and def.mult < math.huge and def.baseChance == nil, "PetConfig: 리미티드 " .. id .. "의 m은 1 이상 유한수 · 확률 없음")
 	end
 
 	local d = PetConfig.DISPLAY

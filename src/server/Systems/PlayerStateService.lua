@@ -50,6 +50,8 @@ local AutoClickService = require(script.Parent.AutoClickService)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local AutoAdvanceLogic = require(ReplicatedStorage.Shared.AutoAdvanceLogic)
 local AutoAdvanceService = require(script.Parent.AutoAdvanceService)
+-- 일일 보상 요약(지시서 #20 D5). 읽기 규칙은 DailyService.summary가 원본이다(서버 os.time — TEST_DAY_OFFSET 포함)
+local DailyService = require(script.Parent.DailyService)
 
 type BigNumber = BigNum.BigNumber
 type PlayerStateView = Remotes.PlayerStateView
@@ -110,7 +112,8 @@ function PlayerStateService.inventoryInto(shop: any, data: any): any
 	return shop
 end
 
-local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number?, padIndex: number?, pets: any?, shop: any?, auto: any?): PlayerStateView
+local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number?, padIndex: number?, pets: any?, shop: any?, auto: any?,
+	daily: any?): PlayerStateView
 	local progress = if type(data.progress) == "table" then data.progress else {}
 	return {
 		blox = copyBig(data.blox),
@@ -131,7 +134,18 @@ local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number
 		shop = shop or PlayerStateService.inventoryInto({ gamepasses = {}, paidRandomRestricted = true, boosts = {}, autoClick = false }, data),
 		-- 자동 진행(지시서 #18) — 호출자가 세션 값으로 넘긴다. 없으면 꺼짐 · 0
 		autoAdvance = auto or { active = false, target = 0, safeFloor = 0, runs = 0, maxTarget = AutoAdvanceLogic.maxTarget() },
+		-- 일일 보상(지시서 #20) — 호출자가 서버 시각으로 만든 요약을 넘긴다. 없으면 받을 것 없음
+		daily = daily or DailyService._pure.idleSummary(),
 	}
+end
+
+-- 일일 보상 요약이 같은가. 남은 초는 매초 바뀌므로 BOOST_RESYNC_SEC 넘게 어긋날 때만 다르다(클라가 받은 뒤로 센다 — 부스트와 같다).
+local function dailyEqual(a: any, b: any): boolean
+	if type(a) ~= "table" or type(b) ~= "table" then
+		return a == b
+	end
+	return a.canClaim == b.canClaim and a.claimedToday == b.claimedToday and a.day == b.day and a.streak == b.streak and a.today == b.today
+		and math.abs(a.secondsToReset - b.secondsToReset) <= BOOST_RESYNC_SEC
 end
 
 local function autoEqual(a: any, b: any): boolean
@@ -298,6 +312,7 @@ local function snapshotsEqual(a: PlayerStateView?, b: PlayerStateView?): boolean
 	return upgradesEqual((a :: any).upgrades, (b :: any).upgrades) and titlesEqual((a :: any).titles, (b :: any).titles)
 		and aurasEqual((a :: any).auras, (b :: any).auras) and petsEqual((a :: any).pets, (b :: any).pets)
 		and shopEqual((a :: any).shop, (b :: any).shop) and autoEqual((a :: any).autoAdvance, (b :: any).autoAdvance)
+		and dailyEqual((a :: any).daily, (b :: any).daily)
 end
 
 export type Deps = {
@@ -464,7 +479,8 @@ local function readSnapshot(player: Player): PlayerStateView?
 	return buildSnapshot(profile.Data, walkSpeed, SpeedService.getMaxSpeed(player), PadService.getSelectedIndex(player),
 		PetService.summarizeFor(player, profile.Data),
 		shopSummaryOf(player),
-		AutoAdvanceService.summary(player))
+		AutoAdvanceService.summary(player),
+		DailyService.summary(player))
 end
 
 function PlayerStateService.init()

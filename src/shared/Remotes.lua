@@ -35,6 +35,8 @@
 --   AutoAdvanceRequest 클라→서버. 자동 진행 시작(목표층) · 중지 (Phase 8 지시서 #18)
 --   AutoAdvanceResult  서버→클라. 그 요청의 결과 + 서버가 끈 알림(character_lost 등)
 --   PlusPromptRequest 클라→서버. "상점을 열었다"(Roblox Plus 프롬프트 기회 — S16 · 지시서 #17). 띄울지는 서버가 정한다
+--   DailyRequest    클라→서버. 일일 보상 받기 (지시서 #20 D1 ~ D5). 받을 칸 · 보상은 서버가 정한다
+--   DailyResult     서버→클라. 그 요청의 결과(받은 칸 · 거부 사유). 상태(오늘 받았나 · 연속)는 PlayerState가 보낸다
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --
@@ -116,6 +118,8 @@ Remotes.POTION_RESULT = "PotionResult"
 Remotes.PLUS_PROMPT_REQUEST = "PlusPromptRequest"
 Remotes.AUTO_ADVANCE_REQUEST = "AutoAdvanceRequest"
 Remotes.AUTO_ADVANCE_RESULT = "AutoAdvanceResult"
+Remotes.DAILY_REQUEST = "DailyRequest"
+Remotes.DAILY_RESULT = "DailyResult"
 
 -- ===== payload 타입 ====================================================================
 --
@@ -489,6 +493,20 @@ export type AutoAdvanceResultPayload = {
 	safeFloor: number,
 }
 
+-- DailyRequest: 일일 보상 받기 (클라 → 서버). action "claim"만 — 받을 칸 · 보상은 서버가 DailyLogic · DailyRewardConfig에서 정한다(규약 2).
+export type DailyRequestPayload = {
+	action: string,
+}
+
+-- DailyResult: 결과 (서버 → 클라). 선택 필드 금지.
+--   day    받은 칸 1 ~ 7(거부면 0)
+--   reason rate_limited · invalid · no_profile · already_claimed · storage_full(7일째 펫 — 보관함 가득) · grant_failed · invalid_reward · 성공이면 ""
+export type DailyResultPayload = {
+	ok: boolean,
+	reason: string,
+	day: number,
+}
+
 export type Channels = {
 	blockDamaged: RemoteEvent,
 	runStateChanged: RemoteEvent,
@@ -521,6 +539,8 @@ export type Channels = {
 	plusPromptRequest: RemoteEvent,
 	autoAdvanceRequest: RemoteEvent,
 	autoAdvanceResult: RemoteEvent,
+	dailyRequest: RemoteEvent,
+	dailyResult: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -600,6 +620,8 @@ function Remotes.getServer(): Channels
 		plusPromptRequest = ensureEvent(folder, Remotes.PLUS_PROMPT_REQUEST),
 		autoAdvanceRequest = ensureEvent(folder, Remotes.AUTO_ADVANCE_REQUEST),
 		autoAdvanceResult = ensureEvent(folder, Remotes.AUTO_ADVANCE_RESULT),
+		dailyRequest = ensureEvent(folder, Remotes.DAILY_REQUEST),
+		dailyResult = ensureEvent(folder, Remotes.DAILY_RESULT),
 	}
 	cached = channels
 	return channels
@@ -665,6 +687,8 @@ function Remotes.getClient(): Channels
 		plusPromptRequest = waitFor(folder, Remotes.PLUS_PROMPT_REQUEST) :: RemoteEvent,
 		autoAdvanceRequest = waitFor(folder, Remotes.AUTO_ADVANCE_REQUEST) :: RemoteEvent,
 		autoAdvanceResult = waitFor(folder, Remotes.AUTO_ADVANCE_RESULT) :: RemoteEvent,
+		dailyRequest = waitFor(folder, Remotes.DAILY_REQUEST) :: RemoteEvent,
+		dailyResult = waitFor(folder, Remotes.DAILY_RESULT) :: RemoteEvent,
 	}
 	cached = channels
 	return channels

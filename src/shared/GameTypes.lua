@@ -75,6 +75,19 @@ export type PlayerStateView = {
 	-- 자동 진행 요약 (지시서 #18 AA12). 세션 값 — 켜짐 · 목표층 · 안전층(켜짐이면 시작 때 고정값, 꺼짐이면 지금 힘으로 잰 값) ·
 	-- 반복 횟수(이번 자동 세션에서 세운 런 수) · 목표층 상한(그 월드 층 수)
 	autoAdvance: AutoAdvanceSummary,
+	-- 일일 보상 요약 (지시서 #20 D1 ~ D5). 서버 os.time 기준(+ Studio 전용 TEST_DAY_OFFSET). canClaim = 오늘 받을 수 있나 ·
+	-- claimedToday = 오늘 이미 받았나 · day = 받을 칸(또는 오늘 받은 칸) 1 ~ 7 · streak = 창에 "받음"으로 칠할 칸 수 ·
+	-- secondsToReset = 다음 UTC 0시까지 초(매초 보내지 않는다 — 클라가 받은 뒤로 센다) · today = 서버 UTC 일 번호(자동 등장 한 번 판정용)
+	daily: DailySummary,
+}
+
+export type DailySummary = {
+	canClaim: boolean,
+	claimedToday: boolean,
+	day: number,
+	streak: number,
+	secondsToReset: number,
+	today: number,
 }
 
 export type AutoAdvanceSummary = {
