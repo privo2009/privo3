@@ -16,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local RebirthService = require(script.Parent.RebirthService)
+local AutoAdvanceService = require(script.Parent.AutoAdvanceService)
 
 type BigNumber = BigNum.BigNumber
 
@@ -27,6 +28,8 @@ RebirthRequestService.REASON_RATE_LIMITED = "rate_limited"
 export type Deps = {
 	rebirth: (Player) -> (boolean, any),
 	send: (Player, Remotes.RebirthResultPayload) -> (),
+	-- 자동 진행이 켜져 있는가(지시서 #18 AA9 — 켜져 있으면 auto_active로 거부. 수동 환생은 원래 런 중에도 된다). 없으면 꺼짐
+	isAutoActive: ((Player) -> boolean)?,
 }
 
 -- 요청 처리 상태 기계. 실물은 init()이, 테스트는 가짜 deps로 굴린다.
@@ -39,6 +42,9 @@ local function createHandler(deps: Deps)
 		local result: Remotes.RebirthResultPayload
 		if last ~= nil and now - last < MIN_INTERVAL_SEC then
 			result = { ok = false, reason = RebirthRequestService.REASON_RATE_LIMITED, gained = BigNum.new(0, 0), total = BigNum.new(0, 0) }
+		elseif deps.isAutoActive ~= nil and deps.isAutoActive(player) then
+			lastAt[player] = now
+			result = { ok = false, reason = AutoAdvanceService.REASON_AUTO_ACTIVE, gained = BigNum.new(0, 0), total = BigNum.new(0, 0) }
 		else
 			lastAt[player] = now
 			local ok, value = deps.rebirth(player)
@@ -84,6 +90,7 @@ function RebirthRequestService.init()
 		send = function(player: Player, payload: Remotes.RebirthResultPayload)
 			channels.rebirthResult:FireClient(player, payload)
 		end,
+		isAutoActive = AutoAdvanceService.isActive,
 	})
 
 	-- payload는 비어 있다(규약 2). 보지 않는다 — 요청 자체가 신호다.

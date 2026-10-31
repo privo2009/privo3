@@ -48,6 +48,8 @@ local PolicyGate = require(script.Parent.PolicyGate)
 local BoostService = require(script.Parent.BoostService)
 local AutoClickService = require(script.Parent.AutoClickService)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
+local AutoAdvanceLogic = require(ReplicatedStorage.Shared.AutoAdvanceLogic)
+local AutoAdvanceService = require(script.Parent.AutoAdvanceService)
 
 type BigNumber = BigNum.BigNumber
 type PlayerStateView = Remotes.PlayerStateView
@@ -108,7 +110,7 @@ function PlayerStateService.inventoryInto(shop: any, data: any): any
 	return shop
 end
 
-local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number?, padIndex: number?, pets: any?, shop: any?): PlayerStateView
+local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number?, padIndex: number?, pets: any?, shop: any?, auto: any?): PlayerStateView
 	local progress = if type(data.progress) == "table" then data.progress else {}
 	return {
 		blox = copyBig(data.blox),
@@ -127,7 +129,16 @@ local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number
 		pets = pets or PetService.summarize(data),
 		-- shop도 호출자가 세션 값으로 만들어 넘긴다. 없으면 보유 없음 · 제한(확인 전과 같다) · 부스트 없음 · 자동 꺼짐
 		shop = shop or PlayerStateService.inventoryInto({ gamepasses = {}, paidRandomRestricted = true, boosts = {}, autoClick = false }, data),
+		-- 자동 진행(지시서 #18) — 호출자가 세션 값으로 넘긴다. 없으면 꺼짐 · 0
+		autoAdvance = auto or { active = false, target = 0, safeFloor = 0, runs = 0, maxTarget = AutoAdvanceLogic.maxTarget() },
 	}
+end
+
+local function autoEqual(a: any, b: any): boolean
+	if type(a) ~= "table" or type(b) ~= "table" then
+		return a == b
+	end
+	return a.active == b.active and a.target == b.target and a.safeFloor == b.safeFloor and a.runs == b.runs and a.maxTarget == b.maxTarget
 end
 
 -- 상점 요약이 같은가. gamepasses는 이름순 · gymUnlocks는 번호순이라 순서까지 같으면 같다.
@@ -286,7 +297,7 @@ local function snapshotsEqual(a: PlayerStateView?, b: PlayerStateView?): boolean
 	end
 	return upgradesEqual((a :: any).upgrades, (b :: any).upgrades) and titlesEqual((a :: any).titles, (b :: any).titles)
 		and aurasEqual((a :: any).auras, (b :: any).auras) and petsEqual((a :: any).pets, (b :: any).pets)
-		and shopEqual((a :: any).shop, (b :: any).shop)
+		and shopEqual((a :: any).shop, (b :: any).shop) and autoEqual((a :: any).autoAdvance, (b :: any).autoAdvance)
 end
 
 export type Deps = {
@@ -452,7 +463,8 @@ local function readSnapshot(player: Player): PlayerStateView?
 	local walkSpeed = if humanoid ~= nil then humanoid.WalkSpeed else 0
 	return buildSnapshot(profile.Data, walkSpeed, SpeedService.getMaxSpeed(player), PadService.getSelectedIndex(player),
 		PetService.summarizeFor(player, profile.Data),
-		shopSummaryOf(player))
+		shopSummaryOf(player),
+		AutoAdvanceService.summary(player))
 end
 
 function PlayerStateService.init()

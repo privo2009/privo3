@@ -32,6 +32,8 @@
 --   AutoClickResult  서버→클라. 그 요청의 결과 + 보유가 사라져 서버가 끈 알림
 --   PotionRequest   클라→서버. 보관함의 포션 하나 켜기(종류) (Phase 8 지시서 #17)
 --   PotionResult    서버→클라. 그 요청의 결과(보관 수 · 남은 시간은 PlayerState가 보낸다)
+--   AutoAdvanceRequest 클라→서버. 자동 진행 시작(목표층) · 중지 (Phase 8 지시서 #18)
+--   AutoAdvanceResult  서버→클라. 그 요청의 결과 + 서버가 끈 알림(character_lost 등)
 --   PlusPromptRequest 클라→서버. "상점을 열었다"(Roblox Plus 프롬프트 기회 — S16 · 지시서 #17). 띄울지는 서버가 정한다
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
@@ -112,6 +114,8 @@ Remotes.AUTO_CLICK_RESULT = "AutoClickResult"
 Remotes.POTION_REQUEST = "PotionRequest"
 Remotes.POTION_RESULT = "PotionResult"
 Remotes.PLUS_PROMPT_REQUEST = "PlusPromptRequest"
+Remotes.AUTO_ADVANCE_REQUEST = "AutoAdvanceRequest"
+Remotes.AUTO_ADVANCE_RESULT = "AutoAdvanceResult"
 
 -- ===== payload 타입 ====================================================================
 --
@@ -466,6 +470,25 @@ export type PlusPromptRequestPayload = {
 	reason: string,
 }
 
+-- AutoAdvanceRequest: 자동 진행 시작 · 중지 (클라 → 서버). 목표층만 싣는다 — 안전층 · 보상은 서버가 정한다(규약 2).
+--   action "start" | "stop" / target start일 때 목표층(정수 1 ~ 그 월드 층 수 — 서버가 다시 잰다)
+export type AutoAdvanceRequestPayload = {
+	action: string,
+	target: number?,
+}
+
+-- AutoAdvanceResult: 결과 (서버 → 클라). 선택 필드 금지.
+--   action "start" | "stop" | "stopped"(서버가 껐다) | ""(형태가 틀림)
+--   reason rate_limited · invalid · not_owned · invalid_target · run_active · no_character · already_active · not_active ·
+--          stopped · character_lost · 성공이면 "" / target · safeFloor 그 자동 세션 값(없으면 0)
+export type AutoAdvanceResultPayload = {
+	action: string,
+	ok: boolean,
+	reason: string,
+	target: number,
+	safeFloor: number,
+}
+
 export type Channels = {
 	blockDamaged: RemoteEvent,
 	runStateChanged: RemoteEvent,
@@ -496,6 +519,8 @@ export type Channels = {
 	potionRequest: RemoteEvent,
 	potionResult: RemoteEvent,
 	plusPromptRequest: RemoteEvent,
+	autoAdvanceRequest: RemoteEvent,
+	autoAdvanceResult: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -573,6 +598,8 @@ function Remotes.getServer(): Channels
 		potionRequest = ensureEvent(folder, Remotes.POTION_REQUEST),
 		potionResult = ensureEvent(folder, Remotes.POTION_RESULT),
 		plusPromptRequest = ensureEvent(folder, Remotes.PLUS_PROMPT_REQUEST),
+		autoAdvanceRequest = ensureEvent(folder, Remotes.AUTO_ADVANCE_REQUEST),
+		autoAdvanceResult = ensureEvent(folder, Remotes.AUTO_ADVANCE_RESULT),
 	}
 	cached = channels
 	return channels
@@ -636,6 +663,8 @@ function Remotes.getClient(): Channels
 		potionRequest = waitFor(folder, Remotes.POTION_REQUEST) :: RemoteEvent,
 		potionResult = waitFor(folder, Remotes.POTION_RESULT) :: RemoteEvent,
 		plusPromptRequest = waitFor(folder, Remotes.PLUS_PROMPT_REQUEST) :: RemoteEvent,
+		autoAdvanceRequest = waitFor(folder, Remotes.AUTO_ADVANCE_REQUEST) :: RemoteEvent,
+		autoAdvanceResult = waitFor(folder, Remotes.AUTO_ADVANCE_RESULT) :: RemoteEvent,
 	}
 	cached = channels
 	return channels

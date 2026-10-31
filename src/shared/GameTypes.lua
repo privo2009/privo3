@@ -72,6 +72,17 @@ export type PlayerStateView = {
 	pets: PetSummary,
 	-- 상점 요약 (Phase 8 지시서 #16). 세션 값이다 — 프로필에 없다(절대 규칙 5)
 	shop: ShopSummary,
+	-- 자동 진행 요약 (지시서 #18 AA12). 세션 값 — 켜짐 · 목표층 · 안전층(켜짐이면 시작 때 고정값, 꺼짐이면 지금 힘으로 잰 값) ·
+	-- 반복 횟수(이번 자동 세션에서 세운 런 수) · 목표층 상한(그 월드 층 수)
+	autoAdvance: AutoAdvanceSummary,
+}
+
+export type AutoAdvanceSummary = {
+	active: boolean,
+	target: number,
+	safeFloor: number,
+	runs: number,
+	maxTarget: number,
 }
 
 -- gamepasses = 보유 게임패스 키(이름순 — GamepassService 세션 값 · 가짜 소유 포함)

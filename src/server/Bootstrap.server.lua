@@ -288,6 +288,43 @@ do
 	end
 end
 
+-- 자동 진행 모드(지시서 #18 AA0 ~ AA13). 서버 단일 루프 — 판정은 ChallengeService(advance · cashout), 이 서비스는 언제 부를지만.
+-- 소유는 GamepassService(Studio는 G-OWN — TEST_GAMEPASSES로만). 캐릭터 = 있고 살아 있음(죽으면 character_lost로 꺼진다)
+do
+	local ChallengeServiceA = require(script.Parent.Systems.ChallengeService)
+	local AutoAdvanceConfig = require(ReplicatedStorage.Shared.Config.AutoAdvanceConfig)
+	local AutoAdvanceLogic = require(ReplicatedStorage.Shared.AutoAdvanceLogic)
+	require(script.Parent.Systems.AutoAdvanceService).init({
+		owns = function(player: Player)
+			return GamepassService.owns(player, AutoAdvanceConfig.GAMEPASS_KEY)
+		end,
+		getRunState = function(player: Player)
+			return ChallengeServiceA.getRunState(player) :: any
+		end,
+		startRun = ChallengeServiceA.startRun,
+		advance = ChallengeServiceA.advance,
+		cashout = function(player: Player, source: string)
+			return (ChallengeServiceA.cashout(player, source))
+		end,
+		moveToEntrance = ArenaService.moveToStageEntrance,
+		hasCharacter = function(player: Player)
+			if not ArenaService.canMoveCharacter(player) then
+				return false
+			end
+			local humanoid = (player :: any).Character:FindFirstChildOfClass("Humanoid")
+			return humanoid ~= nil and humanoid.Health > 0
+		end,
+		safeFloorOf = function(player: Player)
+			local damage = AttackService.punchDamageOf(player)
+			if damage == nil then
+				return 0
+			end
+			return AutoAdvanceLogic.safeFloor(damage, AttackService.punchRateOf(player))
+		end,
+		notify = PlayerStateService.notify,
+	})
+end
+
 -- 플레이어 상태 채널을 연다 (Phase 6 지시서 #5 — HUD가 서버 값을 보인다).
 -- ⚠️ 순서: ProfileManager · PadService · SpeedService · ChallengeService가 준비된 뒤여야 한다.
 -- 스냅샷은 그 넷에서 읽고, 접속 직후 런 상태 sync는 ChallengeService.syncRunState가 보낸다.

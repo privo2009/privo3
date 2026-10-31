@@ -333,6 +333,20 @@ local lastOutcome: { [Player]: PunchOutcome } = {}
 -- 플레이어별 다음 펀치 시각(os.clock). 위 "플레이어별 펀치 주기". 세션 메모리다.
 local nextPunchAt: { [Player]: number } = {}
 
+-- 지금 1펀치 데미지(힘 × 결합 배수)와 초당 펀치 — 펀치 루프가 쓰는 것과 같은 값(지시서 #18 — 자동 진행 안전층 D).
+-- 프로필이 없으면 (nil, 기본 속도). 읽기만 한다.
+function AttackService.punchDamageOf(player: Player): BigNumber?
+	local strength = REAL.getStrength(player)
+	if strength == nil then
+		return nil
+	end
+	return computePunchDamage(strength, REAL.getDamageMultiplier(player))
+end
+
+function AttackService.punchRateOf(player: Player): number
+	return punchRateFor(player)
+end
+
 -- 마지막 펀치 결과. 아직 한 번도 안 돌았으면 nil.
 function AttackService.getLastOutcome(player: Player): PunchOutcome?
 	return lastOutcome[player]

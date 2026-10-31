@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local WarpService = require(script.Parent.WarpService)
+local AutoAdvanceService = require(script.Parent.AutoAdvanceService)
 
 local WarpRequestService = {}
 
@@ -35,6 +36,8 @@ end
 export type Deps = {
 	warp: (Player, number) -> (boolean, any),
 	send: (Player, Remotes.WarpResultPayload) -> (),
+	-- 자동 진행이 켜져 있는가(지시서 #18 AA9 — 켜져 있으면 auto_active로 거부). 없으면 꺼진 것으로 친다(테스트 deps 생략 가능)
+	isAutoActive: ((Player) -> boolean)?,
 }
 
 local function createHandler(deps: Deps)
@@ -51,6 +54,9 @@ local function createHandler(deps: Deps)
 		elseif stage == nil then
 			lastAt[player] = now
 			result = { ok = false, reason = WarpService.REASON_INVALID_STAGE, stage = 0, cost = BigNum.new(0, 0) }
+		elseif deps.isAutoActive ~= nil and deps.isAutoActive(player) then
+			lastAt[player] = now
+			result = { ok = false, reason = AutoAdvanceService.REASON_AUTO_ACTIVE, stage = stage, cost = BigNum.new(0, 0) }
 		else
 			lastAt[player] = now
 			local ok, value = deps.warp(player, stage)
@@ -95,6 +101,7 @@ function WarpRequestService.init()
 		send = function(player: Player, payload: Remotes.WarpResultPayload)
 			channels.warpResult:FireClient(player, payload)
 		end,
+		isAutoActive = AutoAdvanceService.isActive,
 	})
 
 	channels.warpRequest.OnServerEvent:Connect(function(player: Player, payload: any)
