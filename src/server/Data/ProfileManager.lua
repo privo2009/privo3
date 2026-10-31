@@ -126,10 +126,15 @@ local function summarize(data: any): string
 	local cosmetics = if type(data.cosmetics) == "table" then data.cosmetics else {}
 	local pets = if type(data.pets) == "table" then data.pets else {}
 	local progress = if type(data.progress) == "table" then data.progress else {}
+	-- v7 필드(보관함 · 롤 · 선해금 · 영수증)도 본다 — v8 마이그레이션(지시서 #20)이 그것을 잃지 않는지 이 줄로 대조한다
+	local potions = if type(data.potions) == "table" then data.potions else {}
+	local credits = if type(data.rollCredits) == "table" then data.rollCredits else {}
 	return string.format(
-		"blox=%s lifetime=%s life=%s strength=%s rebirths=%s maxStage=%s upgrades합=%d titles=%d auras=%d pets=%d",
+		"blox=%s lifetime=%s life=%s strength=%s rebirths=%s maxStage=%s upgrades합=%d titles=%d auras=%d pets=%d potions=%s/%s/%s rolls=%s/%s gyms=%d purchases=%d",
 		bigText(data.blox), bigText(data.lifetimeBlox), bigText(data.lifeBlox), bigText(data.strength), bigText(data.rebirths),
-		tostring(progress.maxStage), upgradeSum, countKeys(cosmetics.ownedTitles), countKeys(cosmetics.ownedAuras), countKeys(pets.owned)
+		tostring(progress.maxStage), upgradeSum, countKeys(cosmetics.ownedTitles), countKeys(cosmetics.ownedAuras), countKeys(pets.owned),
+		tostring(potions.strength), tostring(potions.damage), tostring(potions.luck), tostring(credits.lucky), tostring(credits.super),
+		countKeys(data.gymUnlocks), countKeys(data.purchases)
 	)
 end
 
@@ -188,9 +193,10 @@ local function handlePlayerAdded(player: Player)
 	if before ~= nil then
 		local after = summarize(profile.Data)
 		print(string.format(
-			"[ProfileManager] %s(%d) 스키마 v%s → v%d · 값 %s\n  전 %s\n  후 %s",
+			"[ProfileManager] %s(%d) 스키마 v%s → v%d · 값 %s\n  전 %s\n  후 %s\n  첫 접속 안내 step=%s done=%s",
 			player.Name, player.UserId, tostring(fromVersion), Migrations.CURRENT,
-			if before == after then "그대로" else "⚠️ 달라짐", before, after
+			if before == after then "그대로" else "⚠️ 달라짐", before, after,
+			tostring(profile.Data.onboarding.step), tostring(profile.Data.onboarding.done)
 		))
 	end
 

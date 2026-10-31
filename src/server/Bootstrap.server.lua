@@ -219,6 +219,21 @@ require(script.Parent.Systems.PotionRequestService).init({
 	addBoost = BoostService.add,
 	notify = notifyState,
 })
+-- 무료 보상 지급 공용(지시서 #20 R1): 블럭스 = CurrencyService · 포션 = 보관함 · 펫 = PetService 발급 경로. 전부 아니면 0
+require(script.Parent.Systems.RewardService).init({
+	getData = function(player: Player)
+		local profile = ProfileManager.get(player)
+		return if profile ~= nil then profile.Data else nil
+	end,
+	addBlox = function(player: Player, amount, reason: string)
+		return (CurrencyService.add(player, "blox", amount, reason))
+	end,
+	petRoom = PetService.storageRoom,
+	grantPet = function(player: Player, petId: string, source: string)
+		return (PetService.grant(player, petId, source))
+	end,
+	notify = notifyState,
+})
 local PurchaseRequestService = require(script.Parent.Systems.PurchaseRequestService)
 PurchaseRequestService.init()
 -- 대시보드 가격 대조(지시서 #17 3단계) — 시작 때 한 번, 다르면 WARN만(자동으로 고치지 않는다). 기다리지 않는다(조회는 뒤에서)

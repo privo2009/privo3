@@ -103,6 +103,11 @@ function TestPresetGate.buildData(name: string): any
 		table.insert(data.pets.equipped, tostring(i))
 	end
 	data.pets.nextUid = #preset.pets + 1
+	-- 첫 접속 안내(v8 — 지시서 #20 O4): 시작 직후 꼴(1층 · 환생 0)인 프리셋만 안내를 본다. 나머지는 이미 플레이한 시점이라 끝남 —
+	-- 그래야 floor9 등으로 일일 보상을 볼 때 안내가 먼저 막지 않는다(D5 — 안내가 끝난 뒤에 뜬다)
+	local played = preset.maxStage > 1 or preset.rebirths.m > 0
+	data.onboarding.done = played
+	data.onboarding.step = if played then Schema.LIMITS.ONBOARDING_STEPS else 1
 	local ok, errors = Schema.validate(data)
 	assert(ok, "TestPresetGate.buildData: 프리셋 " .. name .. "이 스키마 검증 실패 - " .. table.concat(errors or {}, " / "))
 	return data

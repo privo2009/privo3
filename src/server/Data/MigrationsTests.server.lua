@@ -20,7 +20,56 @@ end
 
 -- 1. 기본 -----------------------------------------------------------------
 
-check("Migrations.CURRENT == 7 (변환 6개: radius 제거 / selectedPadIndex 추가 / lifeBlox 추가 / 파생값 · 드론 삭제 / moveSpeed 삭제 / 수익화 v7)", Migrations.CURRENT == 7)
+check("Migrations.CURRENT == 8 (변환 7개: radius 제거 / selectedPadIndex 추가 / lifeBlox 추가 / 파생값 · 드론 삭제 / moveSpeed 삭제 / 수익화 v7 / 무료 요소 v8)", Migrations.CURRENT == 8)
+
+-- v7 -> v8: daily {streak, lastClaimDay}(freePotionDay 삭제) · redeemedCodes · onboarding (지시서 #20 R2)
+do
+	local data: any = {
+		schemaVersion = 7,
+		blox = { m = 2.5, e = 6 },
+		rebirths = { m = 3, e = 0 },
+		progress = { maxStage = 9, currentWorld = 1, unlockedWorlds = 1, selectedPadIndex = 4 },
+		potions = { strength = 4, damage = 1, luck = 2 },
+		rollCredits = { lucky = 5, super = 0 },
+		purchases = { "p1", "p2" },
+		gymUnlocks = { ["2"] = true },
+		daily = { streak = 3, lastClaimDay = 20390, freePotionDay = 0 },
+	}
+	local ok, err = Migrations.run(data)
+	check("v7->v8: 변환 성공 · schemaVersion 8", ok and data.schemaVersion == 8, err)
+	check("v7->v8: freePotionDay 삭제 · streak · lastClaimDay 그대로", data.daily.freePotionDay == nil and data.daily.streak == 3
+		and data.daily.lastClaimDay == 20390)
+	check("v7->v8: v7 값(블럭스 · 보관함 · 롤 · 영수증 · 선해금 · maxStage) 그대로", data.blox.m == 2.5 and data.blox.e == 6
+		and data.potions.strength == 4 and data.potions.luck == 2 and data.rollCredits.lucky == 5 and #data.purchases == 2
+		and data.gymUnlocks["2"] == true and data.progress.maxStage == 9)
+	check("v7->v8: redeemedCodes 빈 표 · 이미 플레이한 프로필(maxStage ≥ 1) → onboarding 끝남", type(data.redeemedCodes) == "table"
+		and next(data.redeemedCodes) == nil and data.onboarding.done == true and data.onboarding.step == Schema.LIMITS.ONBOARDING_STEPS)
+	local reborn: any = { schemaVersion = 7, rebirths = { m = 1, e = 0 } }
+	Migrations.run(reborn)
+	check("v7->v8: maxStage가 없어도 rebirths > 0이면 끝남", reborn.onboarding.done == true)
+	local blank: any = { schemaVersion = 7, progress = { maxStage = 0 }, rebirths = { m = 0, e = 0 } }
+	Migrations.run(blank)
+	check("v7->v8: 플레이 흔적 없음(maxStage 0 · rebirths 0) → 1단계 · 끝나지 않음", blank.onboarding.done == false and blank.onboarding.step == 1)
+	local tmpl: any = { schemaVersion = 7, progress = { maxStage = 1 }, rebirths = { m = 0, e = 0 } }
+	Migrations.run(tmpl)
+	check("v7->v8 사실: 템플릿 시작값 maxStage 1이면 '플레이함'으로 끝남(O4 조건 그대로 — DESIGN 9장)", tmpl.onboarding.done == true)
+	local broken: any = { schemaVersion = 7, daily = { streak = 99, lastClaimDay = -5, freePotionDay = 1 } }
+	Migrations.run(broken)
+	check("v7->v8: 범위 밖 streak · lastClaimDay는 0 · daily가 없어도 만든다", broken.daily.streak == 0 and broken.daily.lastClaimDay == 0
+		and (function()
+			local none: any = { schemaVersion = 7 }
+			Migrations.run(none)
+			return none.daily.streak == 0 and none.daily.lastClaimDay == 0
+		end)())
+	local kept: any = { schemaVersion = 7, redeemedCodes = { RELEASE = true }, onboarding = { step = 3, done = false } }
+	Migrations.run(kept)
+	check("v7->v8: 이미 있는 redeemedCodes · onboarding은 덮지 않는다", kept.redeemedCodes.RELEASE == true and kept.onboarding.step == 3
+		and kept.onboarding.done == false)
+	local once = (Migrations :: any)[7]({ daily = { streak = 2, lastClaimDay = 5 }, progress = { maxStage = 4 } })
+	local again = (Migrations :: any)[7](once)
+	check("v7->v8: 두 번 불러도 같다(멱등)", again.daily.streak == 2 and again.daily.lastClaimDay == 5 and again.onboarding.done == true
+		and next(again.redeemedCodes) == nil)
+end
 
 -- v6 -> v7: purchases · potions · rollCredits · gymUnlocks 추가, boosts {expiresAt} → {remainingSec} (지시서 #16)
 do
@@ -36,7 +85,7 @@ do
 		},
 	}
 	local ok, err = Migrations.run(data)
-	check("v6->v7: 변환 성공 · schemaVersion 7", ok and data.schemaVersion == 7, err)
+	check("v6->v7: 변환 성공 · schemaVersion은 최신(v8까지 이어서 탄다)", ok and data.schemaVersion == Migrations.CURRENT, err)
 	local b = data.boosts
 	check("v6->v7: boosts expiresAt → remainingSec(남은 시간) · 끝난 것 · 깨진 것 버림 · v7 모양은 그대로",
 		#b == 2 and b[1].type == "strength" and b[1].remainingSec >= 598 and b[1].remainingSec <= 600 and b[1].expiresAt == nil
@@ -61,7 +110,7 @@ do
 		upgrades = { punchDamage = 6, punchSpeed = 2, moveSpeed = 7, bloxGain = 1, titleLuck = 2, auraLuck = 0, petLuck = 0, petSlots = 1 },
 	}
 	local ok, err = Migrations.run(data)
-	check("v5->v6: 변환 성공 · schemaVersion은 최신(v7까지 이어서 탄다)", ok and data.schemaVersion == Migrations.CURRENT, err)
+	check("v5->v6: 변환 성공 · schemaVersion은 최신(v8까지 이어서 탄다)", ok and data.schemaVersion == Migrations.CURRENT, err)
 	check("v5->v6: upgrades.moveSpeed 삭제", data.upgrades.moveSpeed == nil)
 	check("v5->v6: 다른 업그레이드 · 블럭스는 그대로(환급 없음)", data.upgrades.punchDamage == 6 and data.upgrades.punchSpeed == 2
 		and data.upgrades.bloxGain == 1 and data.upgrades.petSlots == 1 and data.blox.m == 3.25 and data.blox.e == 4)

@@ -98,6 +98,16 @@ check("fresh = 신규 프로필과 같은 재화(시뮬레이터 시작 상태 =
 	local new = Schema.new()
 	return BigNum.eq(data.strength, new.strength) and BigNum.eq(data.blox, new.blox) and next(data.pets.owned) == nil
 end)())
+check("첫 접속 안내(v8 — #20 O4): fresh만 1단계부터 · 나머지 프리셋은 끝남(일일 보상을 안내가 막지 않게)", (function()
+	for _, name in ipairs(TestPresets.NAMES) do
+		local o = TestPresetGate.buildData(name).onboarding
+		local want = name ~= "fresh"
+		if o.done ~= want or o.step ~= (if want then Schema.LIMITS.ONBOARDING_STEPS else 1) then
+			return false
+		end
+	end
+	return true
+end)())
 
 -- 2. 켜도 되는가 (Studio에서만) -------------------------------------------------------------------
 do

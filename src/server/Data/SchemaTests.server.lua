@@ -50,7 +50,56 @@ do
 	check("new()는 매번 독립된 깊은 복사본을 반환함", b.blox.m == 0)
 end
 
-check("Schema.VERSION == 7 (v7: purchases · potions · rollCredits · gymUnlocks · boosts remainingSec — 지시서 #16)", Schema.VERSION == 7)
+check("Schema.VERSION == 8 (v8: daily {streak, lastClaimDay} · redeemedCodes · onboarding — 지시서 #20)", Schema.VERSION == 8)
+do
+	local t = Schema.getTemplate() :: any
+	check("v8 템플릿: daily {streak 0, lastClaimDay 0}(freePotionDay 없음) · redeemedCodes 빈 표 · onboarding {step 1, done false}",
+		t.daily.streak == 0 and t.daily.lastClaimDay == 0 and t.daily.freePotionDay == nil and type(t.redeemedCodes) == "table"
+			and next(t.redeemedCodes) == nil and t.onboarding.step == 1 and t.onboarding.done == false)
+	local function rejects8(mutate: (any) -> ()): boolean
+		local d = Schema.new() :: any
+		mutate(d)
+		return not (Schema.validate(d))
+	end
+	local ok8 = Schema.new() :: any
+	ok8.daily = { streak = 7, lastClaimDay = 20393 }
+	ok8.redeemedCodes = { RELEASE = true }
+	ok8.onboarding = { step = Schema.LIMITS.ONBOARDING_STEPS, done = true }
+	check("v8 검증: daily streak 7 · 일 번호 · 받은 코드 · onboarding 끝 통과", (Schema.validate(ok8)))
+	check("v8 검증 거부: streak 8 · 음수 · 소수 · lastClaimDay 음수 · daily 없음", rejects8(function(d)
+		d.daily.streak = Schema.LIMITS.DAILY_CYCLE_DAYS + 1
+	end) and rejects8(function(d)
+		d.daily.streak = -1
+	end) and rejects8(function(d)
+		d.daily.streak = 1.5
+	end) and rejects8(function(d)
+		d.daily.lastClaimDay = -3
+	end) and rejects8(function(d)
+		d.daily = nil
+	end))
+	check("v8 검증 거부: redeemedCodes 값 true 아님 · 빈 키 · 너무 긴 키 · 상한 초과 · 표 없음", rejects8(function(d)
+		d.redeemedCodes = { RELEASE = 1 }
+	end) and rejects8(function(d)
+		d.redeemedCodes = { [""] = true }
+	end) and rejects8(function(d)
+		d.redeemedCodes = { [string.rep("A", Schema.LIMITS.MAX_CODE_LENGTH + 1)] = true }
+	end) and rejects8(function(d)
+		for i = 1, Schema.LIMITS.MAX_REDEEMED_CODES + 1 do
+			d.redeemedCodes["C" .. i] = true
+		end
+	end) and rejects8(function(d)
+		d.redeemedCodes = nil
+	end))
+	check("v8 검증 거부: onboarding step 0 · 6 · done 문자열 · 표 없음", rejects8(function(d)
+		d.onboarding.step = 0
+	end) and rejects8(function(d)
+		d.onboarding.step = Schema.LIMITS.ONBOARDING_STEPS + 1
+	end) and rejects8(function(d)
+		d.onboarding.done = "yes"
+	end) and rejects8(function(d)
+		d.onboarding = nil
+	end))
+end
 do
 	local t = Schema.getTemplate() :: any
 	check("v7 템플릿: purchases · boosts 빈 표 · potions 3종 0 · rollCredits 2종 0 · gymUnlocks 빈 표 · MAX_PURCHASES 100",

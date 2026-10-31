@@ -6,7 +6,7 @@
 
 local Schema = {}
 
-Schema.VERSION = 7 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드, Phase 4-2-b)
+Schema.VERSION = 8 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드, Phase 4-2-b)
 -- v4: lifeBlox 추가 (이번 생애 누적 blox — 패드 해금 기준, 환생하면 0. 2026-10-21)
 -- v5: pets.slots · pets.storage · rolling.unlockedAuraPacks · drones 삭제 (2026-10-24 지시서 #10 S12 · S13).
 --     슬롯 · 저장 공간 · 열린 아우라 팩은 저장하지 않고 파생한다 — PetConfig.getSlots · getStorage, AuraConfig.getUnlockedPacks.
@@ -14,6 +14,8 @@ Schema.VERSION = 7 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드
 -- v6: upgrades.moveSpeed 삭제 (2026-10-24 사람 결정 L3 — 이동 속도는 레벨로만 오른다. 구매분 환급 없음 — 출시 전)
 -- v7: purchases · potions · rollCredits · gymUnlocks 추가, boosts {type, mult, expiresAt} → {type, mult, remainingSec}
 --     (2026-10-25 지시서 #16 — DESIGN 9장 S2 · S7). 게임패스 소유는 여기 없다(절대 규칙 5 — 세션 값)
+-- v8: daily {streak, lastClaimDay}(freePotionDay 삭제) · redeemedCodes · onboarding{step, done} (2026-11-01 지시서 #20 R2 —
+--     DESIGN 9장 "무료 요소"). 일일 보상 · 코드 입력 · 첫 접속 안내
 
 -- 구조적 상한값. DESIGN.md 6장 수치와 같지만 Schema는 Config를 몰라야 하므로 별도로 둔다.
 -- 중복이 어긋나면 SchemaTests가 잡는다(PetConfig · AuraConfig 값과 대조한다).
@@ -25,6 +27,12 @@ Schema.LIMITS = {
 	MAX_AURA_PACKS = 5, -- AuraConfig.Packs 개수
 	-- 처리한 영수증 PurchaseId를 남기는 최대 개수(DESIGN 9장 S2 — 최근 100개, 오래된 것부터 버린다). ProductService가 이 값을 쓴다
 	MAX_PURCHASES = 100,
+	-- 일일 보상 주기 일수(= DailyRewardConfig 칸 수) · 첫 접속 안내 단계 수(= OnboardingConfig 단계 수). SchemaTests가 Config와 대조한다(v8)
+	DAILY_CYCLE_DAYS = 7,
+	ONBOARDING_STEPS = 5,
+	-- 받은 코드 기록 상한 · 코드 글자 수 상한(= CodesConfig.MAX_LENGTH — 대조는 SchemaTests). 넘는 기록은 손상으로 본다(v8)
+	MAX_REDEEMED_CODES = 200,
+	MAX_CODE_LENGTH = 32,
 }
 
 local function isFiniteNumber(n: any): boolean
@@ -139,10 +147,18 @@ local function buildTemplate()
 		-- 운동기구 선해금 기록 {["기구 번호"] = true}(#17). 키는 문자열 — JSON이 숫자 키를 문자열로 바꾸는 어긋남을 피한다(pets uid와 같은 이유)
 		gymUnlocks = {},
 
+		-- 일일 보상(v8 — DESIGN 9장 "일일 보상"). streak = 이번 7일 주기에서 받은 날 수 0 ~ 7 · lastClaimDay = 마지막으로 받은 UTC 일 번호
+		-- (Shared/DayClock.dayNumber — floor(os.time() / 86400)). 0 = 받은 적 없음. freePotionDay는 v8에서 지웠다(P1 — 무료 포션은 보상표 안 칸)
 		daily = {
 			streak = 0,
-			lastClaimDay = 0, -- UTC 일 단위 정수
-			freePotionDay = 0,
+			lastClaimDay = 0,
+		},
+		-- 받은 코드 {[코드] = true}(v8 — C2). 키는 CodesConfig.normalize 꼴(대문자 · 공백 제거). 입력 글자 원문은 저장하지 않는다(C4)
+		redeemedCodes = {},
+		-- 첫 접속 안내(v8 — O4). step = 지금 단계 1 ~ ONBOARDING_STEPS · done = 끝남(다 마침 · 건너뜀 · 기존 프로필)
+		onboarding = {
+			step = 1,
+			done = false,
 		},
 
 		stats = {
@@ -366,6 +382,50 @@ function Schema.validate(data: any): (boolean, { string })
 		end
 	else
 		addError(errors, "gymUnlocks 테이블이 없음")
+	end
+
+	-- daily · redeemedCodes · onboarding (v8) ------------------------------------------------------
+
+	local function isWholeIn(v: any, lo: number, hi: number): boolean
+		return isFiniteNumber(v) and v % 1 == 0 and v >= lo and v <= hi
+	end
+
+	if type(data.daily) == "table" then
+		if not isWholeIn(data.daily.streak, 0, Schema.LIMITS.DAILY_CYCLE_DAYS) then
+			addError(errors, string.format("daily.streak는 0 ~ %d 정수여야 함", Schema.LIMITS.DAILY_CYCLE_DAYS))
+		end
+		if not isWholeIn(data.daily.lastClaimDay, 0, math.huge) then
+			addError(errors, "daily.lastClaimDay는 0 이상 정수여야 함")
+		end
+	else
+		addError(errors, "daily 테이블이 없음")
+	end
+
+	if type(data.redeemedCodes) == "table" then
+		local n = 0
+		for code, value in pairs(data.redeemedCodes) do
+			n += 1
+			if type(code) ~= "string" or #code == 0 or #code > Schema.LIMITS.MAX_CODE_LENGTH or value ~= true then
+				addError(errors, string.format("redeemedCodes[%s]가 {[\"코드\"] = true} 형태가 아님", tostring(code)))
+				break
+			end
+		end
+		if n > Schema.LIMITS.MAX_REDEEMED_CODES then
+			addError(errors, string.format("redeemedCodes가 %d개를 넘음(%d)", Schema.LIMITS.MAX_REDEEMED_CODES, n))
+		end
+	else
+		addError(errors, "redeemedCodes 테이블이 없음")
+	end
+
+	if type(data.onboarding) == "table" then
+		if not isWholeIn(data.onboarding.step, 1, Schema.LIMITS.ONBOARDING_STEPS) then
+			addError(errors, string.format("onboarding.step은 1 ~ %d 정수여야 함", Schema.LIMITS.ONBOARDING_STEPS))
+		end
+		if type(data.onboarding.done) ~= "boolean" then
+			addError(errors, "onboarding.done이 boolean이 아님")
+		end
+	else
+		addError(errors, "onboarding 테이블이 없음")
 	end
 
 	return #errors == 0, errors

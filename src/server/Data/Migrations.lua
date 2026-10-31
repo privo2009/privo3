@@ -130,6 +130,43 @@ Migrations[6] = function(data)
 	return data
 end
 
+-- v7 -> v8: 일일 보상 · 코드 입력 · 첫 접속 안내 (2026-11-01 지시서 #20 R2 — DESIGN 9장 "무료 요소").
+--   daily          {streak, lastClaimDay, freePotionDay} → {streak, lastClaimDay}. freePotionDay를 지운다(쓰는 곳 0 — P1).
+--                  streak · lastClaimDay는 범위 안 정수면 그대로, 아니면 0(v7까지 쓰는 코드가 없었다 — 템플릿 값 그대로일 것이다)
+--   redeemedCodes  없으면 빈 표
+--   onboarding     없으면 만든다. 이미 플레이한 프로필(maxStage ≥ 1 또는 rebirths > 0)은 끝남(O4). 그 밖은 1단계부터.
+--                  ⚠️ maxStage 시작값이 1이라(Schema) 이 조건은 v7 프로필 전부에 참이다 — 결과적으로 기존 프로필은 전부 끝남(DESIGN 9장 사실 기록)
+-- 잃는 값이 없다 — 지우는 freePotionDay는 읽는 코드가 없었다. 멱등: 이미 v8 모양이면 그대로 지나간다.
+local function wholeIn(v: any, lo: number, hi: number): boolean
+	return type(v) == "number" and v == v and v ~= math.huge and v % 1 == 0 and v >= lo and v <= hi
+end
+
+local function hasPlayed(data: any): boolean
+	local progress = if type(data.progress) == "table" then data.progress else nil
+	local maxStage = if progress ~= nil then progress.maxStage else nil
+	if type(maxStage) == "number" and maxStage >= 1 then
+		return true
+	end
+	local r = data.rebirths
+	return type(r) == "table" and type(r.m) == "number" and r.m > 0
+end
+
+Migrations[7] = function(data)
+	local daily = if type(data.daily) == "table" then data.daily else {}
+	data.daily = {
+		streak = if wholeIn(daily.streak, 0, Schema.LIMITS.DAILY_CYCLE_DAYS) then daily.streak else 0,
+		lastClaimDay = if wholeIn(daily.lastClaimDay, 0, math.huge) then daily.lastClaimDay else 0,
+	}
+	if type(data.redeemedCodes) ~= "table" then
+		data.redeemedCodes = {}
+	end
+	if type(data.onboarding) ~= "table" then
+		local done = hasPlayed(data)
+		data.onboarding = { step = if done then Schema.LIMITS.ONBOARDING_STEPS else 1, done = done }
+	end
+	return data
+end
+
 -- data.schemaVersion부터 Migrations.CURRENT까지 등록된 변환 함수를 순서대로 적용하고
 -- data.schemaVersion을 최종 버전으로 갱신한다. data는 in-place로 수정된다.
 --

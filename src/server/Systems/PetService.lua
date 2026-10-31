@@ -294,6 +294,58 @@ local function createRuntime(deps: Deps)
 		return true, results
 	end
 
+	-- 저장 공간 남은 칸(파생 저장 공간 − 보유 수). 프로필이 없으면 nil. RewardService가 지급 전에 본다(지시서 #20 R1).
+	function runtime.storageRoom(player: Player): number?
+		local data = deps.getData(player)
+		local pets = petsOf(data)
+		if pets == nil then
+			return nil
+		end
+		return PetConfig.getStorage(deps.hasStoragePass(player)) - ownedCount(pets.owned)
+	end
+
+	-- 보상으로 펫 한 마리를 준다(일일 보상 7일째 리미티드 등 — 지시서 #20 R1 · D4). 부화와 같은 발급(uid · 저장 공간 · 빈 슬롯 자동 장착 ·
+	-- 새 petId면 저장 1회). 롤 시계 · 비용 · 해금은 보지 않는다(보상이다). 성공이면 (true, HatchResult — eggId는 알 번호, 리미티드는 0).
+	function runtime.grant(player: Player, petId: any, _source: string): (boolean, any)
+		local data = deps.getData(player)
+		local pets = petsOf(data)
+		if pets == nil then
+			return false, RollService.REASON_NO_PROFILE
+		end
+		local def, eggId, rarity = PetConfig.get(petId)
+		if def == nil then
+			return false, RollService.REASON_INVALID
+		end
+		if ownedCount(pets.owned) + 1 > PetConfig.getStorage(deps.hasStoragePass(player)) then
+			return false, PetService.REASON_STORAGE_FULL
+		end
+		local isNew = true
+		for _, entry in pairs(pets.owned) do
+			if type(entry) == "table" and entry.petId == def.id then
+				isNew = false
+				break
+			end
+		end
+		local nextUid = if type(pets.nextUid) == "number" and pets.nextUid >= 1 then math.floor(pets.nextUid) else 1
+		local uid = tostring(nextUid)
+		while pets.owned[uid] ~= nil do -- 깨진 nextUid로 기존 펫을 덮어쓰지 않게(부화와 같다)
+			nextUid += 1
+			uid = tostring(nextUid)
+		end
+		pets.nextUid = nextUid + 1
+		pets.owned[uid] = { petId = def.id, tier = 1 }
+		local equipped = false
+		if #pets.equipped < slotsFor(player, data) then
+			table.insert(pets.equipped, uid)
+			equipped = true
+			publish(player, data)
+		end
+		if isNew then
+			deps.save(player) -- S11과 같다: 새 petId일 때만
+		end
+		return true, { uid = uid, petId = def.id, eggId = eggId :: number, rarity = rarity :: number, level = 1, isNew = isNew, equipped = equipped }
+	end
+
 	function runtime.hatch(player: Player, eggId: any, source: string): (boolean, any)
 		local ok, value = runtime.hatchMany(player, eggId, 1, source)
 		if ok then
@@ -655,6 +707,20 @@ function PetService.hatchMulti(player: Player, eggId: any, source: string): (boo
 			table.insert(names, string.format("%s(uid=%s%s)", r.petId, r.uid, if r.isNew then " 새" else ""))
 		end
 		print(string.format("[PetService] %s(%d) 알 %d × %d → %s", player.Name, player.UserId, eggId, #value, table.concat(names, ", ")))
+	end
+	return ok, value
+end
+
+-- 저장 공간 남은 칸(프로필 없으면 nil) · 보상 펫 지급(지시서 #20 R1 — RewardService만 부른다).
+function PetService.storageRoom(player: Player): number?
+	return runtime.storageRoom(player)
+end
+
+function PetService.grant(player: Player, petId: any, source: string): (boolean, any)
+	local ok, value = runtime.grant(player, petId, source)
+	if ok then
+		print(string.format("[PetService] %s(%d) 보상 펫(%s) → %s uid=%s%s%s", player.Name, player.UserId, source, value.petId, value.uid,
+			if value.isNew then " 새 펫" else " 중복", if value.equipped then " → 빈 슬롯 장착" else ""))
 	end
 	return ok, value
 end
