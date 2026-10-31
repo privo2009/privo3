@@ -231,7 +231,8 @@ export type AutoRow = {
 function BalanceSummary.autoRow(preset: string, p: SuccessRateReport.Player): AutoRow
 	local damage = BigNum.mul(p.strength, BigNum.fromNumber(SuccessRateReport.damageMultiplier(p)))
 	local rate = SuccessRateReport.effect(p.upgrades, "punchSpeed")
-	local d = AutoAdvanceLogic.dealTotal(damage, rate, StageConfig.CHALLENGE_TIMER_SEC)
+	-- 안전층과 같은 기준의 D(S15 — 시간 항 × SAFE_TIME_RATIO). 줄의 "D"는 이 값이다
+	local d = AutoAdvanceLogic.safeDealTotal(damage, rate, StageConfig.CHALLENGE_TIMER_SEC)
 	local safe = AutoAdvanceLogic.safeFloor(damage, rate)
 	if safe <= 0 then
 		return { preset = preset, d = d, safeFloor = 0, reward = BigNum.new(0, 0), runSec = nil, perMin = nil }

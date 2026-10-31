@@ -5,12 +5,14 @@
 --   safeFloor  안전층 = 1층부터 연속으로 총HP(N) ≤ D 를 만족하는 최고 N(없으면 0)
 --              D = 1펀치 데미지 × 초당 펀치 × 타이머 초(DESIGN "펀치와 딜 총량 > 20초 딜 총량 D" — 이론 상한)
 --              이동 시간 0(순간 이동). 1펀치 데미지는 AttackService가 실제로 쓰는 값(힘 × 결합 배수)을 서버가 넘긴다
+--              비교에는 D가 아니라 safeDealTotal(시간 항 × AutoAdvanceConfig.SAFE_TIME_RATIO — S15, 지시서 #20)을 쓴다
 --   maxTarget  목표층 상한 = 1층이 속한 월드의 마지막 층(AA6 — 지금 25)
 --   startKind  목표층 ≤ 안전층이면 "safe"(수령 · 안전 노랑), 넘으면 "risky"(진행 · 도박 보라) — AA7
 
 local BigNum = require(script.Parent.BigNum)
 local StageConfig = require(script.Parent.Config.StageConfig)
 local WorldConfig = require(script.Parent.Config.WorldConfig)
+local AutoAdvanceConfig = require(script.Parent.Config.AutoAdvanceConfig)
 
 type BigNumber = BigNum.BigNumber
 
@@ -35,10 +37,15 @@ function AutoAdvanceLogic.dealTotal(punchDamage: BigNumber, punchRate: number, t
 	return BigNum.mul(punchDamage, BigNum.fromNumber(perSec * timerSec))
 end
 
+-- 안전층 비교용 딜 총량(S15): 시간 항에 SAFE_TIME_RATIO를 곱한 D. 20초 안 마지막 펀치 1회가 시간 초과 뒤로 밀리는 경계를 덮는다.
+function AutoAdvanceLogic.safeDealTotal(punchDamage: BigNumber, punchRate: number, timerSec: number): BigNumber
+	return AutoAdvanceLogic.dealTotal(punchDamage, punchRate, timerSec * AutoAdvanceConfig.SAFE_TIME_RATIO)
+end
+
 -- 안전층. totalHpOf(stage)를 생략하면 StageConfig.getTotalHp(실물), lastStage를 생략하면 maxTarget.
 function AutoAdvanceLogic.safeFloor(punchDamage: BigNumber, punchRate: number, timerSec: number?,
 	totalHpOf: ((number) -> BigNumber)?, lastStage: number?): number
-	local d = AutoAdvanceLogic.dealTotal(punchDamage, punchRate, timerSec or StageConfig.CHALLENGE_TIMER_SEC)
+	local d = AutoAdvanceLogic.safeDealTotal(punchDamage, punchRate, timerSec or StageConfig.CHALLENGE_TIMER_SEC)
 	local hpOf = totalHpOf or StageConfig.getTotalHp
 	local last = lastStage or AutoAdvanceLogic.maxTarget()
 	local safe = 0

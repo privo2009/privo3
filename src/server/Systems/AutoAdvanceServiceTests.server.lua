@@ -281,18 +281,46 @@ do
 	local function hpOf(s: number)
 		return hp[s]
 	end
-	-- D = 10 × 2 × 10 = 200
+	-- D = 10 × 2 × 10 = 200. 안전층 비교는 시간 항 × SAFE_TIME_RATIO(S15) — 아래 경계는 R로 나눈 데미지로 만든다(값은 Config에서 읽는다)
+	local R = AutoAdvanceConfig.SAFE_TIME_RATIO
+	local function dmg(x: number)
+		return BigNum.fromNumber(x / R)
+	end
 	check("D = 1펀치 × 초당 × 초", BigNum.eq(AutoAdvanceLogic.dealTotal(BigNum.fromNumber(10), 2, 10), BigNum.fromNumber(200)))
-	check("경계: 총HP = D인 층은 안전(포함)", AutoAdvanceLogic.safeFloor(BigNum.fromNumber(10), 2, 10, hpOf, 3) == 2)
-	check("경계: 총HP가 D를 조금 넘으면 그 층은 아님", AutoAdvanceLogic.safeFloor(BigNum.fromNumber(9.99), 2, 10, hpOf, 3) == 1)
-	check("힘이 오르면 안전층이 오른다", AutoAdvanceLogic.safeFloor(BigNum.fromNumber(20), 2, 10, hpOf, 3) == 3)
+	check("S15: SAFE_TIME_RATIO는 Config 값(0 초과 1 미만 — 시작값 0.9) · 안전 D = D × 그 값",
+		R > 0 and R < 1 and math.abs(R - 0.9) < 1e-9
+			and math.abs(BigNum.toRatio(AutoAdvanceLogic.safeDealTotal(BigNum.fromNumber(10), 2, 10), BigNum.fromNumber(200)) - R) < 1e-9)
+	check("경계: 총HP = 안전 D인 층은 안전(포함)", AutoAdvanceLogic.safeFloor(dmg(10), 2, 10, hpOf, 3) == 2)
+	check("경계: 총HP가 안전 D를 조금 넘으면 그 층은 아님", AutoAdvanceLogic.safeFloor(dmg(9.99), 2, 10, hpOf, 3) == 1)
+	check("힘이 오르면 안전층이 오른다", AutoAdvanceLogic.safeFloor(dmg(20), 2, 10, hpOf, 3) == 3)
 	check("1층도 못 깨면 0", AutoAdvanceLogic.safeFloor(BigNum.fromNumber(1), 2, 10, hpOf, 3) == 0)
 	local gappy = { BigNum.fromNumber(100), BigNum.fromNumber(999), BigNum.fromNumber(150) }
-	check("연속 조건: 중간 층에서 막히면 뒤 층은 보지 않는다", AutoAdvanceLogic.safeFloor(BigNum.fromNumber(10), 2, 10, function(s)
+	check("연속 조건: 중간 층에서 막히면 뒤 층은 보지 않는다", AutoAdvanceLogic.safeFloor(dmg(10), 2, 10, function(s)
 		return gappy[s]
 	end, 3) == 1)
-	check("실물 표: 1층 총HP = D면 1층 안전 · 타이머 20초", AutoAdvanceLogic.safeFloor(BigNum.div(StageConfig.getTotalHp(1),
-		BigNum.fromNumber(2 * StageConfig.CHALLENGE_TIMER_SEC)), 2) >= 1)
+	check("실물 표: 1층 총HP = 안전 D면 1층 안전 · 타이머 20초", AutoAdvanceLogic.safeFloor(BigNum.mul(BigNum.div(StageConfig.getTotalHp(1),
+		BigNum.fromNumber(2 * StageConfig.CHALLENGE_TIMER_SEC * R)), BigNum.fromNumber(1 + 1e-9)), 2) >= 1)
+	-- 경계 층(#19 조사 4): 1펀치 10 · 초당 2 · 20초 = 40펀치 · D 400. 2층 총HP = D − 1펀치(390) — 여유 없이는 안전, 여유를 넣으면 아니다
+	local edge = { BigNum.fromNumber(100), BigNum.fromNumber(390) }
+	check("S15 경계 층(총HP = D − 1펀치): D로는 안전 범위지만 여유 반영 뒤 안전층이 아니다",
+		BigNum.lte(edge[2], AutoAdvanceLogic.dealTotal(BigNum.fromNumber(10), 2, 20))
+			and AutoAdvanceLogic.safeFloor(BigNum.fromNumber(10), 2, 20, function(s)
+				return edge[s]
+			end, 2) == 1)
+	-- 실물 표: 1펀치 = 5층 총HP ÷ 40 → D = 5층 총HP. 여유 없는 안전층(D로 직접 센 값)이 5 이상이면 여유 반영 뒤 하나 내려간다
+	local p5 = BigNum.mul(BigNum.div(StageConfig.getTotalHp(5), BigNum.fromNumber(2 * StageConfig.CHALLENGE_TIMER_SEC)), BigNum.fromNumber(1 + 1e-9))
+	local rawD = AutoAdvanceLogic.dealTotal(p5, 2, StageConfig.CHALLENGE_TIMER_SEC)
+	local raw = 0
+	for stage = 1, AutoAdvanceLogic.maxTarget() do
+		if BigNum.lte(StageConfig.getTotalHp(stage), rawD) then
+			raw = stage
+		else
+			break
+		end
+	end
+	local withMargin = AutoAdvanceLogic.safeFloor(p5, 2)
+	check("S15 실물 표: 총HP(5층) = D인 힘이면 여유 반영 뒤 안전층이 1 내려간다", raw == 5 and withMargin == 4,
+		string.format("raw=%d margin=%d", raw, withMargin))
 	check("버튼 종류: 목표 ≤ 안전 safe · 넘으면 risky · 기본 목표 = 안전층(0이면 1)", AutoAdvanceLogic.startKind(5, 5) == "safe"
 		and AutoAdvanceLogic.startKind(6, 5) == "risky" and AutoAdvanceLogic.defaultTarget(0) == 1 and AutoAdvanceLogic.defaultTarget(9) == 9)
 	check("AutoAdvanceConfig.validate · 진행 간격 1초 이하", AutoAdvanceConfig.validate() and ADV <= 1 and REP == 3)
