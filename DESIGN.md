@@ -2226,6 +2226,8 @@ lastClaimDay == 오늘 − 1 이고 streak < 7  → 받을 칸 = streak + 1   (�
 - 창을 열기만 해서는 아무것도 저장하지 않는다 — 기록은 받기 성공에서만 생긴다
 - **TEST_DAY_OFFSET**(Bootstrap, 기본 nil, Studio 전용): 서버 "오늘"에 더한다. **Mock 프리셋과 함께일 때만** 켜진다 — 프리셋이 없거나 Studio가 아니면
   무시하고 경고한다(실제 프로필에 가짜 날짜 기록을 남기지 않는다). 커밋 값 nil은 테스트가 잰다
+- **TEST_DAILY_SEED**(Bootstrap, 기본 nil, Studio · Mock 전용 — #20 단계 8에서 더함): Mock은 Play를 멈추면 사라져 어제 기록이 이어지지 않으므로
+  `{ streak, daysAgo }`를 Mock 템플릿 daily에 심는다(lastClaimDay = 오늘 − daysAgo). 프리셋이 없으면 아무것도 하지 않는다 · 커밋 값 nil
 
 #### 코드 입력 (C1 ~ C6, 2026-11-01 사람 결정 — 지시서 #20)
 - **C1** 원본 `Shared/Config/CodesConfig` 한 곳 — 코드 · 보상(위 보상 형식) · 만료(UTC 시각 `os.time` 초, 없으면 무기한).

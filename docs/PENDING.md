@@ -380,6 +380,28 @@ H4         icon_code · icon_attend PNG — U2 진행 그대로(아직 미도착
 ```
 **Phase 9로 미룬 것(2026-11-01 C5):** 실제 코드 목록(코드 · 보상 · 만료) · 코드를 알릴 곳(그룹 · SNS 등) — 사람이 정한다. 그전까지는 RELEASE 하나(TEMP).
 
+**#20 완료(2026-11-01 — 커밋 b262cc0 · 15582cc · 5af9f8a · 68df90c · 911c340 · 99aeb03 · ea2933a · 406af9e · 2e5f5a4 · 이 문서 커밋)**
+```
+실물 확인에서 찾아 고친 것   ① 첫 PlayerState가 daily를 onboarding보다 먼저 넣어 안내 중에 일일 보상이 떴다(fresh) → 순서 · task.defer
+                           ② 코드 창 결과 줄이 처음에 "Label" → 빈칸 ③ 안내 띠(Overlay)가 위로 붙인 코드 창 · 큰 창의 X를 덮었다 →
+                           코드 창 가운데 · 창이 열리면 띠 숨김(ScreenController.onWindowChanged) — 2e5f5a4
+Mock 사실                  Mock 프로필은 Play를 멈추면 사라져 "다음 Play에서 안내가 안 뜸" · "어제 받은 기록"을 Mock으로 이어 볼 수 없다 →
+                           이어가기는 서버 테스트(같은 표로 세션 다시 열기), 날짜 연속은 TEST_DAILY_SEED(Studio · Mock 전용 — 406af9e)로 봤다
+분석 이벤트 Studio          LogOnboardingFunnelStepEvent는 Studio에서 오류 없이 "event fired"만 찍는다(pcall ok). 공식 문서는 "Studio에서는 보내지
+                           않는다" — 실제 집계는 게시된 게임에서만(Phase 9에서 대시보드 확인)
+O4 사실                    maxStage 시작값 1이라 "maxStage ≥ 1"은 v7 프로필 전부에 참 — 기존 프로필은 전부 안내 끝남(개발 계정 step=5 done=true)
+```
+#20 뒤 남은 것
+```
+사람 튜닝(TEMP)            일일 보상표 · 리미티드 m 1.96 · RELEASE 코드 — docs/TUNING.md
+사람 확인                  실제 폰에서 코드 입력 키보드가 확인 버튼을 가리지 않는지(MCP는 폰 키보드를 띄울 수 없다 — 틀 검사: 입력칸 아랫변 위 38%)
+                           리미티드 펫 이름 Dawn Phoenix / 새벽불사조(Claude가 지었다) · 색 tier6(칭호 신화와 같은 색)
+Phase 9                    실제 코드 목록 · 알릴 곳 · 첫 접속 분석 이벤트 대시보드 확인(게시된 게임)
+알려진 것                  안내 띠(x 0.73 ~)는 토스트 칸과 같은 자리다 — 안내 중 토스트가 뜨면 잠깐 덮는다(알림층이 위). 안내 중 토스트는 드물다
+                           오류 칸의 범위(#19 불일치 9) — 이번 범위 밖
+보관함 가득 7일째          서버 테스트로만 봤다(floor9 Mock 펫 6마리 — 50칸을 채우는 프리셋이 없다)
+```
+
 ### 다국어 — #L1(클라우드) · #L2(집 PC 검증) (2026-10-25 사람 결정)
 
 언어 결정 원본 `DESIGN.md` "12. 언어" · 구조와 절차 `docs/LOCALIZATION.md`.
@@ -602,6 +624,7 @@ D1 ~ D3 → `docs/DASHBOARD_PRODUCTS.md`(#16 7단계) · D4 · D5 광고와 함�
 잔재 확인
 - 플레이스 StarterGui의 빈 `ScreenGui`("다국어 — #L2 뒤" 잔재) — 사람이 지운다. #17 8단계에서 search_game_tree로 없어졌는지만 본다
   → 2026-10-31 확인: **아직 있다**(`StarterGui.ScreenGui`). 사람이 지운 뒤 다음 지시서에서 다시 본다
+  → **해소(2026-11-01 #20 9단계 search_game_tree: StarterGui 아래 자식 없음)**
 
 #18 완료(2026-10-31 지시서 #18 — 규칙 DESIGN "1. 챌린지 > 자동 진행 모드" AA0 ~ AA13). 해소: 아래 계획 · 사람 결정 3(이름 3개 — N1) ·
 DESIGN 자동 진행 미결 둘(부스트 만료 — 시작값 고정 · 상품 형태 — 게임패스). 아래는 #17 때 적은 계획(기록)과 단계 5 실측
@@ -614,7 +637,7 @@ DESIGN 자동 진행 미결 둘(부스트 만료 — 시작값 고정 · 상품 
                          튜닝 줄의 런 길이 23.0s(모델) vs 실측 23.9s · 수령 1.05K vs 실측 1,046.035
 워프 서버 거부           창이 자동 중에는 먼저 잠가 서버 auto_active 거부까지 가지 않는다 — 서버 쪽은 AutoAdvanceServiceTests만 본다
 Phase 8 코드 밖          보상형 광고 출시 후 · Roblox Plus 켜기 Phase 9 · 실서버 게임패스 구매 확인 Phase 9(다른 계정)
-잔재                     플레이스 StarterGui의 빈 ScreenGui — 2026-10-31 #18 7단계 search_game_tree: 아직 있다(사람이 지운다)
+잔재                     ~~플레이스 StarterGui의 빈 ScreenGui~~ — 해소(2026-11-01 #20 9단계: 없음)
 ```
 #18 계획 — 자동 진행 모드(게임패스 `autoAdvance` 2053542093 · 199 — 소유 판정은 #16에 있다, 효과 없음)
 ```

@@ -1,6 +1,6 @@
 # 튜닝 안내 — 혼자 값을 바꾸고 결과를 보는 법
 
-문서 갱신: 2026-10-25 (지시서 #13)
+문서 갱신: 2026-11-01 (지시서 #20 — 일일 보상표 · 리미티드 m · 코드 목록 · 안전층 여유 · 날짜 넘겨 보기)
 
 이 문서는 **사람(희준)용 한 장**이다. 값을 하나 바꾸고, Play 한 번으로 결과를 읽고, 되돌리는 순서를 적는다.
 ⚠️ 여기에는 **수치를 적지 않는다.** 지금 값은 언제나 Config 파일이 원본이다(복사본은 반드시 어긋난다 — CLAUDE.md "문서").
@@ -81,6 +81,26 @@
 - 같이 볼 것: 뽑기 분포 줄 · 25층 시간
 - 관계: 뒤 팩 / 알이 앞보다 비싸야 한다(validate) · 블럭스를 로벅스로 파는 상품은 만들지 않는다(CLAUDE.md 금지 사항)
 
+**일일 보상표(TEMP)** — `Shared/Config/DailyRewardConfig` `DAYS`(1 ~ 7일, 지시서 #20 D3)
+- 움직이는 것: 매일 들어오는 사람의 포션 · 블럭스 · 7일째 리미티드 펫. 블럭스 칸은 `bloxScaled{k}` = 그 사람 최고층 1회 기본 보상 × k(블럭스 배수는 안 곱한다)
+- 같이 볼 것: 창 칸 글자(Play에서 그대로 보인다) · 포션 보관함 수(상점 로벅스 탭 "포션")
+- 관계: 7칸 · 7일째는 리미티드 펫 1마리 · 행운 포션 금지 · 포션 개수 1 ~ 99 · k > 0(validate). 랜덤 보상은 넣지 않는다(D3)
+
+**리미티드 펫 m(TEMP)** — `Shared/Config/PetConfig` `LIMITED_MULT`(시작값 1.96 = 알 2 전설, D4)
+- 움직이는 것: 7일을 채운 사람의 펫 힘(장착하면 실효 증가분 m − 1 · 강화하면 CRAFT_FACTOR배)
+- 같이 볼 것: 펫 창 상세 "Power +…" · 알 사다리와의 차이
+- 관계: m ≥ 1 · 리미티드 id는 어느 알 확률표에도 없다(validate). 알 간 규칙의 대상이 아니다
+
+**코드 목록(TEMP)** — `Shared/Config/CodesConfig` `Codes`(지시서 #20 C1 · C5)
+- 추가: 키 = 대문자 · 공백 없는 코드(예 `SUMMER2027`), `rewards` = 위 보상표와 같은 꼴, `expiresAt` = UTC 초(없으면 무기한)
+- 관계: 키가 정리된 꼴이 아니면 · 보상 형식이 틀리면 validate가 막는다. 받은 기록은 계정당 1회(프로필) — 코드를 지워도 기록은 남는다
+- RELEASE(힘 포션 2 + 데미지 포션 2)는 임시다. 실제 목록 · 알릴 곳은 Phase 9(docs/PENDING.md)
+
+**자동 진행 안전층 여유** — `Shared/Config/AutoAdvanceConfig` `SAFE_TIME_RATIO`(0.9, 지시서 #20 S15)
+- 움직이는 것: 자동 진행 창의 "안전층"(20초 딜 총량의 시간 항에 곱한다). 1에 가까울수록 안전층이 높고 경계 층 실패가 잦다
+- 같이 볼 것: 튜닝 요약 자동 진행 줄(D는 이 값을 넣은 딜 총량) · 프리셋 안전층(여유 전 → 후: before_first_rebirth 8 → 7, 나머지 그대로)
+- 관계: 0 초과 1 이하(validate)
+
 ## 3. 요약 읽는 법 ([BALANCE] 줄)
 
 ```
@@ -137,6 +157,17 @@ LOOP_SEC 0.1 · REQUEST_MIN_INTERVAL_SEC 0.5   서버 루프 주기 · 요청 �
 
 프리셋과 같은 자리(Bootstrap 위쪽)의 `TEST_LOCALE = nil`을 `"en"` 또는 `"ko"`로 바꾸고 Play하면 그 언어로 보인다.
 끝나면 반드시 nil로 되돌린다(LocaleTests 한 줄이 실패해서 알려 준다). 자세히는 `docs/LOCALIZATION.md`.
+
+### 날짜 넘겨 보기 — TEST_DAY_OFFSET · TEST_DAILY_SEED (Studio · 프리셋 전용, 지시서 #20)
+
+일일 보상을 날짜를 기다리지 않고 본다. **TEST_PRESET과 함께일 때만** 켜진다(실제 프로필에 가짜 날짜를 남기지 않는다).
+```
+TEST_DAY_OFFSET = n        서버 "오늘"(UTC 일 번호)에 n일을 더한다
+TEST_DAILY_SEED = { streak = k, daysAgo = d }
+                           Mock 프로필이 "d일 전에 k일째까지 받은" 상태로 시작한다(Mock은 Play를 멈추면 사라져 어제 기록이 안 이어지므로)
+예) 4일째 보기: OFFSET 3 · SEED { streak = 3, daysAgo = 1 } / 하루 건너뛴 날: SEED { streak = 3, daysAgo = 2 } → 1일로 돌아간다
+```
+끝나면 둘 다 nil로 되돌린다(DailyServiceTests · TestPresetGateTests 한 줄이 실패해서 알려 준다).
 
 ## 5. 바꾼 뒤 깨질 수 있는 곳과 대처
 
