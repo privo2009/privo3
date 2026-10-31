@@ -7,6 +7,14 @@
 --   절벽 판정(16→17 · 8→9, 임계 2.0)                      StandardPathReport.simulateAll · cliffRatio
 --   목표 밖 층                                              SuccessRateReport.TARGETS ± TARGET_TOLERANCE
 -- 출력은 [BALANCE] 줄. 줄 만들기(lines)와 찍기(run)를 나눠 둔다 — 테스트가 합성 값으로 줄을 잰다.
+--
+-- 자동 진행(안전층 반복) 줄 — 지시서 #18 AA14. 보고만 한다(게임 수치를 바꾸지 않는다).
+--   대상: 테스트 프리셋 floor9 · floor17 · floor25(그 시각 중앙값 플레이어 — Shared/Config/TestPresets)
+--   자동: D · 안전층 = AutoAdvanceLogic(서버 AutoAdvanceService와 같은 함수) · 1펀치 데미지 = 힘 × AttackService 결합 배수
+--         런 길이 = 층마다 (필요 펀치 − 0.5) × 펀치 간격(첫 펀치 위상 평균) + 진행 지연 × (안전층 − 1) + 반복 대기(AutoAdvanceConfig)
+--         수령 = 안전층 보상 × 블럭스 배수(ChallengeService.combineBloxMultiplier). 자동 중에는 클릭하지 않는다(힘이 그대로)
+--   손 플레이 모델: 같은 프리셋 상태에서 SuccessRateReport.runOnce를 AUTO_MANUAL_RUNS번(매번 처음 상태 · 클릭률 · 진행 문턱은
+--         결정 모델 범위에서 난수) — 걷기 · 런 중 클릭 · 진행 판단 · 실패 0이 들어 있다. 분당 = 수령 합 ÷ 런 시간 합
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -16,8 +24,17 @@ local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
 
+local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
+local TestPresets = require(ReplicatedStorage.Shared.Config.TestPresets)
+local AutoAdvanceConfig = require(ReplicatedStorage.Shared.Config.AutoAdvanceConfig)
+local AutoAdvanceLogic = require(ReplicatedStorage.Shared.AutoAdvanceLogic)
+local BigNum = require(ReplicatedStorage.Shared.BigNum)
+local Formatter = require(ReplicatedStorage.Shared.Formatter)
+
 local SuccessRateReport = require(script.Parent.SuccessRateReport)
 local StandardPathReport = require(script.Parent.StandardPathReport)
+
+type BigNumber = BigNum.BigNumber
 
 local BalanceSummary = {}
 
@@ -161,6 +178,143 @@ function BalanceSummary.lines(m: SuccessRateReport.Metrics, results: { SuccessRa
 	return out
 end
 
+-- ===== 자동 진행(안전층 반복) — 지시서 #18 AA14 ==========================================
+
+BalanceSummary.AUTO_PRESETS = { "floor9", "floor17", "floor25" }
+BalanceSummary.AUTO_MANUAL_RUNS = 200 -- 손 플레이 모델 비교 런 수(관측 해상도 — 게임 수치 아님)
+BalanceSummary.AUTO_MANUAL_SEED = 20261031
+
+-- 프리셋 상태를 시뮬레이터 플레이어로 옮긴다(TestPresetExport의 반대 방향). 클릭률 · 진행 문턱은 rng로(결정 모델 범위).
+function BalanceSummary.presetPlayer(name: string, rng: Random): SuccessRateReport.Player
+	local preset = TestPresets.Presets[name]
+	assert(preset ~= nil, "알 수 없는 프리셋: " .. tostring(name))
+	local p = SuccessRateReport.newPlayer(rng)
+	local function big(v: { m: number, e: number }): BigNumber
+		return BigNum.new(v.m, v.e)
+	end
+	p.strength = big(preset.strength)
+	p.blox = big(preset.blox)
+	p.lifeBlox = big(preset.lifeBlox)
+	p.lifetimeBlox = big(preset.lifetimeBlox)
+	p.rebirths = big(preset.rebirths)
+	p.padIndex = preset.padIndex
+	p.bestThisLife = preset.maxStage
+	for key, level in pairs(preset.upgrades) do
+		p.upgrades[key] = level
+	end
+	p.titleIndex = 0
+	if preset.title ~= false then
+		for i, def in ipairs(TitleConfig.Titles) do
+			if def.id == preset.title then
+				p.titleIndex = i
+			end
+		end
+	end
+	p.auraId = if preset.aura ~= false then preset.aura else nil
+	for _, pet in ipairs(preset.pets) do
+		local key = pet.petId .. ":" .. tostring(pet.tier)
+		p.pets[key] = (p.pets[key] or 0) + 1
+	end
+	return p
+end
+
+export type AutoRow = {
+	preset: string,
+	d: BigNumber,
+	safeFloor: number,
+	reward: BigNumber,
+	runSec: number?,
+	perMin: BigNumber?,
+}
+
+-- 자동 진행 한 런(목표 = 안전층). 순수 — 플레이어를 바꾸지 않는다.
+function BalanceSummary.autoRow(preset: string, p: SuccessRateReport.Player): AutoRow
+	local damage = BigNum.mul(p.strength, BigNum.fromNumber(SuccessRateReport.damageMultiplier(p)))
+	local rate = SuccessRateReport.effect(p.upgrades, "punchSpeed")
+	local d = AutoAdvanceLogic.dealTotal(damage, rate, StageConfig.CHALLENGE_TIMER_SEC)
+	local safe = AutoAdvanceLogic.safeFloor(damage, rate)
+	if safe <= 0 then
+		return { preset = preset, d = d, safeFloor = 0, reward = BigNum.new(0, 0), runSec = nil, perMin = nil }
+	end
+	local interval = 1 / rate
+	local sec = AutoAdvanceConfig.ADVANCE_DELAY_SEC * (safe - 1) + AutoAdvanceConfig.REPEAT_DELAY_SEC
+	for stage = AutoAdvanceLogic.FIRST_STAGE, safe do
+		local punches = math.max(1, math.ceil(BigNum.toRatio(StageConfig.getTotalHp(stage), damage) - 1e-9))
+		sec += (punches - 0.5) * interval
+	end
+	local reward = BigNum.mul(StageConfig.getBloxReward(safe), BigNum.fromNumber(SuccessRateReport.bloxMultiplier(p)))
+	return { preset = preset, d = d, safeFloor = safe, reward = reward, runSec = sec, perMin = BigNum.mul(reward, BigNum.fromNumber(60 / sec)) }
+end
+
+export type ManualRow = { meanReward: BigNumber, meanSec: number, perMin: BigNumber, medianBest: number, failShare: number }
+
+-- 손 플레이 모델: 같은 프리셋 상태에서 runs번(매번 처음 상태로). 실패(보상 0)도 평균에 든다.
+function BalanceSummary.manualRow(preset: string, runs: number, seed: number): ManualRow
+	local rng = Random.new(seed)
+	local total = BigNum.new(0, 0)
+	local secSum = 0
+	local bests: { number } = {}
+	local fails = 0
+	for _ = 1, runs do
+		local p = BalanceSummary.presetPlayer(preset, rng)
+		local best = SuccessRateReport.runOnce(p, rng, {}, {})
+		local reward = p.lastRunReward or BigNum.new(0, 0)
+		if reward.m <= 0 then
+			fails += 1
+		end
+		total = BigNum.add(total, reward)
+		secSum += p.lastRunSec or 0
+		table.insert(bests, best)
+	end
+	return {
+		meanReward = BigNum.mul(total, BigNum.fromNumber(1 / math.max(1, runs))),
+		meanSec = secSum / math.max(1, runs),
+		perMin = if secSum > 0 then BigNum.mul(total, BigNum.fromNumber(60 / secSum)) else BigNum.new(0, 0),
+		medianBest = median(bests) or 0,
+		failShare = fails / math.max(1, runs),
+	}
+end
+
+export type AutoPair = { auto: AutoRow, manual: ManualRow? }
+
+function BalanceSummary.autoLines(rows: { AutoPair }): { string }
+	local out = { string.format("--- 자동 진행(안전층 반복 · 목표 = 안전층 · 진행 지연 %gs · 반복 대기 %gs) vs 손 플레이 모델 ---",
+		AutoAdvanceConfig.ADVANCE_DELAY_SEC, AutoAdvanceConfig.REPEAT_DELAY_SEC) }
+	for _, r in ipairs(rows) do
+		local a = r.auto
+		local autoPart = if a.runSec ~= nil and a.perMin ~= nil
+			then string.format("D %s · 안전층 %d · 수령 %s · 런 %.1fs · 분당 %s", Formatter.format(a.d), a.safeFloor, Formatter.format(a.reward),
+				a.runSec, Formatter.format(a.perMin))
+			else string.format("D %s · 안전층 0(1층도 20초 안에 못 깬다) · 자동 반복 없음", Formatter.format(a.d))
+		local manualPart = "-"
+		local ratio = "-"
+		local mrow = r.manual
+		if mrow ~= nil then
+			manualPart = string.format("수령 %s · 런 %.1fs · 분당 %s · 최고층 중앙 %d · 실패 %d%%", Formatter.format(mrow.meanReward), mrow.meanSec,
+				Formatter.format(mrow.perMin), mrow.medianBest, math.floor(mrow.failShare * 100 + 0.5))
+			if a.perMin ~= nil and mrow.perMin.m > 0 then
+				ratio = string.format("×%.2f", BigNum.toRatio(a.perMin, mrow.perMin))
+			end
+		end
+		table.insert(out, string.format("%s  자동 %s", a.preset, autoPart))
+		table.insert(out, string.format("%s  손 %s  → 자동/손 분당 %s", a.preset, manualPart, ratio))
+	end
+	table.insert(out, "자동은 클릭하지 않는다(힘 그대로) · 손 모델은 걷기 · 런 중 클릭 · 진행 판단 · 실패 0 포함 (docs/TUNING.md)")
+	return out
+end
+
+function BalanceSummary.autoRows(): { AutoPair }
+	local rows: { AutoPair } = {}
+	for i, name in ipairs(BalanceSummary.AUTO_PRESETS) do
+		local p = BalanceSummary.presetPlayer(name, Random.new(BalanceSummary.AUTO_MANUAL_SEED))
+		table.insert(rows, {
+			auto = BalanceSummary.autoRow(name, p),
+			manual = BalanceSummary.manualRow(name, BalanceSummary.AUTO_MANUAL_RUNS, BalanceSummary.AUTO_MANUAL_SEED + i),
+		})
+	end
+	return rows
+end
+
 function BalanceSummary.run()
 	task.wait(5) -- 시작 직후 테스트들이 MODEL · Config를 잠깐 흔드는 동안 기다린다
 	local startedAt = os.clock()
@@ -183,6 +337,9 @@ function BalanceSummary.run()
 		table.insert(pathFinal, { clickRate = result.clickRate, minutes = if last ~= nil then last.elapsedSec / 60 else nil })
 	end
 	for _, line in ipairs(BalanceSummary.lines(m, results, cliffs, pathFinal)) do
+		print(BalanceSummary.PREFIX .. line)
+	end
+	for _, line in ipairs(BalanceSummary.autoLines(BalanceSummary.autoRows())) do
 		print(BalanceSummary.PREFIX .. line)
 	end
 	print(BalanceSummary.PREFIX .. string.format("(계산 %.1f초)", os.clock() - startedAt))

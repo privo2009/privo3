@@ -69,6 +69,60 @@ check("모든 줄이 문자열 · 비어 있지 않다", (function()
 	return true
 end)())
 
+-- 자동 진행(안전층 반복) 줄 — 지시서 #18 AA14 ----------------------------------------------------
+do
+	local BigNum = require(ReplicatedStorage.Shared.BigNum)
+	local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
+	local TestPresets = require(ReplicatedStorage.Shared.Config.TestPresets)
+	local AutoAdvanceConfig = require(ReplicatedStorage.Shared.Config.AutoAdvanceConfig)
+
+	local preset = TestPresets.Presets.floor9
+	local p = BalanceSummary.presetPlayer("floor9", Random.new(1))
+	local petTotal = 0
+	for _, n in pairs(p.pets) do
+		petTotal += n
+	end
+	check("AA14 프리셋 → 플레이어: 힘 · 환생 · 업그레이드 · 아우라 · 펫 수가 프리셋 그대로",
+		BigNum.eq(p.strength, BigNum.new(preset.strength.m, preset.strength.e)) and BigNum.eq(p.rebirths, BigNum.new(preset.rebirths.m, preset.rebirths.e))
+			and p.upgrades.punchDamage == preset.upgrades.punchDamage and p.auraId == preset.aura and petTotal == #preset.pets
+			and p.titleIndex == 0)
+	local p17 = BalanceSummary.presetPlayer("floor17", Random.new(1))
+	check("AA14 프리셋 → 플레이어: 칭호 id → 인덱스", p17.titleIndex > 0 and TitleConfig.Titles[p17.titleIndex].id == TestPresets.Presets.floor17.title)
+
+	-- 안전층 정의(AA5): 총HP(안전층) ≤ D < 총HP(안전층 + 1) — StageConfig에서 직접 대조
+	local row = BalanceSummary.autoRow("floor9", p)
+	check("AA14 자동: 안전층 ≥ 1 · 총HP(안전층) ≤ D · 총HP(안전층 + 1) > D", row.safeFloor >= 1
+		and BigNum.lte(StageConfig.getTotalHp(row.safeFloor), row.d) and BigNum.gt(StageConfig.getTotalHp(row.safeFloor + 1), row.d),
+		string.format("safe=%d", row.safeFloor))
+	check("AA14 자동: 수령 = 안전층 보상 × 블럭스 배수", BigNum.eq(row.reward,
+		BigNum.mul(StageConfig.getBloxReward(row.safeFloor), BigNum.fromNumber(SuccessRateReport.bloxMultiplier(p)))))
+	local floorSec = AutoAdvanceConfig.REPEAT_DELAY_SEC + AutoAdvanceConfig.ADVANCE_DELAY_SEC * (row.safeFloor - 1)
+	check("AA14 자동: 런 길이 = 대기 · 지연 이상, 층마다 타이머 이하를 더한 값 이하", row.runSec ~= nil
+		and (row.runSec :: number) > floorSec and (row.runSec :: number) <= floorSec + row.safeFloor * StageConfig.CHALLENGE_TIMER_SEC,
+		tostring(row.runSec))
+	check("AA14 자동: 분당 = 수령 × 60 ÷ 런 길이", row.perMin ~= nil and row.runSec ~= nil
+		and math.abs(BigNum.toRatio(row.perMin :: any, row.reward) - 60 / (row.runSec :: number)) < 1e-6)
+
+	local manual = BalanceSummary.manualRow("floor9", 5, 7)
+	check("AA14 손 모델: 런 길이 > 0 · 실패 비율 0 ~ 1 · 최고층 ≥ 0", manual.meanSec > 0 and manual.failShare >= 0 and manual.failShare <= 1
+		and manual.medianBest >= 0)
+	local again = BalanceSummary.presetPlayer("floor9", Random.new(1))
+	check("AA14 손 모델: 프리셋 표를 바꾸지 않는다(매 런 새 플레이어)", BigNum.eq(again.strength, BigNum.new(preset.strength.m, preset.strength.e)))
+
+	local synth: any = {
+		{ auto = { preset = "floorA", d = BigNum.fromNumber(100), safeFloor = 8, reward = BigNum.fromNumber(1000), runSec = 24,
+			perMin = BigNum.fromNumber(2500) }, manual = { meanReward = BigNum.fromNumber(500), meanSec = 25, perMin = BigNum.fromNumber(1250),
+			medianBest = 9, failShare = 0.25 } },
+		{ auto = { preset = "floorB", d = BigNum.fromNumber(1), safeFloor = 0, reward = BigNum.new(0, 0), runSec = nil, perMin = nil }, manual = nil },
+	}
+	local autoLines = BalanceSummary.autoLines(synth)
+	check("AA14 줄: 머리 · 프리셋마다 자동 · 손 두 줄 · 끝 안내", #autoLines == 1 + 2 * 2 + 1 and has(autoLines, "자동 진행(안전층 반복")
+		and has(autoLines, "floorA  자동 D") and has(autoLines, "floorA  손 수령"))
+	check("AA14 줄: 안전층 · 런 길이 · 실패 % · 자동/손 분당 비율", has(autoLines, "안전층 8") and has(autoLines, "런 24.0s")
+		and has(autoLines, "실패 25%") and has(autoLines, "자동/손 분당 ×2.00"))
+	check("AA14 줄: 안전층 0이면 자동 반복 없음 · 손 모델 없으면 -", has(autoLines, "안전층 0(") and has(autoLines, "floorB  손 -"))
+end
+
 print(string.format("[BalanceSummaryTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[BalanceSummaryTests] %d test(s) failed", failed))
