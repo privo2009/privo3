@@ -1,6 +1,6 @@
 # 게임 설계서
 
-문서 갱신: 2026-10-25
+문서 갱신: 2026-11-01
 
 ## 코어 컨셉
 2트랙 구조. 힘은 방치로 키우고, 블럭스는 능동 챌린지로 번다.
@@ -578,6 +578,14 @@ D(지금)  = 1펀치 데미지(힘 × AttackService 결합 배수 — 업그레�
 - 순수 함수 하나(`Shared/AutoAdvanceLogic.safeFloor`)를 서버가 부르고, 설정 창은 서버가 보낸 값을 표시만 한다
 - 힘 포션 · 데미지 포션은 시작 시점의 것이 들어간다. 창에 "부스트가 끝나면 달라질 수 있어요"를 적는다
 - 지시서 #18의 "시간 한도 90%" 식은 위 정의가 원칙뿐일 때의 대안이었다 — 정의가 식이라 쓰지 않았다(Config 없음)
+- **S15 안전층 여유 (2026-11-01 사람 결정 — 지시서 #20).** 안전층 비교에 쓰는 딜 총량의 **시간 항에 `AutoAdvanceConfig.SAFE_TIME_RATIO`(0.9)를 곱한다**:
+  ```
+  안전층 = 1층부터 연속으로 총HP(N) ≤ 1펀치 데미지 × 초당 펀치 × (20초 × SAFE_TIME_RATIO) 인 최고 N
+  ```
+  근거(#19 조사 4): 펀치는 예정 시각 뒤 첫 루프 틱(0.05초)에 나가고 시간 초과는 Heartbeat가 따로 봐서, 20초 안 마지막 펀치 1회가 밀려
+  N − 1펀치로 끝날 수 있다. 20초 펀치 수는 최소 40회(초당 2회)라 10% 여유(4회)가 마지막 1회 누락을 덮는다.
+  자리는 `AutoAdvanceLogic.safeDealTotal`(시간 항) — `dealTotal`(D 자체 · "펀치와 딜 총량"의 이론 상한)은 그대로 둔다.
+  튜닝 요약 자동 진행 줄(AA14)의 D도 여유를 넣은 값으로 찍는다(안전층과 같은 기준)
 
 #### 미결 (자동 진행 구현 시점에 확정)
 
@@ -1786,6 +1794,15 @@ return tiers[1]  -- 폴백
   펫 창의 고른 알은 저장하지 않는다 · 다른 사람 펫은 치는 모습을 내지 않는다(그 사람 블록이 내 클라에 없다)
 - 3x 부화 알 게임패스 = 한 번에 3개, 비용 3배(G16, Phase 8)
 
+#### 리미티드 묶음 (D4, 2026-11-01 사람 결정 — 지시서 #20)
+- **일일 보상 7일째로만 얻는다.** 알에서 나오지 않는다 — `PetConfig.Limited`(알 표 `Eggs`와 별도 묶음). 7일을 채울 때마다 1마리
+- 알 간 규칙(알 N 최저 > 알 N−1 최고)의 대상이 아니다. `PetConfig.validate`가 "리미티드 id는 어느 알 확률표에도 없다"를 잰다
+- **m 시작값 = 알 2 전설과 같은 값(1.96, TEMP — `PetConfig.LIMITED_MULT`에서 사람이 튜닝)**
+- 크래프팅 · 장착 · 놓아주기 · 강화 단계는 일반 펫과 같다(PetService 경로 그대로 — `PetConfig.get`이 리미티드도 찾는다. 알 번호 0)
+- 표시: 종 희귀도 칸에 "Limited / 리미티드"(희귀도 코드 `PetConfig.LIMITED_RARITY` = 5). 색 `UiTheme.Rarity` tier6(진분홍 — `docs/UI.md`).
+  펫 대체물은 색(tier6) + 크기(`DISPLAY.LIMITED_SIZE_SCALE` ×1.15)로 다른 펫과 구분한다
+- 이름(Claude가 지었다 — 사람이 바꿀 수 있다): id `limited_dawn` · **Dawn Phoenix / 새벽불사조**(Strings `pet.name.limited_dawn`)
+
 ⚠️ 펫 성능: 파트 1~3개로 극단적 단순화. 복잡한 리깅 금지.
    추적 이동은 클라 보간. 타인 펫 숨기기 토글 필수.
 
@@ -2098,6 +2115,8 @@ OP 자동 클리커        89   초당 30회. 둘 다 있으면 높은 쪽만
 미룸   게임패스 번들                    — 구성은 판매 데이터로 정한다
 미룸   워프 팩                          — 뜻이 모호하고 워프는 블럭스로 충분하다
 미룸   보상형 광고 전체                 — 공개 게임 · 월 2,000명 등 게시자 자격이 있어야 하고 출시 전에는 테스트할 수 없다
+미룸   리더보드                         — 출시 후(2026-11-01 P2)
+미룸   크래프팅 연출                    — U8 폴리시(2026-11-01 P2). 지금은 펫 창 상태 문구
 ```
 ※ 블럭스 팩(소량 99 · 대량 499)은 2026-10-24 삭제했다 — 블럭스를 로벅스로 팔면 뽑기 3종이 유료 랜덤 아이템이 된다(6장 P1).
 ※ 상점 업그레이드는 로벅스로 팔지 않는다(7장).
@@ -2147,17 +2166,111 @@ OP 자동 클리커        89   초당 30회. 둘 다 있으면 높은 쪽만
 ```
 실패 직후     → "놓친 블럭스 절반 받기"  ← 최고의 자리
 부스트 만료   → "15분 연장"
-일일 무료     → "힘 포션 15분"   (2026-10-25: "슈퍼 롤 1회"에서 바꿈 — 공식 "Rewards for video ads cannot be randomized items")
+광고 보상     → "힘 포션 15분"   (2026-10-25: "슈퍼 롤 1회"에서 바꿈 — 공식 "Rewards for video ads cannot be randomized items")
 ```
+(P4 2026-11-01: 셋째 칸의 옛 이름 "일일 무료"는 아래 "일일 보상"에만 쓴다 — 광고 쪽은 "광고 보상"으로 부른다. #19 불일치 12)
 광고 보상은 개발자 상품으로 `ProcessReceipt`를 탄다(공식 rewarded-video-ads). 노필은 정상이므로 UI에서 우아하게 처리.
 게시자 자격(13+ · 2단계 인증 · ID 인증 · 공개 게임 · 월 2,000명 · 성숙도 설문)은 `docs/PENDING.md`.
 
 ### 무료 요소 (필수)
 ```
-매일 무료 포션 1개 (랜덤)   — 출시 후 · 일일 보상과 함께(스키마 daily 있음)
+일일 보상(7일 출석표)       — 지금 만든다(2026-11-01 P1). 아래 "일일 보상"
+코드 입력                   — 지금 만든다. 아래 "코드 입력"
+첫 접속 안내 + 완료 보상     — 지금 만든다. 아래 "첫 접속 안내"
 타이틀 자동 롤 (완전 무료)
 ```
 페이월 인상을 주면 이탈한다. (자동 수령 무료판은 2026-10-25 폐기)
+~~매일 무료 포션 1개(랜덤) — 출시 후~~ → **P1(2026-11-01 사람 결정 — 지시서 #20):** 출석 · 일일 보상 · 매일 무료 포션을 하나("일일 보상")로 합쳐
+지금 만든다. 무료 포션은 보상표 안의 정해진 칸이 된다(랜덤 없음 — 행운 포션은 무료로 주지 않는다 #17).
+**P2** 리더보드는 출시 후, 크래프팅 연출은 U8 폴리시로 미룬다. **P3** 게이트 안내 오버레이는 화면 목록에서 뺀다(3D 게이트 라벨 + 첫 접속 안내가 대신한다).
+
+#### 보상 지급 공용 — RewardService (R1, 2026-11-01)
+일일 보상 · 코드 · 첫 접속 완료 보상은 `RewardService.grant(player, rewards, source)` 하나로 준다.
+```
+보상 형식  { type = "potion", kind = "strength" | "damage" | "luck", count }   → 포션 보관함(바로 켜지지 않는다)
+           { type = "bloxScaled", k }                                      → 블럭스 = 최고층 1회 기본 보상 × k (CurrencyService)
+           { type = "pet", petId }                                         → PetService 발급 경로(uid · 저장 공간 검사)
+최고층 1회 기본 보상 = 그 플레이어 maxStage 층의 StageConfig.getBloxReward(WorldConfig 보상) — 블럭스 배수(x2 Blox · 칭호 · 업그레이드)는
+           곱하지 않는다. maxStage가 1 미만이면 1층 기준
+전부 아니면 0  먼저 전부 검사(형식 · 프로필 · 포션 종류 · 펫 수만큼 저장 공간)하고, 하나라도 안 되면 아무것도 주지 않고 사유 코드를 돌려준다
+               (storage_full · invalid_reward · no_profile). 지급 순서는 블럭스 → 포션 → 펫(블럭스 add가 거부되면 그때까지 준 것이 없다)
+지급 뒤    PlayerState 통지. 펫은 새 petId면 저장 1회(펫 S11 그대로)
+```
+쓰는 쪽은 저장값을 직접 고치지 않는다 — 블럭스는 CurrencyService(절대 규칙 2), 펫은 PetService(펫 상태는 그 파일만 쓴다)만 지난다.
+
+#### 일일 보상 (D1 ~ D5, 2026-11-01 사람 결정 — 지시서 #20)
+- **D1 7일 출석표 하나.** 하루 1회 받는다. 7일째를 받으면 다음 날 1일부터. **하루를 건너뛰면 1일로 돌아간다**
+- **D2 하루 경계 = UTC 0시**, 서버 `os.time()` 기준(절대 규칙 3). 일 번호는 순수 함수 하나 `Shared/DayClock.dayNumber(t) = floor(t / 86400)`.
+  창에 "다음 보상까지 HH:MM"(= 다음 UTC 0시까지 — 서버가 남은 초를 보내고 클라는 받은 뒤로 센다)
+- **D3 보상표** — 원본 `Shared/Config/DailyRewardConfig`(값은 TEMP — 사람이 튜닝). 1일 힘 포션 1 · 2일 블럭스 ×2 · 3일 데미지 포션 1 ·
+  4일 블럭스 ×3 · 5일 힘 포션 2 · 6일 블럭스 ×5 · 7일 리미티드 펫 1마리. 블럭스 칸은 bloxScaled(위). 행운 포션 없음 · 랜덤 없음 · 포션은 보관함으로
+- **D4 리미티드 펫** — 아래 6장 "펫 > 리미티드 묶음". 보관함이 가득 차 있으면 7일째 받기를 거부한다(storage_full) — 창에 "펫 보관함을 한 칸 비우세요".
+  그날 안에 비우면 받을 수 있다. 받지 못한 채 날이 바뀌면 D1대로 1일로 돌아간다
+- **D5 등장** — 받을 보상이 있으면 일일 보상 창이 **차단층 큐 3번**으로 자동으로 뜬다. 첫 접속 안내가 진행 중이면 안내가 끝난 뒤에 띄운다.
+  HUD 블럭스 표시 아래 작은 아이콘(`icon_attend` 자리 — 미도착 대체물)으로 다시 연다. 받을 게 있으면 배지. 받기 버튼은 수령 · 안전(노랑)
+
+**저장(v8)** `daily = { streak, lastClaimDay }` — streak = 이번 7일 주기에서 받은 날 수(0 ~ 7) · lastClaimDay = 마지막으로 받은 UTC 일 번호(0 = 없음).
+`freePotionDay`는 지운다(쓰는 곳 0).
+
+**판정(Claude 결정 — 순수 함수 `DailyLogic`)**
+```
+오늘 = DayClock.dayNumber(os.time()) (+ Studio 전용 TEST_DAY_OFFSET)
+lastClaimDay == 오늘                      → 오늘 받음(받기 거부 already_claimed)
+lastClaimDay == 오늘 − 1 이고 streak < 7  → 받을 칸 = streak + 1   (연속)
+그 밖(처음 · 이틀 이상 비움 · 어제 7일째)   → 받을 칸 = 1            (D1)
+받기 성공  → streak = 받은 칸 · lastClaimDay = 오늘(같은 표 안 — 보상과 기록이 함께 저장된다)
+```
+- 창의 7칸: 받은 칸(1 ~ 받을 칸 − 1, 오늘 받았으면 오늘 칸까지) "받음" 표시 · 오늘 칸 강조 · 7일째 칸은 펫. 끊긴 연속은 화면에서도 1일부터 보인다
+- 자동 등장은 **세션마다 그 일 번호에 한 번**(Claude 결정): 받을 게 있고 · 안내가 끝났고 · 런 중이 아니면 큐에 넣는다. 런 중이면 런이 끝난 뒤.
+  닫기만 하고 나가면 다음 접속에 다시 뜬다(아직 받을 게 있다). 세션 중에 UTC 0시가 지나 새로 받을 게 생겨도 한 번 뜬다
+- 창을 열기만 해서는 아무것도 저장하지 않는다 — 기록은 받기 성공에서만 생긴다
+- **TEST_DAY_OFFSET**(Bootstrap, 기본 nil, Studio 전용): 서버 "오늘"에 더한다. **Mock 프리셋과 함께일 때만** 켜진다 — 프리셋이 없거나 Studio가 아니면
+  무시하고 경고한다(실제 프로필에 가짜 날짜 기록을 남기지 않는다). 커밋 값 nil은 테스트가 잰다
+
+#### 코드 입력 (C1 ~ C6, 2026-11-01 사람 결정 — 지시서 #20)
+- **C1** 원본 `Shared/Config/CodesConfig` 한 곳 — 코드 · 보상(위 보상 형식) · 만료(UTC 시각 `os.time` 초, 없으면 무기한).
+  비교 전에 앞뒤 공백을 지우고 대문자로 바꾼다(대소문자 무시). Config 키도 같은 꼴로 적는다(ConfigTests가 잰다)
+- **C2** 코드마다 계정당 1회 — 받은 코드는 프로필 `redeemedCodes{[코드] = true}`(v8)
+- **C3** 틀린 코드(없는 코드)를 1분에 5번 넣으면 1분 동안 막는다(세션 메모리 · too_many_attempts). 요청 빈도 상한은 다른 Request 서비스와 같은 꼴(0.5초)
+- **C4** 입력한 글자를 화면에 되보이지 않는다 — 결과는 "받았어요(보상) / 없는 코드예요 / 이미 받았어요 / 만료됐어요"(+ 막힘 · 보관함 가득) 뿐.
+  서버는 입력 글자를 저장하지도 다른 사람에게 보내지도 않는다(기록은 Config에 있는 코드 키만). 확인 버튼을 누르면 입력칸을 비운다
+- **C5** 임시 코드 하나 **RELEASE → 힘 포션 2 + 데미지 포션 2 (TEMP)**. 실제 코드 목록과 알릴 곳은 Phase 9에서 사람이 정한다
+- **C6** 진입: 설정 창 안 "코드 입력" 버튼 → 코드 입력 작은 창(TextBox 하나 · 확인 · 결과 문구). PlaceholderText도 Strings
+- 사유 코드(Claude 결정): not_found(없는 코드 · 빈 문자열 · 32자 초과 · 문자열 아님 — 틀린 횟수에 센다) · already_redeemed · expired ·
+  too_many_attempts · rate_limited · storage_full(펫을 주는 코드) · no_profile. 만료 · 이미 받음은 틀린 횟수에 세지 않는다
+
+**텍스트 필터링 — 대상이 아니라고 본 근거(C4).** 공식 문서(https://create.roblox.com/docs/ui/text-filtering, 2026-11-01 확인)는
+"직접 통제하지 않는 글자"를 필터링하라고 하고 시나리오에 TextBox 입력을 넣는다. 그 근거는 **다른 사람이 보거나(브로드캐스트) 저장돼 다시 보이는 글자**다.
+코드 입력 글자는 (1) 입력하는 사람의 입력칸에만 보이고 — 같은 문서가 "입력하는 사람에게만 보이는 글자는 글자마다 실시간으로 필터링하지 말 것"이라 쓴다 —
+(2) 제출 뒤 어디에도 되보이지 않으며(결과는 Strings 고정 문장) (3) 서버가 저장하지 않고 다른 사람에게 보내지 않는다.
+**확인 못 함:** "자기 화면에만 잠깐 보이는 입력은 필터링 의무가 없다"를 직접 적은 문장은 찾지 못했다(#19 조사 3과 같다). 정책이 바뀌면 다시 본다.
+
+#### 첫 접속 안내 (O1 ~ O5, 2026-11-01 사람 결정 — 지시서 #20)
+- **O1 화면을 막지 않는 단계별 안내 띠.** 차단층 큐 2번은 비운다(`docs/UI.md` 우선순위 표). 자리 · 크기는 UI.md "지시서 #20".
+  단계 대상을 가리키는 3D 빛기둥(클라 전용 · 파트 1개 · 풀링 필요 없음)을 둔다
+- **O2 단계(사람 승인).** 해당 행동을 하면 다음으로. 판정은 서버가 이미 아는 신호로 한다
+  ```
+  1 클릭해서 힘 키우기                       — 수동 클릭 10회(ClickService가 받아 준 수 — 자동 클리커는 세지 않는다)
+  2 게이트 지나기                            — 런 시작(ChallengeService "start")
+  3 1층 깨기(가까이 있으면 자동 공격)         — 층 클리어(ChallengeService "cleared")
+  4 노랑 발판에서 받기 또는 보라 벽으로 진행  — 첫 수령 또는 첫 진행("cashout" · "advance")
+  5 블럭스로 패드 열기 · 1000이면 환생        — 확인 버튼으로 끝(OnboardingRequest finish)
+  ```
+- **O3** 건너뛰기 버튼(확인 단계 한 번 — 두 번 누름). 다 마치면(건너뛰기 제외) **힘 포션 1개를 보관함에**(RewardService)
+- **O4** 진행 단계는 프로필에 저장한다(v8 `onboarding{step, done}`). 다시 들어오면 그 단계부터. v8 마이그레이션에서 이미 플레이한 프로필
+  (maxStage ≥ 1 또는 rebirths > 0)은 "끝남"
+- **O5** 단계를 마칠 때마다 서버에서 `AnalyticsService:LogOnboardingFunnelStepEvent(player, 단계 번호, 단계 이름)`. pcall — 실패해도 게임 동작에 영향 없음
+- 판정 규칙(Claude 결정): 신호는 **지금 단계의 신호일 때만** 넘어간다. 순서가 어긋난 신호(1단계에서 온 "cleared" 등)는 버린다 — 단계를 건너뛰지 않는다.
+  1단계 클릭 수는 세션 메모리(나갔다 오면 그 단계 처음부터 센다 — 저장하는 것은 단계 번호뿐). 3단계는 어느 층의 클리어든 받는다(워프로 다른 층부터 해도 막히지 않게)
+- 사실(2026-11-01 확인): 스키마 템플릿의 maxStage 시작값이 1이라(`Schema` — 1층 클리어 전에도 1) **"maxStage ≥ 1"은 모든 기존 프로필에 참이다** —
+  결과적으로 v7에서 넘어오는 프로필은 전부 "끝남"이 된다. 새로 만든 프로필(템플릿 v8)만 안내를 본다. 출시 전이라 기존 프로필은 개발 · 테스트 계정뿐이다
+- 공식 문서(https://create.roblox.com/docs/production/analytics/funnel-events · /reference/engine/classes/AnalyticsService, 2026-11-01 확인):
+  `LogOnboardingFunnelStepEvent(player: Player, step: number, stepName: string, customFields: Dictionary?)` · Yields ·
+  "Events can only be sent from the server and in published games. Events can't be sent from the client or Studio." ·
+  "If a user repeats a step in a funnel, the funnel only considers the first instance of the step." · 예제는 단계 1부터.
+  그래서 Studio에서는 보낼 수 없고(pcall이 실패를 삼킨다 — 로그 한 줄), 같은 단계를 다시 보내도 집계가 겹치지 않는다
+- 테스트 프리셋: `fresh`만 안내를 본다(Mock 템플릿 — TestPresetGate가 그 밖의 프리셋은 "끝남"으로 만든다). Mock은 Play를 멈추면 사라져서
+  "다음 Play에서 이어 가기"는 Mock으로 볼 수 없다 — 서버 테스트(같은 프로필 표로 세션을 다시 연다)가 잰다
 
 ### Roblox Plus 유치
 환생 연출 직후 + 상점 진입 시 `PromptRobloxSubscriptionPurchase`(#17).
@@ -2185,7 +2298,9 @@ OP 자동 클리커        89   초당 30회. 둘 다 있으면 높은 쪽만
 
 ```lua
 {
-  schemaVersion = 7,     -- 실 코드 Schema.VERSION 과 일치시킬 것
+  schemaVersion = 8,     -- 실 코드 Schema.VERSION 과 일치시킬 것
+                         --   v8(2026-11-01 지시서 #20 R2): daily를 {streak, lastClaimDay}로(freePotionDay 삭제) · redeemedCodes ·
+                         --   onboarding 추가 — Migrations[7], 멱등. 이미 플레이한 프로필(maxStage ≥ 1 또는 rebirths > 0)은 onboarding.done = true
                          --   v7(2026-10-25 지시서 #16): purchases · potions · rollCredits · gymUnlocks 추가 ·
                          --   boosts를 {type, mult, remainingSec}로 — Migrations[6], 멱등
                          --   v6(2026-10-24 L3): upgrades.moveSpeed 삭제 — Migrations[5], 멱등. 구매분 환급 없음(출시 전)
@@ -2243,9 +2358,13 @@ OP 자동 클리커        89   초당 30회. 둘 다 있으면 높은 쪽만
   gymUnlocks = {},       -- {["기구 번호"] = true} 운동기구 선해금 기록(#17). 키는 문자열(JSON)
 
   daily = {
-    streak = 0,
-    lastClaimDay = 0,    -- UTC 일 단위 정수
-    freePotionDay = 0,
+    streak = 0,          -- 이번 7일 주기에서 받은 날 수 0 ~ 7 (9장 "일일 보상")
+    lastClaimDay = 0,    -- 마지막으로 받은 UTC 일 번호 = floor(os.time() / 86400). 0 = 받은 적 없음
+  },                     --   (freePotionDay는 v8에서 지웠다 — 무료 포션은 일일 보상표 안의 칸이다, P1)
+  redeemedCodes = {},    -- {[코드] = true} 받은 코드(대문자 · 공백 제거 꼴 — CodesConfig 키). v8
+  onboarding = {
+    step = 1,            -- 첫 접속 안내 지금 단계 1 ~ 5 (9장 "첫 접속 안내"). v8
+    done = false,        -- 끝남(다 마침 · 건너뜀 · 기존 프로필)
   },
 
   stats = {
