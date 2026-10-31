@@ -252,6 +252,14 @@ function RebirthWindow.create(deps: Deps): Handle
 	source.subscribe("blox", refresh)
 	source.subscribe("rebirths", refresh)
 	source.subscribe("shop", refresh) -- 2배 환생 게임패스(지시서 #16 S6)
+	-- 자동 진행이 꺼지면 "자동 진행 중" 거부 문구를 지운다(지시서 #18 AA9 — 꺼진 뒤에도 남아 있으면 틀린 안내다)
+	source.subscribe("autoAdvance", function(summary: any)
+		local autoOff = type(summary) ~= "table" or summary.active ~= true
+		if autoOff and resultText == RebirthWindowLogic.reasonText("auto_active") then
+			resultText = nil
+			render()
+		end
+	end)
 
 	render()
 

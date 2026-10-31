@@ -21,6 +21,7 @@ local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local Store = require(script.Parent.Parent.Parent.Store)
 local WarpWindowLogic = require(script.Parent.Parent.Parent.Logic.WarpWindowLogic)
+local AutoAdvanceWindowLogic = require(script.Parent.Parent.Parent.Logic.AutoAdvanceWindowLogic)
 
 type BigNumber = BigNum.BigNumber
 
@@ -142,13 +143,18 @@ function WarpWindow.create(deps: Deps): Handle
 	local page = WarpWindowLogic.pageOf(selected)
 	local resultText: string? = nil
 
+	-- 자동 진행 켜짐(지시서 #18 AA9) — 서버 값(Store "autoAdvance")
+	local function autoActive(): boolean
+		return AutoAdvanceWindowLogic.read(source.get("autoAdvance")).active
+	end
+
 	local function selectedRow(): WarpWindowLogic.Row
-		return WarpWindowLogic.row(selected, source.get("blox"), runActive)
+		return WarpWindowLogic.row(selected, source.get("blox"), runActive, autoActive())
 	end
 
 	local function render()
 		local blox = source.get("blox")
-		local rows = WarpWindowLogic.rows(page, blox, runActive)
+		local rows = WarpWindowLogic.rows(page, blox, runActive, autoActive())
 		for i, label in ipairs(rowLabels) do
 			local r = rows[i]
 			if r == nil then
@@ -272,6 +278,12 @@ function WarpWindow.create(deps: Deps): Handle
 	cancelHit.Activated:Connect(cancel)
 	closeHit.Activated:Connect(close)
 	source.subscribe("blox", render)
+	source.subscribe("autoAdvance", function()
+		if autoActive() then
+			confirm.cancel()
+		end
+		render()
+	end)
 
 	render()
 

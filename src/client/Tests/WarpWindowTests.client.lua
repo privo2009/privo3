@@ -36,6 +36,11 @@ do
 	check("값: 모자라면 insufficient_blox", not r4.canWarp and r4.reason == WarpConfig.REASON_INSUFFICIENT_BLOX)
 	local running = WarpWindowLogic.row(1, BigNum.new(1, 100), true)
 	check("W1: 런 중이면 블럭스가 많아도 run_active", not running.canWarp and running.reason == WarpWindowLogic.REASON_RUN_ACTIVE)
+	-- 지시서 #18 AA9: 자동 진행 중이면 런 사이(런 없음)에도, 런 중에도 auto_active가 먼저다
+	local autoIdle = WarpWindowLogic.row(3, blox, false, true)
+	local autoRunning = WarpWindowLogic.row(1, BigNum.new(1, 100), true, true)
+	check("AA9: 자동 중이면 갈 수 있는 층도 auto_active(런 사이 · 런 중 모두)", not autoIdle.canWarp and autoIdle.reason == WarpWindowLogic.REASON_AUTO_ACTIVE
+		and not autoRunning.canWarp and autoRunning.reason == WarpWindowLogic.REASON_AUTO_ACTIVE)
 	check("값: 기본 선택은 갈 수 있는 가장 높은 층", WarpWindowLogic.defaultStage(blox) == 3)
 	check("값: 아무 데도 못 가면 1층", WarpWindowLogic.defaultStage(BigNum.new(0, 0)) == 1)
 	check("쪽: 쪽 수 = 층 수 / 쪽 크기 올림", WarpWindowLogic.pageCount() == math.ceil(LAST / WarpWindowLogic.PAGE_SIZE))
@@ -49,13 +54,17 @@ do
 	check("문구: 런 중", WarpWindowLogic.reasonText("run_active") ~= generic)
 	check("문구: 블럭스 부족", WarpWindowLogic.reasonText(WarpConfig.REASON_INSUFFICIENT_BLOX) ~= generic)
 	check("문구: 캐릭터 없음", WarpWindowLogic.reasonText("no_character") ~= generic)
+	check("문구: 자동 진행 중(AA9 — 런 중 문구와 다르다)", WarpWindowLogic.reasonText(WarpWindowLogic.REASON_AUTO_ACTIVE) ~= generic
+		and WarpWindowLogic.reasonText(WarpWindowLogic.REASON_AUTO_ACTIVE) ~= WarpWindowLogic.reasonText(WarpWindowLogic.REASON_RUN_ACTIVE))
 	check("문구: 차감 뒤 사고는 '문제 발생'", WarpWindowLogic.reasonText("start_run_failed") ~= generic)
 end
 
 -- 3. 창 --------------------------------------------------------------------------------------
 local function makeWindow(bloxValue: BigNum.BigNumber)
 	local store = Store.new()
+	local set: (any, any) -> () = function() end
 	store.setSource(function(setter)
+		set = setter
 		setter("blox", bloxValue)
 	end)
 	local clock = 0
@@ -75,11 +84,11 @@ local function makeWindow(bloxValue: BigNum.BigNumber)
 	local function advance(sec: number)
 		clock += sec
 	end
-	return handle, w, advance
+	return handle, w, advance, set
 end
 
 do
-	local handle, w, advance = makeWindow(WarpConfig.cost(3))
+	local handle, w, advance, set = makeWindow(WarpConfig.cost(3))
 	check("창: 작은 창 60% × 70%", math.abs(handle.root.Size.X.Scale - 0.6) < 1e-6 and math.abs(handle.root.Size.Y.Scale - 0.7) < 1e-6)
 	check("창: 월드 표시", handle._debug.labels.world.Text == WarpWindow.WORLD_TEXT)
 	check("창: 처음 선택은 3층", handle._debug.state().selected == 3)
@@ -121,6 +130,17 @@ do
 	check("W1: 런 중에는 두 번 눌러도 요청이 안 나간다", #w.sends == 1)
 	handle.setRunActive(false)
 	check("W1: 런이 끝나면 다시 켜진다", not handle._debug.button.isDisabled())
+
+	-- 지시서 #18 AA9: 자동 진행이 켜지면(서버 PlayerState) 잠김 + 끄라는 안내. 두 번 눌러도 요청이 안 나간다
+	set("autoAdvance", { active = true, target = 8, safeFloor = 8, runs = 1, maxTarget = 25 })
+	check("AA9: 자동 중이면 잠김 + auto_active 안내", handle._debug.button.isDisabled()
+		and handle._debug.labels.status.Text == WarpWindowLogic.reasonText(WarpWindowLogic.REASON_AUTO_ACTIVE))
+	handle._debug.press()
+	advance(0.5)
+	handle._debug.press()
+	check("AA9: 자동 중에는 두 번 눌러도 요청이 안 나간다", #w.sends == 1)
+	set("autoAdvance", { active = false, target = 0, safeFloor = 8, runs = 0, maxTarget = 25 })
+	check("AA9: 자동이 꺼지면 다시 켜진다", not handle._debug.button.isDisabled())
 
 	handle._debug.nextPage()
 	check("쪽: 다음 쪽", handle._debug.state().page == 2)

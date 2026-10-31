@@ -21,6 +21,7 @@ local WarpWindowLogic = {}
 WarpWindowLogic.PAGE_SIZE = 5 -- 한 쪽에 보이는 층 수. 시각 배치값(세션 로그)
 WarpWindowLogic.CONFIRM_WINDOW_SEC = 5
 WarpWindowLogic.REASON_RUN_ACTIVE = "run_active" -- 서버 WarpService.REASON_RUN_ACTIVE와 같은 문자열
+WarpWindowLogic.REASON_AUTO_ACTIVE = "auto_active" -- 서버 AutoAdvanceService.REASON.AUTO_ACTIVE와 같은 문자열(지시서 #18 AA9)
 
 function WarpWindowLogic.lastStage(): number
 	local stage = 1
@@ -42,8 +43,13 @@ export type Row = {
 }
 
 -- 한 층의 행. 활성 런이 있으면(W1) 잔액과 상관없이 run_active로 잠근다.
-function WarpWindowLogic.row(stage: number, blox: BigNumber, runActive: boolean): Row
+-- 자동 진행이 켜져 있으면(지시서 #18 AA9) 그보다 먼저 auto_active로 잠근다 — 자동 중에는 런이 끝나도 곧 다음 런이
+-- 시작되므로 "런이 끝나면"이 아니라 "자동을 끄라"가 맞는 안내다(서버도 같은 사유로 거부한다).
+function WarpWindowLogic.row(stage: number, blox: BigNumber, runActive: boolean, autoActive: boolean?): Row
 	local cost = WarpConfig.cost(stage)
+	if autoActive == true then
+		return { stage = stage, cost = cost, canWarp = false, reason = WarpWindowLogic.REASON_AUTO_ACTIVE }
+	end
 	if runActive then
 		return { stage = stage, cost = cost, canWarp = false, reason = WarpWindowLogic.REASON_RUN_ACTIVE }
 	end
@@ -55,12 +61,12 @@ function WarpWindowLogic.row(stage: number, blox: BigNumber, runActive: boolean)
 end
 
 -- page쪽(1부터)의 행들.
-function WarpWindowLogic.rows(page: number, blox: BigNumber, runActive: boolean): { Row }
+function WarpWindowLogic.rows(page: number, blox: BigNumber, runActive: boolean, autoActive: boolean?): { Row }
 	local out = {}
 	local first = (page - 1) * WarpWindowLogic.PAGE_SIZE + 1
 	local last = math.min(first + WarpWindowLogic.PAGE_SIZE - 1, WarpWindowLogic.lastStage())
 	for stage = first, last do
-		table.insert(out, WarpWindowLogic.row(stage, blox, runActive))
+		table.insert(out, WarpWindowLogic.row(stage, blox, runActive, autoActive))
 	end
 	return out
 end

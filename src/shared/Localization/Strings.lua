@@ -48,7 +48,7 @@ Strings.Entries = {
 	["auto.targetValue"] = { en = "Floor {n}", ko = "{n}층" },
 	["auto.start.safe"] = { en = "Start · Safe", ko = "시작 · 안전" },
 	["auto.start.risky"] = { en = "Start · Risky", ko = "시작 · 도박" },
-	["auto.status"] = { en = "Auto · Floor {target} · {runs} runs", ko = "자동 · 목표 {target}층 · {runs}회" },
+	["auto.status"] = { en = "Auto · Floor {target} · Run {runs}", ko = "자동 · 목표 {target}층 · {runs}회" },
 	["auto.started"] = { en = "Auto Advance on", ko = "자동 진행을 켰어요" },
 	["auto.stopped"] = { en = "Auto Advance off", ko = "자동 진행을 껐어요" },
 	["auto.reason.run_active"] = { en = "Finish your current run first", ko = "지금 런이 끝난 뒤에 시작할 수 있어요" },

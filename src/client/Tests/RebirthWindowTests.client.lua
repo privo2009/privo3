@@ -78,7 +78,9 @@ check("값: 버려지는 양 = RebirthConfig.getLeftover(시뮬레이터 S5 예�
 
 local function makeWindow(bloxValue: number)
 	local store = Store.new()
+	local set: (any, any) -> () = function() end
 	store.setSource(function(setter)
+		set = setter
 		setter("blox", BigNum.fromNumber(bloxValue))
 		setter("rebirths", BigNum.fromNumber(2))
 	end)
@@ -102,11 +104,11 @@ local function makeWindow(bloxValue: number)
 	local function advance(sec: number)
 		clock += sec
 	end
-	return handle, w, advance
+	return handle, w, advance, set
 end
 
 do
-	local handle, w, advance = makeWindow(COST * 3 + 10)
+	local handle, w, advance, set = makeWindow(COST * 3 + 10)
 	check("창: 작은 창 60% × 70%", math.abs(handle.root.Size.X.Scale - 0.6) < 1e-6 and math.abs(handle.root.Size.Y.Scale - 0.7) < 1e-6)
 	check("창: 보유 블럭스 표시", handle._debug.labels.bloxValue.Text == Formatter.format(BigNum.fromNumber(COST * 3 + 10)))
 	check("창: 버려지는 양 표시", handle._debug.labels.wastedValue.Text == Formatter.format(BigNum.fromNumber(10)))
@@ -157,6 +159,12 @@ do
 	check("창: 성공 결과 문구", handle._debug.labels.status.Text == RebirthWindow.successText(BigNum.new(3, 0)))
 	handle.onResult({ ok = false, reason = "rate_limited", gained = { m = 0, e = 0 } })
 	check("창: 거부 결과는 사유 문구", handle._debug.labels.status.Text == RebirthWindowLogic.reasonText("rate_limited"))
+	-- 지시서 #18 AA9: "자동 진행 중" 거부 문구는 자동이 꺼지면 지워진다(다른 거부 문구는 그대로)
+	set("autoAdvance", { active = true, target = 8, safeFloor = 8, runs = 1, maxTarget = 25 })
+	handle.onResult({ ok = false, reason = "auto_active", gained = { m = 0, e = 0 } })
+	local shownOn = handle._debug.labels.status.Text == RebirthWindowLogic.reasonText("auto_active")
+	set("autoAdvance", { active = false, target = 0, safeFloor = 8, runs = 0, maxTarget = 25 })
+	check("AA9: 자동 중 거부 문구 → 자동이 꺼지면 지워진다", shownOn and handle._debug.labels.status.Text ~= RebirthWindowLogic.reasonText("auto_active"))
 
 	handle._debug.close()
 	check("창: X는 onClose를 부른다", w.closes == 1)
