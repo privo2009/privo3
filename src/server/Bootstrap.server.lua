@@ -44,10 +44,17 @@ local TEST_LOCALE: string? = nil
 -- 정수(일)를 적고 TEST_PRESET과 함께 Play하면 서버 "오늘"(UTC 일 번호)에 더한다 — 일일 보상 연속 · 끊김을 날짜를 기다리지 않고 본다.
 -- 프리셋 없이 켜면 무시한다(실제 프로필에 가짜 날짜 기록을 남기지 않는다 — DailyService.resolveOffset). ⚠️ 커밋 값은 언제나 nil(DailyServiceTests)
 local TEST_DAY_OFFSET: number? = nil
+-- ── 일일 보상 시드: TEST_DAILY_SEED (Studio · Mock 프리셋 전용, 지시서 #20 단계 8) ──────────────────────────
+-- Mock은 Play를 멈추면 사라져 어제 기록이 이어지지 않는다 — { streak = n, daysAgo = d }를 적으면 Mock 프로필이 "d일 전에 n일째까지 받은" 상태로 시작한다.
+-- TEST_PRESET 없이는 아무것도 하지 않는다. ⚠️ 커밋 값은 언제나 nil(TestPresetGateTests)
+local TEST_DAILY_SEED: { streak: number, daysAgo: number }? = nil
 local LocaleGate = require(script.Parent.Systems.LocaleGate)
 LocaleGate.init(TEST_LOCALE)
 
 print("[Bootstrap] ProfileManager.init() 호출 시작")
+-- 일일 보상 시드는 프리셋 템플릿을 만들기 전에 넘긴다(오늘 = 서버 UTC 일 번호 + 날짜 오프셋 — DailyService와 같은 식)
+require(script.Parent.Data.TestPresetGate).registerDailySeed(TEST_DAILY_SEED,
+	require(ReplicatedStorage.Shared.DayClock).dayNumber(os.time()) + (if type(TEST_DAY_OFFSET) == "number" then TEST_DAY_OFFSET else 0))
 ProfileManager.init(TEST_PRESET)
 print("[Bootstrap] ProfileManager.init() 호출 완료")
 

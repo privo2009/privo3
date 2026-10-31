@@ -29,6 +29,24 @@ TestPresetGate.STORE_NAME = "PlayerData_v1_TestPreset_Mock"
 local requested: string? = nil
 local registered = false
 
+-- 일일 보상 시드(지시서 #20 단계 8 — Studio · Mock 전용). Mock은 Play를 멈추면 사라져 "어제 받은 기록"이 다음 Play로 이어지지 않는다 —
+-- 날마다 Play를 다시 띄워 연속 · 끊김 · 7일째를 실물로 보려면 그 기록을 템플릿에 심어야 한다. { streak, daysAgo } →
+-- daily = { streak, lastClaimDay = 오늘(서버 UTC 일 번호 + TEST_DAY_OFFSET) − daysAgo }. 프리셋이 없으면 아무것도 하지 않는다(실제 프로필 불가).
+-- 커밋 값은 nil(TestPresetGateTests). 오늘은 Bootstrap이 DayClock으로 구해 넘긴다
+local dailySeed: any = nil
+local seedToday = 0
+local seedRegistered = false
+
+function TestPresetGate.registerDailySeed(seed: any, today: number)
+	dailySeed = seed
+	seedToday = today
+	seedRegistered = true
+end
+
+function TestPresetGate.getDailySeed(): (any, boolean)
+	return dailySeed, seedRegistered
+end
+
 -- Bootstrap의 TEST_PRESET 값을 기록한다(ProfileManager.init이 부른다). 테스트가 커밋 값(nil)을 확인하는 통로다.
 function TestPresetGate.register(name: any)
 	requested = if type(name) == "string" then name else nil
@@ -108,6 +126,9 @@ function TestPresetGate.buildData(name: string): any
 	local played = preset.maxStage > 1 or preset.rebirths.m > 0
 	data.onboarding.done = played
 	data.onboarding.step = if played then Schema.LIMITS.ONBOARDING_STEPS else 1
+	if type(dailySeed) == "table" and type(dailySeed.streak) == "number" and type(dailySeed.daysAgo) == "number" then
+		data.daily = { streak = dailySeed.streak, lastClaimDay = seedToday - dailySeed.daysAgo }
+	end
 	local ok, errors = Schema.validate(data)
 	assert(ok, "TestPresetGate.buildData: 프리셋 " .. name .. "이 스키마 검증 실패 - " .. table.concat(errors or {}, " / "))
 	return data

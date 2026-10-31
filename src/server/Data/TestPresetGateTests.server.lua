@@ -98,6 +98,20 @@ check("fresh = 신규 프로필과 같은 재화(시뮬레이터 시작 상태 =
 	local new = Schema.new()
 	return BigNum.eq(data.strength, new.strength) and BigNum.eq(data.blox, new.blox) and next(data.pets.owned) == nil
 end)())
+check("일일 보상 시드(#20 단계 8): 커밋 값 nil · 시드가 있으면 Mock 템플릿 daily = {streak, 오늘 − daysAgo}", (function()
+	local t0 = os.clock()
+	while not select(2, TestPresetGate.getDailySeed()) and os.clock() - t0 < 10 do
+		task.wait()
+	end
+	local committed, registeredSeed = TestPresetGate.getDailySeed()
+	if not registeredSeed or committed ~= nil then
+		return false
+	end
+	TestPresetGate.registerDailySeed({ streak = 6, daysAgo = 1 }, 20758)
+	local d = TestPresetGate.buildData("floor9").daily
+	TestPresetGate.registerDailySeed(nil, 20758) -- 되돌린다(이 Play의 세션은 이미 열렸다 — 템플릿은 init 때 만들어졌다)
+	return d.streak == 6 and d.lastClaimDay == 20757 and TestPresetGate.buildData("floor9").daily.streak == 0
+end)())
 check("첫 접속 안내(v8 — #20 O4): fresh만 1단계부터 · 나머지 프리셋은 끝남(일일 보상을 안내가 막지 않게)", (function()
 	for _, name in ipairs(TestPresets.NAMES) do
 		local o = TestPresetGate.buildData(name).onboarding
