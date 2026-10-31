@@ -449,6 +449,25 @@ D1 ~ D3 → `docs/DASHBOARD_PRODUCTS.md`(#16 7단계) · D4 · D5 광고와 함�
 화면        HUD "자동 진행" 토글(지금 잠김 모양) → 안전층 표시 · 목표층 입력
 착수 전     목표층 입력 방식 · 안전층 계산(딜 총량 D) · 수령 시점을 지시서로 받는다
 ```
+#18 단계 5 실측(2026-10-31, floor9 Mock + TEST_GAMEPASSES { autoAdvance } — 근거는 서버 로그 줄)
+```
+1 창        안전층 8층 · 기본 목표 8 · 노랑 "시작 · 안전"(en · ko 스크린샷)
+2 목표=안전  런 #1 ~ #4: 1→8층 advance(source=auto) 약 0.9초 간격 · 8층 challenge_cashout_auto 1,046.035 · 다음 런 약 3.1초 뒤
+            벽 이중 진행 없음 — source=advance_wall_stage_* 줄이 한 번도 없다(텔레포트 뒤 벽 N은 층 번호 비교로 걸러진다)
+3 목표=11   보라 "시작 · 도박" · 9층 시간 초과 → 보상 소멸(0) · 3.1초 뒤 다음 런 — 런 #1 ~ #8 반복 계속
+4 중지      HUD 누름(런 #4 · 6층) → 꺼짐(stopped) · 런은 남음 → 발판 손 수령 challenge_cashout_cashout_pad_stage_6 · 뒤로 자동 동작 없음
+5 워프 · 환생 환생: 서버 RebirthRequestService ok=false reason=auto_active · 창 "Auto Advance is on. Turn it off first."
+            워프: 첫 실측에서 클라 창이 run_active로 먼저 잠가 "런이 끝나면" 안내가 나왔다(서버까지 안 간다) →
+            c5afb9a에서 자동 중이면 auto_active로 먼저 잠근다 · 다시 실측해 같은 안내 확인. 서버 워프 거부는 AutoAdvanceServiceTests가 본다
+            같은 커밋: 환생 창 "자동 진행 중" 문구가 자동이 꺼진 뒤에도 남던 것을 지운다 · en 상태 줄 "{runs} runs" → "Run {runs}"
+            (커밋 메시지의 "WarpWindowTests +4"는 잘못 — 실제 36 → 41, +5)
+6 리셋      [AutoAdvance] 꺼짐(character_lost) · 토스트 "Auto Advance stopped: character lost" · HUD 꺼짐
+7 미보유     TEST_GAMEPASSES nil Play → HUD 잠김(자동 클릭과 같은 어두운 회색) → 누름 → PurchaseRequestService key=autoAdvance ok=true
+            (구매 창은 누르지 않았다 — 뷰포트 캡처에는 안 보인다)
+스크린샷    HANDOFF/screens-2026-10-31/f18/ — 5_en_window_safe · 5_en_window_risky · 5_en_running · 5_en_hud_on ·
+            5_en_rebirth_auto_active · 5_en_warp_before_fix · 5_en_warp_auto_active · 6_en_character_lost · 7_en_hud_locked ·
+            5_ko_window_safe · 5_ko_window_risky · 5_ko_hud_on
+```
 
 ### #16 테스트 대조 정정 (#L2 단계 0, 2026-10-29)
 
