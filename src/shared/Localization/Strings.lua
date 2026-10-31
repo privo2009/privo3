@@ -115,9 +115,9 @@ Strings.Entries = {
 	["shop.autoClicker.desc"] = { en = "Clicks 15 times per second while on", ko = "켜 두면 초당 15번 자동으로 클릭해요" },
 	["shop.autoClickerOP.name"] = { en = "OP Auto Clicker", ko = "OP 자동 클리커" },
 	["shop.autoClickerOP.desc"] = { en = "Clicks 30 times per second while on", ko = "켜 두면 초당 30번 자동으로 클릭해요" },
-	["shop.rebirth2x.name"] = { en = "x2 Rebirth", ko = "2배 환생" },
+	["shop.rebirth2x.name"] = { en = "x2 Rebirths", ko = "2배 환생" }, -- en = 대시보드 이름(지시서 #18 N1)
 	["shop.rebirth2x.desc"] = { en = "Get 2x Rebirths when you rebirth", ko = "환생할 때 얻는 환생 수가 2배예요" },
-	["shop.hatch3x.name"] = { en = "x3 Hatch", ko = "3배 부화" },
+	["shop.hatch3x.name"] = { en = "Triple Hatch", ko = "3배 부화" }, -- en = 대시보드 이름(#18 N1)
 	["shop.hatch3x.desc"] = { en = "Hatch 3 eggs at once (3x cost)", ko = "알을 한 번에 3개 부화해요(비용 3배)" },
 	["shop.petLuck2x.name"] = { en = "x2 Pet Luck", ko = "2배 펫 행운" },
 	["shop.petLuck2x.desc"] = { en = "2x luck when hatching pets", ko = "펫 부화 행운이 2배예요" },
@@ -125,7 +125,7 @@ Strings.Entries = {
 	["shop.petStorage100.desc"] = { en = "Keep 100 more pets", ko = "펫을 100마리 더 보관해요" },
 	["shop.damage2x.name"] = { en = "x2 Damage", ko = "2배 데미지" },
 	["shop.damage2x.desc"] = { en = "2x damage per punch", ko = "1펀치 데미지가 2배예요" },
-	["shop.petSlots3.name"] = { en = "+3 Pet Equip", ko = "+3 펫 장착" },
+	["shop.petSlots3.name"] = { en = "+3 Pet Slots", ko = "+3 펫 장착" }, -- en = 대시보드 이름(#18 N1)
 	["shop.petSlots3.desc"] = { en = "Equip 3 more pets", ko = "펫을 3마리 더 장착해요" },
 	["shop.blox2x.name"] = { en = "x2 Blox", ko = "2배 블럭스" },
 	["shop.blox2x.desc"] = { en = "2x Blox when you claim", ko = "수령할 때 받는 블럭스가 2배예요" },
