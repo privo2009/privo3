@@ -411,6 +411,16 @@ D1 ~ D3 → `docs/DASHBOARD_PRODUCTS.md`(#16 7단계) · D4 · D5 광고와 함�
   재접속 뒤 UserOwnsGamePassAsync. #17 7단계는 개발자 상품(Power Potion 19 R$)만 산다(2026-10-31 사람 결정)
 - 가격 대조 실측: `[ShopPriceCheck] 39개 — 일치 39 · 다름 0 · 판매 안 함 0 · 조회 실패 0`
 
+#17 단계 7 사람 테스트 구매 (2026-10-31 — Studio · floor9 Mock 프로필, Power Potion 19 R$만)
+```
+구매 창     테스트(모의) 구매 표시가 있었다(사람 확인 — 표시를 보고 구매)
+잔액        로블록스 잔액이 줄지 않았다(사람 확인) — 공식 문서 "In Studio, mocked purchases"와 맞는다
+영수증      실제 ProcessReceipt 콜백으로 온다. PurchaseId 32자리 16진수(c9c7b4db… · af4babef…) · ProductId 3722238698
+            구매 요청 → 영수증 약 15초 · 4초(사람이 누르는 시간 포함). 두 건 PurchaseGranted · 보관 힘 포션 0 → 1 → 2
+            세 번째 요청은 영수증이 오지 않았다(창을 닫은 것으로 보인다 — 사람 확인 안 함)
+게임패스    구매 경로 실서버 확인은 미결(아래) — 제작자 계정은 23개를 이미 가진 것으로 조회돼 Studio에서도 잴 수 없다
+```
+
 #17 단계 6 실물 확인 (2026-10-31 — TEST_PRESET floor9 Mock + TEST_RECEIPTS + TEST_GAMEPASSES { strength8x }, 실제 프로필 무변경)
 ```
 가짜 영수증  힘 포션 · 럭키 롤 5 · 운동기구 5 선해금 → 3건 PurchaseGranted. 같은 PurchaseId 다시 → PurchaseGranted · 보관 1 그대로(멱등)

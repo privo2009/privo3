@@ -43,7 +43,8 @@ ID 복사   Monetization ⟩ Developer Products → 썸네일에 마우스 → �
 Studio 구매 — MarketplaceService 레퍼런스(2026-10-30 확인,
 https://create.roblox.com/docs/reference/engine/classes/MarketplaceService#PromptProductPurchase)에
 "In Studio, mocked purchases don't check that the product belongs to the current game"(게임패스도 같은 문장)가 있다 — **Studio 구매는 모의다.**
-로벅스가 빠지는지 · 영수증이 어떻게 오는지는 서술이 없다(확인 못 함) → 지시서 #17 7단계에서 사람이 한 번 사 보고 관측한다.
+로벅스가 빠지는지 · 영수증이 어떻게 오는지는 서술이 없다(확인 못 함) → 지시서 #17 7단계에서 사람이 한 번 사 보고 관측했다(2026-10-31):
+구매 창에 테스트(모의) 표시 · 로벅스 잔액 그대로 · 영수증은 실제 ProcessReceipt로 온다(Power Potion — `docs/PENDING.md` "#17 단계 7").
 MCP로는 실제 프롬프트를 누르지 않는다 — 구매 경로는 테스트용 가짜 게이트웨이(`MarketplaceGateway.fake`)로 잰다.
 
 ## 3. ID를 넣는 자리

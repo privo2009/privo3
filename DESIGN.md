@@ -2094,6 +2094,8 @@ OP 자동 클리커        89   초당 30회. 둘 다 있으면 높은 쪽만
 - Studio 구매: 공식 문서(MarketplaceService `PromptGamePassPurchase` · `PromptProductPurchase`, 2026-10-30 확인)에
   "In Studio, mocked purchases don't check that the pass/product belongs to the current game" — **Studio 구매는 모의(mocked)다.**
   로벅스가 실제로 빠지는지 · 영수증이 어떻게 오는지는 서술이 없다 → #17 7단계에서 사람이 한 번 사 보고 관측해 기록한다
+  **관측(2026-10-31, Power Potion · Mock 프로필)**: 구매 창에 테스트(모의) 표시 · 잔액 그대로 · 영수증은 실제 ProcessReceipt 콜백으로
+  온다(PurchaseId 32자리 16진수) — 지급 · 멱등 경로를 Studio에서 그대로 탄다. 게임패스 구매는 제작자 계정이라 잴 수 없다(PENDING)
 
 ### 보상형 광고 (출시 후로 미룸 — 자리만 기록)
 ```
