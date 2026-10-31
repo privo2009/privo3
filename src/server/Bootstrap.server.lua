@@ -251,6 +251,14 @@ require(script.Parent.Systems.DailyService).init({
 	grant = require(script.Parent.Systems.RewardService).grant,
 	notify = notifyState,
 })
+-- 코드 입력(지시서 #20 C1 ~ C6): CodesConfig 한 곳 · 계정당 1회(redeemedCodes) · 틀린 5번/분 → 1분 막힘. 지급은 RewardService
+require(script.Parent.Systems.CodeService).init({
+	getData = function(player: Player)
+		local profile = ProfileManager.get(player)
+		return if profile ~= nil then profile.Data else nil
+	end,
+	grant = require(script.Parent.Systems.RewardService).grant,
+})
 local PurchaseRequestService = require(script.Parent.Systems.PurchaseRequestService)
 PurchaseRequestService.init()
 -- 대시보드 가격 대조(지시서 #17 3단계) — 시작 때 한 번, 다르면 WARN만(자동으로 고치지 않는다). 기다리지 않는다(조회는 뒤에서)

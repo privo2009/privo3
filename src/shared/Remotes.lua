@@ -37,6 +37,8 @@
 --   PlusPromptRequest 클라→서버. "상점을 열었다"(Roblox Plus 프롬프트 기회 — S16 · 지시서 #17). 띄울지는 서버가 정한다
 --   DailyRequest    클라→서버. 일일 보상 받기 (지시서 #20 D1 ~ D5). 받을 칸 · 보상은 서버가 정한다
 --   DailyResult     서버→클라. 그 요청의 결과(받은 칸 · 거부 사유). 상태(오늘 받았나 · 연속)는 PlayerState가 보낸다
+--   CodeRequest     클라→서버. 코드 입력(입력 글자 그대로 — 서버가 정리 · 판정한다) (지시서 #20 C1 ~ C6)
+--   CodeResult      서버→클라. 결과(받은 보상 · 거부 사유). 입력 글자를 되보내지 않는다(C4)
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --
@@ -120,6 +122,8 @@ Remotes.AUTO_ADVANCE_REQUEST = "AutoAdvanceRequest"
 Remotes.AUTO_ADVANCE_RESULT = "AutoAdvanceResult"
 Remotes.DAILY_REQUEST = "DailyRequest"
 Remotes.DAILY_RESULT = "DailyResult"
+Remotes.CODE_REQUEST = "CodeRequest"
+Remotes.CODE_RESULT = "CodeResult"
 
 -- ===== payload 타입 ====================================================================
 --
@@ -507,6 +511,29 @@ export type DailyResultPayload = {
 	day: number,
 }
 
+-- CodeRequest: 코드 입력 (클라 → 서버). 입력 글자 하나 — 정리(공백 · 대소문자) · 판정 · 보상은 서버(규약 2). 서버는 이 글자를 저장하지 않는다(C4).
+export type CodeRequestPayload = {
+	code: string,
+}
+
+-- CodeResult: 결과 (서버 → 클라). 선택 필드 금지. **입력 글자를 싣지 않는다**(C4 — 화면에 되보이지 않는다).
+--   reason  not_found · already_redeemed · expired · too_many_attempts · rate_limited · storage_full · no_profile · grant_failed · 성공이면 ""
+--   rewards 받은 보상(성공일 때만 — 거부면 빈 목록). 칸마다 모든 필드를 채운다(type · kind "" · count 0 · k 0 · petId "")
+--   blox    받은 블럭스 합(bloxScaled — 없으면 0)
+export type CodeRewardView = {
+	type: string,
+	kind: string,
+	count: number,
+	k: number,
+	petId: string,
+}
+export type CodeResultPayload = {
+	ok: boolean,
+	reason: string,
+	rewards: { CodeRewardView },
+	blox: BigNum.BigNumber,
+}
+
 export type Channels = {
 	blockDamaged: RemoteEvent,
 	runStateChanged: RemoteEvent,
@@ -541,6 +568,8 @@ export type Channels = {
 	autoAdvanceResult: RemoteEvent,
 	dailyRequest: RemoteEvent,
 	dailyResult: RemoteEvent,
+	codeRequest: RemoteEvent,
+	codeResult: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -622,6 +651,8 @@ function Remotes.getServer(): Channels
 		autoAdvanceResult = ensureEvent(folder, Remotes.AUTO_ADVANCE_RESULT),
 		dailyRequest = ensureEvent(folder, Remotes.DAILY_REQUEST),
 		dailyResult = ensureEvent(folder, Remotes.DAILY_RESULT),
+		codeRequest = ensureEvent(folder, Remotes.CODE_REQUEST),
+		codeResult = ensureEvent(folder, Remotes.CODE_RESULT),
 	}
 	cached = channels
 	return channels
@@ -689,6 +720,8 @@ function Remotes.getClient(): Channels
 		autoAdvanceResult = waitFor(folder, Remotes.AUTO_ADVANCE_RESULT) :: RemoteEvent,
 		dailyRequest = waitFor(folder, Remotes.DAILY_REQUEST) :: RemoteEvent,
 		dailyResult = waitFor(folder, Remotes.DAILY_RESULT) :: RemoteEvent,
+		codeRequest = waitFor(folder, Remotes.CODE_REQUEST) :: RemoteEvent,
+		codeResult = waitFor(folder, Remotes.CODE_RESULT) :: RemoteEvent,
 	}
 	cached = channels
 	return channels
