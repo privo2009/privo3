@@ -101,6 +101,7 @@
 | `Systems/ProductGrantsTests.server.lua` | 25 | 개발자 상품 지급 16 — 포션 · 번들(반쪽 지급 없음) · 롤 · 선해금 · 표 없음 거부 · 등록 16 · 같은 영수증 지급 1회 · 알림(#17) · 가짜 영수증 TEST_RECEIPTS(Studio + Mock만 · 커밋 값 nil — #17 단계 6) |
 | `Systems/PotionRequestServiceTests.server.lua` | 12 | 포션 켜기 — payload · invalid · none_owned · 보관 −1 · 부스트 · 연장 · 제한 유저 행운 포션 · 부스트 실패 되돌림 · 빈도(#17) |
 | `Systems/PlusPromptServiceTests.server.lua` | 8 | Roblox Plus(S16) — 꺼짐 · 커밋 플래그 false · 세션 한 번 · 구독자 제외 · 모르는 이유 · 새 세션 · 환생 알림(#17) |
+| `Systems/AutoAdvanceServiceTests.server.lua` | 47 | 자동 진행 — 요청 위생 · 미보유 · 목표층(0 · 26 · 소수 · 문자열) · 런 중 · 캐릭터 · 시작 순서 · advance("auto") 한 번 · 이동은 advance 뒤 · 벽 트리거 이중 진행 없음 · 디바운스 · 목표층 수령 · 반복 간격 · 실패 · 수동 수령 · 중지(런 유지) · character_lost · 퇴장 · 단일 루프 · 구매 직후 · 마지막 층 · 안전층 경계 · 워프 · 환생 auto_active · PlayerState 요약(#18) |
 | `Systems/ShopPriceCheckTests.server.lua` | 12 | 대시보드 가격 대조 — 일치 · 할인 전 값 일치 · 다름 · 판매 안 함 · 조회 실패 · 등록 상품만 · WARN만 · 고치지 않음 · 실제 표 39개(#17) |
 | `Systems/ShopEffectsTests.server.lua` | 33 | 로벅스 효과 — 미보유 1 · 보유 정확한 배수 · 계단 최고만 · 공허 OR · 공허 × 계단 곱 · 결합 자리 한 번씩 · 2배 환생 얻는 수 · 행운 패스 · 포션 · 제한이면 1(#16) |
 | `Systems/BoostServiceTests.server.lua` | 18 | 부스트 S7 — 감소 · 연장 · 만료 · 같은 종류 한 번만 · 오프라인 중 안 줄어듦(남은 초 저장) · 요약 순서 · 숨김(#16) |
@@ -109,7 +110,7 @@
 | `Tests/WindowProductTests.client.lua` | 30 | 창별 상품 버튼 — 아우라 로벅스 탭 · 롤 사용 · 펫 로벅스 탭 · ×3 부화 · 칭호 10배 행운 버튼 · 운동기구 프롬프트 · 선해금 표시 · 폰 705×338 넘침 0 · 11px(#17) |
 | `Tests/LocaleTests.server.lua` | 39 | 다국어 표 · 고르기(#L1) — 모든 키에 en · 자리 표시 집합 = en · 없는 키 "?" + WARN · ko 없으면 en · 치환 · 언어 고르기(K2) · TEST_LOCALE 관문(Studio 전용) · Config id → 이름 키(K6) · 커밋된 TEST_LOCALE = nil · K11 신호 기다리기(바로 · 늦게 · 상한) · 서버가 LocaleReady를 세운다(#L2) |
 | `Tests/LocaleClientTests.client.lua` | 26 | K10 우리 GUI 루트 전수 AutoLocalize = false(예외: Freecam · 플레이스 StarterGui 복사본) · K11 지금 언어 = TEST_LOCALE 또는 계정 언어 · 첫 언어는 서버 신호 뒤 · 신호 전 기억 없는 호출 0 · 토스트 setLimit · 알림층 폰 705×338 틀(런 안내 3 · 오류 · 로딩 · 환생 안내 · 가장 긴 칭호 · 아우라 · 펫 토스트 · 결과 모달 — 넘침 0 · 11px · 그 Play의 언어) · 토스트 폰 예외(2개 · 두 줄)(#L2) · 글자 전부 UiTheme.FONT · 힘 블록 환생 배수 라벨 폰 한 줄 · 값 · 힘 수치와 안 겹침(#17 F1 · F2) |
-| **합계** | **4173** | |
+| **합계** | **4220** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
