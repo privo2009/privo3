@@ -393,7 +393,7 @@ D1 ~ D3 → `docs/DASHBOARD_PRODUCTS.md`(#16 7단계) · D4 · D5 광고와 함�
 1. **공허 훈련 구역 가격 799 vs 계단 최고 1024x 699** — 2026-10-30 계단 가격이 바뀌어(32x부터 149 · 249 · 399 · 499 · 599 · 699)
    공허가 가장 비싼 게임패스가 됐다. 공허 배수(×100)와 함께 다시 본다
 2. **운동기구 개수 · 공허 배수** — 기구 9개(선해금 8 + 공허) · 공허 ×100(GymConfig TEMP)을 그대로 둘지
-3. **게임 이름 ↔ 대시보드 이름 3개** — `rebirth2x` "x2 Rebirth"(대시보드 "x2 Rebirths") · `hatch3x` "x3 Hatch"("Triple Hatch") ·
+3. ✅ **2026-10-31 해소(#18 N1 — `a77fadb`, 대시보드 이름으로 맞춤).** 게임 이름 ↔ 대시보드 이름 3개 — `rebirth2x` "x2 Rebirth"(대시보드 "x2 Rebirths") · `hatch3x` "x3 Hatch"("Triple Hatch") ·
    `petSlots3` "+3 Pet Equip"("+3 Pet Slots"). #17은 운동기구 선해금만 맞췄다("Gym {n} Unlock"). 맞출지 · 어느 쪽으로 맞출지
 4. **Roblox Plus 프롬프트 켜는 시점(S16)** — 코드는 넣되 플래그를 끈다. Studio 동작이 공식 문서에 없고 실제 구독(결제) 프롬프트라
    MCP로 잴 수 없다. 켜려면 사람이 Studio에서 한 번 띄워 보고(누르지 않고 닫기) 정한다

@@ -113,8 +113,8 @@ gymUnlock8      Gym 8 Unlock       3722240268    449
 ```
 지급(지시서 #17): 롤 → `rollCredits` · 포션 → `potions` 보관함(번들은 종류마다 +99) · 선해금 → `gymUnlocks` 기록. 규칙은 `DESIGN.md` 9장 "구매 규칙 · 지급 · 사용".
 
-⚠️ 게임 화면 이름(Strings en)과 대시보드 이름이 다른 것 3개 — `rebirth2x` "x2 Rebirth" · `hatch3x` "x3 Hatch" · `petSlots3` "+3 Pet Equip".
-지시서 #17은 운동기구 선해금 이름만 대시보드에 맞췄다("Unlock Gym {n}" → "Gym {n} Unlock"). 나머지 3개를 맞출지는 사람 결정(`docs/PENDING.md`).
+✅ 게임 화면 영어 이름 = 대시보드 이름(39개 전부). #17에서 운동기구 선해금("Gym {n} Unlock"), #18 N1에서 나머지 3개
+(x2 Rebirths · Triple Hatch · +3 Pet Slots — `a77fadb`)를 맞췄다. 한국어 이름은 그대로.
 
 ## 6. 아이콘
 
