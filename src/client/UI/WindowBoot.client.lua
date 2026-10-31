@@ -97,6 +97,22 @@ shopWindow.root:GetPropertyChangedSignal("Visible"):Connect(function()
 		channels.plusPromptRequest:FireServer(payload)
 	end
 end)
+-- 자동 진행 설정 창(지시서 #18). HUD 자동 진행 버튼(보유 · 꺼짐)이 ScreenController.open("AutoAdvance")로 연다
+local AutoAdvanceWindow = require(script.Parent.Screens.Window.AutoAdvanceWindow)
+local autoAdvanceWindow = AutoAdvanceWindow.create({
+	onClose = function()
+		ScreenController.close("AutoAdvance")
+	end,
+})
+ScreenController.register("AutoAdvance", "Window", function()
+	return autoAdvanceWindow.root
+end)
+autoAdvanceWindow.root:GetPropertyChangedSignal("Visible"):Connect(function()
+	if autoAdvanceWindow.root.Visible then
+		autoAdvanceWindow.onOpen()
+	end
+end)
+
 -- HUD 부스트 표시 → 상점 로벅스 탭 "포션" 묶음(지시서 #17 — Navigation)
 require(script.Parent.Navigation).onOpenPotions(function()
 	ScreenController.open("Shop")

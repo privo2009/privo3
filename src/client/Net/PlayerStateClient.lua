@@ -168,6 +168,15 @@ function PlayerStateClient.apply(setter: (string, any) -> (), payload: any, now:
 		rollCredits = payload.shop.rollCredits,
 		gymUnlocks = payload.shop.gymUnlocks,
 	})
+	-- 자동 진행 요약(지시서 #18). 옛 서버 payload에 없으면 꺼짐 기본값 — 형태 검사는 받는 쪽(AutoAdvanceWindowLogic.read)이 한다
+	local a = if type(payload.autoAdvance) == "table" then payload.autoAdvance else {}
+	setter("autoAdvance", {
+		active = a.active == true,
+		target = if type(a.target) == "number" then a.target else 0,
+		safeFloor = if type(a.safeFloor) == "number" then a.safeFloor else 0,
+		runs = if type(a.runs) == "number" then a.runs else 0,
+		maxTarget = if type(a.maxTarget) == "number" then a.maxTarget else 25,
+	})
 	return true
 end
 

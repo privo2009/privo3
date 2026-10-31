@@ -192,4 +192,18 @@ PurchaseClient.get().onResult(function(payload: Remotes.PurchaseResultPayload)
 	end
 end)
 
+-- 자동 진행 결과 토스트(지시서 #18): 켰다 · 껐다 · 서버가 껐다(character_lost) · HUD에서 보낸 중지의 거부.
+-- 시작 거부는 설정 창 상태 줄이 보인다(창이 열려 있다) — 토스트로 겹쳐 띄우지 않는다.
+local AutoAdvanceClient = require(script.Parent.Parent.Net.AutoAdvanceClient)
+local AutoAdvanceWindowLogic = require(script.Parent.Logic.AutoAdvanceWindowLogic)
+AutoAdvanceClient.get().onResult(function(payload: Remotes.AutoAdvanceResultPayload)
+	if type(payload) ~= "table" or (payload.action == "start" and not payload.ok) then
+		return
+	end
+	local text = AutoAdvanceWindowLogic.resultText(payload)
+	if text ~= nil then
+		toastStack.push({ text = text, tier = 1 })
+	end
+end)
+
 StateSync.request()

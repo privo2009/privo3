@@ -94,6 +94,8 @@ function WarpWindowLogic.reasonText(code: string): string
 		return Locale.t("common.reason.no_profile")
 	elseif code == "rate_limited" then
 		return Locale.t("common.reason.rate_limited")
+	elseif code == "auto_active" then
+		return Locale.t("common.reason.auto_active") -- 자동 진행 중(지시서 #18 AA9 — 사유 + 끄라는 안내)
 	elseif code == "start_run_failed" or code == "subtract_failed" then
 		-- start_run_failed는 블럭스가 이미 빠진 뒤의 사고다 — "못 했다"로 안내하면 거짓말이 된다.
 		return Locale.t("common.reason.partial_failure")

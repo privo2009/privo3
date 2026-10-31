@@ -130,7 +130,8 @@ do
 	end
 
 	local hitArea = autoAdvanceItem:FindFirstChild("HitArea")
-	check("자동 진행 항목에는 HitArea가 없다(눌러도 아무 일도 안 일어난다 — 창이 안 열린다)", hitArea == nil)
+	-- 지시서 #18(AA11): 자동 진행 버튼은 이제 누를 수 있다(잠김 → 구매 요청 · 꺼짐 → 설정 창 · 켜짐 → 중지 — AutoAdvanceWindowTests가 잰다)
+	check("자동 진행 항목에 HitArea가 있다(#18 — 누르면 구매 요청 · 창 · 중지)", hitArea ~= nil and hitArea:IsA("TextButton"))
 end
 
 -- 5. 자동 클리커 토글이 두 상태를 전환한다 (색 + 밝기 두 채널) --------------------------

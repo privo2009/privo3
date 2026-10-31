@@ -36,6 +36,25 @@ Strings.Entries = {
 	["common.reason.invalid_request"] = { en = "Can't do that", ko = "할 수 없는 요청이에요" },
 	["common.reason.partial_failure"] = { en = "Something went wrong. Please tell an admin.", ko = "문제가 생겼어요. 관리자에게 알려 주세요" },
 	["common.reason.failed"] = { en = "Couldn't do that", ko = "하지 못했어요" },
+	-- 자동 진행 중 워프 · 환생(지시서 #18 AA9) — 사유와 안내를 한 문장에
+	["common.reason.auto_active"] = { en = "Auto Advance is on. Turn it off first.", ko = "자동 진행 중이에요. 자동 진행을 끄고 다시 해 주세요" },
+	-- 자동 진행 설정 창 · HUD(지시서 #18)
+	["auto.window.title"] = { en = "Auto Advance", ko = "자동 진행" },
+	["auto.safe"] = { en = "Safe floor: Floor {n}", ko = "안전층 {n}층" },
+	["auto.safeNone"] = { en = "No safe floor yet", ko = "아직 안전층이 없어요" },
+	["auto.note.repeat"] = { en = "Claims at your target floor and repeats until you stop", ko = "목표층에서 자동 수령하고 멈출 때까지 반복해요" },
+	["auto.note.boost"] = { en = "May change when boosts end", ko = "부스트가 끝나면 달라질 수 있어요" },
+	["auto.target"] = { en = "Target floor", ko = "목표층" },
+	["auto.targetValue"] = { en = "Floor {n}", ko = "{n}층" },
+	["auto.start.safe"] = { en = "Start · Safe", ko = "시작 · 안전" },
+	["auto.start.risky"] = { en = "Start · Risky", ko = "시작 · 도박" },
+	["auto.status"] = { en = "Auto · Floor {target} · {runs} runs", ko = "자동 · 목표 {target}층 · {runs}회" },
+	["auto.started"] = { en = "Auto Advance on", ko = "자동 진행을 켰어요" },
+	["auto.stopped"] = { en = "Auto Advance off", ko = "자동 진행을 껐어요" },
+	["auto.reason.run_active"] = { en = "Finish your current run first", ko = "지금 런이 끝난 뒤에 시작할 수 있어요" },
+	["auto.reason.character_lost"] = { en = "Auto Advance stopped: character lost", ko = "캐릭터가 없어져 자동 진행을 껐어요" },
+	["auto.reason.not_owned"] = { en = "You need Auto Advance", ko = "자동 진행이 필요해요" },
+	["auto.reason.invalid_target"] = { en = "Pick a floor from 1 to {max}", ko = "1 ~ {max}층 중에서 골라 주세요" },
 	-- ===== 이름 (K6 — Config id → 키. 만드는 곳은 Shared/Localization/Names) ==============================
 	-- 희귀도(아우라 등급 · 펫 종 희귀도 공통)
 	["rarity.common"] = { en = "Common", ko = "일반" },

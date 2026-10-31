@@ -56,6 +56,8 @@ export type State = {
 	auras: AuraSummary, -- 아우라 요약 (지시서 #11). 서버 AuraService.summarize
 	pets: PetSummary, -- 펫 요약 (지시서 #12). 서버 PetService.summarize
 	shop: ShopSummary, -- 상점 요약 (지시서 #16). 서버 세션 값 — 보유 게임패스 · 행운 상품 제한 · 활성 부스트 · 자동 클리커
+	-- 자동 진행 요약 (지시서 #18). 서버 세션 값 — 켜짐 · 목표층 · 안전층 · 반복 횟수 · 목표층 상한
+	autoAdvance: { active: boolean, target: number, safeFloor: number, runs: number, maxTarget: number },
 }
 
 -- boosts[i].receivedAt = 클라가 그 값을 받은 os.clock(남은 시간을 받은 뒤로 센다 — PlayerStateClient가 채운다)
@@ -87,6 +89,7 @@ export type Key =
 	| "auras"
 	| "pets"
 	| "shop"
+	| "autoAdvance"
 
 export type Setter = (Key, any) -> ()
 export type Source = (Setter) -> ()
@@ -123,6 +126,7 @@ local DUMMY_STATE: State = {
 	-- 첫 PlayerState 전: 보유 없음 · 제한(행운 상품을 숨긴 채 시작한다 — 서버 확인 전과 같다) · 부스트 없음 · 자동 꺼짐
 	shop = { gamepasses = {}, paidRandomRestricted = true, boosts = {}, autoClick = false,
 		potions = { strength = 0, damage = 0, luck = 0 }, rollCredits = { lucky = 0, super = 0 }, gymUnlocks = {} },
+	autoAdvance = { active = false, target = 0, safeFloor = 0, runs = 0, maxTarget = 25 }, -- 첫 PlayerState 전(지시서 #18)
 }
 
 local BIG_NUM_KEYS: { [Key]: boolean } = {
@@ -136,6 +140,7 @@ local BIG_NUM_KEYS: { [Key]: boolean } = {
 -- 표 값(업그레이드 레벨)은 얕은 복사로 뜬다 — get으로 받은 표를 고쳐도 내부 상태가 안 바뀐다.
 local TABLE_KEYS: { [Key]: boolean } = {
 	upgrades = true,
+	autoAdvance = true, -- 숫자 · boolean만 든 얕은 표(지시서 #18)
 }
 
 -- 칭호 요약은 owned 배열까지 깊게 뜬다(얕은 복사면 get으로 받은 배열을 고쳐 내부 상태가 바뀐다).

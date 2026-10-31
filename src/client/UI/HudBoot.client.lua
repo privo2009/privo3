@@ -55,6 +55,13 @@ local autoTools = AutoTools.create({
 		local payload: Remotes.AutoClickRequestPayload = { on = on }
 		channels.autoClickRequest:FireServer(payload)
 	end,
+	-- 자동 진행(지시서 #18): 꺼짐 → 설정 창(WindowBoot가 등록) · 켜짐 → 중지
+	openAutoAdvance = function()
+		ScreenController.open("AutoAdvance")
+	end,
+	stopAutoAdvance = function()
+		require(script.Parent.Parent.Net.AutoAdvanceClient).get().stop()
+	end,
 })
 channels.autoClickResult.OnClientEvent:Connect(function(payload: Remotes.AutoClickResultPayload)
 	autoTools.onAutoClickResult(payload)

@@ -36,6 +36,7 @@
 -- Position을 검증 불가능하게 만든다).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextService = game:GetService("TextService")
 local AssetRegistry = require(ReplicatedStorage.Shared.Config.AssetRegistry)
 local AssetImage = require(ReplicatedStorage.Shared.UI.AssetImage)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
@@ -44,6 +45,7 @@ local Layout = require(script.Parent.Parent.Parent.Layout)
 local Store = require(script.Parent.Parent.Parent.Store)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
+local AutoAdvanceWindowLogic = require(script.Parent.Parent.Parent.Logic.AutoAdvanceWindowLogic)
 
 local AutoTools = {}
 
@@ -66,6 +68,13 @@ local COLUMNS = 2
 -- HudLayoutTests가 렌더 결과(AbsoluteSize)를 예산과 대조할 때 매직넘버를 다시
 -- 옮겨적지 않기 위해 노출한다.
 AutoTools.ItemHeight = ITEM_HEIGHT
+
+-- 자동 진행 상태 줄(지시서 #18 AA13): 자동 도구 바로 위 · 소(2.5%) · 오른쪽 정렬. 켜져 있을 때만 보인다.
+-- 폭은 자동 도구 폭 그대로(우측 레일 안 — 중앙 금지 구역 밖). 폰에서 줄 높이가 하한보다 낮으면 하한 + 1px(BoostTimers와 같은 방식)
+local STATUS_LEVEL: TextScale.Level = "small"
+local STATUS_H = TextScale.Levels[STATUS_LEVEL].heightFraction
+local STATUS_GAP = 0.005
+AutoTools.StatusHeight = STATUS_H
 
 -- 토글 ON일 때 아이콘 테두리 색. docs가 토글 상태 색을 정하지 않아 기존 역할 중
 -- 하나를 고른 것이다 — "수령·안전(노랑)"은 이미 "확정된·활성화된 선택"이라는
@@ -110,6 +119,11 @@ export type AutoToolsHandle = {
 		isAutoClickerEnabled: () -> boolean,
 		isLocked: () -> boolean,
 		press: () -> (),
+		-- 자동 진행(지시서 #18)
+		pressAdvance: () -> (),
+		advanceState: () -> string,
+		status: TextLabel,
+		advanceStroke: UIStroke,
 	},
 }
 
@@ -118,6 +132,9 @@ export type Deps = {
 	store: any?, -- Store 인스턴스. 생략하면 싱글톤
 	requestPurchase: ((key: string) -> ())?, -- 미보유일 때 누르면(PurchaseClient.request)
 	sendAutoClick: ((on: boolean) -> ())?, -- 보유일 때 누르면(AutoClickRequest)
+	-- 자동 진행(지시서 #18): 꺼짐에서 누르면 설정 창 · 켜짐에서 누르면 중지(AutoAdvanceClient.stop)
+	openAutoAdvance: (() -> ())?,
+	stopAutoAdvance: (() -> ())?,
 	now: (() -> number)?,
 }
 
@@ -282,22 +299,112 @@ function AutoTools.create(deps: Deps?): AutoToolsHandle
 	autoClickerHitArea.Parent = autoClickerItem
 	autoClickerHitArea.Activated:Connect(press)
 
-	-- ===== 자동 진행 버튼 ===========================================================
+	-- ===== 자동 진행 버튼 (지시서 #18 AA8 · AA11 · AA13) ===================================
 	--
-	-- 미보유 잠김 상태(중립 회색)로 고정 — docs/UI.md "자동 진행 설정 창"이 이미
-	-- 정한 동작이다. 창은 열리지 않는다: 이 자리에 HitArea/Activated 배선을
-	-- 아예 두지 않는다(눌러도 아무 일도 안 일어나는 것이 곧 "창이 안 열린다"다).
-	-- 자동 진행 설정 창 자체는 U7 — 여기서 만들지 않는다.
-	--
-	-- U3-7: 잠김 밝기를 명시적으로 세팅한다. icon_autoadvance의 placeholderRole이
-	-- "neutral"이라 예전엔 아무것도 안 해도 우연히 회색(neutral.base)이 나왔지만,
-	-- 그건 "에셋이 아직 없어서"이지 "기능이 잠겨서"가 아니었다 — 에셋이 도착하면
-	-- (자동 진행 기능 자체는 U7까지 미구현이므로) 조용히 사라질 신호였다. 이제는
-	-- ICON_LOCKED_TINT(neutral.dark)를 도착 여부와 무관하게 항상 세팅해서, 잠김이
-	-- 자동클릭 꺼짐(neutral.base)보다 항상 더 어둡다는 것을 보장한다.
+	-- 세 상태 — 자동 클리커와 같은 두 채널(테두리 색 + 아이콘 밝기):
+	--   locked(미보유) neutral.dark + 검은 테두리 → 누르면 구매 요청(autoAdvance — 프롬프트는 서버)
+	--   off(보유)      neutral.base + 검은 테두리 → 누르면 설정 창
+	--   on(켜짐)       neutral.light + 노랑 테두리 → 누르면 중지(자동만 꺼진다 — 런은 남는다)
+	-- 상태는 서버 값(Store "shop" 보유 · "autoAdvance" 켜짐). 판정은 AutoAdvanceWindowLogic.hudState.
 	local autoAdvanceIcon = autoAdvanceItem:FindFirstChild("Icon") :: GuiObject
+	local autoAdvanceStroke = autoAdvanceIcon:FindFirstChildOfClass("UIStroke") :: UIStroke
 	local autoAdvanceArrived = AssetRegistry.resolve("icon_autoadvance").arrived
-	setIconTint(autoAdvanceIcon, autoAdvanceArrived, ICON_LOCKED_TINT)
+	local advanceState = "locked"
+
+	-- 상태 줄(켜져 있을 때만). 자동 도구 root 위로 붙는다 — TouchSafeLayout이 root를 올리면 같이 올라간다
+	local status = Instance.new("TextLabel")
+	status.Name = "AutoAdvanceStatus"
+	status.AnchorPoint = Vector2.new(1, 1)
+	status.Position = UDim2.fromScale(1, -STATUS_GAP / ITEM_HEIGHT)
+	status.Size = UDim2.fromScale(1, STATUS_H / ITEM_HEIGHT)
+	status.BackgroundTransparency = 1
+	status.BorderSizePixel = 0
+	status.Text = ""
+	status.TextScaled = true
+	status.TextXAlignment = Enum.TextXAlignment.Right
+	status.TextColor3 = Color3.new(1, 1, 1)
+	status.Font = UiTheme.FONT
+	status.Visible = false
+	status.Parent = root
+	local statusSize = Instance.new("UITextSizeConstraint")
+	statusSize.MaxTextSize = TextScale.Levels[STATUS_LEVEL].maxTextSize
+	statusSize.Parent = status
+	local statusStroke = Instance.new("UIStroke")
+	statusStroke.Color = Color3.new(0, 0, 0)
+	statusStroke.Parent = status
+
+	-- 폰 맞춤(K12 — 레이아웃 먼저): 줄 높이가 하한보다 낮으면 하한 + 1px(화면 높이 기준 — Scale로 다시 쓴다, BoostTimers와 같은 방식).
+	-- 그 글자 크기로 한 줄 폭이 칸(자동 도구 폭)보다 길면 두 줄로 감싼다 — 폰 705×338 영어 "Auto · Floor 25 · 999 runs"가 99px 칸을
+	-- 넘쳤다(2026-10-31). 글은 그대로 두고 줄을 늘린다(위쪽으로 — 바닥은 자동 도구 윗변에 붙어 있다)
+	local function fitStatus()
+		local parent = root.Parent
+		local screenH = if parent ~= nil and parent:IsA("GuiBase2d") then (parent :: GuiBase2d).AbsoluteSize.Y else 0
+		if screenH <= 0 then
+			return
+		end
+		local h = math.max(STATUS_H, (TextScale.MIN_TEXT_PX + 1) / screenH)
+		local px = math.min(h * screenH, statusSize.MaxTextSize)
+		local need = TextService:GetTextSize(status.Text, px, status.Font, Vector2.new(10000, 10000)).X
+		local lines = if status.Text ~= "" and need > status.AbsoluteSize.X - 2 and status.AbsoluteSize.X > 0 then 2 else 1
+		status.TextWrapped = lines > 1
+		status.Size = UDim2.fromScale(1, h * lines / ITEM_HEIGHT)
+	end
+	local statusParentConn: RBXScriptConnection? = nil
+	root.AncestryChanged:Connect(function()
+		if statusParentConn ~= nil then
+			statusParentConn:Disconnect()
+			statusParentConn = nil
+		end
+		local parent = root.Parent
+		if parent ~= nil and parent:IsA("GuiBase2d") then
+			statusParentConn = (parent :: GuiBase2d):GetPropertyChangedSignal("AbsoluteSize"):Connect(fitStatus)
+		end
+		fitStatus()
+	end)
+
+	local function readAdvance()
+		local summary = source.get("autoAdvance")
+		advanceState = AutoAdvanceWindowLogic.hudState(summary, source.get("shop"))
+		if advanceState == "locked" then
+			autoAdvanceStroke.Color = TOGGLE_OFF_COLOR
+			setIconTint(autoAdvanceIcon, autoAdvanceArrived, ICON_LOCKED_TINT)
+		else
+			local on = advanceState == "on"
+			autoAdvanceStroke.Color = if on then TOGGLE_ON_COLOR else TOGGLE_OFF_COLOR
+			setIconTint(autoAdvanceIcon, autoAdvanceArrived, if on then ICON_ON_TINT else ICON_OFF_TINT)
+		end
+		local text = AutoAdvanceWindowLogic.statusText(summary)
+		status.Text = text
+		status.Visible = text ~= ""
+		fitStatus() -- 글이 바뀌면 한 줄 · 두 줄을 다시 정한다
+	end
+	readAdvance()
+	source.subscribe("shop", readAdvance)
+	source.subscribe("autoAdvance", readAdvance)
+
+	local function pressAdvance()
+		if advanceState == "locked" then
+			if d.requestPurchase ~= nil then
+				d.requestPurchase(AutoAdvanceWindowLogic.PURCHASE_KEY)
+			end
+		elseif advanceState == "off" then
+			if d.openAutoAdvance ~= nil then
+				d.openAutoAdvance()
+			end
+		elseif d.stopAutoAdvance ~= nil then
+			d.stopAutoAdvance()
+		end
+	end
+
+	local autoAdvanceHitArea = Instance.new("TextButton")
+	autoAdvanceHitArea.Name = "HitArea"
+	autoAdvanceHitArea.Size = UDim2.fromScale(1, 1)
+	autoAdvanceHitArea.BackgroundTransparency = 1
+	autoAdvanceHitArea.BorderSizePixel = 0
+	autoAdvanceHitArea.Text = ""
+	autoAdvanceHitArea.ZIndex = 10
+	autoAdvanceHitArea.Parent = autoAdvanceItem
+	autoAdvanceHitArea.Activated:Connect(pressAdvance)
 
 	return {
 		root = root,
@@ -311,6 +418,12 @@ function AutoTools.create(deps: Deps?): AutoToolsHandle
 				return locked
 			end,
 			press = press,
+			pressAdvance = pressAdvance,
+			advanceState = function()
+				return advanceState
+			end,
+			status = status,
+			advanceStroke = autoAdvanceStroke,
 		},
 	}
 end
