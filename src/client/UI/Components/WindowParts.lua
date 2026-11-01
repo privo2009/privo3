@@ -9,6 +9,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local Button = require(script.Parent.Button)
+-- 버튼 반응(지시서 #21 A): 덮는 HitArea를 만드는 이 함수가 공용 진입점이다 — 기본으로 켠다(그림 = HitArea의 부모)
+local ButtonFx = require(script.Parent.ButtonFx)
 
 local WindowParts = {}
 
@@ -57,6 +59,7 @@ function WindowParts.hitArea(parent: Instance): TextButton
 	hit.Text = ""
 	hit.ZIndex = WindowParts.Z_HIT
 	hit.Parent = parent
+	ButtonFx.attach(hit)
 	return hit
 end
 

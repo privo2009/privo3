@@ -15,6 +15,7 @@ local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local Store = require(script.Parent.Parent.Parent.Store)
 local DailyRewardWindowLogic = require(script.Parent.Parent.Parent.Logic.DailyRewardWindowLogic)
+local ButtonFx = require(script.Parent.Parent.Parent.Components.ButtonFx)
 
 local DailyIcon = {}
 
@@ -117,6 +118,7 @@ function DailyIcon.create(deps: Deps?): Handle
 	hit.Text = ""
 	hit.ZIndex = 5
 	hit.Parent = root
+	ButtonFx.attach(hit) -- 지시서 #21 A
 
 	local function render()
 		badge.Visible = DailyRewardWindowLogic.badge(source.get("daily"))

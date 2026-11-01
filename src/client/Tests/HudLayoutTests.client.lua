@@ -177,7 +177,8 @@ local function checkOverlaps(records: { ElementRecord })
 			for j = i + 1, #siblings do
 				local a, b = siblings[i], siblings[j]
 
-				if a.instance.Name == "HitArea" or b.instance.Name == "HitArea" then
+				-- 빛 띠 덮개(지시서 #21 B — Components/Shine "Shine")도 항목 전체를 일부러 덮는 장식이라 같은 예외다
+				if a.instance.Name == "HitArea" or b.instance.Name == "HitArea" or a.instance.Name == "Shine" or b.instance.Name == "Shine" then
 					continue
 				end
 
@@ -345,7 +346,8 @@ local function checkCrossComponentOverlaps(hud: Instance, records: { ElementReco
 		for j = i + 1, #tagged do
 			local a, b = tagged[i], tagged[j]
 			if a.component ~= nil and b.component ~= nil and a.component ~= b.component then
-				if a.rec.instance.Name ~= "HitArea" and b.rec.instance.Name ~= "HitArea" then
+				if a.rec.instance.Name ~= "HitArea" and b.rec.instance.Name ~= "HitArea" and a.rec.instance.Name ~= "Shine"
+					and b.rec.instance.Name ~= "Shine" then
 					local iw, ih = rectIntersection(a.rec.absPos, a.rec.absSize, b.rec.absPos, b.rec.absSize)
 					if math.floor(iw) >= 1 and math.floor(ih) >= 1 then
 						overlaps += 1

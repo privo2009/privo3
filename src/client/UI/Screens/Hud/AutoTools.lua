@@ -46,6 +46,7 @@ local Store = require(script.Parent.Parent.Parent.Store)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local AutoAdvanceWindowLogic = require(script.Parent.Parent.Parent.Logic.AutoAdvanceWindowLogic)
+local ButtonFx = require(script.Parent.Parent.Parent.Components.ButtonFx)
 
 local AutoTools = {}
 
@@ -297,6 +298,7 @@ function AutoTools.create(deps: Deps?): AutoToolsHandle
 	autoClickerHitArea.Text = ""
 	autoClickerHitArea.ZIndex = 10
 	autoClickerHitArea.Parent = autoClickerItem
+	ButtonFx.attach(autoClickerHitArea) -- 지시서 #21 A
 	autoClickerHitArea.Activated:Connect(press)
 
 	-- ===== 자동 진행 버튼 (지시서 #18 AA8 · AA11 · AA13) ===================================
@@ -404,6 +406,7 @@ function AutoTools.create(deps: Deps?): AutoToolsHandle
 	autoAdvanceHitArea.Text = ""
 	autoAdvanceHitArea.ZIndex = 10
 	autoAdvanceHitArea.Parent = autoAdvanceItem
+	ButtonFx.attach(autoAdvanceHitArea) -- 지시서 #21 A
 	autoAdvanceHitArea.Activated:Connect(pressAdvance)
 
 	return {

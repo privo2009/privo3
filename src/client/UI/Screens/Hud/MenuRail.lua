@@ -27,6 +27,7 @@ local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local ScreenController = require(script.Parent.Parent.Parent.ScreenController)
+local ButtonFx = require(script.Parent.Parent.Parent.Components.ButtonFx)
 
 local MenuRail = {}
 
@@ -151,6 +152,7 @@ local function createTile(item: { assetKey: string, label: string, screenName: s
 	hitArea.Text = ""
 	hitArea.ZIndex = 10
 	hitArea.Parent = itemRow
+	ButtonFx.attach(hitArea) -- 지시서 #21 A — 칸은 UIGridLayout 자식이라 가운데 기준으로 커진다
 	hitArea.Activated:Connect(function()
 		openScreen(item.screenName, item.label)
 	end)

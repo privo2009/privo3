@@ -16,6 +16,7 @@ local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local Store = require(script.Parent.Parent.Parent.Store)
 local BoostTimersLogic = require(script.Parent.Parent.Parent.Logic.BoostTimersLogic)
+local ButtonFx = require(script.Parent.Parent.Parent.Components.ButtonFx)
 
 local BoostTimers = {}
 
@@ -90,6 +91,7 @@ function BoostTimers.create(deps: Deps?): Handle
 		h.ZIndex = 10
 		h.Visible = false
 		h.Parent = root
+		ButtonFx.attach(h) -- 지시서 #21 A
 		h.Activated:Connect(function()
 			(d.onPress :: () -> ())()
 		end)

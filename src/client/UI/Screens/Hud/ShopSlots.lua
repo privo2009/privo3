@@ -31,6 +31,9 @@ local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local TextService = game:GetService("TextService")
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local Store = require(script.Parent.Parent.Parent.Store)
+local ButtonFx = require(script.Parent.Parent.Parent.Components.ButtonFx)
+local Shine = require(script.Parent.Parent.Parent.Components.Shine)
+local UIFxConfig = require(ReplicatedStorage.Shared.Config.UIFxConfig)
 
 local ShopSlots = {}
 
@@ -224,6 +227,7 @@ function ShopSlots.create(deps: Deps?): ShopSlotsHandle
 		hit.Text = ""
 		hit.ZIndex = 10
 		hit.Parent = tile
+		ButtonFx.attach(hit) -- 지시서 #21 A
 		hit.Activated:Connect(function()
 			if d.requestPurchase ~= nil then
 				d.requestPurchase(entry.buyKey)
@@ -258,6 +262,15 @@ function ShopSlots.create(deps: Deps?): ShopSlotsHandle
 			end
 		end
 		fitPrices(priceEntries)
+		-- 빛 띠(지시서 #21 B): 강조 대상 구좌(UIFxConfig.SHINE_TARGETS)가 아직 살 것이 있으면(2배 힘 = 다음 계단 단계)
+		for i, entry in ipairs(priceEntries) do
+			local preset = UIFxConfig.SHINE_TARGETS[slots[i].key]
+			if preset ~= nil and not entry.owned then
+				Shine.attach(entry.tile, { preset = preset, priority = 0 })
+			else
+				Shine.detach(entry.tile)
+			end
+		end
 	end
 	readOwned()
 	source.subscribe("shop", readOwned)

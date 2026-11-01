@@ -12,6 +12,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local Button = require(script.Parent.Button)
 local WindowParts = require(script.Parent.WindowParts)
+local Shine = require(script.Parent.Shine)
+local UIFxConfig = require(ReplicatedStorage.Shared.Config.UIFxConfig)
 
 local RobuxList = {}
 
@@ -123,6 +125,9 @@ function RobuxList.create(o: Options): Handle
 		for i, parts in ipairs(rows) do
 			local r = view[i]
 			parts.frame.Visible = r ~= nil
+			if r == nil then
+				Shine.detach(parts.frame)
+			end
 			parts.frame.Position = UDim2.fromScale(0, (i - 1) * (o.rowH + o.rowGap) / k)
 			parts.frame.Size = UDim2.fromScale(1, o.rowH / k)
 			if r ~= nil then
@@ -133,6 +138,13 @@ function RobuxList.create(o: Options): Handle
 				parts.foot.Text = r.footText
 				parts.buttonLabel.Text = r.buttonText
 				parts.button.setDisabled(not r.canBuy or (r.buyKey ~= nil and o.purchase.isPending(r.buyKey)))
+				-- 빛 띠(지시서 #21 B): 강조 대상 줄(계단 다음 단계 · 2배 블럭스)이 살 수 있을 때만. 창 줄은 HUD 구좌보다 우선(priority 1)
+				local preset = UIFxConfig.SHINE_TARGETS[r.key]
+				if preset ~= nil and r.canBuy then
+					Shine.attach(parts.frame, { preset = preset, priority = 1 })
+				else
+					Shine.detach(parts.frame)
+				end
 				parts.use.root.Visible = hasUse
 				if hasUse then
 					parts.useLabel.Text = r.useText
