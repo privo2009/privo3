@@ -50,7 +50,7 @@
 | `Tests/ChallengeInfoTests.client.lua` | 17 | 상단 정보 15% 안·타이머 특대 단계·active=false 레이아웃 유지 |
 | `Tests/MenuRailTests.client.lua` | 59 | 6개 생성·좌측 레일 폭·세로 합계·BloxDisplay 비침범·AspectRatio·라벨 2~4자·격자 열 수 구성값 ※ |
 | `Tests/HudVisibilityTests.client.lua` | 31 | PlayerGui 부착·Visible·Enabled·AbsoluteSize·10프레임 지속 관찰 ※ |
-| `Tests/HudLayoutTests.client.lua` | 502 | 뷰포트 게이트 뒤 실물 HudGui — 크기 0·인셋/뷰포트 경계 침범·형제 겹침·MenuRail 격자 배치(AbsolutePosition)·칸 안 자식·컴포넌트 간 겹침·글자 하한·터치 조작부 겹침·구좌 가격이 칸 안 · 표기 통일 ※ · 부스트 남은 시간 · 구좌 HitArea(#16) · 자동 진행 상태 줄 · HitArea(#18 — 검사 대상 늘어 +6) · 일일 보상 아이콘(#20 — 검사 대상 늘어 +33) |
+| `Tests/HudLayoutTests.client.lua` | 512 | 뷰포트 게이트 뒤 실물 HudGui — 크기 0·인셋/뷰포트 경계 침범·형제 겹침·MenuRail 격자 배치(AbsolutePosition)·칸 안 자식·컴포넌트 간 겹침·글자 하한·터치 조작부 겹침·구좌 가격이 칸 안 · 표기 통일 ※ · 부스트 남은 시간 · 구좌 HitArea(#16) · 자동 진행 상태 줄 · HitArea(#18 — 검사 대상 늘어 +6) · 일일 보상 아이콘(#20 — 검사 대상 늘어 +33) · 빛 띠 덮개(#21 — 형제 겹침 예외 "Shine" · 검사 대상 늘어 +10) |
 | `Tests/PowerBlockTests.client.lua` | 50 | 세 행 Y 범위·하단 띠·8자/4자 규격·진행률 경계·Store 구독 반영·다른 인스턴스 미유출 · 레벨 바 L1(2^k → 레벨 k · 그 레벨 안 위치 · LevelConfig 그대로 — #13) |
 | `Tests/ShopSlotsTests.client.lua` | 36 | 상점 4구좌 배치·ShopConfig 원본 참조·가격 표기 2꼴 |
 | `Tests/AutoToolsTests.client.lua` | 29 | 자동 도구 아이콘 배치 · 미보유 잠김 · 꺼짐 비교는 보유 Store(#16) · 자동 진행 HitArea 있음(#18 AA11 — 옛 "없음" 검사를 바꿨다) |
@@ -118,7 +118,8 @@
 | `Tests/DailyRewardWindowTests.client.lua` | 26 | 일일 보상 UI — 칸(서버 원본 · bloxScaled = 서버 식 · 리미티드 tier6) · 버튼 · 남은 시간 · 사유 · 자동 등장(안내 뒤 · 런 아님 · 그날 한 번) · 큐 순서 · 배지 · 요청 한 번만 · en · ko · 폰 705×338(#20) |
 | `Tests/CodeWindowTests.client.lua` | 14 | 코드 입력 UI — 결과 문구(서버 결과 · Strings만) · 입력 글자를 되보이지 않음 · 보내면 비움 · 한 번만 · 결과 줄 빈칸 시작 · 설정 창 버튼 · en · ko · 폰 넘침 0 · 입력칸 위 45% 안(#20) |
 | `Tests/OnboardingBandTests.client.lua` | 17 | 첫 접속 안내 띠 — 단계 문구 · 숨김 · 건너뛰기 두 번 누름 · 확인 한 번만 · 창이 열리면 숨김 · 3D 대상 · 자리(중앙 금지 밖) · en · ko · 폰 1 ~ 5단계(#20) |
-| **합계** | **4483** | |
+| `Tests/UiFxTests.client.lua` | 59 | UI 효과(#21) — 버튼 상태 전이 · 목표 Scale · 트윈 종류 · 잘림 상한 · 실물(가운데 기준 · 쉬면 원래 배치 · 터치 · 비활성 2종 · 격자 · 목록 · 다른 UIScale 래퍼 · 스크롤 안 · 파괴 정리 · 공용 진입점 · 직접 만든 HitArea 연결) · 빛 띠(키포인트 · Offset · 가시성 · 상한 · 색 · 덮개 ZIndex · 글씨 색 · 그라디언트 · 숨김 · 상한 · 프리셋 · 둥근 모서리 · 9-slice · 떼기 · 파괴 · HUD 구좌 · 상점 줄) · 커밋 값(ENABLED · 멈춤 nil) |
+| **합계** | **4552** | |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는

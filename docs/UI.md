@@ -1270,3 +1270,52 @@ HUD 아이콘        블럭스 표시 아랫변 + 0.01 · 높이 0.07 · 폭 = �
 폰 틀 실측(705×338)  창 최소 17.5px · 칸 96 × 63 · 아이콘 최소 13.0px · 코드 창 최소 16.9px · 입력칸 아랫변 128px(위 38%) · 띠 169 × 47 · 최소 13.2px
                  — en · ko 둘 다 넘침 0(DailyRewardWindowTests · CodeWindowTests · OnboardingBandTests)
 ```
+
+## UI 효과 — 버튼 반응 · 강조용 빛 띠 (지시서 #21, 2026-11-01)
+
+수치의 원본은 `Shared/Config/UIFxConfig`다(이 문서로 옮기지 않는다 — 이름과 뜻만 적는다). 켜고 끄기는 `UIFxConfig.ENABLED`(UI_FX_ENABLED)
+하나 — 끄면 두 효과를 하나도 붙이지 않는다. 코드는 `UI/Components/ButtonFx` · `UI/Components/Shine`, 순수 계산은 `UI/Logic/ButtonFxLogic` ·
+`UI/Logic/ShineLogic`, 테스트 `UiFxTests`.
+
+### 버튼 반응
+```
+대상        클릭 가능한 모든 버튼 = "그림 + 덮는 투명 HitArea(TextButton)". HitArea의 부모(그림)가 커진다(닫기 X 포함)
+공용 진입점  WindowParts.hitArea — decorateButton · 닫기 X · 펫 칸 · 워프 줄이 이리로 온다. 기본으로 켜진다
+직접 연결    공용 진입점을 거치지 않는 HitArea 6곳: 메뉴 레일 칸 · 로벅스 구좌 · 자동 클리커 · 자동 진행 · 부스트 표시 · 출석 아이콘
+            (ButtonFx.attach(hit) 한 줄). 새 버튼을 직접 만들면 같은 한 줄을 붙인다
+방식        그림에 UIScale("ButtonFxScale")을 붙여 Scale만 TweenService로 바꾼다. Size · Position은 쉬는 동안 원래 값 그대로
+수치        HOVER_SCALE · HOVER_TIME(Quad Out) — 마우스 올림 / PRESS_SCALE · PRESS_TIME(Quad Out) — 누름 /
+            RELEASE_TIME(Back Out) — 뗌: 아직 위에 있으면 HOVER_SCALE, 아니면 1
+상태 규칙   누른 채 밖으로 → 1(클릭은 엔진 Activated 그대로 — 밖에서 떼면 클릭이 아니다) · 터치는 올림 없이 누름 · 뗌만 ·
+            비활성(Active=false · 공용 Button 회색 표현 · 옵션 isDisabled)은 반응 없음 · 파괴되면 연결 · 트윈 정리
+가운데 기준  UIScale은 AnchorPoint를 기준점으로 커진다(2026-11-01 실측 — (0,0)이면 오른쪽 아래로).
+            격자(UIGridLayout) 칸은 칸 가운데 기준이라 그대로 · AnchorPoint (0.5,0.5)도 그대로 ·
+            그 밖은 크기가 1이 아닌 동안만 AnchorPoint (0.5,0.5) + 같은 화면 자리를 가리키는 Position(픽셀 차이)으로 바꿨다가
+            1로 돌아오면 원래 값으로 되돌린다(실측 차이 1px 미만 — Offset이 정수라서) ·
+            목록(UIListLayout) 칸은 커지면 목록이 다시 배치돼 이웃이 밀려서(실측) 크기를 바꾸지 않는다(지금 해당 버튼 없음)
+다른 UIScale 이미 있으면 덮지 않고 안쪽 래퍼("ButtonFxBody", HitArea 말고 자식을 옮긴다)에 우리 것을 둔다(지금 해당 없음)
+잘림        스크롤 목록 · ClipsDescendants 조상 안이면 커지는 쪽만 그 사각형 안에 들도록 줄인다(배치는 그대로) — 상점 로벅스 탭
+            구매 버튼(목록 오른쪽 끝에 붙어 있다) · 펫 칸 등. 그때 뗌은 Back 대신 Quad(넘친 만큼 잘리므로)
+```
+
+### 강조용 빛 띠(Shine)
+```
+API         Shine.attach(guiObject, { preset = "default" | "premium", priority = 숫자 }) / Shine.detach(guiObject)
+구조        대상의 자식 덮개 "Shine"(배경 위 · 글씨 아래 — 글씨 자식들 중 가장 낮은 ZIndex보다 1 낮게) + UIGradient.
+            덮개 색 = 프리셋 색, 그라디언트 Transparency로 가운데만 좁게 밝은 띠, Offset.X를 −1 → 1로 움직인다. 글씨 색은 그대로
+모양 밖     덮개 크기 = 대상 크기이고 띠는 그라디언트 무늬라 덮개 밖으로 나가지 않는다(Rotation은 무늬만 돈다 — ClipsDescendants가
+            필요 없어 회전된 GuiObject 잘림 문제도 없다). 둥근 모서리는 덮개에 같은 UICorner, 도착한 9-slice 그림은 덮개를 같은 그림 ·
+            같은 SliceCenter의 ImageLabel로 만들어 그림의 불투명한 곳에만 보인다
+수치        SHINE_SWEEP_TIME(Sine InOut) · SHINE_INTERVAL(시작 간격) · SHINE_ANGLE(Rotation) · SHINE_BAND_HALF_WIDTH ·
+            SHINE_PEAK_TRANSPARENCY(가장자리 1) · SHINE_START_JITTER_MAX(시작 지연 0 ~ 이 값 랜덤)
+색          default = 흰색 · premium = 금테 색 UiTheme.Colors.cashout.base(수령 · 안전 노랑 기본 — 위 "3D 오브젝트 색 배정"의 금테와
+            같은 키). 보라(진행 전용)는 쓰지 않는다
+움직임      Heartbeat 하나가 모든 띠를 돌린다(띠마다 루프 · 트윈 객체를 만들지 않는다). 대상이나 조상이 숨거나 ScreenGui가 꺼지면 멈추고
+            덮개를 숨긴다 · 다시 보이면 재개 · 파괴되면 정리
+남용 방지   SHINE_MAX_ACTIVE(3) — 한 화면에 동시에 도는 것은 3개까지. 보이는 것 중 priority 높은 순 · 붙인 순만 돌고 나머지는 멈춘다
+            (창 줄 priority 1 > HUD 구좌 0). 상점 로벅스 탭을 열면 4개(창 2 + HUD 2)가 보여 HUD 2배 블럭스 구좌가 멈춘다
+대상 표     UIFxConfig.SHINE_TARGETS(화면 키 → 프리셋): strengthLadder(상점 계단 줄 — 다음 단계) · strength2x(HUD 구좌 — 다음 계단 단계) ·
+            blox2x(상점 줄 · HUD 구좌). 살 것이 있을 때만(보유 · 최고 단계면 뗀다). 지금 대상은 전부 로벅스(초록) 역할이라 default다 —
+            프리미엄(남색 + 금테) 역할 칸에 붙일 때 premium
+스크린샷    UIFxConfig.DEBUG_FREEZE_OFFSET(커밋 nil) — 숫자를 넣으면 도는 띠가 그 Offset에 멈춘다(MCP 캡처는 게임 시계와 맞출 수 없다)
+```
