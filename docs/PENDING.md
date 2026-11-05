@@ -217,6 +217,165 @@ ModuleScript **67개 중 아무도 require하지 않는 고아는
 
 ## 미결
 
+### Phase 9 착수 전 결정 (2026-11-01 지시서 #22 조사 — 읽기만, 브랜치 p9-survey) · 위험 · 결정 항목
+
+조사 범위: `Remotes` · 클라 → 서버 채널 18개의 처리 서비스 · 서버 Touched 4곳(`CashoutPadService` · `AdvanceWallService` · `EntranceGateService` ·
+`PadService`) · `SpeedService` · `ClickService` · `ProfileManager` · `Schema` · `Migrations`(+ 테스트) · `ProductService` · `RewardService` · `CodeService` ·
+서버 루프(`AttackService` · `AutoClickService` · `AutoAdvanceService` · `BoostService` · `TitleService` · `PlayerStateService` · `ChallengeService` ·
+`SpeedService`) · 클라 렌더 상한 · `docs/PENDING.md` · `ROADMAP.md` Phase 9 · `docs/LOCALIZATION.md` · 로블록스 공식 문서
+(github.com/Roblox/creator-docs `c8f5276` 2026-10-29 — create.roblox.com은 이 세션에서 막혔다). **추천은 적지 않는다.** 코드 변경 없음 · Play 미실행.
+
+**조사 1 — 클라 → 서버 채널 (18개 — 전부 RemoteEvent, RemoteFunction 0)**
+```
+채널(처리 파일)              payload 위생                         빈도 상한            서버 재판정 · 바뀌는 곳
+ClickInput(ClickService)     count 숫자 · 배치당 20 자름           1초 창에 10회         윈도우가 통과분을 정함 · 힘은 CurrencyService
+SpeedRequest(SpeedRequest)   speed 숫자                           1초 창에 5회          min(요청, 레벨 최대) · 세션 값(저장 안 함)
+SyncRequest(PlayerState)     비어 있음(보지 않음)                   0.5초 모음 · 10초 10회 읽기만
+RebirthRequest(RebirthReq)   비어 있음                             1.0초                RebirthService 서버 판정 · CurrencyService
+WarpRequest(WarpReq)         stage 유한한 숫자(정수 · 범위는 판정)  1.0초                WarpConfig.canWarp · 런 · 자동 진행 · CurrencyService
+UpgradeRequest(UpgradeReq)   name 문자열 ≤ 64 · 노출 항목          0.25초               UpgradeConfig.canBuy · CurrencyService
+TitleRequest(TitleReq)       action 화이트리스트 · id ≤ 64          0.25초 + 롤 시계 1초  RollService · TitleService · CurrencyService
+AuraRequest(AuraReq)         action · id ≤ 64 · pack ≤ 99 · credit  0.2초 + 롤 시계 0.25 RollService · AuraService · CurrencyService
+PetRequest(PetReq)           action · uid ≤ 12 · egg ≤ 99           0.2초 + 부화 0.25초   PetService(저장 공간 · 슬롯 · 재료) · CurrencyService
+SettingsRequest(SettingsReq) key ≤ 64 화이트리스트 · boolean        0.25초               cosmetics.hideOther* 한 곳
+PurchaseRequest(PurchaseReq) key 1 ~ 64 · ShopConfig에 있음          1.0초                소유 · 제한 · 등록 확인 뒤 서버가 프롬프트 · 지급은 ProcessReceipt
+AutoClickRequest(AutoClick)  on boolean                           0.25초               게임패스 소유 확인 · 서버 루프가 클릭을 만든다
+PotionRequest(PotionReq)     boost 문자열 ≤ 32                     0.5초                보관 수 · 제한 유저 · BoostService.add
+PlusPromptRequest(PlusPrompt) reason 화이트리스트(rebirth · shop)    세션에 한 번(prompted) 플래그로 꺼짐(PLUS_PROMPT_ENABLED=false)
+AutoAdvanceRequest(AutoAdv)  action · target 정수 1 ~ 25            0.5초                게임패스 · 런 없음 · 캐릭터 · 안전층 서버 계산
+DailyRequest(DailyService)   action = "claim"만                    0.5초                서버 os.time 일 번호 · 연속 · RewardService
+CodeRequest(CodeService)     normalize(길이 ≤ 32 · 대문자 · 공백)   0.5초 + 틀림 1분 5번  CodesConfig 목록 · 만료 서버 시각 · redeemedCodes · RewardService
+OnboardingRequest(Onboarding) action finish / skip만                0.5초                단계는 서버 신호로만 진행 · 끝 보상 RewardService
+```
+- 재화가 바뀌는 길은 전부 `CurrencyService`(블럭스 · 힘) · 무료 보상은 `RewardService`(블럭스는 다시 CurrencyService) · 상품 지급은 `ProductService` → `ProductGrants`.
+  채널 핸들러가 `profile.Data`의 재화를 직접 바꾸는 곳은 찾지 못했다(코드 기록 `redeemedCodes` · 설정 `cosmetics`는 그 서비스가 자기 필드만 쓴다)
+- 서버 Touched 4곳은 디바운스(발판 · 패드 0.5초, 벽 · 게이트 `ArenaConfig.ADVANCE_WALL_DEBOUNCE_SEC`) 뒤 서버 런 상태로 판정한다(절대 규칙 3)
+- 이동 검사: `SpeedService`는 `WalkSpeed` 값만 1.5초마다 되돌린다(`SpeedService.lua:73` · 상단 주석 — 한 프레임 관통은 못 막는다고 적혀 있다).
+  **캐릭터 위치(CFrame) · 이동 거리를 보는 서버 검사는 없다**(검색 결과 0). 캐릭터 물리는 클라 소유라 순간 이동한 위치가 서버로 넘어온다
+  (공식 network-ownership — 소유자 클라가 물리를 계산한다). 그래서 게이트 · 발판 · 벽 · 패드 · 기구 위치를 걷지 않고 닿게 할 수 있다 —
+  결과는 서버 런 상태 · 해금 판정을 지나므로 "걷는 시간을 건너뜀"까지다. 원격 Touched 발생 도구가 소유 파트로 Touched를 일으키는지는 공식 문서에서 **확인 못 함**
+
+**조사 2 — 데이터 안전**
+- 세션 잠금: ProfileStore `StartSessionAsync`(Cancel = 나감) → Migrations → Reconcile → validate · 실패면 EndSession + Kick(`ProfileManager.lua:147 ~ 190`) ·
+  다른 서버가 세션을 가져가면 OnSessionEnd → Kick(`:210`) · `AddUserId`(GDPR)
+- 서버 종료: `game:BindToClose`에서 전원 EndSession 뒤 저장 완료를 최대 20초 기다린다(`:35` · `:275 ~ 292` — 넘으면 WARN)
+- 저장: ProfileStore 자동 저장 + 새 칭호 · 새 펫 · 영수증 때 `Save()`. 영수증은 `LastSavedData` / `OnAfterSave`로 저장 확인 뒤 PurchaseGranted(S3)
+- 마이그레이션: v1 ~ v8 변환 7개 · 테스트(MigrationsTests)는 단계마다(v7→v8 멱등 · 범위 밖 값 · 없는 표) + v1 전체 템플릿 → 최신 키 구성 일치 · 미래 버전 거부.
+  새 프로필은 템플릿이 v8이라 변환 없이 validate
+- 프로필 크기(v8 최악 추정 — 저장소 밖 복사본에서 Schema.new + 펫 150 · 칭호 · 아우라 전부 · 영수증 100(32자) · 코드 200(32자) · 선해금 9 ·
+  부스트 3 · BigNum 5개 e=2000): **JSON 20,648바이트 = 4MB의 0.49%** · 빈 프로필 893바이트. 실측 아님(가짜 엔진 · 직접 쓴 JSON 인코더)
+- 개발 · 테스트 데이터 판단에 필요한 사실: 저장소 이름 `PlayerData_v1`(`ProfileManager.lua:31`) · Studio Play(프리셋 끔)는 실제 저장소에 저장한다
+  (CLAUDE.md 절대 규칙 8) — **이 플레이스는 Studio API 접근이 켜져 있다** · 프리셋 Play는 Mock(실제 저장소 무접촉 — 단 `____PS` 키 한 번 · 위 미결) ·
+  공식 data-stores: "Studio는 실제 게임과 **같은** 데이터 저장소를 쓴다 — 출시된 게임에서는 켜지 말고 따로 둔 테스트 버전에서 켜라"
+
+위험 목록 (조사 1 · 2 — 위험도 순)
+- 높음 R1 출시 뒤에도 Studio API 접근이 켜져 있으면 Studio Play가 실제 플레이어 저장소를 읽고 쓴다(같은 `PlayerData_v1`) — 근거: 공식 data-stores ·
+  `ProfileManager.lua:31 · 50` · CLAUDE.md 절대 규칙 8
+- 중간 R2 위치 · 순간 이동 검사 없음 — 걷기 시간을 건너뛰어 런 사이 이동 · 패드 · 기구 접근이 빨라진다. 판정은 서버라 재화 위조는 아니다 — 근거: `SpeedService.lua`
+  상단 · CFrame 검사 0 · Touched 4곳
+- 중간 R3 수동 클릭 상한 10회/초를 스크립트로 계속 채울 수 있다(사람 손 대신) — 자동 클리커(15회/초 · 49 R$)와의 간격이 그만큼 좁다 — 근거: `ClickService.lua:63 · 66 · 358`
+- 중간 R4 개발 계정 프로필이 실제 저장소에 남아 있다(Studio Play 기록 · 개발 중 지급) — 출시 데이터와 섞인다 — 근거: 위 "개발 · 테스트 데이터"
+- 낮음 R5 BindToClose 20초 안에 저장이 다 끝나지 않으면 마지막 자동 저장 뒤의 변경을 잃는다(인원이 많을 때 실측 없음) — 근거: `ProfileManager.lua:35 · 292`
+- 낮음 R6 `WalkSpeed` 조작은 최대 1.5초 남는다(되돌리기 주기) — 근거: `SpeedService.lua:73`
+- 낮음 R7 PlusPromptRequest는 빈도 상한이 없다(세션에 한 번 플래그 · 지금 꺼짐) — 근거: `PlusPromptService.lua:34 ~ 52`
+- 낮음 R8 코드 맞추기 — 틀림 1분 5번이면 막힘(세션 메모리 — 다시 들어오면 풀린다) — 근거: `CodesConfig.lua:19 ~ 20` · `CodeService.lua:66 ~ 80`
+- 낮음 R9 Studio 전용 플래그(TEST_PRESET · TEST_GAMEPASSES · TEST_RECEIPTS · TEST_LOCALE · TEST_DAY_OFFSET · TEST_DAILY_SEED · G-OWN)는 IsStudio로 막히고
+  커밋 값 nil을 테스트가 잰다 — 출시 플레이스에서 켜지지 않는지는 테스트 의존 — 근거: Bootstrap 상단 · 각 Gate
+- 낮음 R10 프로필 크기 — 최악 추정 4MB의 0.49%(위)
+
+**조사 3 — 출시 설정 (공식 문서)**
+- 공개 요건(publish-games-and-places "Release requirements"): 계정 2일 이상 · 연령 확인(얼굴 추정 또는 신분증) · 성숙도 · 준수 설문 첫 질문
+  (아니요 = "Content May Vary" · 16+ 연령 확인 유저에게만) · 모든 연령 공개는 + 신원 확인 · 2단계 인증 · Roblox Plus/Premium 2개월 연속 또는
+  환불형 수수료(1,000 로벅스 — 60일 동안 25명 유지면 환불) · Kids · Select 평가 · 설문 전체로 Minimal/Mild/Moderate(9+). 처음 공개는 하루 5개까지
+- 장르 · 서브장르: 3개월에 한 번만 바꿀 수 있다(experience-genres). 기기 지원 설정 · 언어 설정 화면은 문서에서 **확인 못 함**(설명문에 기기 표기 권장만 — descriptions)
+- Studio API 접근: 위 R1. HTTP 요청: 우리 코드는 GetAsync · PostAsync · RequestAsync를 쓰지 않는다(JSONEncode만) — "Allow HTTP Requests"가 필요 없다(http-service)
+- 아이콘: 정사각 512×512 이상 · 로케일마다 하나 · 모더레이션(experience-icons). 썸네일: 16:9 · 1920×1080 · jpg/gif/png/tga/bmp · 이미지와 영상 합쳐 10개 ·
+  영상은 실제 게임 화면만(목소리 · 가사 있는 음악 · 광고 문구 금지) · 검토 · 거절도 월 3회 업로드 한도에 든다 · Xbox · PlayStation · VR은 영상 썸네일 없음(thumbnails).
+  영상 길이 · 용량 제한은 **확인 못 함**
+- 비공개 테스트: 조기 테스터 최대 10명(나이대별 친구 · 신뢰 친구 규칙 · 미리 보기 워터마크 · 16 미만은 부모 허용 등급까지) · 대시보드 Manage Audience
+  "Playtest"(Edit · Playtest 권한 유저 + 조기 테스터) · "Public + Friends"(친구 + Playtest 대상만) · 추천 제외 토글(publish-games-and-places)
+- 비공개 게임에서 게임패스 · 개발자 상품이 실제로 팔리는지: passes · developer-products 문서에 서술 없음 — **확인 못 함**(Studio 구매는 모의 — 위 #17 기록)
+- 분석: 경제 · 퍼널 · 커스텀 이벤트 차트는 보통 24시간 뒤 · 그 전엔 View Events로 확인 · 요청 한도 분당 120 + 20 × 동시 접속 · 커스텀 필드 3 ·
+  경제 자원 10종(event-types). 차트가 보이는 최소 유저 수는 **확인 못 함**. 지금 코드는 온보딩 퍼널만 보낸다(`OnboardingService.lua:178` — Studio에서는 안 보내진다)
+- 현지화: 원본 언어 English → 지원 언어 추가 → CSV 업로드 → Use Translated Content · 언어별 자동 번역(index · automatic-translations · add-translations —
+  2026-10-24 이후 바뀐 곳 없음) = `docs/LOCALIZATION.md` 3절 순서와 같다. 우리 GUI는 AutoLocalize 끔(K10)이라 화면 번역은 Strings 몫 ·
+  게임 이름 · 설명(Experience Information)은 별도 번역 자리
+
+**조사 4 — 성능 (추정 — 실측 아님)**
+```
+서버 루프          주기                         플레이어당 일
+AttackService      task.wait 0.05초(20회/초)     펀치 2 ~ 5회/초 → BlockService(블록 ≤ 16) + BlockDamaged FireClient
+AutoClickService   Heartbeat 누적 0.2초          켠 사람만 · 배치당 3 ~ 6클릭 → ClickService
+AutoAdvanceService Heartbeat 0.1초               켠 사람만 · 상태 비교 · 0.6초 뒤 advance / 이동
+BoostService       1초                          남은 초 줄이기 · 끝나면 통지
+TitleService       ROLL_INTERVAL 1초             자동 롤 켠 사람만 · 롤 1회 · 새 id면 저장
+PlayerStateService Heartbeat 0.1초 · 전송 0.2초   바뀐 경우 스냅샷 FireClient(최대 5회/초)
+ChallengeService   Heartbeat 누적 0.5초          활성 런 만료 검사
+SpeedService       1.5초                        WalkSpeed 되돌리기
+```
+- 서버 비용은 인원에 거의 비례한다(루프가 플레이어를 돈다). 인원 N에서 초당 대략 펀치 5N + 상태 전송 5N + 자동 진행 10N 회 — 계측값 없음
+- DataStore 서버 한도: 읽기 · 쓰기 각 분당 60 + 40 × 인원(error-codes-and-limits) — 우리는 자동 저장 + 새 id · 영수증 때만 저장
+- 클라 상한: 파편 풀 200(`ParticlePool.lua:15`) · 클릭 팝업 8(`FeedbackLogic.lua:27`) · 펫 파트 합 72 · 아우라 입자 초당 합 120(Config) ·
+  토스트 3 · 3D 라벨 160 studs 밖 안 그림. **인원에 따라 늘어나는 것은 머리 위 칭호(플레이어마다 BillboardGui 하나 · 80 studs 밖 숨김)와 캐릭터 · 펫 · 아우라를
+  그리는 대상 수** — 펫 · 아우라는 합 상한이 있어 넘는 것은 안 그린다
+- 서버 최대 인원은 대시보드 플레이스 설정에서만 정한다(`Players.MaxPlayers` — 읽기 전용). 근거로 쓸 수 있는 것: 위 루프 비례 · 분석 한도 · 아레나는 한 줄
+  공유(스테이지 폭 148 · 블록은 클라마다 따로 그린다)
+
+**조사 5 — 남은 미결 (PENDING · ROADMAP Phase 9 대조)**
+- PENDING에서 Phase 9 · 출시 전 · 실서버 · 사람 확인으로 미룬 것: 실제 코드 목록 · 알릴 곳(C5) · 첫 접속 분석 대시보드 확인 · 실제 폰 코드 입력 키보드 ·
+  클라우드 표 · 자동 번역 켜기 · 대시보드 상품 한국어 이름 · Roblox Plus 켜기 · 실서버 게임패스 구매 확인(다른 계정) · 17 ~ 25층 성공률(K1 — 비공개 테스트) ·
+  S14 2배 블럭스 정책 위험 · 상품 아이콘(임시) · 운동기구 시각 규격 · "실플레이로 볼 것" 절 전체
+- ROADMAP Phase 9에 있는 것: 아이콘 · 썸네일 · 설명 · 태그 · RateLimiter · Validator · Analytics(D1 / D7 / D30) · 비공개 테스트 → 밸런싱
+- **ROADMAP Phase 9에 없는 것**: 공개 요건(연령 확인 · 2FA · 설문 · 수수료) · Studio API 접근 정리(R1) · 개발 데이터 정리(R4) · 서버 최대 인원 ·
+  실서버 구매 확인 · 현지화 켜기 · Roblox Plus 켜기 · 장르(3개월 제약) · 상품 아이콘 · 위치 검사(R2)
+- **#19 조사 4 근거 정정**: 그때 "시간 초과는 Heartbeat가 따로 본다"로 적었는데 만료 검사는 0.5초 간격이다(`ChallengeService.lua:350`) — 20초 뒤 최대 0.5초 동안
+  펀치가 더 들어갈 수 있어 "N − 1펀치" 실패는 그때 추정보다 드물다. 미결은 이미 해소됐다(S15 — 시간 항 × SAFE_TIME_RATIO 0.9, #20)
+
+결정 — 게임 수치 (G)
+- G1 비공개 테스트 뒤 조정할 수치와 판단 기준(17 ~ 25층 성공률 K1 등) — DESIGN 있음(목표 성공률)
+- G2 실제 코드 목록 · 보상 · 만료(C5 — 지금 TEMP RELEASE 하나) — DESIGN 있음(구조만)
+- G3 서버 최대 인원 — DESIGN 없음
+- G4 수동 클릭 상한 10회/초(R3 — 스크립트로 채울 수 있다) 그대로인가 — DESIGN 있음(상한 근거)
+- G5 출시 가격 최종 확인(대시보드 39개 · 최저가 구간) — DESIGN 있음(9장 가격 원칙)
+
+결정 — 구조 (S)
+- S1 위치 · 순간 이동 검사를 넣는가 · 범위(이동 거리 / 시간 · 게이트 · 발판 · 벽 · 패드 · 기구 접근) — DESIGN 있음(절대 규칙 3 원칙만)
+- S2 Studio API 접근 — 출시 플레이스에서 끄고 테스트용 게임(복제)으로 옮기는가(R1) — DESIGN 없음
+- S3 개발 · 테스트 데이터 — 저장소 이름 바꾸기(전원 처음부터) / 개발 계정 키만 지우기 / 그대로(R4) — DESIGN 없음
+- S4 BindToClose 20초 저장 완료를 인원이 많을 때 어떻게 재는가(R5) — DESIGN 없음
+- S5 분석 이벤트 범위 — 경제(블럭스 획득 · 소비 · 로벅스 구매) · 커스텀 이벤트를 넣는가(지금 온보딩 퍼널만) — DESIGN 없음(ROADMAP 한 줄)
+- S6 RateLimiter · Validator 공용 모듈(ROADMAP) — 지금 18개 채널이 각자 검사 · 빈도 상한을 갖는다. 공용화하는가 — DESIGN 없음
+- S7 성능 측정 방법(Studio 여러 클라 테스트 · 개발자 콘솔 · MicroProfiler) · 측정 시점 — DESIGN 없음
+- S8 출시 언어 범위 — 영어 기본 + 한국어(Strings)로 내고 클라우드 표 · 자동 번역(Phase 9로 미룸)을 언제 켜는가 · 게임 이름 · 설명 번역 — DESIGN 있음(12장)
+- S9 Roblox Plus 프롬프트(`PLUS_PROMPT_ENABLED=false`)를 언제 켜는가 — DESIGN 있음(9장 S16)
+- S10 클라우드 Translator 플래그(`CLOUD_TRANSLATOR_ENABLED=false`) — 유럽 언어와 함께인가 — DESIGN 있음(12장 K4)
+- S11 출시 뒤 오류 · 크래시 확인 경로(대시보드 Error report · Crashes) · 누가 보는가 — DESIGN 없음
+
+사람이 할 일 (H)
+- H1 공개 계정 요건 — 계정(개인 / 그룹) · 2일 이상 · 연령 확인 · 2단계 인증
+- H2 성숙도 · 준수 설문 · 장르 · 서브장르(3개월에 한 번만 바꿈)
+- H3 모든 연령 공개 여부 — Plus/Premium 2개월 또는 1,000 로벅스 환불형 수수료 · Kids · Select 평가
+- H4 아이콘(정사각 512 이상) · 썸네일(16:9 1920×1080 · 10개까지) · 영상(검토 · 월 3회 한도) 만들기
+- H5 게임 이름 · 설명(영어 기본 · 한국어) · 기기 표기
+- H6 비공개 테스트 방식(조기 테스터 10명 · Playtest 권한 · Public + Friends) · 테스터 모집
+- H7 실서버 게임패스 · 개발자 상품 구매 확인(다른 계정 — 비공개 상태에서 팔리는지 확인 못 함)
+- H8 서버 최대 인원 설정(대시보드 플레이스 설정 — G3)
+- H9 대시보드 상품 아이콘(지금 임시) · 상품 한국어 이름 번역(Products 탭)
+- H10 Studio API 접근 정리 · 테스트용 게임 만들기(S2 뒤)
+- H11 추천(Recommended For You) 제외로 시작할지
+- H12 실제 폰에서 코드 입력 키보드 확인(위 #20 미결)
+
+**공식 문서 확인 (2026-11-01 — creator-docs `c8f5276` 원본으로 읽음)**
+- https://create.roblox.com/docs/production/publishing/publish-games-and-places (공개 요건 · 조기 테스터 · 대상 · 추천 제외 · 하루 5개)
+- https://create.roblox.com/docs/production/publishing/experience-icons · https://create.roblox.com/docs/production/publishing/thumbnails
+- https://create.roblox.com/docs/production/publishing/experience-genres · https://create.roblox.com/docs/production/publishing/descriptions
+- https://create.roblox.com/docs/cloud-services/data-stores (Studio 접근 경고) · https://create.roblox.com/docs/cloud-services/data-stores/error-codes-and-limits
+- https://create.roblox.com/docs/cloud-services/http-service · https://create.roblox.com/docs/physics/network-ownership
+- https://create.roblox.com/docs/reference/engine/classes/Players#MaxPlayers
+- https://create.roblox.com/docs/production/analytics/event-types · https://create.roblox.com/docs/production/analytics/funnel-events
+- https://create.roblox.com/docs/production/localization/automatic-translations (+ index · add-translations)
+- 확인 못 함: 기기 지원 설정 화면 · 언어 설정 화면 · 영상 썸네일 길이 · 용량 · 비공개 게임 상품 판매 · 분석 차트 최소 유저 수 · 원격 Touched 도구
+
 ### Phase 6 남은 화면 착수 전 결정 (2026-10-31 지시서 #19 조사 — 읽기만) · 불일치 · 결정 항목
 
 조사 범위: `docs/UI.md`(화면 목록 · 메뉴 진입 · 레이어 · 차단층 큐 · 제작 우선순위 · UI Phase) · `DESIGN.md` 1 · 9 · 10장 · `ROADMAP.md` Phase 6 ·
