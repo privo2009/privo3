@@ -101,6 +101,16 @@
 - 같이 볼 것: 튜닝 요약 자동 진행 줄(D는 이 값을 넣은 딜 총량) · 프리셋 안전층(여유 전 → 후: before_first_rebirth 8 → 7, 나머지 그대로)
 - 관계: 0 초과 1 이하(validate)
 
+**근처 확인 여유** — `Shared/Config/ProximityConfig` `REACH_STUDS`(6) · `LAG_SEC`(0.25) → `PROXIMITY_MARGIN` = 6 + 최고 속도 × 0.25(지금 26, 지시서 #23 N1)
+- 움직이는 것: 게이트 · 수령 발판 · 진행 벽 · 클릭 패드의 Touched를 받아 주는 거리(파트 크기/2 + 여유). 넓히면 순간 이동 이득이 커지고 좁히면 정상 플레이 거부가 생긴다
+- 같이 볼 것: Play 로그 `[Proximity] 거부 site=… reason=far dist=…`(정상 플레이에서 0이어야 한다). 최고 속도는 `LevelConfig.getMaxWalkSpeed()`가 발판 깊이에서 정한다 — 숫자로 적지 않는다
+- 관계: 0 초과 유한(validate) · 여유 − REACH ≥ 최고 속도 한 프레임(30fps) × 6 · 10fps 한 프레임 이동 + REACH ≤ 여유(ProximityTests가 잰다)
+
+**분석 이벤트 상한 · 모아 보내기** — `Shared/Config/AnalyticsConfig` `PER_PLAYER_PER_MINUTE`(20) · `WINDOW_SEC`(60) · `FLUSH_SEC`(30) · `ECONOMY_SAFE_MAX`(1e15)(지시서 #23 A1 · A2 · A4)
+- 움직이는 것: 플레이어 한 명이 분당 보내는 분석 이벤트 수(넘치면 버리고 `[Analytics] 상한 초과` 로그) · 블럭스 흐름을 모아 보내는 간격 · 경제 이벤트 대신 `blox_flow_large`로 가는 기준
+- 같이 볼 것: Play 로그 `[Analytics] economy … → ok` · `[Analytics] custom … → ok`(Studio에서만 성공 줄). 대시보드 차트는 보통 24시간 뒤(공식 event-types)
+- 관계: 상한 1 ~ 20(공식 분당 120 + 20 × CCU 안 — validate) · ECONOMY_SAFE_MAX ≤ 2^53. 블럭스 흐름표(`BLOX_FLOWS`)에 없는 reason은 보내지 않는다 — 새 재화 사용처를 만들면 표에 한 줄 더한다
+
 ## 3. 요약 읽는 법 ([BALANCE] 줄)
 
 ```

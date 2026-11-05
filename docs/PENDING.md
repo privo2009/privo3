@@ -401,6 +401,28 @@ H8  결정 — H-C 12명(대시보드는 사람)
 H10 해소 — E1로 필요 없어짐(Studio API 접근은 켠 채 둔다)
 ```
 
+**#23 결과 (2026-11-06 — 코드 `7ca7a4e` 저장소 환경 · `faa2ec6` 근처 확인 · `994c5ca` 분석 이벤트)**
+```
+해소   R1 · R4 · S2 · S3  DataConfig — Studio는 언제나 studio(PlayerData_v1) · beta(PlayerData_beta_v1) · live(PlayerData_live_v1)
+                          Play 로그 "[Data] env=studio store=PlayerData_v1" · 개발 계정 블럭스 · 힘 · 환생 · maxStage 전후 같음 · Mock 프리셋 그대로
+해소   R2 · S1            Proximity — Touched 4곳 · 여유 26 · floor9 Mock 1 ~ 3층 · 수령 · 패드 · 기구 · 자동 진행 3바퀴 거부 0
+해소   S5                 Analytics — 블럭스 흐름 11종 · 커스텀 4종 · 퍼널 이전 · 플레이어당 분당 20 · pcall
+```
+#23 뒤 남은 것 (새 미결)
+- **DATA_ENV 커밋 값은 "beta"** — 출시 당일 "live" 한 줄 커밋(ROADMAP "출시 체크리스트" 마지막 묶음). 그 전까지 beta에서 개발자 상품은 strengthPotion만 판다
+- **근처 확인은 Studio(지연 거의 0)에서만 잼** — 실서버 지연에서 정상 플레이 거부가 없는지는 비공개 테스트에서 서버 로그 `[Proximity] 거부`로 본다(개발자 콘솔 Server).
+  보이면 여유를 줄이기 전에 site · dist부터 본다(`docs/TUNING.md` "근처 확인 여유")
+- 사실(2026-11-06 Play 실측): 수령하면 서버가 스폰으로 옮기는데, 그 뒤 수령 발판 Touched가 한 번 더 왔다(630 studs). 근처 확인을 디바운스 뒤 ·
+  "런이 있을 때만"으로 옮겨 그 접촉은 거부로 세지 않는다(cashout이 "런 없음"으로 접는 기존 경로)
+- **분석 이벤트 실제 수신은 출시된 게임에서만**(공식: Studio · 클라에서는 안 보내진다) — 비공개 테스트 공개 뒤 대시보드 Analytics → Events(View Events)에서
+  economy · custom · funnel이 들어오는지 사람이 본다. 차트는 보통 24시간 뒤
+- Play에서 못 본 흐름: `cashout_auto`(환생 직후 힘 1로 자동 진행이 시간 초과 — 분류는 AnalyticsTests) · 일일 보상 블럭스 칸 · 코드 · 첫 접속 보상 · 워프 · 아우라 · 펫 Sink ·
+  `robux_purchase`(실제 결제 없음 — onGranted는 ProductServiceTests, 게임패스 경로는 코드 리뷰만)
+- 공식 문서끼리 다름: 경제 자원 수 — economy-events 본문 "up to five" · event-types 표 "10". 우리는 "Blox" 1종이라 영향 없음
+- `stats.bestRunDepth`(빈 필드였다)를 처음 깬 층 기록으로 쓰기 시작했다 — 기존 개발 계정은 0이라 다음 클리어 한 번은 그 층 이벤트가 간다(Studio — 보내지지 않음).
+  beta · live는 새 저장소라 처음부터 맞다
+- Studio API 접근은 켠 채 둔다(S2 해소 — 이름 분리). Studio Play는 여전히 PlayerData_v1(개발 계정)에 저장한다(절대 규칙 8 그대로)
+
 **공식 문서 확인 (2026-11-01 — creator-docs `c8f5276` 원본으로 읽음)**
 - https://create.roblox.com/docs/production/publishing/publish-games-and-places (공개 요건 · 조기 테스터 · 대상 · 추천 제외 · 하루 5개)
 - https://create.roblox.com/docs/production/publishing/experience-icons · https://create.roblox.com/docs/production/publishing/thumbnails
