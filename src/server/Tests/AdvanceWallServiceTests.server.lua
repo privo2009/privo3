@@ -207,6 +207,27 @@ do
 	end
 end
 
+-- 근처 확인 (지시서 #23 N1) — 멀면 advance를 부르지 않는다 · 층 불일치면 묻지도 않는다 ------------------------------------
+do
+	local w, deps = newWorld(1)
+	AdvanceWallService._handleTouch(deps, w.player, 1, function()
+		return false
+	end)
+	check("근처 아님: advance 0회", w.advanceCalls == 0, tostring(w.advanceCalls))
+	w.clock += DEBOUNCE + 0.01
+	AdvanceWallService._handleTouch(deps, w.player, 1, function()
+		return true
+	end)
+	check("근처: advance 1회", w.advanceCalls == 1, tostring(w.advanceCalls))
+	local w2, deps2 = newWorld(2)
+	local asked = 0
+	AdvanceWallService._handleTouch(deps2, w2.player, 1, function()
+		asked += 1
+		return false
+	end)
+	check("층 불일치(방금 지난 벽): 근처를 묻지 않는다", asked == 0 and w2.advanceCalls == 0)
+end
+
 print(string.format("[AdvanceWallServiceTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[AdvanceWallServiceTests] %d test(s) failed", failed))

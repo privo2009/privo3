@@ -165,6 +165,27 @@ do
 	check("ArenaConfig.validate()가 게이트 크기를 받아들인다", ok)
 end
 
+-- 근처 확인 (지시서 #23 N1) — 멀면 런을 세우지 않는다 · 런이 있으면 묻지도 않는다 -----------------------------------------
+do
+	local w, deps = newWorld(false)
+	EntranceGateService._handleTouch(deps, w.player, function()
+		return false
+	end)
+	check("근처 아님: startRun 0회", w.startCalls == 0, tostring(w.startCalls))
+	w.clock += DEBOUNCE + 0.01
+	EntranceGateService._handleTouch(deps, w.player, function()
+		return true
+	end)
+	check("근처: startRun 1회", w.startCalls == 1, tostring(w.startCalls))
+	local w2, deps2 = newWorld(true)
+	local asked = 0
+	EntranceGateService._handleTouch(deps2, w2.player, function()
+		asked += 1
+		return false
+	end)
+	check("런 있음: 근처를 묻지 않는다", asked == 0 and w2.startCalls == 0)
+end
+
 print(string.format("[EntranceGateServiceTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[EntranceGateServiceTests] %d test(s) failed", failed))

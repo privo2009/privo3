@@ -30,6 +30,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local ChallengeService = require(script.Parent.ChallengeService)
+local Proximity = require(script.Parent.Proximity)
 
 local EntranceGateService = {}
 
@@ -119,7 +120,7 @@ local defaultDeps: Deps = {
 --
 -- ⚠️ 이 함수 안에 yield가 없다. 있으면 같은 프레임의 두 접촉이 둘 다 "런 없음"을 보고
 -- 런을 두 번 세우는 창이 생긴다.
-local function handleTouch(deps: Deps, player: Player)
+local function handleTouch(deps: Deps, player: Player, near: (() -> boolean)?)
 	local state = states[player] or newTouchState()
 	local nextState, result = applyTouch(state, deps.now())
 	states[player] = nextState
@@ -130,6 +131,10 @@ local function handleTouch(deps: Deps, player: Player)
 
 	if deps.getRunState(player) ~= nil then
 		return
+	end
+
+	if near ~= nil and not near() then
+		return -- 근처 확인(지시서 #23 N1): 루트가 게이트 근처가 아니다. 사유 코드는 Proximity가 로그한다
 	end
 
 	local ok = deps.startRun(player, START_STAGE)
@@ -163,7 +168,9 @@ local function createGatePart(spec: GateSpec, parent: Instance): BasePart
 		if player == nil then
 			return
 		end
-		handleTouch(defaultDeps, player)
+		handleTouch(defaultDeps, player, function()
+			return Proximity.check(player, part, "entrance_gate")
+		end)
 	end)
 
 	part.Parent = parent

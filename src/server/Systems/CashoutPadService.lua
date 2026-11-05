@@ -41,6 +41,7 @@ local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local CashoutPadView = require(ReplicatedStorage.Shared.CashoutPadView)
 local ChallengeService = require(script.Parent.ChallengeService)
+local Proximity = require(script.Parent.Proximity)
 
 local CashoutPadService = {}
 
@@ -170,7 +171,7 @@ local defaultDeps: Deps = {
 -- 여기서 읽는 것은 "이 발판이 이 플레이어의 지금 층 것인가" 하나뿐이다.
 -- ⚠️ 이 함수 안에 yield가 없다. 있으면 같은 프레임의 두 접촉이 둘 다 "런이 살아
 -- 있음"을 보고 지나가는 창이 생긴다 — 그 창이 곧 이중 지급이다.
-local function handleTouch(deps: Deps, player: Player, stage: number)
+local function handleTouch(deps: Deps, player: Player, stage: number, near: (() -> boolean)?)
 	local state = states[player] or newPadState()
 	local nextState, result = applyTouch(state, deps.now())
 	states[player] = nextState
@@ -184,6 +185,11 @@ local function handleTouch(deps: Deps, player: Player, stage: number)
 		return
 	end
 
+	-- 근처 확인(지시서 #23 N1): 루트가 발판 근처가 아니면 버린다(사유 코드는 Proximity가 로그). 런이 없으면 보지 않는다 —
+	-- 수령 직후 서버가 스폰으로 옮긴 뒤 늦게 온 접촉(2026-11-06 Play 실측 — 630 studs)은 cashout이 "런 없음"으로 접는다
+	if run ~= nil and near ~= nil and not near() then
+		return
+	end
 	deps.cashout(player, "cashout_pad_stage_" .. tostring(stage))
 end
 
@@ -219,7 +225,9 @@ local function createPadPart(stage: number, parent: Instance): BasePart
 		if player == nil then
 			return
 		end
-		handleTouch(defaultDeps, player, stage)
+		handleTouch(defaultDeps, player, stage, function()
+			return Proximity.check(player, part, "cashout_pad")
+		end)
 	end)
 
 	part.Parent = parent

@@ -315,6 +315,30 @@ do
 	check("그 다음은 없다", not StageConfig.hasStage(last + 1))
 end
 
+-- 근처 확인 (지시서 #23 N1) — 멀면 cashout을 부르지 않는다 · 런이 없으면 근처를 보지 않는다 ---------------------------------
+do
+	local w, deps = newWorld(true)
+	local asked = 0
+	CashoutPadService._handleTouch(deps, w.player, 1, function()
+		asked += 1
+		return false
+	end)
+	check("근처 아님: cashout 0회 · 런 그대로", w.cashoutCalls == 0 and w.run ~= nil and asked == 1, tostring(w.cashoutCalls))
+	w.clock += pure.TOUCH_DEBOUNCE_SEC + 0.01
+	CashoutPadService._handleTouch(deps, w.player, 1, function()
+		return true
+	end)
+	check("근처: cashout 1회", w.cashoutCalls == 1 and w.run == nil, tostring(w.cashoutCalls))
+	-- 수령 직후 스폰으로 옮겨진 뒤 늦게 온 접촉(런 없음) — 근처를 묻지 않고 cashout이 "런 없음"으로 처리한다
+	w.clock += pure.TOUCH_DEBOUNCE_SEC + 0.01
+	local askedAfter = 0
+	CashoutPadService._handleTouch(deps, w.player, 1, function()
+		askedAfter += 1
+		return false
+	end)
+	check("런 없음: 근처를 묻지 않는다(거부 로그 없음) · cashout이 받는다", askedAfter == 0 and w.cashoutCalls == 2, tostring(askedAfter))
+end
+
 print(string.format("[CashoutPadServiceTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[CashoutPadServiceTests] %d test(s) failed", failed))

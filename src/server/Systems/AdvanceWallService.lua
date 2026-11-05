@@ -35,6 +35,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local ChallengeService = require(script.Parent.ChallengeService)
+local Proximity = require(script.Parent.Proximity)
 
 local AdvanceWallService = {}
 
@@ -134,7 +135,7 @@ local defaultDeps: Deps = {
 --   4. advance. 클리어 판정은 advance가 한다 — 여기서 cleared를 미리 보지 않는다
 --
 -- ⚠️ 이 함수 안에 yield가 없다 (CashoutPadService.handleTouch와 같은 이유).
-local function handleTouch(deps: Deps, player: Player, wallStage: number)
+local function handleTouch(deps: Deps, player: Player, wallStage: number, near: (() -> boolean)?)
 	local state = states[player] or newTouchState()
 	local nextState, result = applyTouch(state, deps.now())
 	states[player] = nextState
@@ -150,6 +151,10 @@ local function handleTouch(deps: Deps, player: Player, wallStage: number)
 
 	if run.stage ~= wallStage then
 		return
+	end
+
+	if near ~= nil and not near() then
+		return -- 근처 확인(지시서 #23 N1): 루트가 트리거 근처가 아니다. 사유 코드는 Proximity가 로그한다
 	end
 
 	-- 거부 사유(미클리어 / 최종 층)는 전부 advance가 로깅한다.
@@ -184,7 +189,9 @@ local function createTriggerPart(spec: TriggerSpec, parent: Instance): BasePart
 		if player == nil then
 			return
 		end
-		handleTouch(defaultDeps, player, stage)
+		handleTouch(defaultDeps, player, stage, function()
+			return Proximity.check(player, part, "advance_wall")
+		end)
 	end)
 
 	part.Parent = parent

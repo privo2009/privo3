@@ -27,6 +27,7 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local PadLayout = require(ReplicatedStorage.Shared.PadLayout)
 local ClickPadConfig = require(ReplicatedStorage.Shared.Config.ClickPadConfig)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
+local Proximity = require(script.Parent.Proximity)
 
 type BigNumber = BigNum.BigNumber
 
@@ -265,6 +266,10 @@ local function createPadPart(index: number, position: Vector3, parent: Instance)
 		end
 		local player = Players:GetPlayerFromCharacter(character)
 		if player == nil then
+			return
+		end
+		-- 근처 확인(지시서 #23 N1): 루트가 이 파트 근처가 아니면 신호를 버린다(사유 코드 로그만). 패드는 밟기 자체가 동작(선택 갱신)이라 처리 전체보다 앞
+		if not Proximity.check(player, part, "click_pad") then
 			return
 		end
 		handleTouch(player, index)
