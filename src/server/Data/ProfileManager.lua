@@ -14,11 +14,13 @@
 local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ProfileStore = require(ServerScriptService.ServerPackages.ProfileStore)
 local Schema = require(script.Parent.Schema)
 local Migrations = require(script.Parent.Migrations)
 local TestPresetGate = require(script.Parent.TestPresetGate)
+local DataConfig = require(ReplicatedStorage.Shared.Config.DataConfig)
 -- Kick 안내문은 서버가 화면에 직접 보이는 유일한 글자다(클라가 이미 없다) — 그 플레이어 언어로 Strings에서 고른다(지시서 #L1 K5)
 local LocaleGate = require(script.Parent.Parent.Systems.LocaleGate)
 
@@ -26,9 +28,9 @@ local LocaleGate = require(script.Parent.Parent.Systems.LocaleGate)
 -- 런타임에 검증하는 대상이라 여기서는 굳이 정적으로 좁히지 않는다.
 type Profile = any
 
--- 스토어 이름 뒤의 "v1"은 schemaVersion과 무관하다. 스키마 변경은 Migrations.lua로 처리하고,
--- 이 이름은 데이터를 통째로 리셋해야 하는 비상 상황(예비)에만 올린다.
-local STORE_NAME = "PlayerData_v1"
+-- 저장소 이름은 환경별로 다르다(지시서 #23 E1 ~ E3 — 원본은 Shared/Config/DataConfig). Studio는 언제나 studio(PlayerData_v1)다.
+-- 이름이 nil이면(Studio에서 beta · live를 요구 · Studio 밖인데 DATA_ENV가 틀림) 저장소를 열지 않는다 — 접속자는 킥.
+local DATA_ENV, STORE_NAME, STORE_ERR = DataConfig.resolveStore(RunService:IsStudio(), DataConfig.DATA_ENV)
 
 -- Roblox는 game:BindToClose 콜백에 대략 30초의 예산만 준다. 20초로 끊어서 여유를 두지 않으면
 -- 콜백이 강제 종료되면서 진행 중이던 UpdateAsync 호출이 오히려 더 지저분하게 끊길 수 있다.
@@ -47,11 +49,16 @@ local loadClaimed: { [Player]: boolean } = {}
 
 -- 실제 DataStore 접근이 불가능한 환경(예: API 서비스 비활성화된 Studio)에서는
 -- ProfileStore가 내부적으로 자동 목업 저장소로 전환한다 - 여기서 별도 분기 불필요.
-local playerStore = ProfileStore.New(STORE_NAME, Schema.getTemplate())
+local playerStore: any = if STORE_NAME ~= nil then ProfileStore.New(STORE_NAME, Schema.getTemplate()) else nil
 
 -- 세션을 여는 대상. 평소에는 playerStore. Studio 테스트 프리셋이 켜지면 Mock 전용 스토어의 .Mock으로 바뀐다
 -- (TestPresetGate — 그때는 playerStore에 세션을 열지 않는다. 지시서 #13 3단계).
 local sessionStore: any = playerStore
+
+-- 이번 서버의 데이터 환경("studio" | "beta" | "live", 못 정했으면 nil). beta 상품 판매 판정(PurchaseRequestService — E5)이 읽는다.
+function ProfileManager.dataEnv(): string?
+	return DATA_ENV
+end
 
 function ProfileManager.onLoaded(callback: (Player, Profile) -> ())
 	table.insert(loadedCallbacks, callback)
@@ -144,6 +151,15 @@ local function handlePlayerAdded(player: Player)
 	end
 	loadClaimed[player] = true
 
+	if sessionStore == nil then
+		-- 저장소를 열지 않은 서버(E3 — 시작 로그에 사유). 데이터 없이 플레이시킬 수 없으므로 킥한다.
+		warn(string.format("[ProfileManager][ERROR] %s(%d) 저장소 없음(env=%s reason=%s) - 킥", player.Name, player.UserId, tostring(DATA_ENV), tostring(STORE_ERR)))
+		if player.Parent == Players then
+			player:Kick(LocaleGate.kickText(player, "kick.loadFailed"))
+		end
+		return
+	end
+
 	local profile = sessionStore:StartSessionAsync(tostring(player.UserId), {
 		Cancel = function()
 			return player.Parent ~= Players
@@ -234,6 +250,14 @@ function ProfileManager.init(testPreset: string?)
 		return
 	end
 	initialized = true
+
+	-- E4 시작 로그 한 줄(저장소를 열지 못했으면 ERROR — 사유 코드)
+	local startLine = DataConfig.startLine(DATA_ENV, STORE_NAME, STORE_ERR)
+	if STORE_NAME ~= nil then
+		print(startLine)
+	else
+		warn(startLine)
+	end
 
 	-- ⚠️ 첫 세션을 열기 전에 정한다(아래 GetPlayers 순회보다 앞). 프리셋이면 Mock만 — 실제 저장소에는 세션을 열지 않는다.
 	TestPresetGate.register(testPreset)

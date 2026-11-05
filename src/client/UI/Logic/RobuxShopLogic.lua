@@ -348,6 +348,8 @@ function RobuxShopLogic.reasonText(code: string): string
 		return Locale.t("shop.reason.already_unlocked")
 	elseif code == "none_owned" then
 		return Locale.t("shop.reason.none_owned")
+	elseif code == "beta_disabled" then
+		return Locale.t("shop.reason.beta_disabled") -- 지시서 #23 E5
 	end
 	return Locale.t("shop.reason.failed")
 end

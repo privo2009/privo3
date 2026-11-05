@@ -434,6 +434,7 @@ Strings.Entries = {
 	["shop.reason.restricted"] = { en = "This item isn't available in your region", ko = "이 지역에서는 살 수 없는 상품이에요" },
 	["shop.reason.invalid_key"] = { en = "This item can't be bought", ko = "살 수 없는 상품이에요" },
 	["shop.reason.prompt_failed"] = { en = "Couldn't open the purchase window", ko = "구매 창을 열지 못했어요" },
+	["shop.reason.beta_disabled"] = { en = "Not on sale during the test", ko = "테스트 기간에는 팔지 않아요" }, -- 지시서 #23 E5(beta 서버 개발자 상품)
 	["shop.reason.failed"] = { en = "Couldn't complete the purchase", ko = "구매하지 못했어요" },
 	-- ===== 접속 끊김 안내 (서버 Player:Kick — Server/Systems/LocaleGate가 그 플레이어 언어로 고른다. K5의 단 하나 예외) =====
 	["kick.loadFailed"] = { en = "Couldn't load your data. Please rejoin.", ko = "데이터 로드에 실패했습니다. 다시 접속해 주세요." },

@@ -2,7 +2,7 @@
 -- PurchaseRequestService 검증 (지시서 #16 3단계). 가짜 게이트웨이 · 가짜 상품표로 굴린다 — 실제 로벅스 프롬프트를 띄우지 않는다.
 --   payload 거르기 · 빈도 상한 · 판정 순서(invalid_key · already_owned · restricted · not_registered · not_available) ·
 --   통과면 프롬프트 · 게임패스 프롬프트가 닫힌 결과(산 것 · 취소) · 상위 보유 거부(지시서 #17 R1 계단 · R2 자동 클리커) ·
---   운동기구 선해금 이미 열림 already_unlocked(#17)
+--   운동기구 선해금 이미 열림 already_unlocked(#17) · beta 서버 개발자 상품 beta_disabled · 허용 목록 · 게임패스는 판다(#23 E5)
 
 local ServerScriptService = game:GetService("ServerScriptService")
 
@@ -29,7 +29,7 @@ local IDS = { damage2x = 9301, petLuck2x = 9302, strengthPotion = 9303, luckyRol
 	strength8x = 9313, strength16x = 9314, autoClicker = 9321, autoClickerOP = 9322, gymUnlock2 = 9332, gymUnlock5 = 9335 }
 local catalog = MarketplaceGateway.fakeCatalog(IDS)
 
-local function newWorld(opts: { owned: { [string]: boolean }?, restricted: boolean?, grants: { [string]: boolean }? }?)
+local function newWorld(opts: { owned: { [string]: boolean }?, restricted: boolean?, grants: { [string]: boolean }?, env: string? }?)
 	local o = opts or {}
 	local w: any = { gateway = MarketplaceGateway.fake(), sent = {} }
 	w.handler = pure.createHandler({
@@ -47,6 +47,9 @@ local function newWorld(opts: { owned: { [string]: boolean }?, restricted: boole
 			table.insert(w.sent, payload)
 		end,
 		catalog = catalog,
+		dataEnv = function()
+			return o.env
+		end,
 	})
 	return w
 end
@@ -191,6 +194,31 @@ do
 	local ok2, why2 = real.promptProduct(player, 0)
 	check("실물 게이트웨이: ID 0 → not_registered(프롬프트 없음)", not ok1 and why1 == MarketplaceGateway.REASON_NOT_REGISTERED
 		and not ok2 and why2 == MarketplaceGateway.REASON_NOT_REGISTERED)
+end
+
+-- 7. 데이터 환경 beta — 개발자 상품은 허용 목록만 · 게임패스는 판다 (지시서 #23 E5) ---------------------------------------------
+do
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local DataConfig = require(ReplicatedStorage.Shared.Config.DataConfig)
+	local allowed = DataConfig.BETA_PRODUCT_ALLOWLIST[1]
+	local grants = { strengthPotion = true, luckyRoll5 = true }
+	local w = newWorld({ env = DataConfig.BETA, grants = grants })
+	local blocked = w.handler.onRequest(player, { key = "luckyRoll5" }, 0)
+	check("beta: 허용 목록 밖 개발자 상품 → beta_disabled · 프롬프트 없음", not blocked.ok and blocked.reason == R.REASON_BETA_DISABLED
+		and blocked.reason == "beta_disabled" and blocked.kind == "product" and #w.gateway.prompts == 0)
+	local ok1 = w.handler.onRequest(player, { key = allowed }, STEP)
+	check("beta: 허용 목록(" .. allowed .. ") → 프롬프트", ok1.ok and #w.gateway.prompts == 1 and w.gateway.prompts[1].kind == "product")
+	local pass = w.handler.onRequest(player, { key = "damage2x" }, STEP * 2)
+	check("beta: 게임패스는 판다", pass.ok and pass.kind == "gamepass" and #w.gateway.prompts == 2)
+	local bad = w.handler.onRequest(player, { key = "nope" }, STEP * 3)
+	check("beta: 없는 키는 여전히 invalid_key(키 확인이 먼저)", not bad.ok and bad.reason == R.REASON_INVALID_KEY)
+	for _, env in ipairs({ DataConfig.STUDIO, DataConfig.LIVE }) do
+		local w2 = newWorld({ env = env, grants = grants })
+		local r = w2.handler.onRequest(player, { key = "luckyRoll5" }, 0)
+		check(env .. ": 개발자 상품은 그대로 판다", r.ok and #w2.gateway.prompts == 1)
+	end
+	local wNil = newWorld({ grants = grants })
+	check("환경 없음(deps 생략) → 막지 않는다", wNil.handler.onRequest(player, { key = "luckyRoll5" }, 0).ok)
 end
 
 print(string.format("[PurchaseRequestServiceTests] %d passed, %d failed", passed, failed))

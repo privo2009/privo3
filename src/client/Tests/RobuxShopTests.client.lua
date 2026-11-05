@@ -548,6 +548,8 @@ do
 	timers._debug.press()
 	check("부스트 표시: 줄이 보이면 누르는 칸 켜짐 · 누르면 onPress", (timers._debug.hit :: TextButton).Visible and pressed == 1)
 	timers.root:Destroy()
+	check("사유 문구(#23 E5): beta_disabled = 테스트 기간 문구", RobuxShopLogic.reasonText("beta_disabled") == Locale.t("shop.reason.beta_disabled")
+		and RobuxShopLogic.reasonText("beta_disabled") ~= RobuxShopLogic.reasonText("???"))
 	check("사유 문구(#17): already_unlocked · none_owned도 따로", RobuxShopLogic.reasonText("already_unlocked") ~= RobuxShopLogic.reasonText("???")
 		and RobuxShopLogic.reasonText("none_owned") ~= RobuxShopLogic.reasonText("???"))
 end
