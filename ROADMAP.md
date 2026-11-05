@@ -1671,7 +1671,53 @@ Phase 8에 남은 것(코드 아님): 보상형 광고는 출시 후 · Roblox P
 
 ### 출시 체크리스트
 
-(지시서 #23 단계 7에서 채운다 — 순서 · 누가 · 어디서 · 끝났다는 증거)
+(지시서 #23 단계 7, 2026-11-06. 순서 = 오래 걸리는 것(계정 요건 · 평가) → 에셋 → 비공개 테스트 → 출시 당일.
+항목마다 **누가 · 어디서 · 끝났다는 증거**. 공식 문서로 확인하지 못한 것은 "확인 필요". 결정 근거는 DESIGN 15장(H-A · H-B · H-C) · `docs/PENDING.md` "Phase 9 착수 전 결정".
+공식 문서: publish-games-and-places(2026-11-06 다시 읽음) · experience-icons · thumbnails · experience-genres · descriptions · event-types — URL은 PENDING 같은 절)
+
+**A. 오래 걸리는 것 — 지금 시작**
+1. 계정 요건(H1) — 사람 · 로블록스 계정 설정(Account Info · Security) ·
+   증거: 계정 2일 이상 · 연령 확인(얼굴 추정 또는 신분증) · 2단계 인증 켬 · 신원 확인(18세 미만 얼굴 추정 / 18세 이상 정부 신분증) 화면 캡처
+2. 모든 연령 공개 조건(H3 · H-B) — 사람 · Roblox Plus/Premium 2개월 **연속** 유지 **또는** 공개 수수료 1,000 로벅스
+   (60일 동안 참여 25명 · 모더레이션 없음이면 환불. 선택 사항: 빠른 심사 50,000 로벅스 — 90일 · 같은 조건 환불) ·
+   증거: 구독 시작일(2개월 뒤가 공개 가능일) 또는 수수료 결제 기록. **구독이면 2개월이 걸리므로 가장 먼저**
+3. 성숙도 · 준수 설문 **전체**(H2) — 사람 · Creator Dashboard 경험 설정의 설문 · 증거: 결과 등급 Minimal / Mild / Moderate 중 하나 화면 캡처
+4. Kids · Select 평가(H3) — 사람 · 대시보드(신청 위치 **확인 필요**) · 증거: 평가 통과 표시
+5. 장르 · 서브장르(H2) — 사람 · 대시보드 Experience Information · **3개월에 한 번만 바꿀 수 있다 — 신중히** · 증거: 설정 화면 캡처
+
+**B. 에셋 · 페이지**
+6. 아이콘(H4) — 사람(제작 지환 · 희준) · 대시보드 아이콘 · 정사각 512×512 이상 · 로케일마다 하나 · 증거: 모더레이션 통과 표시
+7. 썸네일 · 영상(H4) — 사람 · 대시보드 썸네일 · 16:9 1920×1080 · 이미지 + 영상 합쳐 10개 · 영상은 실제 게임 화면만(목소리 · 가사 음악 · 광고 문구 금지) ·
+   검토 · 거절 포함 월 3회 업로드 한도 · 영상 길이 · 용량 제한 **확인 필요** · 증거: 승인된 목록
+8. 게임 이름 · 설명 en · ko · 기기 표기(H5) — 사람(문장) · CC(초안 · Strings 용어집 대조 가능) · 대시보드 Experience Information + 현지화(이름 · 설명 번역 자리) ·
+   기기 지원 설정 화면 **확인 필요** · 증거: en · ko 페이지 캡처
+9. 상품 아이콘 · 상품 한국어 이름(H9) — 사람 · 대시보드 Monetization(Passes · Developer Products) + 현지화 · 증거: 39개 아이콘 교체 · ko 이름(`docs/DASHBOARD_PRODUCTS.md` 목록 대조)
+10. 서버 최대 인원 12(H-C · H8) — 사람 · 대시보드 플레이스 설정(서버 크기) · 증거: 설정 캡처 + 비공개 테스트 서버에서 `Players.MaxPlayers` = 12(개발자 콘솔 읽기)
+
+**C. 비공개 테스트 (beta — `DataConfig.DATA_ENV = "beta"`, 출시 때 진행은 초기화된다 H-A)**
+11. 테스트 방식(H6) — 사람 · Publish settings › Manage Audience — 셋을 비교해 고른다(추천은 적지 않는다):
+    조기 테스터(최대 10명 · 비슷한 나이 친구 · 신뢰 친구 예외 · 미리 보기 워터마크) / Playtest 탭(Edit · Playtest 권한 유저 + 조기 테스터) /
+    Public 탭 친구만(친구 + Playtest 대상) · 증거: 고른 설정 캡처
+12. 테스터 모집 — 사람 · 증거: 명단 · 접속 기록
+13. 실서버 구매 확인(H7) — 사람(제작자가 **아닌** 계정) · 게임패스 1개 + Power Potion(`strengthPotion` — beta 허용 목록) 1개 ·
+    비공개 상태에서 실제로 팔리는지 **확인 필요**(공식 문서 서술 없음) · 증거: 서버 로그 `[ProductService] 영수증 … → PurchaseGranted` · 게임패스 효과 · 다른 개발자 상품은 `beta_disabled` 문구
+14. 분석 이벤트 수신(A1 ~ A5) — 사람 · 대시보드 Analytics › Events(View Events) · 증거: economy(Blox) · custom 5종 이름 · 퍼널이 보인다(차트는 보통 24시간 뒤)
+15. 근처 확인 거부 0(N1) — 사람 · CC(원인 분석) · 개발자 콘솔 Server 로그 `[Proximity] 거부` · 증거: 테스트 세션 동안 거부 0 또는 site · dist 기록(`docs/TUNING.md`)
+16. Roblox Plus 권유 켜기(S9) — CC(`PLUS_PROMPT_ENABLED = true` 한 줄 커밋) · 사람(실제 계정에서 한 번 뜨는지) · 증거: 커밋 해시 · 프롬프트 캡처
+17. 성능 · 서버 종료 저장(S4 · S7) — 사람(측정) · CC(측정 방법 · 로그 읽기) · 개발자 콘솔 · MicroProfiler · 서버 종료 · 증거: 12명 근처에서 프레임 · 메모리 기록 ·
+    종료 때 `[ProfileManager] BindToClose 타임아웃` WARN 없음
+18. 17 ~ 25층 성공률 실데이터(G1) — 사람(플레이) · CC(집계 · 조정 제안) · 분석 floor_first_clear + 서버 로그 · 증거: 구간 성공률 표(DESIGN 목표 성공률과 대조)
+19. 폰 코드 입력 키보드(H12) — 사람 · 실제 폰 · 증거: 코드 창에서 입력 · 확인 성공
+20. 코드 목록 · 알릴 곳(G2) — 사람(결정) · CC(`CodesConfig` 반영 · RELEASE TEMP 정리) · 증거: 커밋 해시 · 알릴 곳 목록
+21. 출시 가격 최종 확인(G5) — 사람 · 대시보드 상품 39개 · `ShopConfig` 가격과 대조 · 증거: 대조 표(`docs/DASHBOARD_PRODUCTS.md`)
+22. 추천 목록에서 빼고 시작할지(H11) — 사람(결정) · Manage Audience › Advanced Settings 추천 제외 토글 · 증거: 결정 기록
+
+**D. 출시 당일**
+23. `DATA_ENV = "live"` 한 줄 커밋 — CC · `Shared/Config/DataConfig` · 증거: 커밋 해시 · DataConfigTests 통과 · 실서버 로그 `[Data] env=live store=PlayerData_live_v1`
+24. 게시(Publish) — 사람 · Studio(Rojo 연결 확인 뒤) · 증거: 플레이스 버전 번호
+25. 추천 목록 토글 — 사람 · 22번 결정대로 · 증거: 설정 캡처
+26. 공개 — 사람 · Manage Audience › Public(모든 연령 — 1 ~ 4번이 끝나야 열린다) · 증거: 공개 상태 캡처 · 하루 첫 공개 5개 한도 안
+27. 대시보드 오류 보고 확인 시작(S11 — 주 1회) — 사람 · 대시보드 오류 보고(Error Report · Crashes — 메뉴 이름 **확인 필요**) · 증거: 첫 주 확인 기록(`docs/PENDING.md`)
 
 ---
 
