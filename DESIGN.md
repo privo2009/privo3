@@ -2372,7 +2372,7 @@ lastClaimDay == 오늘 − 1 이고 streak < 7  → 받을 칸 = streak + 1   (�
   stats = {
     totalRuns = 0,
     totalCashouts = 0,
-    bestRunDepth = 0,
+    bestRunDepth = 0,    -- 계정 전체에서 깬 가장 깊은 층(환생에도 줄지 않는다) — 분석 floor_first_clear 중복 막기(14장 A3, #23)
     offlineClaims = 0,
     playtimeSec = 0,
     firstJoin = 0,
@@ -2411,6 +2411,32 @@ run 상태 (stage, currentReward, timeLeft)
   게임패스 값은 세션 값이다(절대 규칙 5). 저장하면 환불 뒤에도 슬롯이 남는다.
   검증(Schema.validate)은 게임패스를 모르는 로드 시점에도 패스 보유자를 깨뜨리지 않게
   "장착 수 ≤ 최대 슬롯" · "보유 수 ≤ 기본 + 게임패스 최대 보너스"로 본다.
+
+### 데이터 환경 — 저장소를 환경별로 나눈다 (E1 ~ E6, 2026-11-02 사람 결정 — 지시서 #23)
+
+```
+환경     저장소 이름           언제
+studio   PlayerData_v1         RunService:IsStudio() — 다른 값이 설정돼 있어도 언제나 studio
+                                (지금 이름 그대로 — 개발 계정 진행 유지)
+beta     PlayerData_beta_v1    Studio가 아니고 DATA_ENV = "beta" (커밋 값 — 비공개 테스트)
+live     PlayerData_live_v1    Studio가 아니고 DATA_ENV = "live" (출시 당일 한 줄 커밋 — ROADMAP "출시 체크리스트")
+```
+- **E1** 원본은 `Shared/Config/DataConfig` 한 곳(`DATA_ENV` · `STORE_NAMES` · `BETA_PRODUCT_ALLOWLIST` · 판정 함수).
+  `ProfileManager`는 이름을 적지 않고 `DataConfig.resolveStore`에서 받는다
+- **E2** 환경 결정: `IsStudio()`면 무조건 studio. 아니면 `DATA_ENV`("beta" | "live")
+- **E3** Studio에서 beta · live 이름을 요구하는 경로는 `DataConfig.storeNameFor`가 ERROR 사유와 nil을 돌려주고
+  `ProfileManager`는 저장소를 열지 않는다(접속자는 `kick.loadFailed`). Studio 밖에서 `DATA_ENV`가 beta · live가 아닌 값이어도 같다 —
+  틀린 저장소에 섞여 쓰는 것보다 안 열리는 쪽이 고치기 쉽다(Claude 결정). 커밋 값은 테스트가 막는다(E6)
+- **E4** 시작 로그 한 줄 `[Data] env=<studio|beta|live> store=<이름>` (`ProfileManager.init`)
+- **E5** beta에서는 개발자 상품 프롬프트를 띄우지 않는다 — `PurchaseRequestService` 판정에서 키 확인 바로 뒤 `beta_disabled`
+  (문구 `shop.reason.beta_disabled`). 이유: 출시 때 진행이 초기화되면(H-A) 산 포션 · 롤 · 기구 해금이 사라진다.
+  예외 `BETA_PRODUCT_ALLOWLIST = { "strengthPotion" }` — 실서버 구매 확인용(H7). 게임패스는 beta에서도 판다(소유가 로블록스 계정에 남는다).
+  studio는 지금과 같다(Studio 구매는 모의). 이미 결제된 영수증은 환경과 무관하게 지급한다(`ProcessReceipt` — 결제를 받고 주지 않는 길을 만들지 않는다)
+- **E6** `DataConfigTests`가 `DATA_ENV` 커밋 값이 "beta" 또는 "live"인지 잰다. 출시 전까지 "beta"인지는 보고에만 적는다
+- 사실: studio 이름이 그대로라 개발 계정 데이터는 사라지지 않는다. beta · live는 새 저장소라 처음 들어온 사람은 새 프로필이다
+  (H-A — 비공개 테스트 진행은 beta → live로 저절로 초기화). Mock 프리셋 경로(`TestPresetGate`)는 그대로 — 프리셋이면 실제 저장소에 세션을 열지 않는다
+- 공식 data-stores: Studio는 실제 게임과 **같은** 데이터 저장소를 쓴다(https://create.roblox.com/docs/cloud-services/data-stores) —
+  이 플레이스는 Studio API 접근이 켜져 있어서, Studio Play가 beta · live에 닿지 않게 이름으로 막는다
 
 ---
 
@@ -2548,3 +2574,96 @@ K6  Config의 이름(칭호 · 아우라 · 펫 · 알 · 업그레이드 · 상
 
 용어집(영어 표기 통일)과 문장을 추가하는 법 · 새 언어를 넣는 순서는 `docs/LOCALIZATION.md`.
 용어집은 Strings 상단 주석에도 같은 표가 있다.
+
+---
+
+## 13. 서버 권위 — 근처 확인 (N1 ~ N3, 2026-11-02 사람 결정 — 지시서 #23)
+
+원칙은 CLAUDE.md 절대 규칙 3(Touched는 신호일 뿐 권한이 아니다)이다. 캐릭터 물리는 클라 소유라(공식 network-ownership —
+https://create.roblox.com/docs/physics/network-ownership) 순간 이동한 위치가 서버로 넘어온다. 판정은 이미 서버 런 상태로 하므로
+위조되는 것은 재화가 아니라 "걷는 시간"이다(#22 R2). 근처 확인은 그 신호를 거르는 앞 단계다.
+
+- **N1** Touched로 동작하는 곳 — 입장 게이트 · 수령 발판 · 진행 벽 트리거 · 클릭 파워 패드 — 은 처리(디바운스 포함) 전에
+  `Server/Systems/Proximity.check(player, part)` 하나를 부른다.
+  근처 = 파트 로컬 좌표(`CFrame:PointToObjectSpace`)에서 축마다 |d| ≤ 크기/2 + `PROXIMITY_MARGIN`(`Shared/Config/ProximityConfig`).
+  운동기구는 Touched가 아니다 — 클릭 순간 HumanoidRootPart 위치가 기구 발판 넓이 안인지로 판정한다(`GymLayout.resolve`).
+  이미 여유 0의 근처 확인이라 그대로 둔다
+- 여유 `PROXIMITY_MARGIN = REACH_STUDS + 최고 속도 × LAG_SEC = 6 + 80 × 0.25 = 26 studs`
+  - REACH 6: Touched를 일으킨 것은 팔다리 · 발이고 HumanoidRootPart는 몸통 가운데다. R15 발바닥까지 HipHeight 2 + 루트 반 높이 1 ≈ 3 —
+    아바타 크기 · 팔 뻗음을 넉넉히 덮어 6
+  - LAG 0.25초: 서버가 읽는 루트 위치는 접촉 신호와 같은 순간이 아닐 수 있다(클라 물리 복제 지연 · 프레임 드랍).
+    30fps 기준 한 프레임 이동 80 / 30 ≈ 2.7 studs, 0.25초 = 7.5프레임을 최고 속도로 달린 거리 20 studs로 덮는다
+  - 최고 속도는 숫자로 적지 않고 `LevelConfig.getMaxWalkSpeed()`(발판 깊이 유도 — 지금 80)에서 읽는다. 발판이 바뀌면 여유도 따라간다
+  - 막는 것: 그 파트에서 26 studs보다 먼 곳(스폰에서 아레나로 · 다른 층 발판으로)의 접촉.
+    막지 못하는 것: 26 studs 안의 순간 이동(최고 속도로 0.3초 거리 — 걷기 이득이 그만큼으로 줄어든다)
+- 거부: 사유 코드 `no_character` · `no_root` · `far`만 로그(LogFold로 접음). 유저 안내 · 킥 없음
+- **N2** 서버가 직접 부르는 경로(자동 진행 advance · cashout, 워프 · 환생 · 수령 뒤 순간 이동)는 Touched를 거치지 않으므로 검사도 없다
+- **N3** 속도 기반 순간 이동 검출은 넣지 않는다. 수동 클릭 상한 10회/초는 그대로(#22 R3)
+
+---
+
+## 14. 분석 이벤트 (A1 ~ A5, 2026-11-02 사람 결정 — 지시서 #23)
+
+공식 문서(2026-11-06 확인):
+https://create.roblox.com/docs/reference/engine/classes/AnalyticsService ·
+https://create.roblox.com/docs/production/analytics/economy-events ·
+https://create.roblox.com/docs/production/analytics/custom-events ·
+https://create.roblox.com/docs/production/analytics/custom-fields ·
+https://create.roblox.com/docs/production/analytics/event-types
+- `LogEconomyEvent(player, flowType: Enum.AnalyticsEconomyFlowType, currencyType: string, amount: number, endingBalance: number,
+  transactionType: string, itemSku: string, customFields: Dictionary?)` — amount는 언제나 양수(Sink는 대시보드가 음수로 보인다) ·
+  endingBalance = 거래 뒤 잔액 · transactionType은 `Enum.AnalyticsEconomyTransactionType.<이름>.Name`
+  (IAP · TimedReward · Onboarding · Shop · Gameplay · ContextualPurchase)
+- `LogCustomEvent(player, eventName: string, value: number = 1, customFields: Dictionary?)` · 커스텀 이벤트 이름 100개까지
+- 커스텀 필드: 키는 `Enum.AnalyticsCustomFieldKeys.CustomField01 ~ 03 .Name`만, 값은 **문자열**, 조합 8,000개 넘으면 "Other"
+- "Events can only be sent from the server and in published games" — Studio에서는 보내지지 않는다
+- 한도: AnalyticsService 요청 분당 120 + 20 × CCU · 경제 자원 10종(event-types — economy-events 본문은 "five"로 적혀 있어 문서끼리 다르다.
+  우리는 1종 "Blox"만 쓴다)
+
+- **A4** 래퍼 `Server/Systems/Analytics` 하나만 AnalyticsService를 부른다. 모든 호출은 pcall(실패는 접힌 로그 한 줄 — 게임 동작 무관).
+  플레이어당 분당 `PER_PLAYER_PER_MINUTE = 20`(`Shared/Config/AnalyticsConfig`). 근거: 공식 한도는 분당 120 + 20 × CCU —
+  N명이 모두 상한까지 보내도 20N ≤ 120 + 20N. 넘치면 버리고 버린 개수만 로그한다. Studio에서도 호출하고 결과 로그만 본다
+- **A1** 블럭스 흐름. 부르는 곳은 `CurrencyService`(단일 게이트) — blox add · subtract · set이 성공한 뒤 흐름 청취자 하나를 부른다
+  (Bootstrap이 Analytics를 건다 · 테스트는 걸지 않는다). reason 접두어 → 흐름표(`AnalyticsConfig.BLOX_FLOWS`, 위에서부터 첫 일치):
+  ```
+  reason 접두어            흐름     거래 종류            itemSku
+  challenge_cashout_auto   Source   Gameplay             cashout_auto
+  challenge_cashout_       Source   Gameplay             cashout_manual
+  reward_daily_            Source   TimedReward          daily
+  reward_code_             Source   Gameplay             code
+  reward_onboarding_       Source   Onboarding           onboarding
+  upgrade_                 Sink     Shop                 upgrade_<이름>
+  title_roll_              Sink     Shop                 title_roll
+  aura_roll_               Sink     Shop                 aura_roll
+  pet_hatch_               Sink     Shop                 pet_hatch
+  warp_                    Sink     ContextualPurchase   warp
+  rebirth_                 Sink     Gameplay             rebirth   (set 0 — 그때 잔액 전부가 나간 양)
+  ```
+  표에 없는 reason은 보내지 않고 접힌 경고 한 줄(새 흐름을 표에 빠뜨린 것을 찾게).
+  모아 보내기: 같은 (흐름 · 종류 · sku)는 플레이어마다 `FLUSH_SEC = 30`초 동안 금액을 더해 한 번에 보낸다(잔액은 마지막 흐름 뒤 값).
+  자동 칭호 뽑기는 초당 1회 Sink라 바로 보내면 상한 20을 혼자 다 쓴다 — 공식 custom-events "send events in batches in order to stay
+  under the rate limits". 나갈 때 · 서버 종료 때 남은 것을 보낸다
+- **A2** 큰 수: 금액 · 잔액이 둘 다 `ECONOMY_SAFE_MAX = 1e15` 미만이면 경제 이벤트. 이유: 경제 이벤트 인자는 Luau number이고
+  2^53(≈ 9e15) 위에서는 정수 정밀도가 깨진다(절대 규칙 1) — 한 자릿수 여유를 둔 1e15. 넘으면 커스텀 이벤트
+  `blox_flow_large`(값 = log10 금액 · 필드 흐름 / sku / log10 잔액 문자열). log10은 BigNum 지수 + log10(가수)라 10^2000에서도 유한하다.
+  inf · NaN · 음수 · BigNum이 아닌 값은 보내지 않는다(거부 로그)
+- **A3** 커스텀 이벤트
+  ```
+  rebirth              값 log10(이번에 얻은 환생 수)
+  floor_first_clear    값 층 번호 — 계정당 층마다 한 번
+  auto_advance_start   값 목표층 − 안전층(서버 계산)
+  robux_purchase       값 1 · 필드 상품 키 / 종류 — 개발자 상품은 영수증을 처음 지급한 때(재전달은 멱등 경로라 다시 안 보낸다),
+                       게임패스는 PromptGamePassPurchaseFinished wasPurchased = true
+  ```
+  처음 깬 층: `maxStage`는 환생 때 1로 돌아가 같은 층이 다시 "처음"이 된다. 그래서 계정 전체 기록 `stats.bestRunDepth`
+  (스키마에 있던 빈 필드 — 환생에도 줄지 않는다)를 쓴다 — 깬 층 > bestRunDepth일 때만 보내고 그 값으로 올린다.
+  "도달"은 클리어로 센다(maxStage가 오르는 자리와 같다). 스키마 버전은 그대로(필드가 이미 있다)
+- **A5** 첫 접속 안내 퍼널(#20 O5 — `LogOnboardingFunnelStepEvent`)도 래퍼(`Analytics.funnel`)로 옮긴다
+
+---
+
+## 15. 출시 범위 (2026-11-02 사람 결정 — 지시서 #23)
+
+- **H-A** 비공개 테스트 진행은 출시 때 초기화한다 — 저장소 분리(10장 E1)로 beta → live가 되면서 저절로 된다
+- **H-B** 모든 연령 공개로 간다. 요건(신원 확인 · 2단계 인증 · 평가 · 설문 · 구독 또는 수수료)은 사람이 맞춘다 → ROADMAP "출시 체크리스트"
+- **H-C** 서버 최대 인원 12명(대시보드 설정 — 사람 작업). 비공개 테스트에서 재 보고 조정한다

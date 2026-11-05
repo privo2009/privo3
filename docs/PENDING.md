@@ -219,6 +219,8 @@ ModuleScript **67개 중 아무도 require하지 않는 고아는
 
 ### Phase 9 착수 전 결정 (2026-11-01 지시서 #22 조사 — 읽기만, 브랜치 p9-survey) · 위험 · 결정 항목
 
+→ 결정 반영(#23, 2026-11-02 사람 결정): 아래 "**#23 결정 반영**" 블록 — 항목마다 한 줄
+
 조사 범위: `Remotes` · 클라 → 서버 채널 18개의 처리 서비스 · 서버 Touched 4곳(`CashoutPadService` · `AdvanceWallService` · `EntranceGateService` ·
 `PadService`) · `SpeedService` · `ClickService` · `ProfileManager` · `Schema` · `Migrations`(+ 테스트) · `ProductService` · `RewardService` · `CodeService` ·
 서버 루프(`AttackService` · `AutoClickService` · `AutoAdvanceService` · `BoostService` · `TitleService` · `PlayerStateService` · `ChallengeService` ·
@@ -364,6 +366,40 @@ SpeedService       1.5초                        WalkSpeed 되돌리기
 - H10 Studio API 접근 정리 · 테스트용 게임 만들기(S2 뒤)
 - H11 추천(Recommended For You) 제외로 시작할지
 - H12 실제 폰에서 코드 입력 키보드 확인(위 #20 미결)
+
+**#23 결정 반영 (2026-11-02 사람 결정 — 지시서 #23)** — 항목마다 해소 · 위임(사람) · 비공개 테스트 · 출시 뒤 · 그대로 · 안 함
+```
+R1  해소 — E1 저장소 환경 분리(Studio는 studio = PlayerData_v1만 연다 · beta · live 이름은 Studio에서 거부 E3)
+R2  해소 — N1 근처 확인(Touched 4곳 · 여유 PROXIMITY_MARGIN — DESIGN 13장)
+R3  그대로 — N3(수동 클릭 상한 10회/초 변경 없음)
+R4  해소 — E1(개발 데이터는 PlayerData_v1에 남고 beta · live는 새 저장소 — H-A 출시 때 저절로 초기화)
+R5  비공개 테스트 — S4와 같이 잰다
+R6  그대로 — N3(속도 기반 검출 안 함)
+R7  비공개 테스트 — S9 Plus 권유를 켤 때 같이 본다(지금 꺼짐)
+R8  그대로 — 결정 없음(낮음)
+R9  그대로 — 커밋 값 nil을 테스트가 잰다(+ DATA_ENV 커밋 값 테스트 E6)
+R10 그대로 — 최악 추정 0.49%
+G1  비공개 테스트 — 17 ~ 25층 성공률 실데이터(출시 체크리스트)
+G2  위임(사람) — 코드 목록 · 알릴 곳(출시 체크리스트)
+G3  해소 — H-C 서버 최대 인원 12(대시보드 설정은 사람)
+G4  그대로 — R3과 같다
+G5  위임(사람) — 출시 가격 최종 확인(출시 체크리스트)
+S1  해소 — N1 ~ N3
+S2  해소 — E1 ~ E3(Studio API 접근을 끄거나 테스트용 게임을 복제하지 않아도 Studio는 studio 저장소만 연다)
+S3  해소 — E1(저장소 이름을 환경별로 나눔 · 개발 계정 키는 지우지 않음)
+S4  비공개 테스트 — BindToClose 저장 완료 측정
+S5  해소 — A1 ~ A5(DESIGN 14장)
+S6  안 함 — RateLimiter · Validator 공용화하지 않는다
+S7  비공개 테스트 — 성능 측정
+S8  출시 뒤 — 클라우드 표 · 자동 번역 · 게임 이름 · 설명 번역
+S9  비공개 테스트 — Roblox Plus 권유 켜기
+S10 출시 뒤 — 클라우드 Translator 플래그
+S11 위임(사람) — 대시보드 오류 보고(Error report · Crashes) 주 1회
+H1 · H2 · H4 ~ H7 · H9 · H11 · H12  위임(사람) — ROADMAP Phase 9 "출시 체크리스트" 항목으로
+H3  결정 — H-B 모든 연령 공개(요건은 사람)
+H8  결정 — H-C 12명(대시보드는 사람)
+H10 해소 — E1로 필요 없어짐(Studio API 접근은 켠 채 둔다)
+```
 
 **공식 문서 확인 (2026-11-01 — creator-docs `c8f5276` 원본으로 읽음)**
 - https://create.roblox.com/docs/production/publishing/publish-games-and-places (공개 요건 · 조기 테스터 · 대상 · 추천 제외 · 하루 5개)
