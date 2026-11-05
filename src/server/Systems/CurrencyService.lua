@@ -207,6 +207,25 @@ local function logChange(opName: string, player: Player, currency: string, amoun
 	))
 end
 
+-- 블럭스 흐름 청취자(지시서 #23 A1 — 분석 이벤트). blox가 실제로 바뀐 뒤 한 번 부른다(amount = 바뀐 양 · 양수, newValue = 뒤 잔액).
+-- Bootstrap이 Analytics.bloxFlow를 건다 · 테스트는 걸지 않는다. 의존 방향을 지키려고(이 게이트가 분석 모듈을 모르게) 주입한다.
+-- ⚠️ 청취자는 yield하지 않는다. pcall로 감싸 — 분석이 실패해도 재화 변경은 그대로다.
+local bloxFlowListener: ((Player, string, BigNumber, BigNumber) -> ())? = nil
+
+function CurrencyService.setBloxFlowListener(listener: ((Player, string, BigNumber, BigNumber) -> ())?)
+	bloxFlowListener = listener
+end
+
+local function notifyBloxFlow(player: Player, currency: string, reason: string, amount: BigNumber, newValue: BigNumber)
+	if currency ~= "blox" or bloxFlowListener == nil then
+		return
+	end
+	local ok, err = pcall(bloxFlowListener :: any, player, reason, amount, newValue)
+	if not ok then
+		warn(string.format("[CurrencyService] 블럭스 흐름 청취자 오류(무시 — 재화는 그대로): %s", tostring(err)))
+	end
+end
+
 local function logRejected(opName: string, player: Player, currency: string, reason: string, detail: string)
 	warn(string.format(
 		"[CurrencyService] %s 거부: %s(%d) currency=%s reason=%s - %s",
@@ -277,6 +296,7 @@ function CurrencyService.add(player: Player, currency: string, amount: BigNumber
 
 	local newValue = (updates :: { [string]: BigNumber })[currency]
 	logChange("add", player, currency, amount, newValue, reason)
+	notifyBloxFlow(player, currency, reason, amount, newValue)
 	return true, newValue
 end
 
@@ -309,6 +329,7 @@ function CurrencyService.subtract(player: Player, currency: string, amount: BigN
 
 	local newValue = (updates :: { [string]: BigNumber })[currency]
 	logChange("subtract", player, currency, amount, newValue, reason)
+	notifyBloxFlow(player, currency, reason, amount, newValue)
 	return true, newValue
 end
 
@@ -349,6 +370,7 @@ function CurrencyService.set(player: Player, currency: string, amount: BigNumber
 		return false, nil
 	end
 
+	local before = profile.Data[currency] -- 흐름 양(분석 A1 — 환생 set 0이면 그때 잔액 전부)을 재려고 바꾸기 전 값을 쥔다
 	local ok, updates, err = applySet(currency, profile.Data, amount)
 	if not ok then
 		logRejected("set", player, currency, reason, err or "알 수 없는 오류")
@@ -363,6 +385,10 @@ function CurrencyService.set(player: Player, currency: string, amount: BigNumber
 
 	local newValue = (updates :: { [string]: BigNumber })[currency]
 	logChange("set", player, currency, amount, newValue, reason)
+	if currency == "blox" and Schema.isBigNum(before) and not BigNum.eq(before, newValue) then
+		local delta = if BigNum.gt(before, newValue) then BigNum.sub(before, newValue) else BigNum.sub(newValue, before)
+		notifyBloxFlow(player, currency, reason, delta, newValue)
+	end
 	return true, newValue
 end
 

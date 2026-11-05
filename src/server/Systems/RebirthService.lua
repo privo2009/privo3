@@ -47,6 +47,7 @@ local SpeedService = require(script.Parent.SpeedService)
 local PadService = require(script.Parent.PadService)
 -- 2배 환생(지시서 #16 S6). 소유는 세션 값 — ShopEffects.
 local ShopEffects = require(script.Parent.ShopEffects)
+local Analytics = require(script.Parent.Analytics)
 
 type BigNumber = BigNum.BigNumber
 
@@ -294,6 +295,7 @@ end
 function RebirthService.rebirth(player: Player, source: string?): (boolean, any)
 	local ok, value = runRebirth(REAL, player, source)
 	if ok then
+		Analytics.rebirth(player, value.gained) -- 분석 커스텀 이벤트(지시서 #23 A3 — 값 log10 얻은 환생 수)
 		for _, cb in ipairs(rebirthedListeners) do
 			task.spawn(cb, player)
 		end

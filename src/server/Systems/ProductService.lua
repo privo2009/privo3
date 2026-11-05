@@ -25,6 +25,7 @@ local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local Schema = require(script.Parent.Parent.Data.Schema)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 local MarketplaceGateway = require(script.Parent.MarketplaceGateway)
+local Analytics = require(script.Parent.Analytics)
 
 local ProductService = {}
 
@@ -46,6 +47,8 @@ export type Deps = {
 	log: (string) -> (),
 	-- 상품표(기본 ShopConfig). 테스트가 ID를 채운 표로 바꿔 끼운다
 	catalog: any?,
+	-- 이 영수증을 처음 지급했다(지시서 #23 A3 — 분석 robux_purchase). 재전달은 2번에서 걸러져 다시 부르지 않는다
+	onGranted: ((userId: number, key: string) -> ())?,
 }
 
 local function contains(list: any, id: string): boolean
@@ -123,6 +126,9 @@ local function createRuntime(deps: Deps)
 		if not okGrant or granted ~= true then
 			deps.log(string.format("[ProductService] ERROR 영수증 %s: 지급 실패(%s) — NotProcessedYet", purchaseId, tostring(granted)))
 			return NOT_YET
+		end
+		if deps.onGranted ~= nil then
+			pcall(deps.onGranted :: any, userId, key)
 		end
 		-- 4. 기록
 		record(data, purchaseId)
@@ -231,6 +237,12 @@ function ProductService.init()
 		waitSaved = waitSaved,
 		log = function(line: string)
 			warn(line)
+		end,
+		onGranted = function(userId: number, key: string)
+			local player = Players:GetPlayerByUserId(userId)
+			if player ~= nil then
+				Analytics.robuxPurchase(player, key, "product")
+			end
 		end,
 	})
 	MarketplaceGateway.get().setProcessReceipt(function(info: any): string

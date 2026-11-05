@@ -21,6 +21,7 @@ local RunService = game:GetService("RunService")
 local AutoAdvanceConfig = require(ReplicatedStorage.Shared.Config.AutoAdvanceConfig)
 local AutoAdvanceLogic = require(ReplicatedStorage.Shared.AutoAdvanceLogic)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Analytics = require(script.Parent.Analytics)
 
 local AutoAdvanceService = {}
 
@@ -280,6 +281,9 @@ function AutoAdvanceService.init(services: InitDeps)
 		local out = live.onRequest(player, payload, os.clock())
 		print(string.format("[AutoAdvance] %s(%d) 요청 %s → ok=%s reason=%s 목표 %d · 안전 %d", player.Name, player.UserId, out.action,
 			tostring(out.ok), out.reason, out.target, out.safeFloor))
+		if out.action == "start" and out.ok then
+			Analytics.autoAdvanceStart(player, out.target - out.safeFloor) -- 분석 커스텀 이벤트(지시서 #23 A3 — 목표층 − 안전층)
+		end
 	end)
 	Players.PlayerRemoving:Connect(function(player: Player)
 		live.onRemoving(player)

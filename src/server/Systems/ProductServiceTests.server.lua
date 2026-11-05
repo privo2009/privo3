@@ -34,7 +34,7 @@ local USER = 601
 -- 가짜 세계: 프로필 하나(있거나 없거나) · 저장은 saveOk일 때만 LastSavedData를 지금 Data로 바꾼다.
 local function newWorld(opts: { loaded: boolean?, saveOk: boolean? }?)
 	local o = opts or {}
-	local w: any = { logs = {}, saveCalls = 0, saveOk = o.saveOk ~= false, grants = 0 }
+	local w: any = { logs = {}, saveCalls = 0, saveOk = o.saveOk ~= false, grants = 0, granted = {} }
 	w.profile = { Data = Schema.new(), LastSavedData = { purchases = {} } }
 	local loaded = o.loaded ~= false
 	w.runtime = pure.createRuntime({
@@ -59,6 +59,9 @@ local function newWorld(opts: { loaded: boolean?, saveOk: boolean? }?)
 			table.insert(w.logs, line)
 		end,
 		catalog = catalog,
+		onGranted = function(userId: number, key: string)
+			table.insert(w.granted, tostring(userId) .. ":" .. key)
+		end,
 	})
 	w.runtime.register("strengthPotion", function(_player, data, def)
 		w.grants += 1
@@ -93,6 +96,22 @@ do
 	check("이미 저장된 기록이면 저장을 다시 기다리지 않는다", w.saveCalls == 1)
 	local d3 = w.runtime.process(receipt("P-2"))
 	check("다른 PurchaseId는 따로 지급", d3 == GRANTED and w.grants == 2 and #w.profile.Data.purchases == 2)
+end
+
+-- 1b. 분석 robux_purchase 통지(지시서 #23 A3) — 처음 지급한 영수증에서 한 번 · 재전달 · 저장 실패 재전달은 다시 안 부른다 ----------------
+do
+	local w = newWorld()
+	w.runtime.process(receipt("P-A1"))
+	w.runtime.process(receipt("P-A1"))
+	check("onGranted: 같은 영수증 두 번 → 한 번(유저:키)", #w.granted == 1 and w.granted[1] == tostring(USER) .. ":strengthPotion")
+	local ws = newWorld({ saveOk = false })
+	ws.runtime.process(receipt("P-A2"))
+	ws.saveOk = true
+	ws.runtime.process(receipt("P-A2"))
+	check("onGranted: 저장 실패 뒤 재전달 → 여전히 한 번", #ws.granted == 1)
+	local wn = newWorld({ loaded = false })
+	wn.runtime.process(receipt("P-A3"))
+	check("onGranted: 지급 못 하면 부르지 않는다", #wn.granted == 0)
 end
 
 -- 2. 프로필 미로드 → NotProcessedYet ----------------------------------------------------------------

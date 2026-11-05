@@ -30,6 +30,7 @@ local Schema = require(script.Parent.Parent.Data.Schema)
 local CurrencyService = require(script.Parent.CurrencyService)
 -- 거부 로그 접기(지시서 #8). 판정은 바꾸지 않는다 — 같은 플레이어 · 같은 사유의 반복 warn만 접는다.
 local LogFold = require(script.Parent.LogFold)
+local Analytics = require(script.Parent.Analytics)
 local rejectLog = LogFold.new(LogFold.WINDOW_SEC, os.clock, function(message: string)
 	warn(message)
 end)
@@ -95,6 +96,16 @@ end
 -- 다시 클리어해도 maxStage가 내려가지 않도록).
 local function computeNewMaxStage(currentMaxStage: number, clearedStage: number): number
 	return math.max(currentMaxStage, clearedStage)
+end
+
+-- 계정 전체에서 처음 깬 층인가(지시서 #23 A3 — 분석 floor_first_clear). maxStage는 환생 때 1로 돌아가 같은 층이 다시 "처음"이 되므로
+-- 환생에도 줄지 않는 stats.bestRunDepth와 비교한다. (처음인가, 새 기록)
+local function firstClear(bestRunDepth: any, clearedStage: number): (boolean, number)
+	local best = if type(bestRunDepth) == "number" and bestRunDepth == bestRunDepth then bestRunDepth else 0
+	if clearedStage > best then
+		return true, clearedStage
+	end
+	return false, best
 end
 
 -- 런이 클리어된 채로 끝났으면 그 보상을, 실패(타임아웃/이탈)로 끝났으면 0을 반환한다.
@@ -173,6 +184,7 @@ ChallengeService._pure = {
 	computeTimeLeft = computeTimeLeft,
 	isExpired = isExpired,
 	computeNewMaxStage = computeNewMaxStage,
+	firstClear = firstClear,
 	resolveRunOutcome = resolveRunOutcome,
 	canAdvanceFrom = canAdvanceFrom,
 	canCashout = canCashout,
@@ -415,6 +427,15 @@ function ChallengeService.applyDamage(player: Player, originPosition: Vector3, d
 		local profile = ProfileManager.get(player)
 		if profile ~= nil then
 			profile.Data.progress.maxStage = computeNewMaxStage(profile.Data.progress.maxStage, run.stage)
+			-- 처음 깬 층 — 계정당 층마다 한 번(분석 A3). stats는 이 파일만 쓴다(bestRunDepth — DESIGN 10장 스키마 주석)
+			local stats = profile.Data.stats
+			if type(stats) == "table" then
+				local isFirst, best = firstClear(stats.bestRunDepth, run.stage)
+				if isFirst then
+					stats.bestRunDepth = best
+					Analytics.floorFirstClear(player, run.stage)
+				end
+			end
 		end
 
 		-- 타이머가 멈추고 수령·진행 선택이 열리는 전이다. 클라가 반드시 알아야 한다.

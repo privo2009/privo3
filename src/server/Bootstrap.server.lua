@@ -51,6 +51,11 @@ local TEST_DAILY_SEED: { streak: number, daysAgo: number }? = nil
 local LocaleGate = require(script.Parent.Systems.LocaleGate)
 LocaleGate.init(TEST_LOCALE)
 
+-- 분석 이벤트 래퍼(지시서 #23 A1 ~ A5 — DESIGN 14장). 프로필보다 먼저 연다 — 블럭스 흐름 청취자를 첫 재화 변경 전에 건다
+local Analytics = require(script.Parent.Systems.Analytics)
+Analytics.init()
+CurrencyService.setBloxFlowListener(Analytics.bloxFlow)
+
 print("[Bootstrap] ProfileManager.init() 호출 시작")
 -- 일일 보상 시드는 프리셋 템플릿을 만들기 전에 넘긴다(오늘 = 서버 UTC 일 번호 + 날짜 오프셋 — DailyService와 같은 식)
 require(script.Parent.Data.TestPresetGate).registerDailySeed(TEST_DAILY_SEED,

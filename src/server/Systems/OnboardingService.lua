@@ -9,7 +9,7 @@
 --   4 choice  ChallengeService.onRunEvent "cashout" 또는 "advance"
 --   5 finish  OnboardingRequest "finish"(확인 버튼) → 완료 보상(RewardService — 전부 아니면 0) → done
 -- 신호는 **지금 단계의 신호일 때만** 받는다. 순서가 어긋난 신호(1단계에서 온 "cleared" 등)는 버린다 — 단계를 건너뛰지 않는다.
--- 단계를 마칠 때마다 AnalyticsService:LogOnboardingFunnelStepEvent(player, 단계, 이름)를 pcall로 부른다(O5 — Studio에서는 보내지지 않는다).
+-- 단계를 마칠 때마다 LogOnboardingFunnelStepEvent(player, 단계, 이름)를 분석 래퍼(Analytics.funnel — 지시서 #23 A5)로 부른다(O5 — Studio에서는 보내지지 않는다).
 -- 건너뛰기(OnboardingRequest "skip"): done = true · 보상 없음 · 분석 이벤트 없음(마친 단계가 아니다). 확인 단계는 클라 창이 한 번 더 묻는다.
 -- 기록은 프로필 onboarding{step, done}(O4 — 다시 들어오면 그 단계부터). 1단계 클릭 수는 저장하지 않는다(나갔다 오면 그 단계 처음부터 센다).
 
@@ -19,6 +19,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local OnboardingConfig = require(ReplicatedStorage.Shared.Config.OnboardingConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
+local Analytics = require(script.Parent.Analytics)
 
 local OnboardingService = {}
 
@@ -171,15 +172,10 @@ function OnboardingService.summary(player: Player): Summary
 	return live.summary(player)
 end
 
--- 분석 이벤트(O5). Yields라 떼어 부르고, 실패는 게임 동작에 영향 없이 로그 한 줄만(Studio에서는 보내지지 않는다 — 공식 funnel-events 문서).
+-- 분석 이벤트(O5). 실패는 게임 동작에 영향 없이 로그 한 줄만(Studio에서는 보내지지 않는다 — 공식 funnel-events 문서).
 local function logFunnel(player: Player, step: number, name: string)
-	task.spawn(function()
-		local ok, err = pcall(function()
-			game:GetService("AnalyticsService"):LogOnboardingFunnelStepEvent(player, step, name)
-		end)
-		print(string.format("[Onboarding] 분석 이벤트 LogOnboardingFunnelStepEvent(%s, %d, %s) → %s", player.Name, step, name,
-			if ok then "ok" else "실패(" .. tostring(err) .. ")"))
-	end)
+	-- 래퍼 하나로(지시서 #23 A5) — pcall · 상한 · 결과 줄은 Analytics가 맡는다
+	Analytics.funnel(player, step, name)
 end
 
 export type InitDeps = {

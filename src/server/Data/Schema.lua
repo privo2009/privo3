@@ -164,7 +164,7 @@ local function buildTemplate()
 		stats = {
 			totalRuns = 0,
 			totalCashouts = 0,
-			bestRunDepth = 0,
+			bestRunDepth = 0, -- 계정 전체에서 깬 가장 깊은 층(환생에도 줄지 않는다 — 분석 floor_first_clear 중복 막기, 지시서 #23 A3 · ChallengeService만 쓴다)
 			offlineClaims = 0,
 			playtimeSec = 0,
 			-- [수정 3] 템플릿 단계에서는 서버 시각을 알 수 없어 0으로만 둔다. ProfileManager가 os.time()으로 채운다.
