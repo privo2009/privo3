@@ -84,7 +84,9 @@ do
 	end
 	check("AA14 프리셋 → 플레이어: 힘 · 환생 · 업그레이드 · 아우라 · 펫 수가 프리셋 그대로",
 		BigNum.eq(p.strength, BigNum.new(preset.strength.m, preset.strength.e)) and BigNum.eq(p.rebirths, BigNum.new(preset.rebirths.m, preset.rebirths.e))
-			and p.upgrades.punchDamage == preset.upgrades.punchDamage and p.auraId == preset.aura and petTotal == #preset.pets
+			-- 아우라 없음은 프리셋 false → 플레이어 nil(presetPlayer와 같은 규칙 — #24에서 다시 뽑은 floor9가 아우라 없음이라 드러났다)
+			and p.upgrades.punchDamage == preset.upgrades.punchDamage and p.auraId == (if preset.aura == false then nil else preset.aura)
+			and petTotal == #preset.pets
 			and p.titleIndex == 0)
 	local p17 = BalanceSummary.presetPlayer("floor17", Random.new(1))
 	check("AA14 프리셋 → 플레이어: 칭호 id → 인덱스", p17.titleIndex > 0 and TitleConfig.Titles[p17.titleIndex].id == TestPresets.Presets.floor17.title)
