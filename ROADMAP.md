@@ -20,7 +20,7 @@
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
-| `Tests/ConfigTests.server.lua` | 121 | 모든 Config의 validate + 스모크 · 파생 함수(getSlots · getStorage · getUnlockedPacks) · TitleConfig validate 거부 5종 · 블럭스 상품 금지(P1) · AuraConfig m = 사다리 × 비율 · G4 · 단조 거부(#11) · PetConfig m · 비용 100/100K/100M · 해금 · 실효 증가분 · totalMult(nil 구멍) · 강화 4단계 · validate 거부 · Attribute 직렬화(#12) · 레벨 L1 경계(1 · 2 · 3 · 4 · 2^k ± 가수 1 ulp · 10^2000대) · 진행률 0 이상 1 미만 · L2 상한(레벨 48) · 환생 뒤 0(#13) · ShopConfig 검사(가격 · 키 · 계단 순증가 · blox 거부 · 행운 표시 = 효과 · 같은 ID — #16) · 대시보드 ID 39 등록 · ID 표 섞임 · 0 거부 · ownedHigher R1 · R2 · rollCreditLuck(#17) |
+| `Tests/ConfigTests.server.lua` | 124 | 모든 Config의 validate + 스모크 · 파생 함수(getSlots · getStorage · getUnlockedPacks) · TitleConfig validate 거부 5종 · 블럭스 상품 금지(P1) · AuraConfig m = 사다리 × 비율 · G4 · 단조 거부(#11) · PetConfig m · 비용 100/100K/100M · 해금 · 실효 증가분 · totalMult(nil 구멍) · 강화 4단계 · validate 거부 · Attribute 직렬화(#12) · 레벨 L1 경계(1 · 2 · 3 · 4 · 2^k ± 가수 1 ulp · 10^2000대) · 진행률 0 이상 1 미만 · L2 상한(레벨 48) · 환생 뒤 0(#13) · ShopConfig 검사(가격 · 키 · 계단 순증가 · blox 거부 · 행운 표시 = 효과 · 같은 ID — #16) · 대시보드 ID 39 등록 · ID 표 섞임 · 0 거부 · ownedHigher R1 · R2 · rollCreditLuck(#17) · 1번 패드 덮어쓰기 = Config · 2번부터 식 · 사본 · validate 거부 3종(#24 P1) |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Tests/WarpConfigTests.server.lua` | 31 | 워프 비용 곡선(지수·단조)·순수성·거부 사유 3종 |
 | `Tests/AttackConfigTests.server.lua` | 29 | 펀치 속도·판정 반경 파생·경계(이하) |
@@ -122,7 +122,7 @@
 | `Tests/DataConfigTests.server.lua` | 31 | 데이터 환경(#23 E1 ~ E6) — DATA_ENV 커밋 값 beta · live만 · Studio면 언제나 studio · Studio 밖 beta · live · 잘못된 값 · 저장소 이름 3종 · Studio에서 beta · live 거부 · 시작 로그 줄 · beta 개발자 상품 거부 · 허용 목록(ShopConfig 개발자 상품) · 게임패스 판매 |
 | `Tests/ProximityTests.server.lua` | 25 | 근처 확인(#23 N1) — 여유 식 = REACH + 최고 속도 × LAG · 프레임 드랍 근거(기준 fps 한 프레임 · 10fps) · 근처 · 멀리 · 경계 · 루트 없음 · 회전된 파트 · 캐릭터 없음 · 거부 수 · 실제 파트 크기(수령 발판 · 패드 · 얇은 트리거를 최고 속도로 지난 뒤) |
 | `Tests/AnalyticsTests.server.lua` | 55 | 분석 래퍼(#23 A1 ~ A5) — 흐름표 11종 · 엔진 Enum 이름 · 흐름별 호출 1회 · 모아 보내기(합 · 마지막 잔액) · tick · 나갈 때 · 1e15 넘으면 blox_flow_large(log10 · 필드 · 10^2000) · 경계 · inf · NaN · 음수 거부 · 상한(창 · 플레이어별 · 버림 로그) · pcall 실패 무해 · Player 아님 건너뜀 · 도우미 4종 · 퍼널 · 처음 깬 층 중복 없음(firstClear) |
-| **합계** | **4683** | 서버 69행 2942 · 클라 35행 1741 — 2026-11-06 #23 마무리 Play 실측(플래그 전부 끔) |
+| **합계** | **4686** | 서버 69행 2945 · 클라 35행 1741 — 2026-11-09 #24 마무리 Play 실측(플래그 전부 끔) |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
