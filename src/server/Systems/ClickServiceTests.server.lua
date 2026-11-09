@@ -145,9 +145,11 @@ do
 		BigNum.eq(gain, BigNum.mul(pad5Power, BigNum.fromNumber(3)))
 	)
 
+	-- 패드 1은 덮어쓰기가 있으면 그 값(지시서 #24 P1), 없으면 basePower — Config에서 읽는다
+	local pad1Expected = if set.powerOverride ~= nil and set.powerOverride[1] ~= nil then set.powerOverride[1] else set.basePower
 	check(
-		"패드1 클릭 1회 → 힘 basePower 그대로",
-		BigNum.eq(pure.computeGain(ClickPadConfig.getPadPower(WORLD_ID, 1), 1, NO_MULTIPLIER), set.basePower)
+		"패드1 클릭 1회 → 힘 = 패드 1 파워(덮어쓰기 우선)",
+		BigNum.eq(pure.computeGain(ClickPadConfig.getPadPower(WORLD_ID, 1), 1, NO_MULTIPLIER), pad1Expected)
 	)
 	check(
 		"통과 0회면 증가량 0",

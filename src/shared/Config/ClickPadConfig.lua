@@ -42,12 +42,17 @@ function ClickPadConfig.getSet(worldId: number): ClickPadSet
 	return getWorld(worldId).clickPadSet
 end
 
--- 패드 index를 밟는 동안의 클릭 파워 = basePower × powerGrowth^(index-1).
--- 패드 1이 basePower 그대로이므로 지수는 index가 아니라 index-1이다.
+-- 패드 index를 밟는 동안의 클릭 파워. 덮어쓰기(clickPadSet.powerOverride[index])가 있으면 그 값(지시서 #24 P1 —
+-- 월드 1은 1번 패드 = 1), 없으면 basePower × powerGrowth^(index-1). 지수가 index-1인 것은 식의 출발점이 basePower라서다.
+-- ⚠️ 클릭 지급(PadService) · 패드 3D 표시(WorldLabelLogic) · 시뮬레이터가 전부 이 함수 하나를 쓴다 — 따로 계산하지 말 것.
 function ClickPadConfig.getPadPower(worldId: number, index: number): BigNumber
 	local set = ClickPadConfig.getSet(worldId)
 	assertIndex(worldId, set, index)
 
+	local override = if set.powerOverride ~= nil then set.powerOverride[index] else nil
+	if override ~= nil then
+		return BigNum.new(override.m, override.e) -- 사본(Config 표를 호출자가 고치지 못하게)
+	end
 	return BigNum.mul(set.basePower, BigNum.pow(BigNum.fromNumber(set.powerGrowth), index - 1))
 end
 

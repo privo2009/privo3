@@ -17,8 +17,11 @@ export type GrowthSegment = {
 -- WorldConfig는 데이터, 계산은 별도 모듈이라는 StageConfig와 같은 분리다.
 export type ClickPadSet = {
 	count: number, -- 패드 개수
-	basePower: BigNumber, -- 패드 1의 클릭 파워
+	basePower: BigNumber, -- 식의 출발점 — 패드 n 파워 = basePower × powerGrowth^(n − 1) (덮어쓰기가 없을 때)
 	powerGrowth: number, -- 패드 한 칸당 파워 배율
+	-- 패드 번호 → 그 패드의 클릭 파워(식 대신 이 값). 없으면 식 그대로. 계산은 ClickPadConfig.getPadPower가 먼저 본다.
+	-- 값 > 0 · 번호 1 ~ count(validate). 파워가 번호마다 커져야 한다는 규칙은 덮어쓴 값에도 그대로다(ClickPadConfig.validate)
+	powerOverride: { [number]: BigNumber }?,
 	-- 패드 2의 해금 조건 = bloxBase × 이 값. 그 뒤로는 1·3 단위 사다리를 탄다
 	-- (10 → 30 → 100 → 300 → 1K …, 한 칸에 ×3 과 ×10/3 이 번갈아 — 평균 √10 ≈ 3.16배).
 	-- 계산은 ClickPadConfig.getPadUnlock. 그래서 이 값은 1×10^k 또는 3×10^k여야 한다(validate).
@@ -99,10 +102,15 @@ local Worlds: { [number]: WorldDef } = {
 		-- "같은 성공률에 더 빨리 도착"할 뿐이기 때문이다. 목표 성공률(1~8층 95% /
 		-- 9~16층 65~85% / 17~25층 40~55%)에 드는지는 이번에 확인하지 않았다
 		-- (→ docs/PENDING.md "basePower 2는 시간 축 판단이다").
+		--
+		-- ✅ 2026-11-09 사람 결정 P1(지시서 #24): **1번 패드만 1**(사람 직접 플레이 — "처음엔 1씩 오르는 게 맞다").
+		--   2번 패드부터는 basePower 2 식 그대로(2번 4 · 3번 8 …). basePower를 1로 내리면 전 패드가 반이 되어
+		--   25층이 7분 넘게 늦어진다(2026-11-09 조사) — 그래서 덮어쓰기 한 칸이다. 이 결정으로 위 미결은 닫힌다.
 		clickPadSet = {
 			count = 24,
-			basePower = BigNum.new(2, 0), -- 2
+			basePower = BigNum.new(2, 0), -- 2(2번 패드 = 2 × 2 = 4부터 식)
 			powerGrowth = 2.0,
+			powerOverride = { [1] = BigNum.new(1, 0) }, -- P1: 1번 패드 클릭 파워 1
 			unlockStart = 10, -- 패드2 조건 = bloxBase × 10 (= 1층 보상 10판어치), 이후 1·3 사다리
 		},
 	},
@@ -170,6 +178,16 @@ local function validateClickPadSet(worldId: number, world: WorldDef)
 	assert(type(set) == "table", string.format("WorldConfig: 월드 %d의 clickPadSet이 없음", worldId))
 	assert(set.count >= 1, string.format("WorldConfig: 월드 %d의 clickPadSet.count(%s)는 1 이상이어야 함", worldId, tostring(set.count)))
 	assert(BigNum.gt(set.basePower, BigNum.new(0, 0)), string.format("WorldConfig: 월드 %d의 clickPadSet.basePower는 0보다 커야 함", worldId))
+	-- 덮어쓰기(지시서 #24 P1): 번호는 1 ~ count 정수, 값은 0보다 큰 BigNum
+	if set.powerOverride ~= nil then
+		assert(type(set.powerOverride) == "table", string.format("WorldConfig: 월드 %d의 clickPadSet.powerOverride는 표여야 함", worldId))
+		for index, power in pairs(set.powerOverride) do
+			assert(type(index) == "number" and index % 1 == 0 and index >= 1 and index <= set.count,
+				string.format("WorldConfig: 월드 %d의 powerOverride 번호(%s)가 1 ~ %d 밖", worldId, tostring(index), set.count))
+			assert(type(power) == "table" and type(power.m) == "number" and BigNum.gt(power, BigNum.new(0, 0)),
+				string.format("WorldConfig: 월드 %d의 powerOverride[%d]는 0보다 커야 함", worldId, index))
+		end
+	end
 	-- growth가 1 이하면 뒤 패드가 앞 패드보다 약하거나 같아져서 패드를 늘리는 의미가 없다.
 	assert(set.powerGrowth > 1, string.format("WorldConfig: 월드 %d의 clickPadSet.powerGrowth(%.2f)는 1보다 커야 함", worldId, set.powerGrowth))
 	-- 1·3 사다리의 출발점이라 1×10^k 또는 3×10^k(k ≥ 0 정수)여야 한다.

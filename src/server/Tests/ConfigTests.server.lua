@@ -631,6 +631,47 @@ check("ClickPadConfig: 월드1 패드24 파워 = basePower × powerGrowth^23", f
 	return approxEq(ClickPadConfig.getPadPower(1, 24), expected)
 end)
 
+check("ClickPadConfig: 1번 패드 덮어쓰기(지시서 #24 P1) — 1번 = powerOverride[1] · 2번부터 basePower × powerGrowth^(n − 1)", function()
+	-- 기대값은 Config에서 읽는다(결정 값: 1번 1 · 2번 4)
+	local set = ClickPadConfig.getSet(1)
+	local override = set.powerOverride
+	if override == nil or override[1] == nil then
+		return false
+	end
+	if not BigNum.eq(ClickPadConfig.getPadPower(1, 1), override[1]) then
+		return false
+	end
+	for index = 2, set.count do
+		local expected = BigNum.mul(set.basePower, BigNum.pow(BigNum.fromNumber(set.powerGrowth), index - 1))
+		if override[index] == nil and not approxEq(ClickPadConfig.getPadPower(1, index), expected) then
+			return false
+		end
+	end
+	return BigNum.lt(ClickPadConfig.getPadPower(1, 1), ClickPadConfig.getPadPower(1, 2))
+end)
+
+check("ClickPadConfig: 덮어쓴 값은 사본이다(돌려받은 값을 고쳐도 Config 그대로)", function()
+	local set = ClickPadConfig.getSet(1)
+	local before = BigNum.new(set.powerOverride[1].m, set.powerOverride[1].e)
+	local got = ClickPadConfig.getPadPower(1, 1)
+	got.m = 9
+	return BigNum.eq(set.powerOverride[1], before) and BigNum.eq(ClickPadConfig.getPadPower(1, 1), before)
+end)
+
+check("ClickPadConfig: 덮어쓰기 validate — 0 이하 · 번호 범위 밖 · 2번 이상(순증가 깨짐)은 거부", function()
+	-- 동기 구간에서 잠깐 바꾸고 바로 되돌린다(yield 없음 — PetConfig 검사와 같은 방식)
+	local set = ClickPadConfig.getSet(1)
+	local saved = set.powerOverride
+	set.powerOverride = { [1] = BigNum.new(0, 0) }
+	local okZero = pcall(WorldConfig.validate)
+	set.powerOverride = { [set.count + 1] = BigNum.new(1, 0) }
+	local okRange = pcall(WorldConfig.validate)
+	set.powerOverride = { [1] = ClickPadConfig.getPadPower(1, 2) } -- 1번 = 2번 → 순증가 아님
+	local okMono = pcall(ClickPadConfig.validate)
+	set.powerOverride = saved
+	return not okZero and not okRange and not okMono and WorldConfig.validate() and ClickPadConfig.validate()
+end)
+
 check("ClickPadConfig: 월드1 패드2~5 해금 조건 = bloxBase × 10 · 30 · 100 · 300 (1·3 사다리)", function()
 	local base = (WorldConfig.get(1) :: any).bloxBase
 	local expected = { [2] = 10, [3] = 30, [4] = 100, [5] = 300 }
