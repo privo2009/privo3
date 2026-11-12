@@ -256,10 +256,13 @@ function ButtonFx.attach(hit: GuiButton, options: Options?): Handle?
 	table.insert(connections, hit.MouseLeave:Connect(function()
 		fire("leave", false, false)
 	end))
+	-- 누른 순간에 켜져 있었나(효과음) — 창이 Activated에서 먼저 버튼을 잠그는 경우가 있어(결과 대기) Activated 때 다시 보면 늦다
+	local pressEnabled = false
 	table.insert(connections, hit.InputBegan:Connect(function(input: InputObject)
 		local kind = input.UserInputType
 		if kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch then
 			touchPress = kind == Enum.UserInputType.Touch
+			pressEnabled = not isDisabled()
 			fire("down", touchPress, true)
 		end
 	end))
@@ -294,11 +297,13 @@ function ButtonFx.attach(hit: GuiButton, options: Options?): Handle?
 		handles[hit] = nil
 		resets[hit] = nil
 	end
-	-- 효과음(지시서 #25 S2) — 비활성 버튼은 소리도 없다
+	-- 효과음(지시서 #25 S2) — 비활성 버튼은 소리도 없다. 누른 순간 켜져 있었으면 낸다(2026-11-12 단계 5 실측: 롤 · 설정 토글은
+	-- 창의 Activated가 먼저 돌아 버튼을 잠가 소리가 빠졌다 — 연결 순서는 보장되지 않는다). 키보드 · 패드처럼 누름이 없으면 지금 상태로
 	table.insert(connections, hit.Activated:Connect(function()
-		if not isDisabled() then
+		if pressEnabled or not isDisabled() then
 			Sfx.play("button")
 		end
+		pressEnabled = false
 	end))
 	resets[hit] = function()
 		if tween ~= nil then

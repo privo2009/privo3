@@ -104,6 +104,42 @@ do
 	h.root:Destroy()
 end
 
+-- 1b. 폰 틀 705×338 — 설정 창 넷째 줄까지 넘침 0 · 11px(그 Play의 언어 — 지시서 #25 단계 5: en Play · TEST_LOCALE "ko" Play) ---------
+do
+	local Players = game:GetService("Players")
+	local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
+	local TextMinimum = require(script.Parent.Parent.UI.TextMinimum)
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "SettingsPhoneFit"
+	gui.ResetOnSpawn = false
+	gui.AutoLocalize = false -- K10
+	local phone = Instance.new("Frame")
+	phone.Size = UDim2.fromOffset(705, 338) -- 테스트 틀만 Offset
+	phone.BackgroundTransparency = 1
+	phone.Parent = gui
+	TextMinimum.attach(gui)
+	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local store = Store.new()
+	local h = SettingsWindow.create({ store = store, sendRequest = function() end, onClose = function() end })
+	h.root.Parent = phone
+	h.onResult({ ok = false, reason = "not_allowed", key = "reduceMotion", value = false }) -- 상태 줄에 가장 긴 사유 문구
+	task.wait()
+	task.wait()
+	local minH, bad = math.huge, {}
+	for _, obj in ipairs(h.root:GetDescendants()) do
+		if obj:IsA("TextLabel") and obj.Text ~= "" and obj.Visible then
+			minH = math.min(minH, obj.AbsoluteSize.Y)
+			if not obj.TextFits or obj.AbsoluteSize.Y < TextScale.MIN_TEXT_PX - 0.5 then
+				table.insert(bad, obj.Name .. "(" .. obj.Text .. ")")
+			end
+		end
+	end
+	check(string.format("폰: 설정 창(줄 넷 · 코드 · 상태) 넘침 0 · 최소 %.1fpx ≥ 11", minH), #bad == 0 and minH >= TextScale.MIN_TEXT_PX - 0.5,
+		table.concat(bad, ", "))
+	print(string.format("[SettingsWindowTests] 폰 705×338(%s): 최소 %.1fpx · 넘침 %d", Locale.current(), minH, #bad))
+	gui:Destroy()
+end
+
 -- 2. 파티클 방출량 ------------------------------------------------------------------------------------
 do
 	local P = AuraConfig.Packs[1].auras

@@ -250,7 +250,8 @@ do
 	FxPrefs.set(true, true)
 	check("연출 줄이기를 켠 순간 돌던 것도 끝값", got == 1 and not Fx.isPlaying(key, "e"))
 	FxPrefs.set(false, true)
-	-- 스크린샷 멈춤
+	-- 스크린샷 멈춤(돌던 값은 되돌린다 — 스크린샷 Play에서 켜 둔 값을 지우지 않게)
+	local savedFreeze = UIFxConfig.DEBUG_FREEZE_PROGRESS
 	UIFxConfig.DEBUG_FREEZE_PROGRESS = 0.5
 	Fx.play(key, "f", FxLogic.progressSpec(0.2), function(v)
 		got = v
@@ -261,6 +262,7 @@ do
 	local still = Fx.isPlaying(key, "f")
 	UIFxConfig.DEBUG_FREEZE_PROGRESS = nil
 	Fx._debug.step()
+	UIFxConfig.DEBUG_FREEZE_PROGRESS = savedFreeze
 	check("멈춤값: 시간이 지나도 그 진행률(0.5)에 머문다 · 끄면 끝난다", near(frozen, 0.5) and still and got == 1 and not Fx.isPlaying(key, "f"))
 	key:Destroy()
 end
