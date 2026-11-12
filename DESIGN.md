@@ -2313,7 +2313,9 @@ lastClaimDay == 오늘 − 1 이고 streak < 7  → 받을 칸 = streak + 1   (�
 
 ```lua
 {
-  schemaVersion = 8,     -- 실 코드 Schema.VERSION 과 일치시킬 것
+  schemaVersion = 9,     -- 실 코드 Schema.VERSION 과 일치시킬 것
+                         --   v9(2026-11-12 지시서 #25 V9): cosmetics.reduceMotion(false) · cosmetics.sfxEnabled(true) 추가 —
+                         --   Migrations[8], 멱등. 이미 있는 boolean 값은 그대로 둔다(설정 창 "연출 줄이기" · "효과음")
                          --   v8(2026-11-01 지시서 #20 R2): daily를 {streak, lastClaimDay}로(freePotionDay 삭제) · redeemedCodes ·
                          --   onboarding 추가 — Migrations[7], 멱등. 이미 플레이한 프로필(maxStage ≥ 1 또는 rebirths > 0)은 onboarding.done = true
                          --   v7(2026-10-25 지시서 #16): purchases · potions · rollCredits · gymUnlocks 추가 ·
@@ -2352,6 +2354,8 @@ lastClaimDay == 오늘 − 1 이고 streak < 7  → 받을 칸 = streak + 1   (�
     ownedTitles = {},
     hideOtherAuras = false,
     hideOtherPets = false,
+    reduceMotion = false,   -- 설정 "연출 줄이기" — 켜면 화면 연출 · 버튼 반응 · 빛 띠가 움직이지 않는다(v9, docs/UI.md "UI 효과")
+    sfxEnabled = true,      -- 설정 "효과음" — 끄면 효과음을 하나도 재생하지 않는다(v9, docs/UI.md "효과음")
   },
 
   pets = {

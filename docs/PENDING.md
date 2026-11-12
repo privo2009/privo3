@@ -631,6 +631,16 @@ Phase 9                    실제 코드 목록 · 알릴 곳 · 첫 접속 분�
 범위 밖                  클릭 소리(지시서 제외) · 운동기구 ProximityPrompt(로블록스가 그리는 UI) · 차단층 막(Dim — 누르면 아무 일도 없는 막이라 버튼이 아니다)
 ```
 
+**#25 U8 폴리시 — 화면 연출 6종 · 연출 줄이기 · 효과음 자리(2026-11-12 사람 결정 — 진행 중)** — 규칙 원본 `docs/UI.md` "UI 효과" ·
+"효과음" · 수치 `Shared/Config/UIFxConfig` · 소리 `Shared/Config/SoundConfig`
+```
+범위                     U1 창 열기 · 닫기 · U2 결과 모달 · U3 블럭스 올라가기 · U4 레벨업 · U5 환생 · U6 크래프팅 · U7 연출 줄이기 ·
+                         S1 ~ S3 효과음 구조(키 12개 · Sfx.play · 효과음 토글) · V9 스키마(cosmetics.reduceMotion · sfxEnabled)
+바꾸지 않는 것            게임 수치 · 게임 동작(수령 · 진행 · 창 단일 오픈 · 차단층 순서) — 연출은 보이는 모양만
+사람 할 일 (S4)           소리 12개 ID 고르기 — Creator Store 무료 소리 → SoundConfig[키].id. 순서 · 권한 주의는 docs/TUNING.md "소리 넣는 법"
+                         (그전까지 소리는 하나도 나지 않는다 — id nil이면 재생하지 않는다)
+```
+
 ### 다국어 — #L1(클라우드) · #L2(집 PC 검증) (2026-10-25 사람 결정)
 
 언어 결정 원본 `DESIGN.md` "12. 언어" · 구조와 절차 `docs/LOCALIZATION.md`.

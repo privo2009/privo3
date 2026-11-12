@@ -75,7 +75,7 @@ Team Create의 스크립트가 전부 삭제된다.
 | U5 | 상점 | 업그레이드, 로벅스, 힘 배수 계단 | | 업그레이드 1차 4종 완료 (2026-10-22 — 아래 "지시서 #7 · 상점 창"). 로벅스 탭 · 힘 배수 계단 · 창별 상품 버튼 완료 (Phase 8 — #16 · #17) |
 | U6 | 뽑기 | 아우라·타이틀·펫 + 연출 | | 타이틀 창 · 토스트 · 머리 위 칭호 (지시서 #10). 아우라 창 · 차단층 큐 · 설정 창 (#11). 펫 창 · 펫 추적 · 설정 둘째 항목 · 상점 8줄 (#12) |
 | U7 | 나머지 | 인벤토리, 환생, 설정, 월드·워프, 자동 진행, 일일 보상 · 코드 입력 · 첫 접속 안내 | | 환생 창 · 월드·워프 창 완료 (2026-10-22). 환생 창 상점 안내 보완 (지시서 #7). 설정 (#11) · 펫 인벤토리 (#12) · 포션 보관함 = 상점 로벅스 탭 "포션" 묶음 (#17) · 자동 진행 설정 (#18) 완료. 일일 보상 · 코드 입력 · 첫 접속 안내 — 지시서 #20 (2026-11-01 진행) |
-| U8 | 폴리시 | 트랜지션, 사운드, 게임 아이콘·썸네일 | | |
+| U8 | 폴리시 | 트랜지션, 사운드, 게임 아이콘·썸네일 | | 진행 중 — 화면 연출 U1 ~ U7 · 효과음 구조 S1 ~ S3 (지시서 #25, 2026-11-12). 소리 ID는 사람 · 아이콘 · 썸네일은 Phase 9 |
 
 U3까지가 코어 루프. 여기까지면 플레이 테스트가 가능하다.
 U5 이후는 전부 메뉴라 없어도 게임이 돌아간다.
@@ -1318,4 +1318,66 @@ API         Shine.attach(guiObject, { preset = "default" | "premium", priority =
             blox2x(상점 줄 · HUD 구좌). 살 것이 있을 때만(보유 · 최고 단계면 뗀다). 지금 대상은 전부 로벅스(초록) 역할이라 default다 —
             프리미엄(남색 + 금테) 역할 칸에 붙일 때 premium
 스크린샷    UIFxConfig.DEBUG_FREEZE_OFFSET(커밋 nil) — 숫자를 넣으면 도는 띠가 그 Offset에 멈춘다(MCP 캡처는 게임 시계와 맞출 수 없다)
+```
+
+### 화면 연출 U1 ~ U6 · 연출 줄이기 U7 (지시서 #25, 2026-11-12 사람 결정)
+
+수치는 전부 `UIFxConfig`(시작값 — 사람이 직접 플레이하며 조정한다. 이름만 적는다). 게임 수치 · 게임 동작은 바꾸지 않는다 —
+창이 "열렸나"(ScreenController.isOpen)와 차단층 큐 순서는 연출과 무관하게 지금 그대로 바로 바뀐다. 연출은 보이는 모양만 따라간다.
+코드: 공용 구동기 `UI/Components/Fx`(Heartbeat 하나 — 연출마다 루프 · 트윈 객체를 만들지 않는다) · 순수 계산 `UI/Logic/FxLogic` ·
+설정 값 `UI/FxPrefs`(연출 줄이기 · 효과음 — 서버 PlayerState "settings"가 원본). 테스트 `FxTests`.
+```
+U1 창 열기 · 닫기   Window 층 창 전부(작은 창 · 큰 창). 창 루트(Panel root — 가운데 기준)에 UIScale "WindowFxScale"
+                   열기  WINDOW_OPEN_SCALE_FROM → 1, WINDOW_OPEN_TIME(Back Out). 배경 막(Blur)은 BackgroundTransparency 1 → 원래 값
+                         WINDOW_DIM_TIME 페이드 인
+                   닫기  1 → WINDOW_CLOSE_SCALE_TO + 막 페이드 아웃, WINDOW_CLOSE_TIME(Quad In). 끝나면 지금처럼 Visible = false
+                   단일 오픈은 그대로 — 닫히는 연출 중에 다른 창을 열면 닫히던 창은 즉시 닫는다(겹쳐 보이지 않게)
+                   isOpen · onWindowChanged는 close를 부른 순간 바뀐다(연출이 끝나기를 기다리지 않는다)
+U2 결과 모달       차단층 큐의 판(뽑기 결과 · 일일 보상). 판에 UIScale "FxScale"
+                   보통  MODAL_SCALE_FROM → 1, MODAL_TIME(Back Out)
+                   영웅 이상(표시 단계 UiTheme.Rarity tier4 이상 = 아우라 · 펫 epic · 칭호 champion부터 — MODAL_RARE_MIN_TIER)
+                         MODAL_RARE_SCALE_FROM → MODAL_RARE_PEAK → 1 + 판에 빛 띠 한 번(Shine 1회 모드 — 상한 3개 안 · 반복 없음)
+U3 블럭스 올라가기  HUD 블럭스 숫자만. 늘면 COUNT_UP_TIME 동안 이전 값 → 새 값(Quad Out). 줄면 즉시
+                   BigNum 그대로 — 보간은 log10 공간(지수 + log10 가수, 10^2000에서도 정밀도 문제 없음). 표시는 Formatter 그대로.
+                   진행 중에 또 늘면 지금 표시값에서 새 목표로 다시. 0에서 늘면 1(log 0)부터 · 끝값은 목표 BigNum 그대로
+U4 레벨업           힘 블록의 레벨 숫자 1 → LEVEL_POP_PEAK → 1, LEVEL_POP_TIME. LEVEL_POP_MIN_INTERVAL에 한 번까지
+U5 환생             화면 전체 흰 막 투명도 REBIRTH_FLASH_FROM → 1, REBIRTH_FLASH_TIME 한 번 + HUD 환생 배수 숫자
+                   1 → REBIRTH_POP_PEAK → 1, REBIRTH_POP_TIME. 기존 환생 안내(알림층)는 그대로
+U6 크래프팅         펫 창. 재료 3칸 자리에 대역(미리 만든 4장 — 풀)이 결과 칸 쪽으로 CRAFT_GATHER_TIME 동안 줄어들며 모이고,
+                   결과 칸 자리 대역이 CRAFT_POP_FROM → 1로 튄다(그동안 진짜 결과 칸은 숨김). 서버 결과가 오고 · 결과 펫이 격자에
+                   들어온 뒤에 재생(#12 결과 · PlayerState 순서 — 어느 쪽이 먼저 와도). CRAFT_WAIT_SEC 안에 안 들어오면 버린다
+U7 연출 줄이기      설정 창 토글(reduceMotion — 기본 꺼짐 · 저장 v9). 켜면 U1 ~ U6이 즉시 끝 상태 · 버튼 반응은 크기를 바꾸지 않고(1 그대로)
+                   빛 띠는 멈춰 숨긴다. 켜고 끌 때 이미 붙은 버튼 · 빛 띠도 바로 따른다
+가운데 기준        UIScale은 AnchorPoint를 기준으로 커진다 — 가운데(0.5, 0.5)가 아닌 것(레벨 숫자 · 환생 배수 숫자)은 튀는 동안만
+                   AnchorPoint (0.5, 0.5) + 같은 자리를 가리키는 Position(Scale)으로 바꿨다가 끝나면 원래 값으로
+UIScale 충돌        ButtonFx는 버튼 그림(HitArea의 부모)에 "ButtonFxScale"을 단다. 연출은 그와 다른 인스턴스에만 단다 —
+                   창 루트(Panel root) · 모달 판 · HUD 숫자 칸 · 크래프팅 대역은 HitArea의 부모가 아니다(펫 격자 칸은 HitArea의
+                   부모라서 칸 자체를 키우지 않고 대역을 쓴다). 한 인스턴스에 UIScale을 둘 달지 않는다(FxTests가 잰다)
+스크린샷           UIFxConfig.DEBUG_FREEZE_PROGRESS(커밋 nil) — 0 ~ 1을 넣으면 모든 연출이 그 진행률에 멈춘다(#21 DEBUG_FREEZE_OFFSET과 같은 이유)
+```
+
+### 효과음 S1 ~ S3 (지시서 #25, 2026-11-12 사람 결정)
+
+소리 ID는 사람이 Creator Store에서 고른다(`docs/TUNING.md` "소리 넣는 법"). 코드는 재생 구조와 자리만 만든다.
+```
+S1 SoundConfig     Shared/Config/SoundConfig — 키 12개, 각 { id = nil(에셋 번호), volume }. id가 nil이면 재생하지 않는다
+                   (오류 · 경고 없음 — 시작 때 "비어 있는 소리 N개" 한 줄)
+                   rollRare = 레어 · 영웅, rollLegend = 전설 · 신화 · 리미티드(칭호 · 아우라 · 펫 같은 규칙 — 표시 단계 tier1 ~ 2 common ·
+                   3 ~ 4 rare · 5 ~ 6 legend)
+S2 Sfx.play(key)   클라 모듈 하나(Audio/Sfx). Sound는 키마다 풀(SoundConfig.POOL_PER_KEY장 — 처음 재생할 때 한 번 만든다).
+                   서버는 소리용 채널을 만들지 않는다 — 클라가 이미 받는 결과 · 상태 변화에서 재생한다.
+                   같은 키는 UIFxConfig.SFX_MIN_INTERVAL 안에 한 번만
+S3 효과음 토글      설정 창(sfxEnabled — 기본 켜짐 · 저장 v9). 끄면 하나도 재생하지 않는다
+재생 지점          button 버튼 누름(ButtonFx가 붙은 HitArea의 Activated — 비활성 제외) · click 클릭 +숫자 팝업이 뜰 때 ·
+                   cashout · advance · fail 런 상태(RunStateChanged reason cashout · advance · timeout) ·
+                   rollCommon / rollRare / rollLegend 칭호 · 아우라 · 펫 뽑기 결과(희귀도 단계로 고른다) ·
+                   levelUp 레벨 숫자가 오를 때(U4와 같은 자리) · rebirth 환생 성공 결과 · purchase 로벅스 구매 완료 결과 ·
+                   dailyClaim 일일 보상 받기 성공 결과
+```
+
+### U8 상태 (2026-11-12)
+```
+화면 연출 U1 ~ U7 · 효과음 구조 S1 ~ S3   지시서 #25
+소리 ID 12개                              사람(Creator Store — docs/PENDING.md "사람 할 일")
+게임 아이콘 · 썸네일                        Phase 9 출시 체크리스트(ROADMAP)
 ```
