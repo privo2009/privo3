@@ -5,6 +5,8 @@
 -- 화면 전체를 덮는 반투명 막(입력을 막는다 — 차단층) + 가운데 판: 머리말(대) · 이름(특대, 희귀도 색) · 등급 · 배수(소) · "확인"(회색).
 -- 런 중(클리어 대기 포함)에는 띄우지 않는다 — OverlayBoot가 토스트로 보낸다(폰에서 썸스틱 · 이동을 막는다, A6).
 -- 배치값은 Claude가 정했다(docs/UI.md "지시서 #11" 절).
+-- 등장 연출(지시서 #25 U2): show마다 판이 MODAL_SCALE_FROM → 1로 튄다. 영웅 이상(UIFxConfig.MODAL_RARE_MIN_TIER)은 더 크게 + 빛 띠 1회(Fx.modalIn).
+-- 큐는 지금 보이는 것이 바뀔 때만 show를 부른다(OverlayBoot renderQueue) — 같은 결과로 두 번 튀지 않는다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
@@ -12,6 +14,7 @@ local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local OverlayParts = require(script.Parent.OverlayParts)
+local Fx = require(script.Parent.Parent.Parent.Components.Fx)
 
 local ResultModal = {}
 
@@ -98,9 +101,11 @@ function ResultModal.create(): Handle
 		detail.Text = v.detail
 		dim.Visible = true
 		panel.Visible = true
+		Fx.modalIn(panel, v.rarityTier)
 	end
 
 	local function hide()
+		Fx.modalOut(panel)
 		dim.Visible = false
 		panel.Visible = false
 	end

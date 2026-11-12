@@ -194,6 +194,7 @@ do
 	local w = DailyRewardWindow.create({ store = store, sendClaim = function() end })
 	w.root.Parent = phone
 	w.show()
+	require(script.Parent.Parent.UI.Components.Fx).finishAll() -- 등장 연출(지시서 #25 U2)을 끝 상태로 보내고 잰다
 	w.onResult({ ok = false, reason = "storage_full", day = 0 }) -- 가장 긴 사유 문구
 	task.wait()
 	task.wait()

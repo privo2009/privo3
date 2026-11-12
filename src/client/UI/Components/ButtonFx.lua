@@ -15,6 +15,8 @@
 -- 잘림: ClipsDescendants · ScrollingFrame 조상 안이면 커지는 쪽을 그 사각형 안에 들게 줄인다(ButtonFxLogic.fitScale) — 배치는 그대로.
 -- 비활성(반응 안 함): hit.Active == false · 옵션 isDisabled() · 공용 Button의 비활성 표현(Gray 보임 · Color 숨김).
 -- 파괴되면(hit 또는 그림) 연결 · 트윈을 정리한다.
+-- 연출 줄이기(FxPrefs.reduceMotion — 지시서 #25 U7): 크기를 바꾸지 않는다(1 그대로). 켜는 순간 커져 있던 버튼도 바로 1로 돌아간다.
+-- 효과음(지시서 #25 S2): HitArea의 Activated에서 Sfx "button"(비활성이면 안 낸다).
 
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -22,6 +24,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local UIFxConfig = require(ReplicatedStorage.Shared.Config.UIFxConfig)
 local ButtonFxLogic = require(script.Parent.Parent.Logic.ButtonFxLogic)
+local FxPrefs = require(script.Parent.Parent.FxPrefs)
+local Sfx = require(script.Parent.Parent.Parent.Audio.Sfx)
 
 local ButtonFx = {}
 
@@ -49,6 +53,7 @@ export type Handle = {
 ButtonFx.skipped = {} :: { { name: string, reason: string } }
 
 local handles: { [Instance]: Handle } = {}
+local resets: { [Instance]: () -> () } = {} -- 연출 줄이기를 켠 순간 1로 되돌리기
 
 local function layoutKindOf(parent: Instance?): string?
 	if parent == nil then
@@ -205,7 +210,7 @@ function ButtonFx.attach(hit: GuiButton, options: Options?): Handle?
 			cap = ButtonFxLogic.fitScale({ cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2 }, clip)
 			clipped = cap < UIFxConfig.HOVER_SCALE
 		end
-		local goal = ButtonFxLogic.cappedScale(newState, cap)
+		local goal = if FxPrefs.reduceMotion() then 1 else ButtonFxLogic.cappedScale(newState, cap)
 		if not wrapped and layoutKindOf(t.Parent) == "list" then
 			-- UIListLayout 자식은 커지면 목록이 다시 배치돼 이웃이 밀린다(실측) — 크기를 바꾸지 않는다
 			goal = 1
@@ -221,6 +226,12 @@ function ButtonFx.attach(hit: GuiButton, options: Options?): Handle?
 		end
 		if tween ~= nil then
 			(tween :: Tween):Cancel()
+			tween = nil
+		end
+		if FxPrefs.reduceMotion() then -- 움직이지 않는다(트윈 없음)
+			scale.Scale = 1
+			restoreShift()
+			return
 		end
 		local tw = TweenService:Create(scale, TweenInfo.new(spec.time, spec.style, spec.direction), { Scale = goal })
 		tween = tw
@@ -281,6 +292,22 @@ function ButtonFx.attach(hit: GuiButton, options: Options?): Handle?
 			tween = nil
 		end
 		handles[hit] = nil
+		resets[hit] = nil
+	end
+	-- 효과음(지시서 #25 S2) — 비활성 버튼은 소리도 없다
+	table.insert(connections, hit.Activated:Connect(function()
+		if not isDisabled() then
+			Sfx.play("button")
+		end
+	end))
+	resets[hit] = function()
+		if tween ~= nil then
+			(tween :: Tween):Cancel()
+			tween = nil
+		end
+		lastGoal = 1
+		scale.Scale = 1
+		restoreShift()
 	end
 	table.insert(connections, hit.Destroying:Connect(destroy))
 	table.insert(connections, t.Destroying:Connect(destroy))
@@ -320,5 +347,14 @@ function ButtonFx.attach(hit: GuiButton, options: Options?): Handle?
 	handles[hit] = handle
 	return handle
 end
+
+-- 연출 줄이기를 켜면 붙은 버튼 전부 바로 1(상태 · 연결은 그대로 — 끄면 다음 입력부터 다시 반응한다)
+FxPrefs.onChanged(function(reduceMotion: boolean)
+	if reduceMotion then
+		for _, reset in pairs(resets) do
+			reset()
+		end
+	end
+end)
 
 return ButtonFx

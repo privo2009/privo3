@@ -25,6 +25,10 @@
 -- 검증이 전부 (0,0)으로 걸린다(docs/PENDING.md "함정", U3-4C에서 MenuRailTests가
 -- 실제로 이렇게 죽었다).
 --
+-- 연출(지시서 #25): 레벨이 오르면 레벨 숫자(CurrentLabel)가 1 → LEVEL_POP_PEAK → 1(U4 — LEVEL_POP_MIN_INTERVAL에 한 번까지,
+-- 같은 자리에서 효과음 levelUp). 환생 수가 늘면 환생 배수 숫자가 1 → REBIRTH_POP_PEAK → 1(U5). 첫 PlayerState(더미 → 서버 값)는
+-- 연출하지 않는다 — live()가 참일 때만(BloxDisplay와 같은 규칙).
+--
 -- ⚠️ 이 세션은 Studio Play를 돌릴 수 없다(RC 환경) — 코드·테스트만 쌓고 실측 검증은
 -- 다음 세션으로 미룬다(docs/PENDING.md "미결" 참고).
 
@@ -41,6 +45,11 @@ local Layout = require(script.Parent.Parent.Parent.Layout)
 local ValuePanel = require(script.Parent.Parent.Parent.Components.ValuePanel)
 local Store = require(script.Parent.Parent.Parent.Store)
 local FeedbackLogic = require(script.Parent.Parent.Parent.Logic.FeedbackLogic)
+local UIFxConfig = require(ReplicatedStorage.Shared.Config.UIFxConfig)
+local Fx = require(script.Parent.Parent.Parent.Components.Fx)
+local FxLogic = require(script.Parent.Parent.Parent.Logic.FxLogic)
+local Sfx = require(script.Parent.Parent.Parent.Parent.Audio.Sfx)
+local PlayerStateClient = require(script.Parent.Parent.Parent.Parent.Net.PlayerStateClient)
 
 type BigNumber = BigNum.BigNumber
 
@@ -121,8 +130,13 @@ export type PowerBlockHandle = {
 		applySpeed: (number, number) -> (),
 		applyMultiplier: (BigNumber) -> (),
 		multiplierLabel: TextLabel,
+		levelLabel: TextLabel,
+		pops: () -> { level: number, rebirth: number }, -- 연출을 건 횟수(지시서 #25)
 	},
 }
+
+-- live · now: BloxDisplay.Options와 같은 뜻(생략하면 싱글톤은 PlayerStateClient.hasReceived, 테스트 Store는 연출 안 함)
+export type Options = { live: (() -> boolean)?, now: (() -> number)? }
 
 -- 진행률 = 그 레벨 안에서의 위치 (힘 − 2^L) ÷ 2^L (L1 — LevelConfig.getLevelProgress가 원본, 0 이상 1 미만).
 -- math.clamp로 한 번 더 방어한다(경계에서 소실되거나 예측 불가능한 값을 절대 화면에 보내지 않기 위해).
@@ -131,8 +145,16 @@ local function computeProgress(power: BigNumber): number
 end
 
 -- store: 구독할 Store 인스턴스. 생략하면 싱글톤(BloxDisplay.create와 같은 이유).
-function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
+function PowerBlock.create(store: Store.StoreInstance?, options: Options?): PowerBlockHandle
 	local source: Store.StoreInstance = store or (Store :: any)
+	local live: () -> boolean = (options and options.live) or (if store == nil then PlayerStateClient.hasReceived else function()
+		return false
+	end)
+	local now: () -> number = (options and options.now) or os.clock
+	local shownLevel: number? = nil
+	local lastLevelPopAt: number? = nil
+	local shownRebirths: BigNumber? = nil
+	local levelPops, rebirthPops = 0, 0
 	local root = Instance.new("Frame")
 	root.Name = "PowerBlock"
 	root.AnchorPoint = Vector2.new(0.5, 1)
@@ -361,10 +383,27 @@ function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
 		currentLabel.Text = tostring(level)
 		nextLabel.Text = tostring(level + 1)
 		barFill.Size = UDim2.fromScale(progress, 1)
+
+		-- U4: 레벨이 올랐고 · 게임 중 변화이고 · 간격이 지났으면 튀기 + 효과음
+		local before = shownLevel
+		shownLevel = level
+		if before ~= nil and level > before and live() and FxLogic.throttle(lastLevelPopAt, now(), UIFxConfig.LEVEL_POP_MIN_INTERVAL) then
+			lastLevelPopAt = now()
+			levelPops += 1
+			Fx.pop(currentLabel, UIFxConfig.LEVEL_POP_PEAK, UIFxConfig.LEVEL_POP_TIME)
+			Sfx.play("levelUp")
+		end
 	end
 
 	local function applyMultiplier(rebirths: BigNumber)
 		multValue.setValue(FeedbackLogic.multiplierOf(rebirths))
+		-- U5: 환생 수가 늘었으면(게임 중 변화) 배수 숫자 튀기. 흰 막 번쩍임 · 효과음은 환생 결과에서(OverlayBoot)
+		local before = shownRebirths
+		shownRebirths = { m = rebirths.m, e = rebirths.e }
+		if before ~= nil and BigNum.gt(rebirths, before) and live() then
+			rebirthPops += 1
+			Fx.pop(multValue.label, UIFxConfig.REBIRTH_POP_PEAK, UIFxConfig.REBIRTH_POP_TIME)
+		end
 	end
 
 	local function applySpeed(speed: number, maxSpeed: number)
@@ -399,6 +438,10 @@ function PowerBlock.create(store: Store.StoreInstance?): PowerBlockHandle
 			applySpeed = applySpeed,
 			applyMultiplier = applyMultiplier,
 			multiplierLabel = multValue.label,
+			levelLabel = currentLabel,
+			pops = function()
+				return { level = levelPops, rebirth = rebirthPops }
+			end,
 		},
 	}
 end

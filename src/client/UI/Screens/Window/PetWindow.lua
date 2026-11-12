@@ -15,6 +15,11 @@
 --   알 탭 오른쪽 "로벅스" 탭 — 누르면 아래 칸(보유 격자 · 장착 · 고른 펫) 자리에 상품 목록(3배 부화 · 2배 펫 행운 · +100 저장 · +3 장착 —
 --   Components/RobuxList). 다시 누르거나 알 탭을 누르면 돌아온다.
 --   부화 버튼 오른쪽 "×3 부화" — 3배 부화 게임패스가 있으면 켜진다(없으면 잠김 · 로벅스 탭에서 산다). 비용 3배(S18)
+--
+-- 크래프팅 연출(지시서 #25 U6): 누를 때 재료 칸(고른 펫 + 같은 종 · 같은 단계, CRAFT_REQUIREMENT개) 자리를 받아 두고, 서버 결과(PetResult)가
+--   오고 · 결과 펫이 격자에 들어오면(PlayerState — 어느 쪽이 먼저 와도, FxLogic.newCraftSeq) 대역 칸(미리 만든 4장 — 풀)이 결과 칸 쪽으로
+--   CRAFT_GATHER_TIME 동안 줄어들며 모이고 결과 칸 자리 대역이 CRAFT_POP_FROM → 1로 튄다. 그동안 진짜 결과 칸은 숨긴다.
+--   격자 칸 자체는 키우지 않는다 — 칸은 HitArea의 부모라 버튼 반응(ButtonFxScale)이 이미 UIScale을 달고 있다(한 인스턴스에 UIScale 하나).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -28,6 +33,9 @@ local PetWindowLogic = require(script.Parent.Parent.Parent.Logic.PetWindowLogic)
 local TitleWindowLogic = require(script.Parent.Parent.Parent.Logic.TitleWindowLogic)
 local ConfirmFlow = require(script.Parent.Parent.Parent.Logic.ConfirmFlow)
 local RobuxShopLogic = require(script.Parent.Parent.Parent.Logic.RobuxShopLogic)
+local UIFxConfig = require(ReplicatedStorage.Shared.Config.UIFxConfig)
+local Fx = require(script.Parent.Parent.Parent.Components.Fx)
+local FxLogic = require(script.Parent.Parent.Parent.Logic.FxLogic)
 local RobuxList = require(script.Parent.Parent.Parent.Components.RobuxList)
 local PurchaseClient = require(script.Parent.Parent.Parent.Parent.Net.PurchaseClient)
 
@@ -115,6 +123,11 @@ export type Handle = {
 		releaseButton: Button.ButtonHandle,
 		releaseLabel: TextLabel,
 		status: TextLabel,
+		craftSeq: FxLogic.CraftSeq,
+		ghosts: { Frame },
+		hiddenUid: () -> string?,
+		craftPlays: () -> number,
+		pollCraft: () -> (),
 	},
 }
 
@@ -261,6 +274,68 @@ function PetWindow.create(deps: Deps): Handle
 	local closeHit = WindowParts.hitArea(panel.closeButton.root)
 	WindowParts.raiseButtons(raise)
 
+	-- 크래프팅 연출 층(U6): 본문 전체를 덮는 투명 틀 + 대역 4장(재료 최대 3 + 결과 1). 입력을 받지 않는다
+	local fxLayer = Instance.new("Frame")
+	fxLayer.Name = "FxLayer"
+	fxLayer.Size = UDim2.fromScale(1, 1)
+	fxLayer.BackgroundTransparency = 1
+	fxLayer.BorderSizePixel = 0
+	fxLayer.Active = false
+	fxLayer.ZIndex = 40
+	fxLayer.Parent = body
+	local ghosts: { Frame } = {}
+	local ghostNames: { TextLabel } = {}
+	local ghostStrokes: { UIStroke } = {}
+	for i = 1, 4 do
+		local g = Instance.new("Frame")
+		g.Name = "Ghost" .. i
+		g.AnchorPoint = Vector2.new(0.5, 0.5)
+		g.BackgroundColor3 = UiTheme.Colors.neutral.dark
+		g.BorderSizePixel = 0
+		g.Active = false
+		g.ZIndex = 41
+		g.Visible = false
+		g.Parent = fxLayer
+		local st = Instance.new("UIStroke")
+		st.Thickness = 2
+		st.Parent = g
+		local nm = WindowParts.makeText("Name", g, "small", 0.04, 0.05, 0.92, 0.9, Enum.TextXAlignment.Center)
+		nm.ZIndex = 42
+		ghosts[i], ghostNames[i], ghostStrokes[i] = g, nm, st
+	end
+	local craftSeq = FxLogic.newCraftSeq()
+	local hiddenUid: string? = nil
+	local craftPlays = 0
+
+	local function rectOf(gui: GuiObject): FxLogic.Rect?
+		local la, ls = fxLayer.AbsolutePosition, fxLayer.AbsoluteSize
+		if ls.X <= 0 or ls.Y <= 0 then
+			return nil
+		end
+		local p, sz = gui.AbsolutePosition, gui.AbsoluteSize
+		return { x = (p.X - la.X) / ls.X, y = (p.Y - la.Y) / ls.Y, w = sz.X / ls.X, h = sz.Y / ls.Y }
+	end
+	-- 가운데 좌표(연출 층 Scale) — 스크롤로 격자 밖이면 격자 사각형 안으로 당긴다
+	local function centerIn(r: FxLogic.Rect): (number, number)
+		local cx, cy = r.x + r.w / 2, r.y + r.h / 2
+		local gr = rectOf(grid)
+		if gr ~= nil then
+			cx = math.clamp(cx, gr.x, gr.x + gr.w)
+			cy = math.clamp(cy, gr.y, gr.y + gr.h)
+		end
+		return cx, cy
+	end
+	local function placeGhost(i: number, r: FxLogic.Rect, text: string, color: Color3)
+		local g = ghosts[i]
+		local cx, cy = centerIn(r)
+		g.Position = UDim2.fromScale(cx, cy)
+		g.Size = UDim2.fromScale(r.w, r.h)
+		ghostNames[i].Text = text
+		ghostNames[i].TextColor3 = color
+		ghostStrokes[i].Color = color
+		g.Visible = true
+	end
+
 	local pending = TitleWindowLogic.newPending()
 	local hatchCooldownUntil = -math.huge
 	local cellView: { PetWindowLogic.Cell } = {}
@@ -323,7 +398,7 @@ function PetWindow.create(deps: Deps): Handle
 			local row = math.floor((i - 1) / GRID_COLS)
 			parts.frame.Position = UDim2.fromScale(col * (cellW + CELL_GAP), row * CELL_VH / k)
 			parts.frame.Size = UDim2.fromScale(cellW, (CELL_VH - CELL_GAP) / k)
-			parts.frame.Visible = true
+			parts.frame.Visible = c.uid ~= hiddenUid -- 크래프팅 결과 칸은 대역이 튀는 동안 숨긴다(U6)
 			parts.name.Text = c.name
 			parts.name.TextColor3 = UiTheme.rarityColor(c.rarityTier)
 			parts.level.Text = if c.equipped then c.levelName .. PetWindowLogic.EQUIPPED_SUFFIX_TEXT else c.levelName
@@ -446,10 +521,118 @@ function PetWindow.create(deps: Deps): Handle
 		end
 	end
 
+	-- 재료 칸 자리(U6): 고른 펫 먼저, 그다음 같은 종 · 같은 단계 칸을 격자 순서로 CRAFT_REQUIREMENT개까지
+	type Look = { rect: FxLogic.Rect, text: string, color: Color3 }
+	local function materialRects(uid: string): { Look }
+		local out: { Look } = {}
+		local base: PetWindowLogic.Cell? = nil
+		for _, c in ipairs(cellView) do
+			if c.uid == uid then
+				base = c
+			end
+		end
+		if base == nil then
+			return out
+		end
+		local b = base :: PetWindowLogic.Cell
+		local order: { number } = {}
+		for i, c in ipairs(cellView) do
+			if c.uid == uid then
+				table.insert(order, 1, i)
+			elseif c.petId == b.petId and c.level == b.level then
+				table.insert(order, i)
+			end
+		end
+		for _, i in ipairs(order) do
+			if #out >= PetConfig.CRAFT_REQUIREMENT then
+				break
+			end
+			local parts = cells[i]
+			local r = if parts ~= nil and parts.frame.Visible then rectOf(parts.frame) else nil
+			if r ~= nil then
+				table.insert(out, { rect = r :: FxLogic.Rect, text = cellView[i].name, color = UiTheme.rarityColor(cellView[i].rarityTier) })
+			end
+		end
+		return out
+	end
+	local craftLook: { Look } = {}
+
+	-- 결과 펫이 격자에 들어왔으면 재생한다(render 뒤 · 결과가 올 때 부른다)
+	local function pollCraft()
+		local verdict, resultRect, _materials, resultUid = craftSeq.poll(function(uid: string): FxLogic.Rect?
+			for i, c in ipairs(cellView) do
+				if c.uid == uid and cells[i] ~= nil then
+					return rectOf(cells[i].frame)
+				end
+			end
+			return nil
+		end, now())
+		if verdict ~= "play" or resultRect == nil then
+			return
+		end
+		craftPlays += 1
+		local rr = resultRect :: FxLogic.Rect
+		local tx, ty = centerIn(rr)
+		local resultView: PetWindowLogic.Cell? = nil
+		for _, c in ipairs(cellView) do
+			if c.uid == resultUid then
+				resultView = c
+			end
+		end
+		hiddenUid = resultUid
+		render()
+		-- 모이기: 재료 대역이 결과 칸 가운데로 가며 줄어든다(위치 · 크기 함께 — 진행률 0 → 1)
+		local starts: { { x: number, y: number } } = {}
+		for i, m in ipairs(craftLook) do
+			if i > 3 then
+				break
+			end
+			placeGhost(i, m.rect, m.text, m.color)
+			local cx, cy = centerIn(m.rect)
+			starts[i] = { x = cx, y = cy }
+		end
+		local function finishPop()
+			ghosts[4].Visible = false
+			hiddenUid = nil
+			render()
+		end
+		local function startPop()
+			for i = 1, 3 do
+				ghosts[i].Visible = false
+			end
+			if resultView ~= nil then
+				local rv = resultView :: PetWindowLogic.Cell
+				placeGhost(4, rr, rv.name, UiTheme.rarityColor(rv.rarityTier))
+				Fx.popIn(ghosts[4], FxLogic.popInSpec(UIFxConfig.CRAFT_POP_FROM, UIFxConfig.CRAFT_POP_TIME), finishPop)
+			else
+				finishPop()
+			end
+		end
+		if #starts == 0 then
+			startPop()
+			return
+		end
+		Fx.play(fxLayer, "craftGather", FxLogic.progressSpec(UIFxConfig.CRAFT_GATHER_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+			function(a: number)
+				for i, st in ipairs(starts) do
+					local m = craftLook[i].rect
+					local g = ghosts[i]
+					g.Position = UDim2.fromScale(st.x + (tx - st.x) * a, st.y + (ty - st.y) * a)
+					g.Size = UDim2.fromScale(m.w * (1 - a), m.h * (1 - a))
+				end
+			end, startPop)
+	end
+
 	local function pressCraft()
 		render()
 		local d = PetWindowLogic.detail(source.get("pets"), selected)
-		if d ~= nil and d.canCraft then
+		if d ~= nil and d.canCraft and not pending.isPending("craft", now()) then
+			craftLook = materialRects(d.uid)
+			local rects: { FxLogic.Rect } = {}
+			for i, m in ipairs(craftLook) do
+				rects[i] = m.rect
+			end
+			craftSeq.begin(rects, now())
 			send("craft", { action = "craft", uid = d.uid })
 		end
 	end
@@ -482,8 +665,12 @@ function PetWindow.create(deps: Deps): Handle
 			selected = payload.uid -- 새로 생긴 펫을 고른다(PlayerState가 곧 그 펫을 실어 온다)
 			releaseFlow.cancel()
 		end
+		if key == "craft" then
+			craftSeq.result(payload.ok == true, payload.uid, now()) -- U6: 결과가 왔다(격자에 들어오면 재생)
+		end
 		resultText = PetWindowLogic.resultText(payload)
 		render()
+		pollCraft()
 	end
 
 	local function onOpen()
@@ -540,7 +727,10 @@ function PetWindow.create(deps: Deps): Handle
 		render()
 		deps.onClose()
 	end)
-	source.subscribe("pets", render)
+	source.subscribe("pets", function()
+		render()
+		pollCraft() -- 크래프팅 결과 펫이 들어왔으면 연출(U6 — 결과가 먼저 왔든 나중에 오든)
+	end)
 	source.subscribe("upgrades", render)
 	source.subscribe("shop", render) -- 행운 패스 · 행운 포션 → 현재 확률(지시서 #16)
 	source.subscribe("blox", render)
@@ -598,6 +788,15 @@ function PetWindow.create(deps: Deps): Handle
 			releaseButton = releaseButton,
 			releaseLabel = releaseLabel,
 			status = status,
+			craftSeq = craftSeq,
+			ghosts = ghosts,
+			hiddenUid = function()
+				return hiddenUid
+			end,
+			craftPlays = function()
+				return craftPlays
+			end,
+			pollCraft = pollCraft,
 		},
 	}
 end

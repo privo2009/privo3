@@ -11,6 +11,9 @@
 --   일일 보상  받을 게 있고 · 첫 접속 안내가 끝났고 · 런 중이 아니면 세션마다 그 일 번호에 한 번 차단층 큐 3번(지시서 #20 D5).
 --              HUD 일일 보상 아이콘(Navigation.openDaily)으로도 연다. 결과 모달과 같은 큐 — 한 번에 하나
 --   안내 띠    첫 접속 안내(런 표시층 — 비차단, 지시서 #20 O1). 끝나면(다 마침) 토스트 "안내 끝!"
+--   환생 번쩍  RebirthResult가 성공이면 화면 전체 흰 막이 한 번 번쩍인다(지시서 #25 U5 — 입력을 막지 않는다)
+--   효과음     런 상태(수령 · 진행 · 실패) · 뽑기 결과(칭호 · 아우라 · 펫) · 환생 · 구매 완료 · 일일 보상 — 이미 받는 결과에서 Sfx.play
+--              (지시서 #25 S2 — 키 고르기는 Audio/SfxLogic)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
@@ -24,6 +27,18 @@ local FeedbackLogic = require(script.Parent.Logic.FeedbackLogic)
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local PlayerStateClient = require(script.Parent.Parent.Net.PlayerStateClient)
 local StateSync = require(script.Parent.Parent.Net.StateSync)
+local UIFxConfig = require(ReplicatedStorage.Shared.Config.UIFxConfig)
+local Fx = require(script.Parent.Components.Fx)
+local OverlayParts = require(script.Parent.Screens.Overlay.OverlayParts)
+local Sfx = require(script.Parent.Parent.Audio.Sfx)
+local SfxLogic = require(script.Parent.Parent.Audio.SfxLogic)
+
+-- 효과음 한 번(키가 nil이면 소리 없음)
+local function sfx(key: string?)
+	if key ~= nil then
+		Sfx.play(key)
+	end
+end
 
 local loading = LoadingScreen.create()
 local errorNotice = ErrorNotice.create()
@@ -89,6 +104,7 @@ channels.runStateChanged.OnClientEvent:Connect(function(payload: Remotes.RunStat
 end)
 
 channels.runStateChanged.OnClientEvent:Connect(function(payload: Remotes.RunStateChangedPayload)
+	sfx(SfxLogic.forRunState(payload)) -- 수령 · 진행 · 실패(지시서 #25 S2)
 	local kind = RunNoticeLogic.decide({
 		active = payload.active,
 		reason = payload.reason,
@@ -103,10 +119,25 @@ end)
 -- ===== 환생 안내 (지시서 #8) ====================================================================
 
 ScreenController.open("RebirthNotice") -- 열어 두고, 보일지는 RebirthNotice.show가 root.Visible로 정한다
+
+-- 환생 번쩍임(지시서 #25 U5): 화면 전체 흰 막 하나(만들어 두고 숨김 — 매번 만들지 않는다). 입력을 받지 않는다(Active false)
+local rebirthFlash = Instance.new("Frame")
+rebirthFlash.Name = "RebirthFlash"
+rebirthFlash.Size = UDim2.fromScale(1, 1)
+rebirthFlash.BackgroundColor3 = Color3.new(1, 1, 1)
+rebirthFlash.BackgroundTransparency = 1
+rebirthFlash.BorderSizePixel = 0
+rebirthFlash.Active = false
+rebirthFlash.ZIndex = OverlayParts.Z.blocking - 1 -- 런 표시층 위 · 차단층 · 알림층(환생 안내) 아래 — 안내 글자가 막에 가려지지 않는다
+rebirthFlash.Visible = false
+rebirthFlash.Parent = ScreenController._debug.guis.Overlay
+
 channels.rebirthResult.OnClientEvent:Connect(function(payload: Remotes.RebirthResultPayload)
 	if type(payload) ~= "table" or not payload.ok or type(payload.total) ~= "table" or type(payload.gained) ~= "table" then
 		return
 	end
+	Fx.flash(rebirthFlash, UIFxConfig.REBIRTH_FLASH_FROM, UIFxConfig.REBIRTH_FLASH_TIME)
+	sfx(SfxLogic.forRebirth(payload))
 	rebirthNotice.show(FeedbackLogic.rebirthNotice(BigNum.new(payload.total.m, payload.total.e), BigNum.new(payload.gained.m, payload.gained.e)))
 end)
 -- ===== 토스트 — 새 칭호 (지시서 #10 S15) ==========================================================
@@ -114,6 +145,7 @@ end)
 
 ScreenController.open("ToastStack") -- 열어 두고, 줄마다 Visible로 보인다
 channels.titleResult.OnClientEvent:Connect(function(payload: Remotes.TitleResultPayload)
+	sfx(SfxLogic.forTitle(payload)) -- 뽑기 소리(지시서 #25 S2 — 직접 롤 · 자동 롤 새 칭호)
 	if not TitleWindowLogic.shouldToast(payload) then
 		return
 	end
@@ -151,6 +183,7 @@ ScreenController.register("DailyRewardWindow", "Overlay", function()
 end)
 ScreenController.open("DailyRewardWindow") -- 열어 두고, 보일지는 show / hide가 정한다
 channels.dailyResult.OnClientEvent:Connect(function(payload: Remotes.DailyResultPayload)
+	sfx(SfxLogic.forDaily(payload)) -- 일일 보상 받기 성공(지시서 #25 S2)
 	dailyWindow.onResult(payload)
 end)
 
@@ -215,6 +248,7 @@ channels.runStateChanged.OnClientEvent:Connect(function()
 end)
 
 channels.auraResult.OnClientEvent:Connect(function(payload: Remotes.AuraResultPayload)
+	sfx(SfxLogic.forAura(payload)) -- 뽑기 소리(지시서 #25 S2)
 	if not AuraWindowLogic.shouldModal(payload) then
 		return -- 중복 하위 등급 · 거부는 창 안 상태 문구로만
 	end
@@ -232,6 +266,7 @@ channels.auraResult.OnClientEvent:Connect(function(payload: Remotes.AuraResultPa
 end)
 
 channels.petResult.OnClientEvent:Connect(function(payload: Remotes.PetResultPayload)
+	sfx(SfxLogic.forPet(payload)) -- 부화 소리(지시서 #25 S2 — 3배 부화는 가장 귀한 것)
 	if not PetWindowLogic.shouldModal(payload) then
 		return -- 중복 하위 등급 · 크래프팅 · 장착 · 거부는 창 안 상태 문구로만
 	end
@@ -277,6 +312,7 @@ end)
 local PurchaseClient = require(script.Parent.Parent.Net.PurchaseClient)
 local RobuxShopLogic = require(script.Parent.Logic.RobuxShopLogic)
 PurchaseClient.get().onResult(function(payload: Remotes.PurchaseResultPayload)
+	sfx(SfxLogic.forPurchase(payload)) -- 구매 완료(지시서 #25 S2)
 	local text = RobuxShopLogic.resultText(payload)
 	if text ~= nil then
 		toastStack.push({ text = text, tier = 1 })

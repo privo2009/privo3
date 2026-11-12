@@ -10,6 +10,10 @@
 -- 좌상단인가" — 힘은 특대로 계속 보고, 블럭스는 작게 가끔 본다). docs의 5단계
 -- 표에 "블럭스 보유량"이 명시돼 있지 않아, "항목 이름·가격"과 같은 급인 중(3.5%)을
 -- 골랐다 — 각주 수준(극소)은 아니지만 힘(특대)과는 확실히 대비돼야 한다.
+--
+-- 올라가기 연출(지시서 #25 U3): 블럭스가 늘면 COUNT_UP_TIME 동안 지금 표시값 → 새 값(Fx.countUp — log10 보간 · BigNum 그대로 ·
+-- 표시는 Formatter). 줄면 즉시. 진행 중에 또 늘면 지금 표시값에서 새 목표로 다시. 첫 PlayerState(더미 → 서버 값)는 연출하지 않는다 —
+-- live()가 참일 때만(실물 = PlayerStateClient.hasReceived — 첫 상태를 넣는 동안은 아직 false다).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local AssetRegistry = require(ReplicatedStorage.Shared.Config.AssetRegistry)
@@ -18,6 +22,10 @@ local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local ValuePanel = require(script.Parent.Parent.Parent.Components.ValuePanel)
 local Store = require(script.Parent.Parent.Parent.Store)
+local BigNum = require(ReplicatedStorage.Shared.BigNum)
+local Fx = require(script.Parent.Parent.Parent.Components.Fx)
+local FxLogic = require(script.Parent.Parent.Parent.Logic.FxLogic)
+local PlayerStateClient = require(script.Parent.Parent.Parent.Parent.Net.PlayerStateClient)
 
 local BloxDisplay = {}
 
@@ -25,12 +33,19 @@ local LEVEL: TextScale.Level = "medium"
 
 export type BloxDisplayHandle = {
 	root: Frame,
+	_debug: { shown: () -> BigNum.BigNumber, label: TextLabel },
 }
+
+-- live: 지금 바뀐 값이 "게임 중 변화"인가(연출할까). 생략하면 싱글톤은 PlayerStateClient.hasReceived, 테스트 Store는 연출 안 함
+export type Options = { live: (() -> boolean)? }
 
 -- store: 구독할 Store 인스턴스. 생략하면 실물 HUD가 쓰는 싱글톤이다. 테스트는 Store.new()를 넘긴다 —
 -- Phase 6부터 싱글톤은 서버 PlayerState가 채우므로, 테스트가 거기 값을 쓰면 실값을 덮는다.
-function BloxDisplay.create(store: Store.StoreInstance?): BloxDisplayHandle
+function BloxDisplay.create(store: Store.StoreInstance?, options: Options?): BloxDisplayHandle
 	local source: Store.StoreInstance = store or (Store :: any)
+	local live: () -> boolean = (options and options.live) or (if store == nil then PlayerStateClient.hasReceived else function()
+		return false
+	end)
 	local height = TextScale.Levels[LEVEL].heightFraction
 
 	local root = Instance.new("Frame")
@@ -74,13 +89,29 @@ function BloxDisplay.create(store: Store.StoreInstance?): BloxDisplayHandle
 	valuePanel.label.Size = UDim2.fromScale(1, 1)
 	valuePanel.label.Parent = root
 
-	valuePanel.setValue(source.get("blox"))
+	local shown = source.get("blox")
+	valuePanel.setValue(shown)
 	source.subscribe("blox", function(value)
-		valuePanel.setValue(value)
+		if live() and FxLogic.countUpPlan(shown, value) == "animate" then
+			Fx.countUp(root, shown, value, function(big)
+				shown = big
+				valuePanel.setValue(big)
+			end)
+		else
+			Fx.cancel(root, "countUp")
+			shown = value
+			valuePanel.setValue(value)
+		end
 	end)
 
 	return {
 		root = root,
+		_debug = {
+			shown = function()
+				return shown
+			end,
+			label = valuePanel.label,
+		},
 	}
 end
 

@@ -19,6 +19,7 @@ local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 local FeedbackLogic = require(script.Parent.Parent.UI.Logic.FeedbackLogic)
 local Store = require(script.Parent.Parent.UI.Store)
 local PlayerStateClient = require(script.Parent.Parent.Net.PlayerStateClient)
+local Sfx = require(script.Parent.Parent.Audio.Sfx)
 
 type BigNumber = BigNum.BigNumber
 
@@ -101,6 +102,7 @@ local function show(gain: BigNumber)
 	popup.gui.StudsOffset = Vector3.new(popup.jitter, START_HEIGHT, 0)
 	popup.label.TextTransparency = 0
 	popup.gui.Enabled = true
+	Sfx.play("click") -- 효과음(지시서 #25 S2 — 같은 키 0.05초 스로틀은 Sfx가 한다)
 end
 
 RunService.Heartbeat:Connect(function()

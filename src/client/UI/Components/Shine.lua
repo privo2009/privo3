@@ -2,6 +2,9 @@
 -- 강조용 빛 띠 (지시서 #21 B — docs/UI.md "UI 효과"). 계산은 UI/Logic/ShineLogic, 수치는 Shared/Config/UIFxConfig.
 --
 --   Shine.attach(target, { preset = "default" | "premium", priority = 숫자 })   Shine.detach(target)
+--   1회 모드(지시서 #25 U2): { once = true, delay = 초 } — delay 뒤 한 번만 지나가고 스스로 떨어진다(반복 없음 · 숨으면 바로 뗀다).
+--   한 화면 상한(SHINE_MAX_ACTIVE) 안에서 다른 띠처럼 자리를 받는다 — 결과 모달은 SHINE_ONCE_PRIORITY로 먼저 받는다.
+--   연출 줄이기(FxPrefs.reduceMotion — #25 U7)가 켜져 있으면 띠를 하나도 돌리지 않고 덮개를 숨긴다(1회 모드는 바로 뗀다).
 --
 -- 덮개: 대상의 자식 "Shine" 하나(배경 위 · 글씨 아래 — 글씨 자식들 중 가장 낮은 ZIndex보다 1 낮게). 덮개 색 = 프리셋 색,
 --   UIGradient(Transparency = 가운데만 좁게 밝은 띠 · Rotation = SHINE_ANGLE)로 띠를 만들고 Offset.X를 −1 → 1로 움직인다.
@@ -20,13 +23,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local UIFxConfig = require(ReplicatedStorage.Shared.Config.UIFxConfig)
 local ShineLogic = require(script.Parent.Parent.Logic.ShineLogic)
+local FxPrefs = require(script.Parent.Parent.FxPrefs)
 
 local Shine = {}
 
 Shine.OVERLAY_NAME = "Shine"
 local VISIBILITY_CHECK_SEC = 0.2
 
-export type Options = { preset: string?, priority: number? }
+export type Options = { preset: string?, priority: number?, once: boolean?, delay: number? }
 
 type Entry = {
 	target: GuiObject,
@@ -38,6 +42,8 @@ type Entry = {
 	visible: boolean,
 	running: boolean,
 	startAt: number,
+	once: boolean,
+	delay: number,
 	destroying: RBXScriptConnection,
 }
 
@@ -154,16 +160,22 @@ local function step()
 		table.insert(flat, { visible = e.visible, priority = e.priority, order = e.order })
 	end
 	local activeSet: { [Entry]: boolean } = {}
-	for _, i in ipairs(ShineLogic.pickActive(flat, UIFxConfig.SHINE_MAX_ACTIVE)) do
-		activeSet[list[i]] = true
+	local reduced = FxPrefs.reduceMotion()
+	if not reduced then
+		for _, i in ipairs(ShineLogic.pickActive(flat, UIFxConfig.SHINE_MAX_ACTIVE)) do
+			activeSet[list[i]] = true
+		end
 	end
+	local finishedOnce: { GuiObject } = {}
 	for _, e in ipairs(list) do
-		if activeSet[e] then
+		if e.once and (reduced or not e.visible or (e.running and now - e.startAt > UIFxConfig.SHINE_SWEEP_TIME)) then
+			table.insert(finishedOnce, e.target) -- 한 번 지나갔거나 · 숨었거나 · 연출 줄이기 — 뗀다
+		elseif activeSet[e] then
 			if not e.running then
 				e.running = true
-				e.startAt = now + random:NextNumber(0, UIFxConfig.SHINE_START_JITTER_MAX)
+				e.startAt = now + (if e.once then e.delay else random:NextNumber(0, UIFxConfig.SHINE_START_JITTER_MAX))
 			end
-			while now - e.startAt >= UIFxConfig.SHINE_INTERVAL do
+			while not e.once and now - e.startAt >= UIFxConfig.SHINE_INTERVAL do
 				e.startAt += UIFxConfig.SHINE_INTERVAL
 			end
 			e.overlay.Visible = true
@@ -174,6 +186,9 @@ local function step()
 			e.overlay.Visible = false
 			e.gradient.Offset = Vector2.new(-1, 0)
 		end
+	end
+	for _, target in ipairs(finishedOnce) do
+		Shine.detach(target)
 	end
 end
 
@@ -215,6 +230,11 @@ function Shine.attach(target: GuiObject, options: Options?): boolean
 			end
 		end
 		existing.priority = o.priority or existing.priority
+		if o.once then -- 1회 모드로 다시 붙이면 처음부터 한 번 더
+			existing.once = true
+			existing.delay = o.delay or 0
+			existing.running = false
+		end
 		return true
 	end
 	local overlay = makeOverlay(target, ShineLogic.colorOf(preset))
@@ -233,6 +253,8 @@ function Shine.attach(target: GuiObject, options: Options?): boolean
 		visible = ShineLogic.isVisible(target, NODE_ACCESS),
 		running = false,
 		startAt = 0,
+		once = o.once == true,
+		delay = o.delay or 0,
 		destroying = target.Destroying:Connect(function()
 			Shine.detach(target)
 		end),

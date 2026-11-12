@@ -112,6 +112,11 @@ ScreenController.open("AutoTools")
 ScreenController.open("BoostTimers") -- 열어 두고, 활성 부스트가 있을 때만 root.Visible
 ScreenController.open("DailyIcon")
 
+-- 연출 줄이기 · 효과음 설정(지시서 #25 U7 · S3): Store "settings" → FxPrefs(Fx · ButtonFx · Shine · Sfx가 읽는다). 효과음 시작 한 줄.
+-- HUD를 띄운 뒤에 붙인다(첫 PlayerState 전이라 값은 기본값 — 곧 서버 값이 들어온다)
+require(script.Parent.FxPrefs).bind(Store)
+require(script.Parent.Parent.Audio.Sfx).init()
+
 -- 폰 대응 (Phase 6 지시서 #6) -------------------------------------------------------------
 -- 글자 높이 하한: 세 ScreenGui 전부(지금 있는 글자 + 나중에 열리는 창 · 오버레이 글자).
 -- 터치 조작 자리: 점프 버튼이 있으면 우하단 묶음을 그 위로 올린다(PC는 TouchGui가 없어 그대로).

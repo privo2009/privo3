@@ -118,6 +118,7 @@ do
 	local RebirthNotice = require(UI.Screens.Overlay.RebirthNotice)
 	local ToastStack = require(UI.Screens.Overlay.ToastStack)
 	local ResultModal = require(UI.Screens.Overlay.ResultModal)
+	local Fx = require(UI.Components.Fx)
 	local FeedbackLogic = require(UI.Logic.FeedbackLogic)
 	local AuraWindowLogic = require(UI.Logic.AuraWindowLogic)
 	local PetWindowLogic = require(UI.Logic.PetWindowLogic)
@@ -227,6 +228,7 @@ do
 	local _a, packId, tier = AuraConfig.get(longAura.id)
 	local auraView = AuraWindowLogic.resultView({ action = "roll", ok = true, auraId = longAura.id, packId = packId, tier = tier, isNew = true, equipped = true })
 	modal.show(auraView :: any)
+	Fx.finishAll() -- 등장 연출(지시서 #25 U2)을 끝 상태로 보내고 잰다
 	judge("modal.aura(" .. Names.aura(longAura.id) .. ")", modal.root)
 	local auraPayload = { action = "roll", ok = true, auraId = longAura.id, packId = packId, tier = tier, isNew = true, equipped = false }
 	toastJudge("toast.aura(" .. Names.aura(longAura.id) .. ")", AuraWindowLogic.toastFor(auraPayload))
@@ -241,6 +243,7 @@ do
 	end)
 	local petView = PetWindowLogic.resultView({ action = "hatch", ok = true, petId = longPet.id, level = 1, isNew = true, equipped = true })
 	modal.show(petView :: any)
+	Fx.finishAll()
 	judge("modal.pet(" .. Names.pet(longPet.id) .. ")", modal.root)
 	local petPayload = { action = "hatch", ok = true, petId = longPet.id, level = 1, isNew = true, equipped = false }
 	toastJudge("toast.pet(" .. Names.pet(longPet.id) .. ")", PetWindowLogic.toastFor(petPayload))

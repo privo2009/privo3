@@ -25,7 +25,20 @@
 -- 자기만의 entries·ScreenGui 3장을 갖고, 기본 인스턴스와는 어떤 상태도 공유하지
 -- 않는다.
 
+-- ===== 지시서 #25 U1: 창 열기 · 닫기 연출 ===============================================================
+--
+-- Window 층 창만. 열기 = 창 루트 UIScale("WindowFxScale") WINDOW_OPEN_SCALE_FROM → 1 + 배경 막 투명도 1 → 원래 값,
+-- 닫기 = 1 → WINDOW_CLOSE_SCALE_TO + 막 페이드 아웃, 끝나면 Visible = false(지금과 같은 닫힌 상태). 수치 UIFxConfig.
+-- "열렸나"(isOpen · onWindowChanged · 단일 오픈)는 연출을 기다리지 않고 지금처럼 바로 바뀐다 — 연출은 보이는 모양만 따라간다.
+-- 닫히는 연출 중에 다른 창을 열면 닫히던 창은 즉시 닫는다(겹쳐 보이지 않게). 같은 창을 다시 열면 닫힘을 끝내고 다시 연다.
+-- UIScale은 창 루트(Panel root — 가운데 기준)에 단다. ButtonFx("ButtonFxScale")는 버튼 그림에 달리므로 같은 인스턴스가 아니다.
+-- 기본 인스턴스만 연출한다. 테스트가 만든 new()는 { animate = true }를 넘길 때만(기존 테스트는 즉시 닫힘을 전제로 쓴다).
+
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UIFxConfig = require(ReplicatedStorage.Shared.Config.UIFxConfig)
+local Fx = require(script.Parent.Components.Fx)
+local FxLogic = require(script.Parent.Logic.FxLogic)
 
 local ScreenController = {}
 
@@ -46,6 +59,8 @@ export type Debug = {
 
 export type ScreenControllerInstance = {
 	register: (name: string, layer: Layer, builder: Builder) -> (),
+	-- 닫는 연출 중인가(isOpen은 이미 false — 보이는 모양만 남아 있다). 지시서 #25 U1
+	isClosing: (name: string) -> boolean,
 	open: (name: string) -> (),
 	close: (name: string) -> (),
 	closeAll: () -> (),
@@ -85,12 +100,15 @@ local function createScreenGui(layer: Layer, namePrefix: string): ScreenGui
 	return gui
 end
 
+local BLUR_REST_TRANSPARENCY = 0.5 -- 막의 원래 투명도(연출은 1 ↔ 이 값)
+ScreenController.WINDOW_SCALE_NAME = "WindowFxScale"
+
 local function createBlur(parent: ScreenGui): Frame
 	local frame = Instance.new("Frame")
 	frame.Name = "Blur"
 	frame.Size = UDim2.fromScale(1, 1)
 	frame.BackgroundColor3 = Color3.new(0, 0, 0)
-	frame.BackgroundTransparency = 0.5
+	frame.BackgroundTransparency = BLUR_REST_TRANSPARENCY
 	frame.BorderSizePixel = 0
 	frame.ZIndex = 0
 	frame.Visible = false
@@ -101,7 +119,7 @@ end
 -- 인스턴스 하나를 만든다. namePrefix로만 서로 다른 인스턴스의 ScreenGui를 구분한다 —
 -- 그 외에는 entries·openInLayer·guis·blur 전부 이 함수 호출마다 새로 생기는
 -- 지역 상태라 인스턴스끼리 아무것도 공유하지 않는다.
-local function createInstance(namePrefix: string): ScreenControllerInstance
+local function createInstance(namePrefix: string, animate: boolean): ScreenControllerInstance
 	local guis: { [Layer]: ScreenGui } = {
 		Hud = createScreenGui("Hud", namePrefix),
 		Window = createScreenGui("Window", namePrefix),
@@ -119,14 +137,50 @@ local function createInstance(namePrefix: string): ScreenControllerInstance
 	}
 
 	local windowListeners: { (boolean) -> () } = {}
+	local anyWindowOpen = false
+	-- 닫는 연출 중인 창(이름 → 인스턴스). isOpen은 이미 false다
+	local closing: { [string]: GuiObject } = {}
 	local function updateBlur()
 		local visible = next(openInLayer.Window) ~= nil
-		local changed = blur.Visible ~= visible
-		blur.Visible = visible
+		local changed = anyWindowOpen ~= visible
+		anyWindowOpen = visible
+		if animate then
+			if visible then
+				if not blur.Visible then
+					blur.BackgroundTransparency = 1
+					blur.Visible = true
+				end
+				Fx.play(blur, "dim", FxLogic.dimSpec(blur.BackgroundTransparency, true, BLUR_REST_TRANSPARENCY), function(v: number)
+					blur.BackgroundTransparency = v
+				end)
+			elseif blur.Visible then
+				Fx.play(blur, "dim", FxLogic.dimSpec(blur.BackgroundTransparency, false, BLUR_REST_TRANSPARENCY), function(v: number)
+					blur.BackgroundTransparency = v
+				end, function()
+					blur.Visible = false
+					blur.BackgroundTransparency = BLUR_REST_TRANSPARENCY
+				end)
+			end
+		else
+			blur.Visible = visible
+		end
 		if changed then
 			for _, cb in ipairs(windowListeners) do
 				task.spawn(cb, visible)
 			end
+		end
+	end
+
+	local function windowScale(instance: GuiObject): UIScale?
+		return Fx.scaleOf(instance, ScreenController.WINDOW_SCALE_NAME)
+	end
+
+	-- 닫는 연출을 지금 끝낸다(Visible = false)
+	local function finishClosing(name: string)
+		local instance = closing[name]
+		if instance ~= nil then
+			Fx.finish(instance, "window")
+			closing[name] = nil
 		end
 	end
 
@@ -140,7 +194,7 @@ local function createInstance(namePrefix: string): ScreenControllerInstance
 	-- 선언해 상호 참조가 가능하게 한다.
 	local register: (name: string, layer: Layer, builder: Builder) -> ()
 	local open: (name: string) -> ()
-	local close: (name: string) -> ()
+	local close: (name: string, immediate: boolean?) -> ()
 	local closeAll: () -> ()
 	local isOpen: (name: string) -> boolean
 	local destroy: () -> ()
@@ -164,15 +218,34 @@ local function createInstance(namePrefix: string): ScreenControllerInstance
 		if entry.layer == "Window" then
 			for otherName in pairs(openInLayer.Window) do
 				if otherName ~= name then
-					close(otherName)
+					close(otherName, true) -- 다른 창은 즉시(연출 없이) 닫는다
 				end
+			end
+			-- 닫는 연출 중인 창(이 창 자신 포함)은 지금 끝낸다 — 겹쳐 보이지 않게
+			local names = {}
+			for closingName in pairs(closing) do
+				table.insert(names, closingName)
+			end
+			for _, closingName in ipairs(names) do
+				finishClosing(closingName)
 			end
 		end
 
-		(entry.instance :: GuiObject).Visible = true
+		local wasOpen = openInLayer[entry.layer][name] == true
+		local instance = entry.instance :: GuiObject
+		instance.Visible = true
 		openInLayer[entry.layer][name] = true
 
 		if entry.layer == "Window" then
+			if animate and not wasOpen then
+				local scale = windowScale(instance)
+				if scale ~= nil then
+					local s = scale :: UIScale
+					Fx.play(instance, "window", FxLogic.windowOpenSpec(), function(v: number)
+						s.Scale = v
+					end)
+				end
+			end
 			updateBlur()
 		elseif entry.layer == "Overlay" then
 			local openNames = {}
@@ -183,12 +256,39 @@ local function createInstance(namePrefix: string): ScreenControllerInstance
 		end
 	end
 
-	function close(name: string)
+	function close(name: string, immediate: boolean?)
 		local entry = entries[name]
 		assert(entry ~= nil, "ScreenController.close: 등록되지 않은 이름: " .. name)
 
-		if entry.instance ~= nil then
-			(entry.instance :: GuiObject).Visible = false
+		local wasOpen = openInLayer[entry.layer][name] == true
+		local instance = entry.instance
+		if instance ~= nil then
+			local gui = instance :: GuiObject
+			local scale = if entry.layer == "Window" and animate then gui:FindFirstChild(ScreenController.WINDOW_SCALE_NAME) else nil
+			if entry.layer == "Window" and animate and wasOpen and not immediate and gui.Visible and scale ~= nil then
+				-- 닫는 연출: 지금 크기 → 닫힘 크기, 끝나면 숨김 · 크기 1로
+				local s = scale :: UIScale
+				closing[name] = gui
+				Fx.play(gui, "window", FxLogic.windowCloseSpec(s.Scale), function(v: number)
+					s.Scale = v
+				end, function()
+					gui.Visible = false
+					s.Scale = 1
+					if closing[name] == gui then
+						closing[name] = nil
+					end
+				end)
+			else
+				if closing[name] ~= nil then
+					finishClosing(name)
+				end
+				if scale ~= nil then
+					Fx.cancel(gui, "window")
+					local s = scale :: UIScale
+					s.Scale = 1
+				end
+				gui.Visible = false
+			end
 		end
 		openInLayer[entry.layer][name] = nil
 
@@ -223,6 +323,9 @@ local function createInstance(namePrefix: string): ScreenControllerInstance
 		close = close,
 		closeAll = closeAll,
 		isOpen = isOpen,
+		isClosing = function(name: string): boolean
+			return closing[name] ~= nil
+		end,
 		onWindowChanged = function(callback: (boolean) -> ())
 			table.insert(windowListeners, callback)
 		end,
@@ -240,7 +343,7 @@ end
 
 -- 실물 코드(HudBoot·화면 3종)가 쓰는 단 하나의 인스턴스. prefix=""라 ScreenGui
 -- 이름이 지금까지와 동일하다("HudGui"/"WindowGui"/"OverlayGui").
-local defaultInstance = createInstance("")
+local defaultInstance = createInstance("", UIFxConfig.ENABLED)
 
 -- 기존 호출 형태(ScreenController.register(...) 등)를 그대로 유지한다 — 그냥
 -- 기본 인스턴스의 같은 이름 함수를 그대로 참조만 옮긴 것이라 인자·동작이 완전히
@@ -250,6 +353,7 @@ ScreenController.open = defaultInstance.open
 ScreenController.close = defaultInstance.close
 ScreenController.closeAll = defaultInstance.closeAll
 ScreenController.isOpen = defaultInstance.isOpen
+ScreenController.isClosing = defaultInstance.isClosing
 ScreenController.onWindowChanged = defaultInstance.onWindowChanged
 ScreenController._debug = defaultInstance._debug
 
@@ -261,14 +365,15 @@ ScreenController._debug = defaultInstance._debug
 -- 겹치면 안 된다 — 그래서 namePrefix 뒤에 호출 순번을 항상 덧붙인다. 호출자가
 -- 같은 문자열을 두 번 넘겨도 최종 이름은 자동으로 달라진다.
 local nextInstanceId = 1
-function ScreenController.new(namePrefix: string): ScreenControllerInstance
+-- options.animate = true면 Window 층 열기 · 닫기 연출(지시서 #25 U1)을 켠다 — FxTests만 쓴다
+function ScreenController.new(namePrefix: string, options: { animate: boolean? }?): ScreenControllerInstance
 	assert(
 		type(namePrefix) == "string" and #namePrefix > 0,
 		"ScreenController.new: namePrefix가 필요하다 (빈 문자열은 기본 인스턴스 전용이다)"
 	)
 	local id = nextInstanceId
 	nextInstanceId += 1
-	return createInstance(string.format("%s%d_", namePrefix, id))
+	return createInstance(string.format("%s%d_", namePrefix, id), options ~= nil and options.animate == true)
 end
 
 return ScreenController

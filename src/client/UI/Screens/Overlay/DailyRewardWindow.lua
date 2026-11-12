@@ -16,6 +16,7 @@ local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local Store = require(script.Parent.Parent.Parent.Store)
 local DailyRewardWindowLogic = require(script.Parent.Parent.Parent.Logic.DailyRewardWindowLogic)
 local OverlayParts = require(script.Parent.OverlayParts)
+local Fx = require(script.Parent.Parent.Parent.Components.Fx)
 
 local DailyRewardWindow = {}
 
@@ -224,6 +225,9 @@ function DailyRewardWindow.create(deps: Deps): Handle
 	end)
 
 	local function show()
+		if not shown then
+			Fx.modalIn(panel, nil) -- 등장 연출(지시서 #25 U2 — 희귀도 없음: 보통 튀기)
+		end
 		shown = true
 		resultText = nil
 		dim.Visible = true
@@ -231,6 +235,7 @@ function DailyRewardWindow.create(deps: Deps): Handle
 		render()
 	end
 	local function hide()
+		Fx.modalOut(panel)
 		shown = false
 		dim.Visible = false
 		panel.Visible = false
