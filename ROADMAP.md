@@ -24,8 +24,8 @@
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Tests/WarpConfigTests.server.lua` | 31 | 워프 비용 곡선(지수·단조)·순수성·거부 사유 3종 |
 | `Tests/AttackConfigTests.server.lua` | 29 | 펀치 속도·판정 반경 파생·경계(이하) |
-| `Data/SchemaTests.server.lua` | 59 | 프로필 스키마 검증 · v5(지운 4필드 · 장착/보유 상한 = 게임패스 최대 · selectedPack 범위 · LIMITS = Config) · v6(upgrades.moveSpeed 없음 · 7키 — #13) · v7(purchases · potions · rollCredits · gymUnlocks · boosts remainingSec — #16) · v8(daily {streak, lastClaimDay} · redeemedCodes · onboarding — 템플릿 · 통과 · 거부 — #20) |
-| `Data/MigrationsTests.server.lua` | 59 | schemaVersion 마이그레이션·멱등성·v4 lifeBlox · v5 삭제 4필드(값 보존 · 방어 · 멱등) · v5 → v6 moveSpeed 삭제(값 보존 · 방어 · 멱등 — #13) · v6 → v7(boosts expiresAt → remainingSec · 새 표 · 멱등 — #16) · v7 → v8(freePotionDay 삭제 · v7 값 그대로 · 플레이한 프로필 끝남 · 범위 밖 0 · 덮지 않음 · 멱등 — #20) |
+| `Data/SchemaTests.server.lua` | 62 | 프로필 스키마 검증 · v5(지운 4필드 · 장착/보유 상한 = 게임패스 최대 · selectedPack 범위 · LIMITS = Config) · v6(upgrades.moveSpeed 없음 · 7키 — #13) · v7(purchases · potions · rollCredits · gymUnlocks · boosts remainingSec — #16) · v8(daily {streak, lastClaimDay} · redeemedCodes · onboarding — 템플릿 · 통과 · 거부 — #20) · v9(cosmetics.reduceMotion · sfxEnabled — 템플릿 · 통과 · 거부 — #25) |
+| `Data/MigrationsTests.server.lua` | 68 | schemaVersion 마이그레이션·멱등성·v4 lifeBlox · v5 삭제 4필드(값 보존 · 방어 · 멱등) · v5 → v6 moveSpeed 삭제(값 보존 · 방어 · 멱등 — #13) · v6 → v7(boosts expiresAt → remainingSec · 새 표 · 멱등 — #16) · v7 → v8(freePotionDay 삭제 · v7 값 그대로 · 플레이한 프로필 끝남 · 범위 밖 0 · 덮지 않음 · 멱등 — #20) · v8 → v9(reduceMotion false · sfxEnabled true · 기존 설정 · v8 값 그대로 · 덮지 않음 · bool 아님 기본값 · cosmetics 없음 무해 · 멱등 · v9 검증 통과 — #25) |
 | `Systems/CurrencyServiceTests.server.lua` | 59 | 재화 단일 게이트·롤백·rebirths·lifeBlox(이번 생애 누적) |
 | `Systems/BlockServiceTests.server.lua` | 51 | 배치·데미지 오버플로우·클리어 |
 | `Systems/ChallengeServiceTests.server.lua` | 85 | 타이머·보상 갱신·진입점 거부·source 식별·블럭스 획득 배수 한 함수(payableReward)·view nextReward · 앞 항이 없어도 뒤 항이 곱해진다(#12) |
@@ -64,8 +64,8 @@
 | `Tests/AdvanceWallRendererTests.client.lua` | 62 | 상태별 충돌·투명·색(닫힘·열림·최종층·숨김)·create 계약(Anchored·CanTouch=false) |
 | `Tests/EntranceGateServiceTests.server.lua` | 28 | 런 없음→1층 startRun·런 있음 무동작·서 있기 반복·디바운스 공유·플레이어 격리·스펙 파생(지면·블록 바깥면 앞) · 근처 확인(멀면 startRun 0 · 런 있으면 묻지 않음 — #23 N1) |
 | `Tests/RunDeathServiceTests.server.lua` | 9 | 런 있음 abandon 1회·런 없음 0회·같은 죽음 두 번 차단·리스폰 뒤 새 죽음 |
-| `Systems/PlayerStateServiceTests.server.lua` | 78 | 상태 스냅샷 형태 · 직렬화 왕복 · 같음 비교 · 로드 시 1회 · 빈도 상한 · sync 모음(로드 전 요청 포함) · 리스폰 · 퇴장 · 업그레이드 레벨 8키 · 칭호 요약 · 아우라 요약 · 펫 요약(보유 · 단계 · 장착 · 파생 슬롯 · 숨기기 · JSON 왕복) · 상점 요약(보유 게임패스 · 제한 · 부스트 BOOST_RESYNC_SEC 허용 · 자동 클리커 · JSON 왕복 — #16) · 보관함 · 롤 · 선해금 요약 · 비교 · notify(#17) |
-| `Tests/PlayerStateClientTests.client.lua` | 48 | payload 형태 판정 · Store 반영 · 틀린 payload 통째로 버림 · 업그레이드 표(키 · 음수 · 복사) · 칭호 · 아우라 · 펫 요약(형태 · 깊은 복사) · 상점 요약(형태 · 받은 시각 · 깊은 복사 — #16) · 보관함 · 롤 · 선해금 수신(옛 payload · 이상한 값 · 통지 — #17) · 일일 보상 · 안내 수신(onboarding을 daily보다 먼저 · 옛 payload 기본값 — #20) |
+| `Systems/PlayerStateServiceTests.server.lua` | 82 | 상태 스냅샷 형태 · 직렬화 왕복 · 같음 비교 · 로드 시 1회 · 빈도 상한 · sync 모음(로드 전 요청 포함) · 리스폰 · 퇴장 · 업그레이드 레벨 8키 · 칭호 요약 · 아우라 요약 · 펫 요약(보유 · 단계 · 장착 · 파생 슬롯 · 숨기기 · JSON 왕복) · 상점 요약(보유 게임패스 · 제한 · 부스트 BOOST_RESYNC_SEC 허용 · 자동 클리커 · JSON 왕복 — #16) · 보관함 · 롤 · 선해금 요약 · 비교 · notify(#17) · 설정 요약(템플릿 값 · 비교 · 옛 프로필 기본값 · JSON 왕복 — #25) |
+| `Tests/PlayerStateClientTests.client.lua` | 49 | payload 형태 판정 · Store 반영 · 틀린 payload 통째로 버림 · 업그레이드 표(키 · 음수 · 복사) · 칭호 · 아우라 · 펫 요약(형태 · 깊은 복사) · 상점 요약(형태 · 받은 시각 · 깊은 복사 — #16) · 보관함 · 롤 · 선해금 수신(옛 payload · 이상한 값 · 통지 — #17) · 일일 보상 · 안내 수신(onboarding을 daily보다 먼저 · 옛 payload 기본값 — #20) · 설정 수신(값 · 옛 payload · 이상한 값 기본값 — #25) |
 | `Tests/CoreScreensTests.client.lua` | 56 | 런 안내 · 로딩 판정, 3D 안내 내용(서버 · Config 원본), 화면 규칙(Offset 0 · 금지 구역 밖 · 층 순서 · 역할 색), 패드 표시 역할 3종 · 역할별 높이 · 다음 해금 크기 · 벽 표시 서버 nextReward |
 | `Systems/RebirthRequestServiceTests.server.lua` | 12 | 환생 요청 거부 경로(블럭스 부족 · 빈도 상한 · 부분 실패) · 성공 결과 형태 |
 | `Tests/RebirthWindowTests.client.lua` | 53 | 표시 값(서버와 같은 함수) · 사유 문구 · 확인 단계 없이는 요청 안 나감 · 잠김 · 창 규격 · 버튼 그림 ZIndex · 남는 것에 업그레이드 · 상점 안내 · 상점으로 · 자동이 꺼지면 auto_active 문구 지움(#18) |
@@ -87,10 +87,10 @@
 | `Tests/TitleWindowTests.client.lua` | 62 | 칭호 창 값(Config · 서버 원본 · 행운 반영 확률) · 보유 / 장착 / 잠김 · 사유 문구 · 결과 문구 · 토스트 판정 · 요청 한 번만 · 롤 간격 잠금 · 토글 두 채널 · 희귀도 색 · 토스트 큐(3개 · 순서 · 오래된 것부터) · 토스트 자리 |
 | `Tests/RollOddsTests.server.lua` | 21 | 실제 등장 확률 분포(합 1 · 손계산 · p ≥ 1 · 폴백 · 순수) · 표시 % 합 100(최대 나머지 · 1/50000 비영 · 반올림 경계) · 행운 문구 |
 | `Systems/AuraServiceTests.server.lua` | 46 | 거부 부작용 0(잠긴 · 월드 밖 · 잔액 · 시계 · 잘못된 팩) · 차감 → 판정 · 신규 / 중복 · 더 높은 m 자동 장착 · 저장 1회 · 장착 · 팩 선택 · 행운 전달 · 요약 · m 힘 · 1펀치 한 번씩 · 럭키 · 슈퍼 롤 쓰기(비용 없음 · 횟수 −1 · 행운 ×5 · ×100 · 제한 · none_owned · 잠긴 팩 · 시계 — #17) |
-| `Systems/AuraRequestServiceTests.server.lua` | 27 | payload 위생 · 빈도 상한 · 사유 그대로 · 응답 필드 전부 · 설정 화이트리스트(키 · 타입 · 빈도 · 프로필 없음) · rollCredit payload · 전달 · 사유(#17) |
+| `Systems/AuraRequestServiceTests.server.lua` | 29 | payload 위생 · 빈도 상한 · 사유 그대로 · 응답 필드 전부 · 설정 화이트리스트(키 · 타입 · 빈도 · 프로필 없음) · rollCredit payload · 전달 · 사유(#17) · 허용 키 넷 · reduceMotion · sfxEnabled 저장 · bool 아님 거부(#25) |
 | `Tests/AuraWindowTests.client.lua` | 45 | 카드 값(m · 실제 확률 합 100 · 행운) · 희귀도 매핑 · 보유 / 장착 · 팩 탭 · 잠김 사유 · 결과 판정(모달 · 런 중 토스트) · 요청 한 번만 · 롤 시계 잠금 · 칭호 버튼 · 사유 표 +2(none_owned · restricted — #17) |
 | `Tests/BlockingQueueTests.client.lua` | 14 | 차단층 큐(한 번에 하나 · 닫으면 다음 · 우선순위 · 가로채지 않음 · 순서) · 결과 모달 표시 · 차단층 |
-| `Tests/SettingsWindowTests.client.lua` | 14 | 설정 토글(반대 값 1건 · 두 채널 · 거부 문구) · 파티클 방출량(등급 · 숨기기 · 내 것은 보임 · 전체 상한) · 둘째 항목 펫 숨기기(#12) |
+| `Tests/SettingsWindowTests.client.lua` | 19 | 설정 토글(반대 값 1건 · 두 채널 · 거부 문구) · 파티클 방출량(등급 · 숨기기 · 내 것은 보임 · 전체 상한) · 둘째 항목 펫 숨기기(#12) · 셋째 · 넷째 항목 연출 줄이기 · 효과음(기본값 · 반대 값 · Store 반영 · 줄 겹침 없음) · 폰 틀 705×338 넘침 0 · 11px(#25) |
 | `Systems/PetServiceTests.server.lua` | 84 | 부화 거부 부작용 0(잠긴 알 · 월드 밖 · 저장 공간 가득 · 잔액 · 경합 · 시계 · 잘못된 알) · 차감 → 판정 · uid 문자열 · 깨진 nextUid · 새 종만 저장 · 빈 슬롯 자동 장착 · 장착 ≤ 파생 슬롯 · 해제 · equipBest · 크래프팅(재료 순서 · 장착 자리 이어받기 · 부족 · 최대 · 연쇄) · 놓아주기 · 로드 정리 · E3 · 한 번만 · 데미지 없음 · 요약 · 프로필 크기 · 펫 게임패스(슬롯 · 저장 · 잘라내기는 소유 확인 뒤에만) · 3배 부화(거부 부작용 0 · 비용 3배 한 번 · 3마리 · 롤 시계 1회 — #16) |
 | `Systems/PetRequestServiceTests.server.lua` | 28 | payload 위생(알 번호 · uid 숫자 문자열) · 빈도 상한 · 사유 그대로 · 응답 필드 전부 · 퇴장 정리 · 설정 hideOtherPets · hatch3(결과 1건에 3마리 · pets 목록 — #16) |
 | `Tests/PetWindowTests.client.lua` | 62 | 알 탭 · 잠김 사유(해금 · 보관함 · 잔액) · 실제 확률 합 100 · 행운 · 희귀도 매핑 · 격자 · 슬롯 수 = 파생값 · 상세(크래프팅 가능 · 놓아주기 막힘) · 결과 판정(모달 · 토스트) · 요청 한 번만 · 놓아주기 확인 단계 · 추적 계획(내 펫 먼저 · 숨기기 · 파트 상한 · 자리 · 치는 모습) |
@@ -122,7 +122,9 @@
 | `Tests/DataConfigTests.server.lua` | 31 | 데이터 환경(#23 E1 ~ E6) — DATA_ENV 커밋 값 beta · live만 · Studio면 언제나 studio · Studio 밖 beta · live · 잘못된 값 · 저장소 이름 3종 · Studio에서 beta · live 거부 · 시작 로그 줄 · beta 개발자 상품 거부 · 허용 목록(ShopConfig 개발자 상품) · 게임패스 판매 |
 | `Tests/ProximityTests.server.lua` | 25 | 근처 확인(#23 N1) — 여유 식 = REACH + 최고 속도 × LAG · 프레임 드랍 근거(기준 fps 한 프레임 · 10fps) · 근처 · 멀리 · 경계 · 루트 없음 · 회전된 파트 · 캐릭터 없음 · 거부 수 · 실제 파트 크기(수령 발판 · 패드 · 얇은 트리거를 최고 속도로 지난 뒤) |
 | `Tests/AnalyticsTests.server.lua` | 55 | 분석 래퍼(#23 A1 ~ A5) — 흐름표 11종 · 엔진 Enum 이름 · 흐름별 호출 1회 · 모아 보내기(합 · 마지막 잔액) · tick · 나갈 때 · 1e15 넘으면 blox_flow_large(log10 · 필드 · 10^2000) · 경계 · inf · NaN · 음수 거부 · 상한(창 · 플레이어별 · 버림 로그) · pcall 실패 무해 · Player 아님 건너뜀 · 도우미 4종 · 퍼널 · 처음 깬 층 중복 없음(firstClear) |
-| **합계** | **4686** | 서버 69행 2945 · 클라 35행 1741 — 2026-11-09 #24 마무리 Play 실측(플래그 전부 끔) |
+| `Tests/FxTests.client.lua` | 77 | 화면 연출(#25 U1 ~ U7) — 구간 표본 · 사양 = Config · log10 보간(0 · 같은 값 · 줄어듦 · 10^2000 · 지수 경계) · 계획 · 스로틀 · 가운데 기준 · 크래프팅 순서(결과 · PlayerState 어느 쪽 먼저 · 거부 · 시간 초과) · 구동기(가짜 시계 · 끝값 · onDone · 교체 · finish · cancel · 연출 줄이기 · 멈춤값 · 정리) · UIScale 하나 규칙 · 튀기 가운데 기준 · 창 열기 · 닫기(닫는 중 다른 창 · 같은 창 다시 · 알림 순서 · 연출 없는 인스턴스) · 결과 모달(보통 · 영웅 이상 · 빛 띠 1회) · 빛 띠 1회 모드 · 연출 줄이기(버튼 · 빛 띠) · 블럭스 올라가기 · 레벨 · 환생 배수 튀기 · 크래프팅 연결 |
+| `Tests/SfxTests.client.lua` | 19 | 효과음(#25 S1 ~ S3) — 키 12개 · 커밋 값 id 전부 nil · 판정(id 없음 · 끔 · 스로틀 · 모르는 키) · 희귀도 → 키(칭호 · 아우라 · 펫) · 런 상태 · 환생 · 구매 · 일일 보상 · 시도 기록 · 끔이면 시도 0 · 풀 |
+| **합계** | **4806** | 서버 69행 2963 · 클라 37행 1843 — 2026-11-12 #25 마무리 Play 실측(플래그 전부 끔) |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -1495,7 +1497,7 @@ Phase 8 코드는 #18로 끝났다(2026-10-31). 남은 화면 착수 전 조사 
 실물 확인에서 3건을 찾아 고쳤다(안내 중 자동 등장 · 코드 창 "Label" · 안내 띠가 창 X를 덮음 — 2e5f5a4). Phase 6에 남은 것은 G2 · U8 폴리시(크래프팅 연출 포함)와
 에셋 도착 뒤 교체다. 사람 쪽: 보상표 · 리미티드 m · 코드 목록 튜닝(`docs/TUNING.md`), Phase 9 코드 목록 · 알릴 곳.
 
-🔄 **U8 폴리시 진행 — 지시서 #25(2026-11-12 사람 결정).** 화면 연출 6종(창 열기 · 닫기 · 결과 모달 · 블럭스 올라가기 · 레벨업 · 환생 ·
+✅ **U8 폴리시 코드 완료 — 지시서 #25(2026-11-12 사람 결정, 커밋 70a4fcd · 586fd5b · 5169c91).** 화면 연출 6종(창 열기 · 닫기 · 결과 모달 · 블럭스 올라가기 · 레벨업 · 환생 ·
 크래프팅) · 설정 "연출 줄이기" · 효과음 구조(키 12개 · 설정 "효과음") · 스키마 v9. 소리 ID는 사람(`docs/TUNING.md` "소리 넣는 법"),
 게임 아이콘 · 썸네일은 Phase 9 출시 체크리스트. 규칙 원본 `docs/UI.md` "UI 효과" · "효과음".
 

@@ -631,14 +631,27 @@ Phase 9                    실제 코드 목록 · 알릴 곳 · 첫 접속 분�
 범위 밖                  클릭 소리(지시서 제외) · 운동기구 ProximityPrompt(로블록스가 그리는 UI) · 차단층 막(Dim — 누르면 아무 일도 없는 막이라 버튼이 아니다)
 ```
 
-**#25 U8 폴리시 — 화면 연출 6종 · 연출 줄이기 · 효과음 자리(2026-11-12 사람 결정 — 진행 중)** — 규칙 원본 `docs/UI.md` "UI 효과" ·
-"효과음" · 수치 `Shared/Config/UIFxConfig` · 소리 `Shared/Config/SoundConfig`
+**#25 U8 폴리시 — 화면 연출 6종 · 연출 줄이기 · 효과음 자리(2026-11-12 사람 결정 — 코드 완료: 70a4fcd · 586fd5b · 5169c91)** — 규칙 원본
+`docs/UI.md` "UI 효과" · "효과음" · 수치 `Shared/Config/UIFxConfig` · 소리 `Shared/Config/SoundConfig` · 사람 손잡이 `docs/TUNING.md` 2절 · 6절
 ```
 범위                     U1 창 열기 · 닫기 · U2 결과 모달 · U3 블럭스 올라가기 · U4 레벨업 · U5 환생 · U6 크래프팅 · U7 연출 줄이기 ·
                          S1 ~ S3 효과음 구조(키 12개 · Sfx.play · 효과음 토글) · V9 스키마(cosmetics.reduceMotion · sfxEnabled)
-바꾸지 않는 것            게임 수치 · 게임 동작(수령 · 진행 · 창 단일 오픈 · 차단층 순서) — 연출은 보이는 모양만
-사람 할 일 (S4)           소리 12개 ID 고르기 — Creator Store 무료 소리 → SoundConfig[키].id. 순서 · 권한 주의는 docs/TUNING.md "소리 넣는 법"
-                         (그전까지 소리는 하나도 나지 않는다 — id nil이면 재생하지 않는다)
+바꾸지 않은 것            게임 수치 · 게임 동작(수령 · 진행 · 창 단일 오픈 · 차단층 순서) — 연출은 보이는 모양만. isOpen은 close 순간 바뀐다
+사람 할 일 (S4)           소리 12개 ID 고르기 — Creator Store 무료 소리 → SoundConfig[키].id. 순서 · 권한 주의는 docs/TUNING.md 6절
+                         (그전까지 소리는 하나도 나지 않는다 — id nil이면 재생하지 않는다. 시작 로그 "[Sfx] 비어 있는 소리 12개")
+사람 확인                연출 수치 시작값(창 0.15초 · 모달 0.25초 · 블럭스 0.3초 · 레벨 · 환생 · 크래프팅)이 손에 맞는가 — 직접 플레이로 고친다
+                         실제 폰에서 연출 줄이기 · 효과음 토글(MCP는 터치 · 소리 출력을 확인할 수 없다)
+실물로 못 본 것           영웅 이상 결과 모달(더 크게 + 빛 띠 1회) — floor9 · before_first_rebirth 뽑기가 일반 · 레어만 나왔다(FxTests로만)
+                         크래프팅 연출 — 같은 종 · 같은 단계 3마리가 있는 프리셋이 없다(FxTests 결과 · PlayerState 두 순서로만)
+알려진 것                ① 효과음 "button"은 ButtonFx가 붙은 HitArea만 낸다(UI_FX_ENABLED = false면 버튼 소리도 없다) · 차단층 막(Dim)은 버튼이 아니다
+                         ② 레벨업 소리는 레벨 튀기와 같은 0.5초 간격 — 초반 클릭으로 레벨이 연달아 올라도 0.5초에 한 번
+                         ③ 실패 소리는 시간 초과(timeout)만 — 포기 · 죽음(abandon)은 소리 없음(실패 안내가 뜨는 때와 같다)
+                         ④ 환생 흰 막은 Overlay 층 ZIndex 19(런 표시층 위 · 차단층 · 환생 안내 아래)라 안내 글자는 가려지지 않는다
+                         ⑤ FxTests는 Fx 시계 · 연출 줄이기를 잠깐 바꾸므로 UiFxTests 요약 줄을 기다린 뒤 시작한다(같이 돌면 UiFxTests 2개가 1을 읽었다)
+                         ⑥ HudLayoutTests 개수는 첫 PlayerState가 재기 전에 오는지에 달려 있다(구좌 빛 띠 덮개 · 배지 — 512 / 522).
+                            #25에서 HUD 시작이 늦어져 522가 한 번 나왔다 → 효과음 판정이 창 로직을 처음 쓸 때 부르게 · 설정 연결을 HUD 뒤로 옮겨 512로 돌렸다
+                            (테스트는 그대로). 시작 순서를 무겁게 바꾸면 다시 흔들릴 수 있다
+잔재                     없음(TEST_* · DEBUG_FREEZE_PROGRESS 전부 nil · git status 깨끗)
 ```
 
 ### 다국어 — #L1(클라우드) · #L2(집 PC 검증) (2026-10-25 사람 결정)

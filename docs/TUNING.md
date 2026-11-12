@@ -116,6 +116,19 @@
 - 같이 볼 것: Play 로그 `[Analytics] economy … → ok` · `[Analytics] custom … → ok`(Studio에서만 성공 줄). 대시보드 차트는 보통 24시간 뒤(공식 event-types)
 - 관계: 상한 1 ~ 20(공식 분당 120 + 20 × CCU 안 — validate) · ECONOMY_SAFE_MAX ≤ 2^53. 블럭스 흐름표(`BLOX_FLOWS`)에 없는 reason은 보내지 않는다 — 새 재화 사용처를 만들면 표에 한 줄 더한다
 
+**화면 연출 수치** — `Shared/Config/UIFxConfig`(지시서 #25 — 게임 수치가 아니다. 시작값이라 직접 플레이하며 고친다. 규칙 원본 `docs/UI.md` "화면 연출")
+- 창 열기 · 닫기: `WINDOW_OPEN_SCALE_FROM`(0.9) · `WINDOW_OPEN_TIME`(0.15) · `WINDOW_DIM_TIME`(0.15) · `WINDOW_CLOSE_SCALE_TO`(0.92) · `WINDOW_CLOSE_TIME`(0.1)
+- 결과 모달: `MODAL_SCALE_FROM`(0.6) · `MODAL_TIME`(0.25) / 영웅 이상 `MODAL_RARE_MIN_TIER`(4 = 표시 단계) · `MODAL_RARE_SCALE_FROM`(0.5) · `MODAL_RARE_PEAK`(1.08) · `MODAL_RARE_TIME`(0.3)
+- 블럭스 올라가기 `COUNT_UP_TIME`(0.3) · 레벨 튀기 `LEVEL_POP_PEAK`(1.2) · `LEVEL_POP_TIME`(0.2) · `LEVEL_POP_MIN_INTERVAL`(0.5 — 레벨업 소리도 같은 간격)
+- 환생: 흰 막 `REBIRTH_FLASH_FROM`(0.5) · `REBIRTH_FLASH_TIME`(0.3) / 배수 숫자 `REBIRTH_POP_PEAK`(1.3) · `REBIRTH_POP_TIME`(0.35)
+- 크래프팅: `CRAFT_GATHER_TIME`(0.25) · `CRAFT_POP_FROM`(0.6) · `CRAFT_POP_TIME`(0.2) · `CRAFT_WAIT_SEC`(2) / 튀기 꼭대기 시점 `POP_PEAK_AT`(0.5)
+- 효과음 간격 `SFX_MIN_INTERVAL`(0.05 — 같은 소리를 이 초 안에 한 번만)
+- 같이 볼 것: 화면 그 자체(직접 플레이). 멈춰서 보고 싶으면 `DEBUG_FREEZE_PROGRESS`에 0 ~ 1을 넣고 Play — 모든 연출이 그 진행률에 멈춘다(끝나면 nil로 되돌린다 —
+  켠 Play에서는 FxTests 줄이 실패한다)
+- 관계: 시간 0 초과 2초 미만 · 시작 · 끝 크기 0 초과 1 미만 · 꼭대기 > 1(validate). 연출을 통째로 끄려면 설정 창 "연출 줄이기"(플레이어 설정 — 저장된다)
+
+**효과음 볼륨** — `Shared/Config/SoundConfig` 키마다 `volume`(0 ~ 1) · `POOL_PER_KEY`(3 — 같은 소리가 겹쳐 날 수 있는 수). 소리 넣기는 아래 6절
+
 ## 3. 요약 읽는 법 ([BALANCE] 줄)
 
 ```
@@ -193,3 +206,41 @@ TEST_DAILY_SEED = { streak = k, daysAgo = d }
 - **TestPresetGateTests의 "TEST_PRESET 커밋 값 = nil" 실패** — 프리셋을 켠 Play에서는 정상이다. 끄면 사라진다
 - **요약이 안 나온다** — 30초 기다린다. 1분이 넘으면 출력 창의 빨간 줄을 본다(플래그를 켠 줄이 저장 · Rojo 반영됐는지도 본다)
 - 바꾼 값을 채택하려면(커밋): Claude에게 "이 값으로 정했다"고 알린다 — 문서(DESIGN · PENDING) · 프리셋 다시 뽑기 · 테스트 개수 실측을 같이 한다
+
+## 6. 소리 넣는 법 (지시서 #25 S4 — 사람 몫)
+
+소리 자리는 12개다(`Shared/Config/SoundConfig`). `id`가 비어 있으면 그 소리는 나지 않는다 — 오류가 아니다. Play 시작 때 출력 창에
+`[Sfx] 비어 있는 소리 N개`가 한 줄 찍힌다(N이 0이 되면 다 넣은 것이다).
+
+키 · 나는 순간
+```
+button       버튼을 누를 때(창 · HUD · 메뉴 — 잠긴 버튼은 소리 없음)
+click        클릭으로 힘이 올라 +숫자가 뜰 때(아주 잦다 — 짧고 작은 소리. 같은 소리는 0.05초에 한 번까지)
+cashout      수령 발판을 밟아 블럭스를 받을 때
+advance      진행 벽을 지나 다음 층으로 갈 때
+fail         20초가 다 돼 실패할 때
+rollCommon   뽑기(칭호 · 아우라 · 펫) 결과가 일반일 때
+rollRare     레어 · 영웅
+rollLegend   전설 · 신화 · 리미티드
+levelUp      레벨 숫자가 오를 때(0.5초에 한 번까지)
+rebirth      환생했을 때(화면이 하얗게 한 번 번쩍이는 순간)
+purchase     로벅스 구매가 끝났을 때
+dailyClaim   일일 보상을 받았을 때
+```
+
+순서
+1. Studio 위 메뉴 Window → Toolbox(도구 상자)를 연다 → **Creator Store** 탭 → 종류에서 **Audio**를 고른다
+   (키워드 검색 · 필터로 좁힌다. 무료 효과음이 많다 — 공식 문서 https://create.roblox.com/docs/audio/assets "Creator Store")
+2. 들어 보고 마음에 드는 소리에서 **오른쪽 클릭 → Copy Asset ID**(번호가 복사된다 — 같은 문서)
+3. VS Code에서 `src/shared/Config/SoundConfig.lua`를 열고 그 키의 `id = nil`을 `id = 복사한 번호`로 바꾼다(따옴표 없이 숫자만). 크기는 `volume`(0 ~ 1)
+4. 저장 → Rojo 반영 → Play. 출력 창의 `[Sfx] 비어 있는 소리` 숫자가 줄었는지, 그 순간에 소리가 나는지 듣는다.
+   출력 창에 `ContentId: rbxassetid://… failed`가 보이면 그 번호를 이 게임에서 불러오지 못한 것이다 → 다른 소리로 바꾼다
+5. 정했으면 Claude에게 "소리 넣었다"고 알린다 — 커밋 · 문서(PENDING 사람 할 일 지우기)를 같이 한다
+
+⚠️ 쓸 수 있는 소리인지 (공식 문서 https://create.roblox.com/docs/audio/assets "asset privacy")
+- 공개 소리(Creator Store에 올라온 무료 소리)는 어느 게임에서나 쓸 수 있다
+- 비공개 소리는 올린 사람만 쓸 수 있고, 다른 게임이 쓰려면 **올린 사람이 그 게임에 사용 권한을 줘야** 한다. 남이 올린 비공개 소리 번호를
+  어디서 구해 넣어도 우리 게임에서는 안 날 수 있다 — Creator Store에서 고른 소리만 넣는다
+- 권한이 없는 소리가 정확히 어떻게 되는지(조용히 안 나는지 · 오류가 찍히는지)는 공식 문서에 적혀 있지 않다 → 4번의 Play 확인이 판정이다
+- 노래(음악)는 효과음보다 공개 조건이 많다(저작권 검사 · 올린 사람 본인 인증 등 — 같은 문서). 효과음 12개에는 짧은 효과음만 쓴다
+
