@@ -114,6 +114,12 @@ function PlayerStateService.inventoryInto(shop: any, data: any): any
 	return shop
 end
 
+-- 설정 요약(지시서 #25 V9). 프로필 cosmetics의 표시 취향 둘 — 값이 이상하면(옛 프로필 · 손상) 기본값(연출 그대로 · 효과음 켬)
+function PlayerStateService.settingsOf(data: any): { reduceMotion: boolean, sfxEnabled: boolean }
+	local c = if type(data) == "table" and type(data.cosmetics) == "table" then data.cosmetics else {}
+	return { reduceMotion = c.reduceMotion == true, sfxEnabled = c.sfxEnabled ~= false }
+end
+
 local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number?, padIndex: number?, pets: any?, shop: any?, auto: any?,
 	daily: any?, onboarding: any?): PlayerStateView
 	local progress = if type(data.progress) == "table" then data.progress else {}
@@ -140,6 +146,8 @@ local function buildSnapshot(data: any, walkSpeed: number?, maxWalkSpeed: number
 		daily = daily or DailyService._pure.idleSummary(),
 		-- 첫 접속 안내(지시서 #20) — 없으면 끝남(안내를 띄우지 않는다)
 		onboarding = onboarding or { step = 1, done = true },
+		-- 설정(지시서 #25 V9) — 연출 줄이기 · 효과음. 프로필에서 바로 읽는다
+		settings = PlayerStateService.settingsOf(data),
 	}
 end
 
@@ -150,6 +158,13 @@ local function dailyEqual(a: any, b: any): boolean
 	end
 	return a.canClaim == b.canClaim and a.claimedToday == b.claimedToday and a.day == b.day and a.streak == b.streak and a.today == b.today
 		and math.abs(a.secondsToReset - b.secondsToReset) <= BOOST_RESYNC_SEC
+end
+
+local function settingsEqual(a: any, b: any): boolean
+	if type(a) ~= "table" or type(b) ~= "table" then
+		return a == b
+	end
+	return a.reduceMotion == b.reduceMotion and a.sfxEnabled == b.sfxEnabled
 end
 
 local function autoEqual(a: any, b: any): boolean
@@ -318,6 +333,7 @@ local function snapshotsEqual(a: PlayerStateView?, b: PlayerStateView?): boolean
 		and shopEqual((a :: any).shop, (b :: any).shop) and autoEqual((a :: any).autoAdvance, (b :: any).autoAdvance)
 		and dailyEqual((a :: any).daily, (b :: any).daily)
 		and (a :: any).onboarding.step == (b :: any).onboarding.step and (a :: any).onboarding.done == (b :: any).onboarding.done
+		and settingsEqual((a :: any).settings, (b :: any).settings)
 end
 
 export type Deps = {

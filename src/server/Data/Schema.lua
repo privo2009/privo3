@@ -6,7 +6,7 @@
 
 local Schema = {}
 
-Schema.VERSION = 8 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드, Phase 4-2-b)
+Schema.VERSION = 9 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드, Phase 4-2-b)
 -- v4: lifeBlox 추가 (이번 생애 누적 blox — 패드 해금 기준, 환생하면 0. 2026-10-21)
 -- v5: pets.slots · pets.storage · rolling.unlockedAuraPacks · drones 삭제 (2026-10-24 지시서 #10 S12 · S13).
 --     슬롯 · 저장 공간 · 열린 아우라 팩은 저장하지 않고 파생한다 — PetConfig.getSlots · getStorage, AuraConfig.getUnlockedPacks.
@@ -16,6 +16,8 @@ Schema.VERSION = 8 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드
 --     (2026-10-25 지시서 #16 — DESIGN 9장 S2 · S7). 게임패스 소유는 여기 없다(절대 규칙 5 — 세션 값)
 -- v8: daily {streak, lastClaimDay}(freePotionDay 삭제) · redeemedCodes · onboarding{step, done} (2026-11-01 지시서 #20 R2 —
 --     DESIGN 9장 "무료 요소"). 일일 보상 · 코드 입력 · 첫 접속 안내
+-- v9: cosmetics.reduceMotion(false) · cosmetics.sfxEnabled(true) (2026-11-12 지시서 #25 V9 — 설정 창 "연출 줄이기" · "효과음").
+--     표시 취향이라 게임 판정에 쓰지 않는다. 쓰는 곳은 SettingsRequestService 하나
 
 -- 구조적 상한값. DESIGN.md 6장 수치와 같지만 Schema는 Config를 몰라야 하므로 별도로 둔다.
 -- 중복이 어긋나면 SchemaTests가 잡는다(PetConfig · AuraConfig 값과 대조한다).
@@ -117,6 +119,8 @@ local function buildTemplate()
 			ownedTitles = {},
 			hideOtherAuras = false,
 			hideOtherPets = false,
+			reduceMotion = false, -- v9: 설정 "연출 줄이기"(켜면 화면 연출 · 버튼 반응 · 빛 띠가 움직이지 않는다)
+			sfxEnabled = true, -- v9: 설정 "효과음"(끄면 하나도 재생하지 않는다)
 		},
 
 		pets = {
@@ -301,6 +305,12 @@ function Schema.validate(data: any): (boolean, { string })
 
 		checkEquipped("equippedAura", "ownedAuras")
 		checkEquipped("equippedTitle", "ownedTitles")
+		-- v9 설정 둘 — boolean만(지시서 #25 V9)
+		for _, field in ipairs({ "reduceMotion", "sfxEnabled" }) do
+			if type(cosmetics[field]) ~= "boolean" then
+				addError(errors, string.format("cosmetics.%s가 boolean이 아님", field))
+			end
+		end
 	else
 		addError(errors, "cosmetics 테이블이 없음")
 	end

@@ -167,6 +167,22 @@ Migrations[7] = function(data)
 	return data
 end
 
+-- v8 -> v9: 설정 둘 추가 — cosmetics.reduceMotion(기본 false) · cosmetics.sfxEnabled(기본 true) (2026-11-12 지시서 #25 V9).
+-- 이미 boolean이 있으면 그대로 둔다(멱등 — 두 번 불러도 같다). boolean이 아닌 값은 기본값으로. 다른 cosmetics 필드는 손대지 않는다.
+-- cosmetics 표가 없으면 만들지 않는다 — 그건 이 변환의 몫이 아니라 손상이고 Schema.validate가 잡는다.
+Migrations[8] = function(data)
+	local cosmetics = data.cosmetics
+	if type(cosmetics) == "table" then
+		if type(cosmetics.reduceMotion) ~= "boolean" then
+			cosmetics.reduceMotion = false
+		end
+		if type(cosmetics.sfxEnabled) ~= "boolean" then
+			cosmetics.sfxEnabled = true
+		end
+	end
+	return data
+end
+
 -- data.schemaVersion부터 Migrations.CURRENT까지 등록된 변환 함수를 순서대로 적용하고
 -- data.schemaVersion을 최종 버전으로 갱신한다. data는 in-place로 수정된다.
 --

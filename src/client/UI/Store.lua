@@ -62,6 +62,8 @@ export type State = {
 	daily: { canClaim: boolean, claimedToday: boolean, day: number, streak: number, secondsToReset: number, today: number, receivedAt: number },
 	-- 첫 접속 안내 요약 (지시서 #20 O4). 프로필 그대로
 	onboarding: { step: number, done: boolean },
+	-- 설정 요약 (지시서 #25 V9). 연출 줄이기 · 효과음 — 프로필 cosmetics 그대로
+	settings: { reduceMotion: boolean, sfxEnabled: boolean },
 }
 
 -- boosts[i].receivedAt = 클라가 그 값을 받은 os.clock(남은 시간을 받은 뒤로 센다 — PlayerStateClient가 채운다)
@@ -96,6 +98,7 @@ export type Key =
 	| "autoAdvance"
 	| "daily"
 	| "onboarding"
+	| "settings"
 
 export type Setter = (Key, any) -> ()
 export type Source = (Setter) -> ()
@@ -136,6 +139,7 @@ local DUMMY_STATE: State = {
 	-- 첫 PlayerState 전(지시서 #20): 받을 것 없음 · 안내 끝남 — 서버 값이 오기 전에는 자동 등장도 안내 띠도 없다
 	daily = { canClaim = false, claimedToday = false, day = 1, streak = 0, secondsToReset = 0, today = 0, receivedAt = 0 },
 	onboarding = { step = 1, done = true },
+	settings = { reduceMotion = false, sfxEnabled = true }, -- 첫 PlayerState 전: 기본값(지시서 #25)
 }
 
 local BIG_NUM_KEYS: { [Key]: boolean } = {
@@ -152,6 +156,7 @@ local TABLE_KEYS: { [Key]: boolean } = {
 	autoAdvance = true, -- 숫자 · boolean만 든 얕은 표(지시서 #18)
 	daily = true, -- 숫자 · boolean만 든 얕은 표(지시서 #20)
 	onboarding = true, -- 숫자 · boolean만 든 얕은 표(지시서 #20)
+	settings = true, -- boolean만 든 얕은 표(지시서 #25)
 }
 
 -- 칭호 요약은 owned 배열까지 깊게 뜬다(얕은 복사면 get으로 받은 배열을 고쳐 내부 상태가 바뀐다).

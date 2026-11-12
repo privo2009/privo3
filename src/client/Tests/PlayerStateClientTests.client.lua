@@ -241,6 +241,29 @@ do
 	check("옛 payload(없음) → 받을 것 없음 · 안내 끝남(띄우지 않는다)", bare.daily.canClaim == false and bare.onboarding.done == true)
 end
 
+-- 설정(지시서 #25 V9) — 값 · 기본값
+do
+	local got: { [string]: any } = {}
+	local p = samplePayload()
+	p.settings = { reduceMotion = true, sfxEnabled = false }
+	PlayerStateClient.apply(function(key, value)
+		got[key] = value
+	end, p)
+	local bare: { [string]: any } = {}
+	PlayerStateClient.apply(function(key, value)
+		bare[key] = value
+	end, samplePayload())
+	local junk: { [string]: any } = {}
+	local j = samplePayload()
+	j.settings = { reduceMotion = "yes", sfxEnabled = 0 }
+	PlayerStateClient.apply(function(key, value)
+		junk[key] = value
+	end, j)
+	check("설정: 서버 값 그대로(연출 줄이기 켬 · 효과음 끔) · 없거나 이상하면 연출 그대로 · 효과음 켬", got.settings.reduceMotion == true
+		and got.settings.sfxEnabled == false and bare.settings.reduceMotion == false and bare.settings.sfxEnabled == true
+		and junk.settings.reduceMotion == false and junk.settings.sfxEnabled == true)
+end
+
 print(string.format("[PlayerStateClientTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[PlayerStateClientTests] %d test(s) failed", failed))

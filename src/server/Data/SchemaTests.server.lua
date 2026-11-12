@@ -50,7 +50,30 @@ do
 	check("new()는 매번 독립된 깊은 복사본을 반환함", b.blox.m == 0)
 end
 
-check("Schema.VERSION == 8 (v8: daily {streak, lastClaimDay} · redeemedCodes · onboarding — 지시서 #20)", Schema.VERSION == 8)
+check("Schema.VERSION == 9 (v9: cosmetics.reduceMotion · sfxEnabled — 지시서 #25 V9 / v8: daily · redeemedCodes · onboarding — #20)", Schema.VERSION == 9)
+do
+	local t = Schema.getTemplate() :: any
+	check("v9 템플릿: 설정 자리(hideOtherAuras · hideOtherPets 옆)에 reduceMotion false · sfxEnabled true",
+		t.cosmetics.reduceMotion == false and t.cosmetics.sfxEnabled == true and t.cosmetics.hideOtherAuras == false and t.cosmetics.hideOtherPets == false)
+	local function rejects9(mutate: (any) -> ()): boolean
+		local d = Schema.new() :: any
+		mutate(d)
+		return not (Schema.validate(d))
+	end
+	local ok9 = Schema.new() :: any
+	ok9.cosmetics.reduceMotion = true
+	ok9.cosmetics.sfxEnabled = false
+	check("v9 검증: reduceMotion true · sfxEnabled false 통과", (Schema.validate(ok9)))
+	check("v9 검증 거부: reduceMotion 문자열 · sfxEnabled 숫자 · reduceMotion 없음 · sfxEnabled 없음", rejects9(function(d)
+		d.cosmetics.reduceMotion = "true"
+	end) and rejects9(function(d)
+		d.cosmetics.sfxEnabled = 1
+	end) and rejects9(function(d)
+		d.cosmetics.reduceMotion = nil
+	end) and rejects9(function(d)
+		d.cosmetics.sfxEnabled = nil
+	end))
+end
 do
 	local t = Schema.getTemplate() :: any
 	check("v8 템플릿: daily {streak 0, lastClaimDay 0}(freePotionDay 없음) · redeemedCodes 빈 표 · onboarding {step 1, done false}",

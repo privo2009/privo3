@@ -164,6 +164,26 @@ do
 	check("아우라: JSON 왕복 뒤에도 같다", ok and pure.snapshotsEqual(snap, HttpService:JSONDecode(encoded)))
 end
 
+-- 3d2. 설정 요약 (지시서 #25 V9) ----------------------------------------------------------
+do
+	local base = pure.buildSnapshot(sampleData(), 20, 36, 3)
+	check("설정: 요약이 실린다 — 템플릿 값 reduceMotion false · sfxEnabled true", type(base.settings) == "table"
+		and base.settings.reduceMotion == false and base.settings.sfxEnabled == true)
+	local rm = sampleData()
+	rm.cosmetics.reduceMotion = true
+	local mute = sampleData()
+	mute.cosmetics.sfxEnabled = false
+	check("비교: 연출 줄이기 · 효과음이 다르면 다르다(바뀌면 보낸다)", not pure.snapshotsEqual(base, pure.buildSnapshot(rm, 20, 36, 3))
+		and not pure.snapshotsEqual(base, pure.buildSnapshot(mute, 20, 36, 3)))
+	local old = sampleData()
+	old.cosmetics.reduceMotion = nil
+	old.cosmetics.sfxEnabled = nil
+	local oldSnap = pure.buildSnapshot(old, 20, 36, 3)
+	check("설정: 값이 없으면(옛 프로필) 연출 그대로 · 효과음 켬", oldSnap.settings.reduceMotion == false and oldSnap.settings.sfxEnabled == true)
+	local ok, encoded = pcall(HttpService.JSONEncode, HttpService, pure.buildSnapshot(rm, 20, 36, 3))
+	check("설정: JSON 왕복 뒤에도 같다", ok and pure.snapshotsEqual(pure.buildSnapshot(rm, 20, 36, 3), HttpService:JSONDecode(encoded)))
+end
+
 -- 3e. 펫 요약 (지시서 #12) ---------------------------------------------------------------
 do
 	local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)

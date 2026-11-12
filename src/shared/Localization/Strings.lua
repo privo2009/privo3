@@ -235,6 +235,8 @@ Strings.Entries = {
 	["settings.off"] = { en = "Off", ko = "꺼짐" },
 	["settings.hideOtherAuras"] = { en = "Hide other players' Auras", ko = "다른 사람 아우라 숨기기" },
 	["settings.hideOtherPets"] = { en = "Hide other players' Pets", ko = "다른 사람 펫 숨기기" },
+	["settings.reduceMotion"] = { en = "Reduce Motion", ko = "연출 줄이기" },
+	["settings.sfxEnabled"] = { en = "Sound Effects", ko = "효과음" },
 	["settings.reason.not_allowed"] = { en = "This setting can't be changed", ko = "바꿀 수 없는 설정이에요" },
 	["settings.reason.bad_value"] = { en = "Invalid value", ko = "잘못된 값이에요" },
 	["settings.reason.failed"] = { en = "Couldn't change it", ko = "바꾸지 못했어요" },

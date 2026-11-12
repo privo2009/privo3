@@ -124,7 +124,7 @@ end
 
 -- 3. 설정 화이트리스트 -------------------------------------------------------------------------------
 do
-	local cosmetics = { hideOtherAuras = false, equippedAura = false }
+	local cosmetics: any = { hideOtherAuras = false, equippedAura = false, reduceMotion = false, sfxEnabled = true }
 	local sent = {}
 	local handler = SettingsRequestService._pure.createHandler({
 		getCosmetics = function(_p)
@@ -153,8 +153,16 @@ do
 	for _ in pairs(SettingsRequestService.ALLOWED) do
 		keys += 1
 	end
-	check("설정: 허용 키는 hideOtherAuras · hideOtherPets 둘 (#12 E10)", SettingsRequestService.ALLOWED.hideOtherAuras == "boolean"
-		and SettingsRequestService.ALLOWED.hideOtherPets == "boolean" and keys == 2)
+	check("설정: 허용 키는 hideOtherAuras · hideOtherPets · reduceMotion · sfxEnabled 넷 · 전부 boolean (#12 E10 · #25 V9)",
+		SettingsRequestService.ALLOWED.hideOtherAuras == "boolean" and SettingsRequestService.ALLOWED.hideOtherPets == "boolean"
+			and SettingsRequestService.ALLOWED.reduceMotion == "boolean" and SettingsRequestService.ALLOWED.sfxEnabled == "boolean" and keys == 4)
+	local rm = req({ key = "reduceMotion", value = true })
+	local sfx = req({ key = "sfxEnabled", value = false })
+	check("설정: reduceMotion true · sfxEnabled false 저장(#25 V9)", rm.ok and sfx.ok and cosmetics.reduceMotion == true and cosmetics.sfxEnabled == false)
+	local rmBad = req({ key = "reduceMotion", value = 1 })
+	local sfxBad = req({ key = "sfxEnabled", value = "off" })
+	check("설정: reduceMotion · sfxEnabled도 bool 아니면 bad_value · 그대로", not rmBad.ok and rmBad.reason == SettingsRequestService.REASON_BAD_VALUE
+		and not sfxBad.ok and sfxBad.reason == SettingsRequestService.REASON_BAD_VALUE and cosmetics.reduceMotion == true and cosmetics.sfxEnabled == false)
 	local handler2 = SettingsRequestService._pure.createHandler({
 		getCosmetics = function(_p)
 			return nil

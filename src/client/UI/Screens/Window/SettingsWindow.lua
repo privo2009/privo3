@@ -1,10 +1,11 @@
 --!strict
 -- 설정 창 (작은 창, Window 층). Phase 7 지시서 #11 A8. 메뉴 레일 "설정" 칸(screenName "Settings")이 연다.
 --
--- 항목 둘: "다른 사람 아우라 숨기기"(#11 A8) · "다른 사람 펫 숨기기"(#12 E10). 줄은 ROWS 표에서 나온다.
+-- 항목 넷: "다른 사람 아우라 숨기기"(#11 A8) · "다른 사람 펫 숨기기"(#12 E10) · "연출 줄이기" · "효과음"(#25 U7 · S3). 줄은 ROWS 표에서 나온다.
 -- 토글은 자동 도구 · 칭호 창과 같은 두 채널: 테두리 색(켜짐 = 수령 · 안전 노랑 / 꺼짐 = 검정 — 버튼 그림의 UIStroke) + 글자 밝기.
--- 요청은 SettingsRequest{key, value}(서버 화이트리스트가 다시 판정), 결과는 SettingsResult. 저장된 값은 PlayerState(Store "auras" · "pets")가 돌려준다.
--- 셋째 줄: "코드 입력" 버튼(지시서 #20 C6) — 코드 입력 창을 연다(Window 단일 오픈이라 이 창은 닫힌다).
+-- 요청은 SettingsRequest{key, value}(서버 화이트리스트가 다시 판정), 결과는 SettingsResult. 저장된 값은 PlayerState(Store "auras" · "pets" ·
+-- "settings")가 돌려준다. 토글 아래 줄: "코드 입력" 버튼(지시서 #20 C6) — 코드 입력 창을 연다(Window 단일 오픈이라 이 창은 닫힌다).
+-- 줄 높이(#25): 토글 넷 + 코드 버튼 + 상태 줄이 본문에 들도록 0.16 → 0.13(폰 틀 705×338에서 글자 11px 하한 — 단계 5 실측)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -40,10 +41,26 @@ local ROWS = {
 			return type(p) == "table" and p.hideOtherPets == true
 		end,
 	},
+	{
+		key = "reduceMotion", -- 지시서 #25 U7 — 켜면 화면 연출 · 버튼 반응 · 빛 띠가 움직이지 않는다
+		label = Locale.t("settings.reduceMotion"),
+		read = function(source: any): boolean
+			local st = source.get("settings")
+			return type(st) == "table" and st.reduceMotion == true
+		end,
+	},
+	{
+		key = "sfxEnabled", -- 지시서 #25 S3 — 기본 켜짐
+		label = Locale.t("settings.sfxEnabled"),
+		read = function(source: any): boolean
+			local st = source.get("settings")
+			return not (type(st) == "table" and st.sfxEnabled == false)
+		end,
+	},
 }
 SettingsWindow.ROWS = ROWS
 
-local ROW_H = 0.16
+local ROW_H = 0.13
 local ROW_GAP = 0.02
 local LABEL_W = 0.62
 local TOGGLE_X, TOGGLE_W = 0.66, 0.34
@@ -172,6 +189,7 @@ function SettingsWindow.create(deps: Deps): Handle
 	end)
 	source.subscribe("auras", render)
 	source.subscribe("pets", render)
+	source.subscribe("settings", render)
 	render()
 
 	return { root = panel.root, refresh = render, onResult = onResult, _debug = { press = press, rows = rows, status = status, codeHit = codeHit, codeLabel = codeLabel } }

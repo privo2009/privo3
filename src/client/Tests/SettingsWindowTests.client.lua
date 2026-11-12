@@ -63,7 +63,7 @@ do
 
 	-- 둘째 줄: 다른 사람 펫 숨기기 (지시서 #12 E10)
 	local pets = h._debug.rows[2]
-	check("둘째 항목: 다른 사람 펫 숨기기 · 키 hideOtherPets", #SettingsWindow.ROWS == 2 and pets ~= nil and pets.label.Text == Locale.t("settings.hideOtherPets")
+	check("둘째 항목: 다른 사람 펫 숨기기 · 키 hideOtherPets", #SettingsWindow.ROWS == 4 and pets ~= nil and pets.label.Text == Locale.t("settings.hideOtherPets")
 		and SettingsWindow.ROWS[2].key == "hideOtherPets" and pets.buttonLabel.Text == SettingsWindow.OFF_TEXT)
 	h._debug.press(2)
 	check("펫 숨기기: 지금의 반대 값 1건 · 아우라 줄 대기와 따로", #sends == 3 and sends[3].key == "hideOtherPets" and sends[3].value == true)
@@ -74,6 +74,33 @@ do
 	check("펫 숨기기 켜짐: 두 채널(테두리 노랑 · 글자 밝음) · 아우라 줄은 그대로", pets.strokes[1].Color == UiTheme.Colors.cashout.base
 		and pets.buttonLabel.Text == SettingsWindow.ON_TEXT and row.buttonLabel.Text == SettingsWindow.ON_TEXT)
 	check("줄 크기 Scale만(Offset 0)", pets.button.root.Size.Y.Offset == 0 and pets.label.Size.Y.Offset == 0)
+
+	-- 셋째 · 넷째 줄: 연출 줄이기 · 효과음 (지시서 #25 U7 · S3) — Store "settings"가 원본
+	local motion, sfx = h._debug.rows[3], h._debug.rows[4]
+	check("셋째 · 넷째 항목: 연출 줄이기(reduceMotion · 기본 꺼짐) · 효과음(sfxEnabled · 기본 켜짐)", motion ~= nil and sfx ~= nil
+		and SettingsWindow.ROWS[3].key == "reduceMotion" and SettingsWindow.ROWS[4].key == "sfxEnabled"
+		and motion.label.Text == Locale.t("settings.reduceMotion") and sfx.label.Text == Locale.t("settings.sfxEnabled")
+		and motion.buttonLabel.Text == SettingsWindow.OFF_TEXT and sfx.buttonLabel.Text == SettingsWindow.ON_TEXT
+		and sfx.strokes[1].Color == UiTheme.Colors.cashout.base)
+	h._debug.press(3)
+	h._debug.press(4)
+	check("연출 줄이기 → true · 효과음 → false(지금의 반대 값) · 줄마다 1건", #sends == 5 and sends[4].key == "reduceMotion" and sends[4].value == true
+		and sends[5].key == "sfxEnabled" and sends[5].value == false)
+	h.onResult({ ok = true, reason = "", key = "reduceMotion", value = true })
+	h.onResult({ ok = true, reason = "", key = "sfxEnabled", value = false })
+	setter("settings", { reduceMotion = true, sfxEnabled = false })
+	task.wait()
+	h.refresh()
+	check("Store settings 반영: 연출 줄이기 켜짐(테두리 노랑) · 효과음 꺼짐(테두리 검정 · 글자 중립 기본)", motion.buttonLabel.Text == SettingsWindow.ON_TEXT
+		and motion.strokes[1].Color == UiTheme.Colors.cashout.base and sfx.buttonLabel.Text == SettingsWindow.OFF_TEXT
+		and sfx.strokes[1].Color == Color3.new(0, 0, 0) and sfx.buttonLabel.TextColor3 == UiTheme.Colors.neutral.base)
+	local bottom = 0
+	for _, r in ipairs(h._debug.rows) do
+		bottom = math.max(bottom, r.button.root.Position.Y.Scale + r.button.root.Size.Y.Scale)
+	end
+	local code = h._debug.codeHit.Parent :: GuiObject
+	check("줄 넷 · 코드 버튼 · 상태 줄이 겹치지 않는다(본문 Scale)", bottom <= code.Position.Y.Scale
+		and code.Position.Y.Scale + code.Size.Y.Scale <= h._debug.status.Position.Y.Scale)
 	h.root:Destroy()
 end
 

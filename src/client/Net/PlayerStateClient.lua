@@ -185,6 +185,9 @@ function PlayerStateClient.apply(setter: (string, any) -> (), payload: any, now:
 	-- 기본값(끝남)을 읽고 안내 중인데 창이 뜬다(2026-11-01 #20 단계 8 fresh 실측)
 	local o = if type(payload.onboarding) == "table" then payload.onboarding else {}
 	setter("onboarding", { step = num(o.step, 1), done = if type(o.done) == "boolean" then o.done else true })
+	-- 설정(지시서 #25 V9). 옛 서버 payload에 없으면 연출 그대로 · 효과음 켬
+	local st = if type(payload.settings) == "table" then payload.settings else {}
+	setter("settings", { reduceMotion = st.reduceMotion == true, sfxEnabled = st.sfxEnabled ~= false })
 	local d = if type(payload.daily) == "table" then payload.daily else {}
 	setter("daily", {
 		canClaim = d.canClaim == true,

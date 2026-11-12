@@ -81,6 +81,13 @@ export type PlayerStateView = {
 	daily: DailySummary,
 	-- 첫 접속 안내 요약 (지시서 #20 O4). 프로필 onboarding 그대로 — step 1 ~ 5 · done(다 마침 · 건너뜀 · 기존 프로필)
 	onboarding: OnboardingSummary,
+	-- 설정 요약 (지시서 #25 V9). 프로필 cosmetics 그대로 — 연출 줄이기(기본 false) · 효과음(기본 true)
+	settings: SettingsSummary,
+}
+
+export type SettingsSummary = {
+	reduceMotion: boolean,
+	sfxEnabled: boolean,
 }
 
 export type OnboardingSummary = {
