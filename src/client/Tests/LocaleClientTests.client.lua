@@ -35,12 +35,16 @@ local playerGui = player:WaitForChild("PlayerGui")
 do
 	-- 화면이 다 세워질 때까지 기다린다(HUD 3층 · 3D 안내 라벨). 상한 15초.
 	local deadline = os.clock() + 15
+	local ready = false
 	while os.clock() < deadline do
 		if playerGui:FindFirstChild("HudGui") ~= nil and playerGui:FindFirstChild("PadLabel_01") ~= nil then
+			ready = true
 			break
 		end
 		task.wait(0.2)
 	end
+	-- 기다린 결과도 검사 하나로 센다(#26 — 상한을 넘기고 그냥 재면 덜 선 화면을 재고도 통과할 수 있었다)
+	check("K10: HUD · 3D 안내 라벨이 상한 15초 안에 섰다", ready)
 	task.wait(0.5)
 
 	local ours, outside, bad = 0, {}, {}
@@ -95,6 +99,10 @@ do
 		check("K11: 처음 기억한 언어는 서버 신호를 받은 뒤에 골랐다(Studio)", first ~= nil and first.ready == true and first.code == expected,
 			if first ~= nil then string.format("code=%s ready=%s", first.code, tostring(first.ready)) else "nil")
 		check("K11: 신호 전에 기억 없이 고른 호출 0(기다릴 수 없는 자리에서 먼저 불린 적 없음)", early == 0, tostring(early))
+	else
+		-- Studio 밖에서는 잴 것이 없다 — 건너뛴 자리도 같은 수로 센다(#26 — 환경에 따라 개수가 달라지지 않게)
+		check("K11: 처음 기억한 언어 — Studio 밖이라 건너뜀", true)
+		check("K11: 신호 전에 고른 호출 — Studio 밖이라 건너뜀", true)
 	end
 	print(string.format("[LocaleClientTests] K11 언어=%s (TEST_LOCALE=%s · 계정 %s)", Locale.current(), tostring(test), player.LocaleId))
 end

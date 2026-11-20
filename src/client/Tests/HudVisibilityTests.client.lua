@@ -88,7 +88,13 @@ task.defer(function()
 
 	for _, name in ipairs(SCREENS) do
 		local root = roots[name]
-		if root ~= nil then
+		if root == nil then
+			-- 등록은 됐는데 인스턴스가 없다 = 화면이 안 열렸다. 예전엔 아래 넷을 조용히 건너뛰어 개수만 줄었다 —
+			-- 같은 자리 넷을 실패로 센다(#26 — 개수 고정 · 놓치지 않기)
+			for _, what in ipairs({ "PlayerGui 아래 붙어 있다", "Visible == true", "AbsoluteSize가 0이 아니다", "계속 보였다" }) do
+				check(string.format("'%s' root가 %s", name, what), false, "root 인스턴스 없음(화면이 안 열림)")
+			end
+		else
 			check(string.format("'%s' root가 PlayerGui 아래 붙어 있다", name), root:IsDescendantOf(playerGui))
 			check(string.format("'%s' root.Visible == true", name), root.Visible == true)
 			check(

@@ -65,6 +65,7 @@ local PowerBlock = require(script.Parent.Parent.UI.Screens.Hud.PowerBlock)
 local ShopSlots = require(script.Parent.Parent.UI.Screens.Hud.ShopSlots)
 local AutoTools = require(script.Parent.Parent.UI.Screens.Hud.AutoTools)
 local TouchSafeLayout = require(script.Parent.Parent.UI.TouchSafeLayout)
+local PlayerStateClient = require(script.Parent.Parent.Net.PlayerStateClient)
 local TextScale = require(game:GetService("ReplicatedStorage").Shared.Config.TextScale)
 
 local passed = 0
@@ -84,6 +85,22 @@ local function finish()
 	if failed > 0 then
 		error(string.format("[HudLayoutTests] %d test(s) failed", failed))
 	end
+end
+
+-- 개수 고정 (지시서 #26 단계 1) — 요소 · 쌍마다 check를 세면 개수가 그때 보이는 요소 수(빛 띠 덮개 · 배지 등)를 따라
+-- 흔들렸다(512 / 522). 요소마다 판정은 그대로 하고, 틀린 것을 모아 검사 하나로 센다. 틀린 요소는 detail에 이름이 남는다.
+local DETAIL_CAP = 10
+
+local function checkAll(name: string, total: number, bad: { string })
+	local shown = {}
+	for i = 1, math.min(#bad, DETAIL_CAP) do
+		shown[i] = bad[i]
+	end
+	local detail = string.format("대상 %d개 · 틀림 %d개", total, #bad)
+	if #bad > 0 then
+		detail ..= " — " .. table.concat(shown, " | ") .. (if #bad > DETAIL_CAP then string.format(" | 외 %d개", #bad - DETAIL_CAP) else "")
+	end
+	check(string.format("%s(대상 %d개)", name, total), total > 0 and #bad == 0, detail)
 end
 
 type ElementRecord = {
@@ -172,6 +189,7 @@ local function checkOverlaps(records: { ElementRecord })
 		table.insert(list, rec)
 	end
 
+	local total, bad = 0, {}
 	for _, siblings in pairs(groups) do
 		for i = 1, #siblings do
 			for j = i + 1, #siblings do
@@ -185,14 +203,14 @@ local function checkOverlaps(records: { ElementRecord })
 				local iw, ih = rectIntersection(a.absPos, a.absSize, b.absPos, b.absSize)
 				local realOverlap = math.floor(iw) >= 1 and math.floor(ih) >= 1
 
-				check(
-					string.format("'%s' <-> '%s' 겹치지 않는다", a.path, b.path),
-					not realOverlap,
-					string.format("교차 %.2fx%.2fpx", iw, ih)
-				)
+				total += 1
+				if realOverlap then
+					table.insert(bad, string.format("'%s' <-> '%s' 교차 %.2fx%.2fpx", a.path, b.path, iw, ih))
+				end
 			end
 		end
 	end
+	checkAll("같은 부모 형제 쌍이 겹치지 않는다", total, bad)
 end
 
 -- 검사 4 — MenuRail 격자 배치 (U3-4C 후속). 실제 렌더 결과를 잰다는 점에서 검사
@@ -305,6 +323,7 @@ local function checkItemChildrenInsideCell(records: { ElementRecord })
 		end
 	end
 
+	local total, bad = 0, {}
 	for _, rec in ipairs(records) do
 		local cell = rec.parent
 		if cellParents[cell] and cell:IsA("GuiObject") then
@@ -312,13 +331,13 @@ local function checkItemChildrenInsideCell(records: { ElementRecord })
 			local cx1, cy1 = cx0 + cell.AbsoluteSize.X, cy0 + cell.AbsoluteSize.Y
 			local x0, y0 = rec.absPos.X, rec.absPos.Y
 			local x1, y1 = x0 + rec.absSize.X, y0 + rec.absSize.Y
-			check(
-				string.format("'%s'가 자기 칸 안에 있다", rec.path),
-				x0 >= cx0 - 1 and y0 >= cy0 - 1 and x1 <= cx1 + 1 and y1 <= cy1 + 1,
-				string.format("자식=(%d,%d)-(%d,%d) 칸=(%d,%d)-(%d,%d)", x0, y0, x1, y1, cx0, cy0, cx1, cy1)
-			)
+			total += 1
+			if not (x0 >= cx0 - 1 and y0 >= cy0 - 1 and x1 <= cx1 + 1 and y1 <= cy1 + 1) then
+				table.insert(bad, string.format("'%s' 자식=(%d,%d)-(%d,%d) 칸=(%d,%d)-(%d,%d)", rec.path, x0, y0, x1, y1, cx0, cy0, cx1, cy1))
+			end
 		end
 	end
+	checkAll("항목 칸의 자식이 자기 칸 안에 있다", total, bad)
 end
 
 -- 검사 8 — 서로 다른 HUD 컴포넌트의 요소끼리 겹치지 않는다 (2026-10-21, U3-10b) --------
@@ -341,30 +360,24 @@ local function checkCrossComponentOverlaps(hud: Instance, records: { ElementReco
 		table.insert(tagged, { rec = rec, component = componentOf(rec.instance) })
 	end
 
-	local overlaps = 0
+	local total, bad = 0, {}
 	for i = 1, #tagged do
 		for j = i + 1, #tagged do
 			local a, b = tagged[i], tagged[j]
 			if a.component ~= nil and b.component ~= nil and a.component ~= b.component then
 				if a.rec.instance.Name ~= "HitArea" and b.rec.instance.Name ~= "HitArea" and a.rec.instance.Name ~= "Shine"
 					and b.rec.instance.Name ~= "Shine" then
+					total += 1
 					local iw, ih = rectIntersection(a.rec.absPos, a.rec.absSize, b.rec.absPos, b.rec.absSize)
 					if math.floor(iw) >= 1 and math.floor(ih) >= 1 then
-						overlaps += 1
-						check(
-							string.format("'%s' <-> '%s' (다른 컴포넌트) 겹치지 않는다", a.rec.path, b.rec.path),
-							false,
-							string.format("교차 %.2fx%.2fpx", iw, ih)
-						)
+						table.insert(bad, string.format("'%s' <-> '%s' 교차 %.2fx%.2fpx", a.rec.path, b.rec.path, iw, ih))
 					end
 				end
 			end
 		end
 	end
-	-- 쌍마다 pass를 세면 개수가 요소 수의 제곱으로 불어 다른 행을 묻는다. 겹침이 없으면 한 건으로 센다.
-	if overlaps == 0 then
-		check("다른 컴포넌트끼리 겹치는 요소 쌍이 없다", true)
-	end
+	-- 쌍마다 pass를 세면 개수가 요소 수의 제곱으로 불어 다른 행을 묻는다. 겹침 쌍이 몇이든 검사 하나로 센다(#26 — 예전엔 겹침마다 failed 1개).
+	checkAll("다른 컴포넌트끼리 겹치는 요소 쌍이 없다", total, bad)
 end
 
 -- 검사 5 — PowerBlock 예산 일치 (U3-5) --------------------------------------------
@@ -595,18 +608,41 @@ local function checkTouchControls(hud: ScreenGui)
 			table.insert(avoid, { name = name, obj = obj :: GuiObject })
 		end
 	end
+	-- 건너뛸 때와 같은 검사 하나로 센다(#26 — 기기에 따라 개수가 달라지지 않게). 컴포넌트 × 조작 쌍마다 판정은 그대로다
+	if #avoid == 0 then
+		check("터치 조작 검사: 점프 버튼 · 조이스틱이 안 보임 — 건너뜀", true)
+		return
+	end
+	local total, bad = 0, {}
 	for _, comp in ipairs(hud:GetChildren()) do
 		if comp:IsA("GuiObject") and comp.Visible then
 			for _, a in ipairs(avoid) do
+				total += 1
 				local w, h = rectIntersection(comp.AbsolutePosition, comp.AbsoluteSize, a.obj.AbsolutePosition, a.obj.AbsoluteSize)
-				check(string.format("터치: '%s'가 %s와 겹치지 않는다", comp.Name, a.name), w <= 0 or h <= 0, string.format("교차 %dx%dpx", w, h))
+				if not (w <= 0 or h <= 0) then
+					table.insert(bad, string.format("'%s' <-> %s 교차 %dx%dpx", comp.Name, a.name, w, h))
+				end
 			end
 		end
 	end
+	checkAll("터치: HUD 컴포넌트가 점프 버튼 · 조이스틱 자리와 겹치지 않는다", total, bad)
 end
+
+-- 첫 PlayerState를 기다리는 상한(초). 그 전에 재면 더미 상태의 HUD(빛 띠 덮개 · 배지가 아직 없는)를 잰다 —
+-- 같은 코드에서 Play마다 대상이 달라졌다(#25 · #26 단계 0 실측 512 / 522).
+local FIRST_STATE_WAIT_SEC = 20
 
 task.defer(function()
 	local hud = ScreenController._debug.guis.Hud
+
+	local stateDeadline = os.clock() + FIRST_STATE_WAIT_SEC
+	while not PlayerStateClient.hasReceived() and os.clock() < stateDeadline do
+		task.wait(0.1)
+	end
+	check(string.format("첫 PlayerState를 받은 뒤에 잰다(상한 %d초)", FIRST_STATE_WAIT_SEC), PlayerStateClient.hasReceived())
+	-- Store 통지 · 화면 갱신(빛 띠 붙이기 등)은 받은 프레임 뒤에 돈다
+	RunService.Heartbeat:Wait()
+	RunService.Heartbeat:Wait()
 
 	local gateResult = HudLayoutGate.wait(hud)
 	check(
@@ -638,13 +674,13 @@ task.defer(function()
 	collect(hud, hud.Name, records)
 
 	-- 검사 1 — 크기 0 --------------------------------------------------------------
+	local zero = {}
 	for _, rec in ipairs(records) do
-		check(
-			string.format("'%s' AbsSize.X>0 and AbsSize.Y>0", rec.path),
-			rec.absSize.X > 0 and rec.absSize.Y > 0,
-			formatSizeDetail(rec)
-		)
+		if not (rec.absSize.X > 0 and rec.absSize.Y > 0) then
+			table.insert(zero, string.format("'%s' %s", rec.path, formatSizeDetail(rec)))
+		end
 	end
+	checkAll("보이는 요소 전부 AbsSize.X>0 and AbsSize.Y>0", #records, zero)
 
 	-- 검사 2 — 상단/하단/좌/우 사용 가능 영역 이탈 -----------------------------------------
 	-- 기준선은 HudLayoutGate.computeUsableBounds가 IgnoreGuiInset을 보고 정한다
@@ -652,35 +688,31 @@ task.defer(function()
 	local viewportSize = gateResult.viewportSize
 	local bounds = HudLayoutGate.computeUsableBounds(hud, viewportSize)
 	local modeText = string.format("IgnoreGuiInset=%s", tostring(hud.IgnoreGuiInset))
-
 	-- 0.5px 오차: 폰 해상도(705×338 시뮬레이션)에서 AbsPos.Y가 -0.x로 나와 "0 >= 0"이 실패로 찍혔다
 	-- (2026-10-22, 표시는 %d라 0으로 보였다). 픽셀 미만은 부동소수점 반올림이지 침범이 아니다.
 	local EDGE_EPS = 0.5
+	local outTop, outBottom, outLeft, outRight = {}, {}, {}, {}
 	for _, rec in ipairs(records) do
 		local x0, y0 = rec.absPos.X, rec.absPos.Y
 		local x1, y1 = x0 + rec.absSize.X, y0 + rec.absSize.Y
 
-		check(
-			string.format("'%s' 상단이 사용 가능 영역 안쪽이다(top=%d, %s)", rec.path, bounds.top, modeText),
-			y0 >= bounds.top - EDGE_EPS,
-			string.format("AbsPos.Y=%.2f 기준선=%d(%s)", y0, bounds.top, modeText)
-		)
-		check(
-			string.format("'%s' 하단이 사용 가능 영역 안쪽이다(bottom=%d, %s)", rec.path, bounds.bottom, modeText),
-			y1 <= bounds.bottom + EDGE_EPS,
-			string.format("AbsPos.Y+AbsSize.Y=%.2f 기준선=%d(%s)", y1, bounds.bottom, modeText)
-		)
-		check(
-			string.format("'%s' 좌측이 사용 가능 영역 안쪽이다(left=%d, %s)", rec.path, bounds.left, modeText),
-			x0 >= bounds.left - EDGE_EPS,
-			string.format("AbsPos.X=%.2f 기준선=%d(%s)", x0, bounds.left, modeText)
-		)
-		check(
-			string.format("'%s' 우측이 사용 가능 영역 안쪽이다(right=%d, %s)", rec.path, bounds.right, modeText),
-			x1 <= bounds.right + EDGE_EPS,
-			string.format("AbsPos.X+AbsSize.X=%.2f 기준선=%d(%s)", x1, bounds.right, modeText)
-		)
+		if not (y0 >= bounds.top - EDGE_EPS) then
+			table.insert(outTop, string.format("'%s' AbsPos.Y=%.2f", rec.path, y0))
+		end
+		if not (y1 <= bounds.bottom + EDGE_EPS) then
+			table.insert(outBottom, string.format("'%s' AbsPos.Y+AbsSize.Y=%.2f", rec.path, y1))
+		end
+		if not (x0 >= bounds.left - EDGE_EPS) then
+			table.insert(outLeft, string.format("'%s' AbsPos.X=%.2f", rec.path, x0))
+		end
+		if not (x1 <= bounds.right + EDGE_EPS) then
+			table.insert(outRight, string.format("'%s' AbsPos.X+AbsSize.X=%.2f", rec.path, x1))
+		end
 	end
+	checkAll(string.format("보이는 요소 전부 상단이 사용 가능 영역 안쪽이다(top=%d, %s)", bounds.top, modeText), #records, outTop)
+	checkAll(string.format("보이는 요소 전부 하단이 사용 가능 영역 안쪽이다(bottom=%d, %s)", bounds.bottom, modeText), #records, outBottom)
+	checkAll(string.format("보이는 요소 전부 좌측이 사용 가능 영역 안쪽이다(left=%d, %s)", bounds.left, modeText), #records, outLeft)
+	checkAll(string.format("보이는 요소 전부 우측이 사용 가능 영역 안쪽이다(right=%d, %s)", bounds.right, modeText), #records, outRight)
 
 	-- 검사 3 — 형제 겹침 ------------------------------------------------------------
 	checkOverlaps(records)

@@ -173,7 +173,7 @@ end
 
 -- ⚠️ 여기부터는 모든 화면이 같이 쓰는 값을 잠깐 바꾼다(Fx 시계 · FxPrefs 연출 줄이기 — 켜는 순간 붙은 버튼 전부가 1로 돌아간다).
 -- 버튼 반응 · 빛 띠를 재는 UiFxTests가 끝난 뒤에 시작한다(2026-11-12 단계 3 실측: 같이 돌면 UiFxTests "올림" 검사 2개가 1을 읽었다).
--- 기다리는 방법은 그 파일의 요약 줄(LogService) — 30초가 지나면 그냥 시작한다
+-- 기다리는 방법은 그 파일의 요약 줄(LogService) — 30초가 지나면 실패 하나를 세고 시작한다(#26)
 do
 	local LogService = game:GetService("LogService")
 	local deadline = os.clock() + 30
@@ -189,6 +189,7 @@ do
 			task.wait(0.2)
 		end
 	end
+	check("UiFxTests 요약 줄을 본 뒤에 시작한다(상한 30초 — 같이 돌면 버튼 반응 검사가 흔들린다)", done)
 end
 -- 시계는 기다린 뒤에 바꾼다
 T = 1000
