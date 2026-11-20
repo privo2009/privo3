@@ -674,9 +674,12 @@ task.defer(function()
 	collect(hud, hud.Name, records)
 
 	-- 검사 1 — 크기 0 --------------------------------------------------------------
+	-- 예외: 진행 막대 채움("Fill" — PowerBlock 레벨 바)은 진행 0%면 폭이 0인 것이 맞다. 높이는 있어야 한다 — 비율 제약이
+	-- 무너진 0x0(이 검사가 잡으려던 것)은 그대로 걸린다. 첫 PlayerState 뒤에 재게 되자(#26) fresh 프로필에서 드러났다.
 	local zero = {}
 	for _, rec in ipairs(records) do
-		if not (rec.absSize.X > 0 and rec.absSize.Y > 0) then
+		local emptyFill = rec.instance.Name == "Fill" and rec.absSize.X == 0 and rec.absSize.Y > 0
+		if not (rec.absSize.X > 0 and rec.absSize.Y > 0) and not emptyFill then
 			table.insert(zero, string.format("'%s' %s", rec.path, formatSizeDetail(rec)))
 		end
 	end
