@@ -7,6 +7,7 @@
 -- 첫 줄: "n/5단계"(왼쪽) + 버튼(오른쪽 — 1 ~ 4단계 건너뛰기(두 번 누름) / 5단계 확인). 아래 두 줄: 단계 문장(글자 감싸기).
 -- 요청은 OnboardingRequest(finish · skip) 한 번만(대기 중이면 버튼 잠김 — 결과 또는 시간 초과로 풀린다).
 -- 창(Window 층)이 열려 있으면 띠를 숨긴다(setSuppressed) — 큰 창(0.075 ~)의 X 버튼이 띠 자리와 겹친다(2026-11-01 #20 단계 8 실측).
+-- 띠가 보이고 · 숨는 순간 deps.onShown(보임)을 부른다 — 토스트가 그동안 띠 아래 칸으로 내려간다(지시서 #26 · ToastStack.setBelowBand).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
@@ -29,6 +30,7 @@ export type Deps = {
 	store: any?,
 	send: (action: string) -> (),
 	now: (() -> number)?,
+	onShown: ((boolean) -> ())?,
 }
 
 export type Handle = {
@@ -36,6 +38,7 @@ export type Handle = {
 	onResult: (any) -> (),
 	refresh: () -> (),
 	setSuppressed: (boolean) -> (),
+	isShown: () -> boolean,
 	_debug: { panel: Frame, progress: TextLabel, text: TextLabel, buttonLabel: TextLabel, hit: TextButton, press: () -> (), sent: { string } },
 }
 
@@ -87,17 +90,25 @@ function OnboardingBand.create(deps: Deps): Handle
 	hit.ZIndex = Z + 4
 
 	local suppressed = false
+	local shown = false
 	local skipConfirm = OnboardingLogic.newSkipConfirm()
 	local pendingUntil = 0
 	local sent: { string } = {}
 
 	local function render()
 		local v = OnboardingLogic.view(source.get("onboarding"), skipConfirm.isArmed(now()))
-		panel.Visible = v.visible and not suppressed
+		local nowShown = v.visible and not suppressed
+		panel.Visible = nowShown
 		progress.Text = v.progress
 		text.Text = v.text
 		buttonLabel.Text = if v.showFinish then v.finishText else v.skipText
 		button.setDisabled(now() < pendingUntil)
+		if nowShown ~= shown then
+			shown = nowShown
+			if deps.onShown ~= nil then
+				deps.onShown(nowShown)
+			end
+		end
 	end
 
 	local function press()
@@ -138,6 +149,9 @@ function OnboardingBand.create(deps: Deps): Handle
 		setSuppressed = function(on: boolean)
 			suppressed = on
 			render()
+		end,
+		isShown = function()
+			return shown
 		end,
 		_debug = { panel = panel, progress = progress, text = text, buttonLabel = buttonLabel, hit = hit, press = press, sent = sent },
 	}

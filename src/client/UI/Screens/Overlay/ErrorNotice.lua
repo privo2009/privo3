@@ -13,6 +13,14 @@ local ErrorNotice = {}
 local LEVEL: TextScale.Level = "small"
 local ROWS = 3 -- 문구가 세 줄까지 들어가는 높이
 
+-- 자리(화면 Scale). 토스트가 안내 띠 동안 같은 칸을 쓴다(지시서 #26 ToastStack.BelowBounds — 테스트가 둘이 같은지 본다)
+ErrorNotice.Bounds = {
+	x0 = OverlayParts.RIGHT_RAIL_LEFT,
+	y0 = Layout.TOP_HEIGHT,
+	x1 = OverlayParts.RIGHT_RAIL_LEFT + OverlayParts.RIGHT_RAIL_WIDTH,
+	y1 = Layout.TOP_HEIGHT + TextScale.Levels[LEVEL].heightFraction * ROWS,
+}
+
 export type Handle = {
 	root: Frame,
 	setText: (string) -> (),

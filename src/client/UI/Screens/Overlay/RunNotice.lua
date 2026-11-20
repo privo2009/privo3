@@ -20,6 +20,7 @@ local ROW_GAP = 0.01 -- 줄 사이. 시각 튜닝값
 -- 오류(알림층) 칸 바로 아래. 둘이 동시에 떠도 겹치지 않게 오류 칸 높이(small 3줄)만큼 내린다.
 local TOP = Layout.TOP_HEIGHT + TextScale.Levels.small.heightFraction * 3 + ROW_GAP
 
+RunNotice.TOP = TOP -- 위 가장자리(토스트 띠 아래 칸이 이보다 위에서 끝난다 — 지시서 #26 테스트)
 RunNotice.TEXT = {
 	cashout = Locale.t("overlay.run.cashout"),
 	advance = Locale.t("overlay.run.advance"),

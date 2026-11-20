@@ -11,6 +11,12 @@
 -- 폰 예외 (#L2, 2026-10-29 사람 결정): 한 줄 칸에 글자 하한(11px) 두 줄이 안 들어가는 낮은 화면(Galaxy A06 338px → 14.9px)에서는
 -- 영어 토스트가 칸 폭(169px)을 넘친다. 그때만 **동시 2개 · 각 두 줄(글자 감싸기)**로 바꾼다 — 같은 띠 높이를 2줄로 나눠 쓴다.
 -- 넘치는 토스트는 큐로 돌아가 차례를 기다린다(ToastLogic.setLimit — 잃지 않는다). 화면 높이가 바뀌면 다시 고른다.
+--
+-- 첫 접속 안내 띠와 자리 나누기 (지시서 #26 — #20 "알려진 것"): 안내 띠(OnboardingBand)가 이 칸(x 0.73 ~ · 위 0.005 ~ 0.145)을 같이 써서
+-- 안내 중 토스트가 띠를 덮었다. 띠가 보이는 동안(setBelowBand(true))은 토스트를 **띠 바로 아래 오른쪽 레일 칸**으로 내린다 —
+-- x 0.80 ~ 0.97 · y 0.15 ~ 0.225(오류 칸 ErrorNotice와 같은 자리 · 소 단계 3줄 높이). 중앙 금지 구역(x 0.2 ~ 0.8) 밖이고
+-- 런 안내(오른쪽 레일 0.235 ~)와 겹치지 않는다. 칸이 좁아(폭 17%) **한 번에 1개 · 글자 감싸기**로 보이고 나머지는 큐에서 기다린다.
+-- 오류 칸은 로딩 시간 초과에만 열린다 — 그때는 내리지 않는다(OverlayBoot가 정한다). 띠가 사라지면 원래 자리로 돌아간다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
@@ -28,16 +34,26 @@ local ROW_H = 0.044 -- 3줄 + 간격이 띠(0.15) 안에 들도록(부동소수 
 local GAP = 0.005
 ToastStack.COMPACT_VISIBLE = 2 -- 폰 예외에서 동시에 보이는 수
 ToastStack.Bounds = { x0 = X0, y0 = TOP, x1 = X0 + WIDTH, y1 = TOP + ToastLogic.MAX_VISIBLE * ROW_H + (ToastLogic.MAX_VISIBLE - 1) * GAP }
+-- 띠 아래 칸(지시서 #26) — 오류 칸(ErrorNotice.Bounds)과 같은 사각형
+ToastStack.BELOW_VISIBLE = 1
+ToastStack.BelowBounds = {
+	x0 = OverlayParts.RIGHT_RAIL_LEFT,
+	y0 = Layout.TOP_HEIGHT,
+	x1 = OverlayParts.RIGHT_RAIL_LEFT + OverlayParts.RIGHT_RAIL_WIDTH,
+	y1 = Layout.TOP_HEIGHT + TextScale.Levels.small.heightFraction * 3,
+}
 
 export type Entry = { text: string, tier: number }
 
 export type Handle = {
 	root: Frame,
 	push: (Entry) -> (),
+	setBelowBand: (boolean) -> (),
 	_rows: { TextLabel },
 	_queue: ToastLogic.Queue<Entry>,
 	_render: () -> (),
 	_isCompact: () -> boolean,
+	_isBelowBand: () -> boolean,
 }
 
 function ToastStack.create(now: (() -> number)?): Handle
@@ -69,6 +85,7 @@ function ToastStack.create(now: (() -> number)?): Handle
 
 	local queue = ToastLogic.new() :: ToastLogic.Queue<Entry>
 	local compact = false
+	local below = false
 	local shownRows = #rows
 
 	local function render()
@@ -85,7 +102,33 @@ function ToastStack.create(now: (() -> number)?): Handle
 		end
 	end
 
-	-- 폰 예외 고르기: 부모(화면) 높이로 한 줄 칸의 픽셀을 보고, 두 줄(하한 + 1px씩)이 안 들어가면 2개 · 두 줄로.
+	-- 줄 배치. 띠 아래 칸이면 한 줄이 칸 전체(감싸기). 아니면 원래 칸 — 폰 예외는 부모(화면) 높이로 한 줄 칸의 픽셀을 보고,
+	-- 두 줄(하한 + 1px씩)이 안 들어가면 2개 · 두 줄로.
+	local function layout()
+		if below then
+			root.Position = UDim2.fromScale(ToastStack.BelowBounds.x0, ToastStack.BelowBounds.y0)
+			root.Size = UDim2.fromScale(ToastStack.BelowBounds.x1 - ToastStack.BelowBounds.x0, ToastStack.BelowBounds.y1 - ToastStack.BelowBounds.y0)
+			shownRows = ToastStack.BELOW_VISIBLE
+			for _, label in ipairs(rows) do
+				label.Position = UDim2.fromScale(0, 0)
+				label.Size = UDim2.fromScale(1, 1)
+				label.TextWrapped = true
+			end
+		else
+			root.Position = UDim2.fromScale(X0, TOP)
+			root.Size = UDim2.fromScale(WIDTH, height)
+			shownRows = if compact then ToastStack.COMPACT_VISIBLE else #rows
+			local rowH = if compact then (height - (shownRows - 1) * GAP) / shownRows else ROW_H
+			for i, label in ipairs(rows) do
+				label.Position = UDim2.fromScale(0, (i - 1) * (rowH + GAP) / height)
+				label.Size = UDim2.fromScale(1, rowH / height)
+				label.TextWrapped = compact
+			end
+		end
+		queue.setLimit(shownRows, clock())
+		render()
+	end
+
 	local function fit()
 		local parent = root.Parent
 		local screenH = if parent ~= nil and parent:IsA("GuiBase2d") then (parent :: GuiBase2d).AbsoluteSize.Y else 0
@@ -97,15 +140,7 @@ function ToastStack.create(now: (() -> number)?): Handle
 			return
 		end
 		compact = want
-		shownRows = if compact then ToastStack.COMPACT_VISIBLE else #rows
-		local rowH = if compact then (height - (shownRows - 1) * GAP) / shownRows else ROW_H
-		for i, label in ipairs(rows) do
-			label.Position = UDim2.fromScale(0, (i - 1) * (rowH + GAP) / height)
-			label.Size = UDim2.fromScale(1, rowH / height)
-			label.TextWrapped = compact
-		end
-		queue.setLimit(shownRows, clock())
-		render()
+		layout()
 	end
 	local parentConn: RBXScriptConnection? = nil
 	root.AncestryChanged:Connect(function()
@@ -147,14 +182,28 @@ function ToastStack.create(now: (() -> number)?): Handle
 		schedule()
 	end
 
+	-- 안내 띠가 보이는 동안 띠 아래 칸으로(지시서 #26). 같은 값이면 아무것도 하지 않는다.
+	local function setBelowBand(on: boolean)
+		if on == below then
+			return
+		end
+		below = on
+		layout()
+		schedule()
+	end
+
 	return {
 		root = root,
 		push = push,
+		setBelowBand = setBelowBand,
 		_rows = rows,
 		_queue = queue,
 		_render = render,
 		_isCompact = function()
 			return compact
+		end,
+		_isBelowBand = function()
+			return below
 		end,
 	}
 end

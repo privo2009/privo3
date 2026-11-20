@@ -286,10 +286,15 @@ end)
 -- ===== 첫 접속 안내 띠 (지시서 #20 O1 ~ O3) ======================================================
 local OnboardingBand = require(script.Parent.Screens.Overlay.OnboardingBand)
 local OnboardingLogic = require(script.Parent.Logic.OnboardingLogic)
+-- 띠가 보이는 동안 토스트는 띠 아래 칸으로 내려간다(지시서 #26 — 같은 칸을 써서 안내 중 토스트가 띠를 덮었다).
+-- 그 칸은 오류 칸과 같은 자리라 오류(로딩 시간 초과)가 열려 있으면 내리지 않는다(드문 경우 — 예전처럼 띠 위에 그려진다).
 local onboardingBand = OnboardingBand.create({
 	send = function(action: string)
 		local payload: Remotes.OnboardingRequestPayload = { action = action }
 		channels.onboardingRequest:FireServer(payload)
+	end,
+	onShown = function(on: boolean)
+		toastStack.setBelowBand(on and not ScreenController.isOpen("ErrorNotice"))
 	end,
 })
 ScreenController.register("OnboardingBand", "Overlay", function()
