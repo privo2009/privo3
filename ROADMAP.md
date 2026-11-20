@@ -20,6 +20,7 @@
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
 | `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
+| `Tests/TestRunLogicTests.server.lua` | 18 | 테스트 끝 표시(#26) — 요약 줄 읽기 · 끝 줄 꼴(읽기 코드 필터에 걸림 · 행으로 안 읽힘) · 모으기(다시 읽어도 한 번 · 목록 밖 · 빠짐 · 두 번 찍힘) · 기대 목록(Tests로 끝나는 Script · LocalScript) · 실물 서버 목록 · 상한 |
 | `Tests/ConfigTests.server.lua` | 124 | 모든 Config의 validate + 스모크 · 파생 함수(getSlots · getStorage · getUnlockedPacks) · TitleConfig validate 거부 5종 · 블럭스 상품 금지(P1) · AuraConfig m = 사다리 × 비율 · G4 · 단조 거부(#11) · PetConfig m · 비용 100/100K/100M · 해금 · 실효 증가분 · totalMult(nil 구멍) · 강화 4단계 · validate 거부 · Attribute 직렬화(#12) · 레벨 L1 경계(1 · 2 · 3 · 4 · 2^k ± 가수 1 ulp · 10^2000대) · 진행률 0 이상 1 미만 · L2 상한(레벨 48) · 환생 뒤 0(#13) · ShopConfig 검사(가격 · 키 · 계단 순증가 · blox 거부 · 행운 표시 = 효과 · 같은 ID — #16) · 대시보드 ID 39 등록 · ID 표 섞임 · 0 거부 · ownedHigher R1 · R2 · rollCreditLuck(#17) · 1번 패드 덮어쓰기 = Config · 2번부터 식 · 사본 · validate 거부 3종(#24 P1) |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Tests/WarpConfigTests.server.lua` | 31 | 워프 비용 곡선(지수·단조)·순수성·거부 사유 3종 |
@@ -49,8 +50,8 @@
 | `Tests/BloxDisplayTests.client.lua` | 13 | 중앙 금지 미침범·Store 구독 반영·8자 잘림 방지 |
 | `Tests/ChallengeInfoTests.client.lua` | 17 | 상단 정보 15% 안·타이머 특대 단계·active=false 레이아웃 유지 |
 | `Tests/MenuRailTests.client.lua` | 59 | 6개 생성·좌측 레일 폭·세로 합계·BloxDisplay 비침범·AspectRatio·라벨 2~4자·격자 열 수 구성값 ※ |
-| `Tests/HudVisibilityTests.client.lua` | 31 | PlayerGui 부착·Visible·Enabled·AbsoluteSize·10프레임 지속 관찰 ※ |
-| `Tests/HudLayoutTests.client.lua` | 512 | 뷰포트 게이트 뒤 실물 HudGui — 크기 0·인셋/뷰포트 경계 침범·형제 겹침·MenuRail 격자 배치(AbsolutePosition)·칸 안 자식·컴포넌트 간 겹침·글자 하한·터치 조작부 겹침·구좌 가격이 칸 안 · 표기 통일 ※ · 부스트 남은 시간 · 구좌 HitArea(#16) · 자동 진행 상태 줄 · HitArea(#18 — 검사 대상 늘어 +6) · 일일 보상 아이콘(#20 — 검사 대상 늘어 +33) · 빛 띠 덮개(#21 — 형제 겹침 예외 "Shine" · 검사 대상 늘어 +10) |
+| `Tests/HudVisibilityTests.client.lua` | 31 | PlayerGui 부착·Visible·Enabled·AbsoluteSize·10프레임 지속 관찰 ※ · **방식 변경(#26):** root가 없으면 네 검사를 건너뛰지 않고 실패로 센다 |
+| `Tests/HudLayoutTests.client.lua` | 47 | **방식 변경(#26):** 첫 PlayerState를 받은 뒤(상한 20초 — 넘으면 실패 1) · 뷰포트 게이트 뒤 실물 HudGui — 크기 0(진행 0% 채움 예외) · 인셋/뷰포트 경계 침범(위 · 아래 · 왼 · 오른 넷) · 형제 겹침 · 칸 안 자식 · 컴포넌트 간 겹침 · 터치 조작부 겹침은 **요소 · 쌍마다 판정하고 종류마다 check 하나**(틀린 요소 이름은 detail — 예전엔 요소마다 세어 512 / 522로 흔들렸다) · MenuRail 격자 배치(행은 MenuRail.Items에서) · PowerBlock · 구좌 · 자동 도구 예산 · 글자 하한 · 구좌 가격이 칸 안 · 표기 통일 ※ |
 | `Tests/PowerBlockTests.client.lua` | 50 | 세 행 Y 범위·하단 띠·8자/4자 규격·진행률 경계·Store 구독 반영·다른 인스턴스 미유출 · 레벨 바 L1(2^k → 레벨 k · 그 레벨 안 위치 · LevelConfig 그대로 — #13) |
 | `Tests/ShopSlotsTests.client.lua` | 36 | 상점 4구좌 배치·ShopConfig 원본 참조·가격 표기 2꼴 |
 | `Tests/AutoToolsTests.client.lua` | 29 | 자동 도구 아이콘 배치 · 미보유 잠김 · 꺼짐 비교는 보유 Store(#16) · 자동 진행 HitArea 있음(#18 AA11 — 옛 "없음" 검사를 바꿨다) |
@@ -110,21 +111,21 @@
 | `Tests/WindowProductTests.client.lua` | 30 | 창별 상품 버튼 — 아우라 로벅스 탭 · 롤 사용 · 펫 로벅스 탭 · ×3 부화 · 칭호 10배 행운 버튼 · 운동기구 프롬프트 · 선해금 표시 · 폰 705×338 넘침 0 · 11px(#17) |
 | `Tests/AutoAdvanceWindowTests.client.lua` | 28 | 자동 진행 UI — 창 값 = 서버 요약 · 목표층 범위 · 기본 = 안전층 · 버튼 색 · 글자(안전층 경계) · 요청 한 번만 · 켜지면 닫힘 · HUD 세 상태 · 상태 줄 · 사유 · 워프 · 환생 auto_active 문구 · 17키 en · ko · 폰 705×338(#18) |
 | `Tests/LocaleTests.server.lua` | 39 | 다국어 표 · 고르기(#L1) — 모든 키에 en · 자리 표시 집합 = en · 없는 키 "?" + WARN · ko 없으면 en · 치환 · 언어 고르기(K2) · TEST_LOCALE 관문(Studio 전용) · Config id → 이름 키(K6) · 커밋된 TEST_LOCALE = nil · K11 신호 기다리기(바로 · 늦게 · 상한) · 서버가 LocaleReady를 세운다(#L2) |
-| `Tests/LocaleClientTests.client.lua` | 26 | K10 우리 GUI 루트 전수 AutoLocalize = false(예외: Freecam · 플레이스 StarterGui 복사본) · K11 지금 언어 = TEST_LOCALE 또는 계정 언어 · 첫 언어는 서버 신호 뒤 · 신호 전 기억 없는 호출 0 · 토스트 setLimit · 알림층 폰 705×338 틀(런 안내 3 · 오류 · 로딩 · 환생 안내 · 가장 긴 칭호 · 아우라 · 펫 토스트 · 결과 모달 — 넘침 0 · 11px · 그 Play의 언어) · 토스트 폰 예외(2개 · 두 줄)(#L2) · 글자 전부 UiTheme.FONT · 힘 블록 환생 배수 라벨 폰 한 줄 · 값 · 힘 수치와 안 겹침(#17 F1 · F2) |
+| `Tests/LocaleClientTests.client.lua` | 27 | K10 우리 GUI 루트 전수 AutoLocalize = false(예외: Freecam · 플레이스 StarterGui 복사본) · K11 지금 언어 = TEST_LOCALE 또는 계정 언어 · 첫 언어는 서버 신호 뒤 · 신호 전 기억 없는 호출 0 · 토스트 setLimit · 알림층 폰 705×338 틀(런 안내 3 · 오류 · 로딩 · 환생 안내 · 가장 긴 칭호 · 아우라 · 펫 토스트 · 결과 모달 — 넘침 0 · 11px · 그 Play의 언어) · 토스트 폰 예외(2개 · 두 줄)(#L2) · 글자 전부 UiTheme.FONT · 힘 블록 환생 배수 라벨 폰 한 줄 · 값 · 힘 수치와 안 겹침(#17 F1 · F2) · K10 화면이 상한 15초 안에 섰다(#26 +1) · **방식 변경(#26):** K11 Studio 전용 2개는 Studio 밖이면 건너뜀 2개로 센다 |
 | `Systems/RewardServiceTests.server.lua` | 19 | 무료 보상 지급 R1 — 형식(포션 힘 · 데미지만 · bloxScaled · 펫) · bloxScaled 양(maxStage 0 · 9 · 25 · 상한) · 세 형식 지급 · 전부 아니면 0(틀린 항목 · 보관함 가득 · 블럭스 거부 · 프로필 없음) · PetService.grant(uid · 자동 장착 · 새 펫 저장 · 가득)(#20) |
 | `Systems/DailyServiceTests.server.lua` | 35 | 일일 보상 D1 ~ D5 · T1 — UTC 일 번호 경계 · 판정(처음 · 연속 · 끊김 · 오늘 · 7일 뒤 · 깨진 값) · 받기 · 같은 날 두 번 · 7일째 리미티드 · 보관함 가득 거부 후 같은 날 성공 · 날이 바뀌면 1일 · 요청 채널 · 리미티드(알 표에 없음 · 크래프팅) · 보상표 · TEST_DAY_OFFSET 관문 · 커밋 nil · PlayerState daily(#20) |
 | `Systems/CodeServiceTests.server.lua` | 19 | 코드 입력 C1 ~ C5 — 정리(공백 · 대소문자 · 빈 · 긴 · 문자열 아님) · 표 · 성공 기록 · 결과에 입력 글자 없음 · 이미 받음 · 만료 · 보관함 가득 · 틀린 5번/분 막힘 → 1분 뒤 풀림 · 창 밖 횟수 · 빈도(#20) |
 | `Systems/OnboardingServiceTests.server.lua` | 27 | 첫 접속 안내 O1 ~ O5 — 단계마다 신호 · 분석 이벤트 1 ~ 5 · 확인 → 완료 보상 1회 · 순서가 어긋난 신호 버림 · 재접속 이어가기 · 클릭 수 세션 메모리 · 건너뛰기(보상 · 이벤트 없음) · 기존 프로필 끝남 · 요청 채널 · 설정 · 훅 · PlayerState onboarding(#20) |
 | `Tests/DailyRewardWindowTests.client.lua` | 26 | 일일 보상 UI — 칸(서버 원본 · bloxScaled = 서버 식 · 리미티드 tier6) · 버튼 · 남은 시간 · 사유 · 자동 등장(안내 뒤 · 런 아님 · 그날 한 번) · 큐 순서 · 배지 · 요청 한 번만 · en · ko · 폰 705×338(#20) |
 | `Tests/CodeWindowTests.client.lua` | 14 | 코드 입력 UI — 결과 문구(서버 결과 · Strings만) · 입력 글자를 되보이지 않음 · 보내면 비움 · 한 번만 · 결과 줄 빈칸 시작 · 설정 창 버튼 · en · ko · 폰 넘침 0 · 입력칸 위 45% 안(#20) |
-| `Tests/OnboardingBandTests.client.lua` | 17 | 첫 접속 안내 띠 — 단계 문구 · 숨김 · 건너뛰기 두 번 누름 · 확인 한 번만 · 창이 열리면 숨김 · 3D 대상 · 자리(중앙 금지 밖) · en · ko · 폰 1 ~ 5단계(#20) |
+| `Tests/OnboardingBandTests.client.lua` | 28 | 첫 접속 안내 띠 — 단계 문구 · 숨김 · 건너뛰기 두 번 누름 · 확인 한 번만 · 창이 열리면 숨김 · 3D 대상 · 자리(중앙 금지 밖) · en · ko · 폰 1 ~ 5단계(#20) · 토스트와 자리 나누기(#26 +11 — 띠 아래 칸 자리 · 띠 보임 알림 · 내리기 · 되돌리기 · 폰 틀 띠와 겹침 0 · 가장 긴 토스트 문구 19개 넘침 0 · 11px) |
 | `Tests/UiFxTests.client.lua` | 59 | UI 효과(#21) — 버튼 상태 전이 · 목표 Scale · 트윈 종류 · 잘림 상한 · 실물(가운데 기준 · 쉬면 원래 배치 · 터치 · 비활성 2종 · 격자 · 목록 · 다른 UIScale 래퍼 · 스크롤 안 · 파괴 정리 · 공용 진입점 · 직접 만든 HitArea 연결) · 빛 띠(키포인트 · Offset · 가시성 · 상한 · 색 · 덮개 ZIndex · 글씨 색 · 그라디언트 · 숨김 · 상한 · 프리셋 · 둥근 모서리 · 9-slice · 떼기 · 파괴 · HUD 구좌 · 상점 줄) · 커밋 값(ENABLED · 멈춤 nil) |
 | `Tests/DataConfigTests.server.lua` | 31 | 데이터 환경(#23 E1 ~ E6) — DATA_ENV 커밋 값 beta · live만 · Studio면 언제나 studio · Studio 밖 beta · live · 잘못된 값 · 저장소 이름 3종 · Studio에서 beta · live 거부 · 시작 로그 줄 · beta 개발자 상품 거부 · 허용 목록(ShopConfig 개발자 상품) · 게임패스 판매 |
 | `Tests/ProximityTests.server.lua` | 25 | 근처 확인(#23 N1) — 여유 식 = REACH + 최고 속도 × LAG · 프레임 드랍 근거(기준 fps 한 프레임 · 10fps) · 근처 · 멀리 · 경계 · 루트 없음 · 회전된 파트 · 캐릭터 없음 · 거부 수 · 실제 파트 크기(수령 발판 · 패드 · 얇은 트리거를 최고 속도로 지난 뒤) |
 | `Tests/AnalyticsTests.server.lua` | 55 | 분석 래퍼(#23 A1 ~ A5) — 흐름표 11종 · 엔진 Enum 이름 · 흐름별 호출 1회 · 모아 보내기(합 · 마지막 잔액) · tick · 나갈 때 · 1e15 넘으면 blox_flow_large(log10 · 필드 · 10^2000) · 경계 · inf · NaN · 음수 거부 · 상한(창 · 플레이어별 · 버림 로그) · pcall 실패 무해 · Player 아님 건너뜀 · 도우미 4종 · 퍼널 · 처음 깬 층 중복 없음(firstClear) |
-| `Tests/FxTests.client.lua` | 77 | 화면 연출(#25 U1 ~ U7) — 구간 표본 · 사양 = Config · log10 보간(0 · 같은 값 · 줄어듦 · 10^2000 · 지수 경계) · 계획 · 스로틀 · 가운데 기준 · 크래프팅 순서(결과 · PlayerState 어느 쪽 먼저 · 거부 · 시간 초과) · 구동기(가짜 시계 · 끝값 · onDone · 교체 · finish · cancel · 연출 줄이기 · 멈춤값 · 정리) · UIScale 하나 규칙 · 튀기 가운데 기준 · 창 열기 · 닫기(닫는 중 다른 창 · 같은 창 다시 · 알림 순서 · 연출 없는 인스턴스) · 결과 모달(보통 · 영웅 이상 · 빛 띠 1회) · 빛 띠 1회 모드 · 연출 줄이기(버튼 · 빛 띠) · 블럭스 올라가기 · 레벨 · 환생 배수 튀기 · 크래프팅 연결 |
+| `Tests/FxTests.client.lua` | 78 | 화면 연출(#25 U1 ~ U7) — 구간 표본 · 사양 = Config · log10 보간(0 · 같은 값 · 줄어듦 · 10^2000 · 지수 경계) · 계획 · 스로틀 · 가운데 기준 · 크래프팅 순서(결과 · PlayerState 어느 쪽 먼저 · 거부 · 시간 초과) · 구동기(가짜 시계 · 끝값 · onDone · 교체 · finish · cancel · 연출 줄이기 · 멈춤값 · 정리) · UIScale 하나 규칙 · 튀기 가운데 기준 · 창 열기 · 닫기(닫는 중 다른 창 · 같은 창 다시 · 알림 순서 · 연출 없는 인스턴스) · 결과 모달(보통 · 영웅 이상 · 빛 띠 1회) · 빛 띠 1회 모드 · 연출 줄이기(버튼 · 빛 띠) · 블럭스 올라가기 · 레벨 · 환생 배수 튀기 · 크래프팅 연결 · UiFxTests 요약 줄을 본 뒤 시작(상한 30초 — 넘으면 실패 1, #26 +1) |
 | `Tests/SfxTests.client.lua` | 19 | 효과음(#25 S1 ~ S3) — 키 12개 · 커밋 값 id 전부 nil · 판정(id 없음 · 끔 · 스로틀 · 모르는 키) · 희귀도 → 키(칭호 · 아우라 · 펫) · 런 상태 · 환생 · 구매 · 일일 보상 · 시도 기록 · 끔이면 시도 0 · 풀 |
-| **합계** | **4806** | 서버 69행 2963 · 클라 37행 1843 — 2026-11-12 #25 마무리 Play 실측(플래그 전부 끔) |
+| **합계** | **4372** | 서버 70행 2981 · 클라 37행 1391 — 2026-11-20 #26 마무리 Play 2번 실측(플래그 전부 끔 · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -133,8 +134,8 @@
 항목 목록(색 6종·아이콘 6개)을 순회하는 루프 안에 check가 여러 개 있고, `TextScaleTests`
 (정적 4, 실측 16)는 5단계 루프, `HudVisibilityTests`(정적 6)는 화면 3종 루프
 안에 check가 있다. `HudLayoutTests`(정적 카운트 없음 — 처음부터 실측만 기록)는
-HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍을 순회하는 검사 3, 행을
-순회하는 검사 4가 전부 루프 안에 있다. 정적 세기에는 루프/헬퍼 안의 check가 한 번만
+행을 순회하는 검사 4가 루프 안에 있다(#26부터 요소 · 쌍을 순회하는 검사 1 · 2 · 3 · 7 · 8 · 10은 종류마다 check 하나 —
+요소 수에 따라 개수가 흔들리지 않는다). 정적 세기에는 루프/헬퍼 안의 check가 한 번만
 잡히고 런타임에는 반복 횟수만큼 돈다 — 어긋나는 것이 **정상**이다. 이 여덟 행은
 실측만 믿을 것.
 
@@ -152,7 +153,23 @@ HudGui 아래 렌더된 요소 전부를 순회하는 검사 1·2와 형제 쌍�
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-10-25 Studio Play 런타임 실측 (전량, 지시서 #13 — 레벨 L1 ~ L3 · 테스트 프리셋 · 리포트 동기화 · 튜닝 도구 · 리포트 · 프리셋 끈 Play).**
+최근 갱신: **2026-11-20 Studio Play 런타임 실측 (전량, 지시서 #26 — 테스트 개수 고정 · 끝 표시 · 안내 띠와 토스트 자리 나누기 · 플래그 전부 끈 Play 2번).**
+107개 행 전부가 두 Play 모두에 같은 개수로 찍혔다. **4372 passed / 0 failed** — 서버 2981(70행) + 클라 1391(37행). 끝 표시 `[TestRunDone] server 70/70 files · 2981` ·
+`client 37/37 files · 1391`(행이 아니다). 개수 세는 방식을 바꾼 행은 "방식 변경".
+
+```
+신설   TestRunLogicTests             18          (2216a3a)
+방식   HudLayoutTests           512 →  47    요소 · 쌍마다 → 종류마다 하나 · 첫 PlayerState 뒤 +1 · 터치 1개 (2216a3a · 01687b5)
+변경   HudVisibilityTests        31 →  31    root 없음 = 실패 4(건너뛰지 않음) (2216a3a)
+       LocaleClientTests         26 →  27    K10 대기 결과 +1 · K11 Studio 밖 건너뜀 2 (2216a3a)
+갱신   FxTests                   77 →  78    UiFxTests 대기 결과 +1 (2216a3a)
+       OnboardingBandTests       17 →  28    토스트 자리 나누기 +11 (a3eafb4)
+유지   나머지 101행
+대조   직전 4806(서버 2963 + 클라 1843) + 신설 18 + 방식 변경 −465 + 1 + 갱신 +1 + 11 = 4372 (서버 +18 · 클라 −452)
+```
+(#16 ~ #25의 갱신은 이 기록에 적지 않았다 — 그동안의 값은 표 본문 · 합계 줄과 각 지시서의 PENDING 블록에 있다. #26 정리에서 확인)
+
+그 전 갱신: **2026-10-25 Studio Play 런타임 실측 (전량, 지시서 #13 — 레벨 L1 ~ L3 · 테스트 프리셋 · 리포트 동기화 · 튜닝 도구 · 리포트 · 프리셋 끈 Play).**
 76개 행 전부가 한 Play에 찍혔다. **3655 passed / 0 failed** — 서버 2299(49행) + 클라 1356(27행).
 
 ```
@@ -1496,6 +1513,8 @@ Phase 8 코드는 #18로 끝났다(2026-10-31). 남은 화면 착수 전 조사 
 코드 입력(RELEASE TEMP) · 첫 접속 안내(띠 + 3D 빛기둥 · 분석 이벤트) · RewardService · 스키마 v8 · 안전층 여유 S15. 화면 목록 36 전부 코드에 있다(`docs/UI.md`).
 실물 확인에서 3건을 찾아 고쳤다(안내 중 자동 등장 · 코드 창 "Label" · 안내 띠가 창 X를 덮음 — 2e5f5a4). Phase 6에 남은 것은 G2 · U8 폴리시(크래프팅 연출 포함)와
 에셋 도착 뒤 교체다. 사람 쪽: 보상표 · 리미티드 m · 코드 목록 튜닝(`docs/TUNING.md`), Phase 9 코드 목록 · 알릴 곳.
+
+✅ **작은 정리 — 지시서 #26(2026-11-20):** 테스트 개수 고정(같은 코드면 Play마다 행 · 개수가 같다 — 연속 3번 증명) · 끝 표시 `[TestRunDone]` · 안내 띠와 토스트 자리 나누기(#20 알려진 것) · PENDING 정리(사람 할 일 · 나중 목록). 커밋 2216a3a · 01687b5 · a3eafb4. 게임 수치 · 동작은 그대로.
 
 ✅ **U8 폴리시 코드 완료 — 지시서 #25(2026-11-12 사람 결정, 커밋 70a4fcd · 586fd5b · 5169c91).** 화면 연출 6종(창 열기 · 닫기 · 결과 모달 · 블럭스 올라가기 · 레벨업 · 환생 ·
 크래프팅) · 설정 "연출 줄이기" · 효과음 구조(키 12개 · 설정 "효과음") · 스키마 v9. 소리 ID는 사람(`docs/TUNING.md` "소리 넣는 법"),
