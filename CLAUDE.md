@@ -59,6 +59,7 @@ ServerPackages/ → Wally 패키지 (직접 수정 금지)
 | `docs/DASHBOARD_PRODUCTS.md` | 대시보드에 만들 로벅스 상품 목록 · 등록 절차 · ID 넣는 자리 (가격 원본은 `ShopConfig` · 이름 · 설명 원본은 `Strings`) |
 | `docs/TUNING.md` | 사람이 혼자 값을 바꾸고 결과를 읽는 순서 · 손잡이 목록 · 테스트 프리셋 사용법 |
 | `docs/LOCALIZATION.md` | 다국어 구조(Strings → CSV → 로블록스 현지화 표) · 새 문장 · 새 언어 추가 순서 · 용어집 (언어 결정 원본은 `DESIGN.md` "12. 언어") |
+| `docs/POLICY_CHECK.md` | 유료 랜덤 상품(행운 · 롤 충전) 정책 점검 — 공식 요구 · 상품 × 화면 점검표 · 남은 위험 · 다시 볼 순서 (상품을 새로 만들면 표에 한 줄) |
 
 ⚠️ **화면 개수 · 색값 · 규격 수치를 이 문서로 복사하지 말 것.**
 원본 한 곳만 고치면 되도록 참조로 둔다. 복사본은 반드시 어긋난다 —
@@ -283,3 +284,4 @@ Rojo 플러그인 창의 Connect 상태는 MCP로 읽을 수 없고,
 - 기존 파일 수정 시 무엇을 왜 바꾸는지 먼저 설명
 - 확신 없으면 추측하지 말고 질문
 - 밸런싱 수치는 전부 `Shared/Config/`로 분리. 하드코딩 금지
+- 새 테스트(*Tests) · 리포트(*Report) 파일을 만들면 첫 실행 줄에 TestGate 게이트를 두고 `python -I tools/check_test_gate.py`를 돌린다(위반 0 — 지시서 #27 T2)
