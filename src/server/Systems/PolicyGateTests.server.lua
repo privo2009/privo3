@@ -59,6 +59,41 @@ do
 	check("나가면 지운다 → 다시 확인 전(제한)", w.runtime.isPaidRandomRestricted(pOpen) and not w.runtime.wasChecked(pOpen))
 end
 
+-- 가짜 제한 판정(지시서 #27 — TEST_PAID_RANDOM_RESTRICTED, Studio 전용)
+do
+	local resolve = pure.resolveTestRestricted
+	local v0, l0 = resolve(nil, true)
+	local vT, lT = resolve(true, true)
+	local vF = resolve(false, true)
+	local vX, lX = resolve(true, false)
+	local vS, lS = resolve("yes", true)
+	check("가짜 제한: nil이면 없음(줄 없음) · Studio true · false는 그 값 + 경고 줄", v0 == nil and l0 == nil and vT == true and lT ~= nil and vF == false)
+	check("가짜 제한: Studio 밖 · boolean 아님은 무시 + ERROR", vX == nil and string.find(lX :: string, "ERROR", 1, true) ~= nil and vS == nil
+		and string.find(lS :: string, "ERROR", 1, true) ~= nil)
+	local wT: any = { gateway = MarketplaceGateway.fake(), notified = 0 }
+	wT.runtime = pure.createRuntime({ gateway = wT.gateway, forced = true, notify = function()
+		wT.notified += 1
+	end })
+	wT.gateway.policy[pOpen.UserId] = { ArePaidRandomItemsRestricted = false }
+	wT.runtime.onJoin(pOpen)
+	local wF: any = { gateway = MarketplaceGateway.fake(), notified = 0 }
+	wF.runtime = pure.createRuntime({ gateway = wF.gateway, forced = false, notify = function()
+		wF.notified += 1
+	end })
+	wF.gateway.policy[pFail.UserId] = false -- 조회 실패(정상이면 제한)
+	wF.runtime.onJoin(pFail)
+	check("가짜 제한 true: 응답이 false여도 제한 · 실제 확인 아님 · 통지 1", wT.runtime.isPaidRandomRestricted(pOpen) and not wT.runtime.wasChecked(pOpen)
+		and wT.notified == 1)
+	check("가짜 제한 false: 응답을 묻지 않고 제한 아님", not wF.runtime.isPaidRandomRestricted(pFail) and wF.notified == 1)
+	local deadline = os.clock() + 15
+	local req, registered = PolicyGate.getRequestedTestRestricted()
+	while not registered and os.clock() < deadline do
+		task.wait(0.1)
+		req, registered = PolicyGate.getRequestedTestRestricted()
+	end
+	check("Bootstrap TEST_PAID_RANDOM_RESTRICTED 커밋 값 = nil (켠 Play에서는 이 줄이 실패한다)", registered and req == nil, tostring(req))
+end
+
 print(string.format("[PolicyGateTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[PolicyGateTests] %d test(s) failed", failed))

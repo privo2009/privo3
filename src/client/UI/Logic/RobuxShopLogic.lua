@@ -98,7 +98,9 @@ function RobuxShopLogic.currentLuck(roll: string, ctx: Context, shop: any): numb
 	return UpgradeConfig.getEffect(name, level) * ShopEffectsLogic.luckMult(ShopEffectsLogic.fromSummary(shop), roll)
 end
 
--- "<가장 귀한 것> a% → b%". 사면 행운이 mult배가 된다(같은 뽑기의 실제 등장 확률 — RollOdds).
+-- "행운 ×mult: <가장 귀한 것> a% → b%". 사면 행운이 mult배가 된다(같은 뽑기의 실제 등장 확률 — RollOdds).
+-- 배수를 숫자로 앞에 둔다 — 공식 paid-random-items "확률을 바꾸는 상품은 구매 전에 설명"(지시서 #27 · docs/POLICY_CHECK.md).
+-- 결과 전부의 확률은 그 뽑기 창에 있다(럭키 · 슈퍼 롤은 아우라 창 "확률 보기").
 function RobuxShopLogic.oddsText(roll: string, mult: number, ctx: Context, shop: any): string
 	local tiers = tiersFor(roll, ctx)
 	if tiers == nil or #tiers == 0 then
@@ -108,7 +110,8 @@ function RobuxShopLogic.oddsText(roll: string, mult: number, ctx: Context, shop:
 	local before = RollOdds.percentages(RollOdds.distribution(tiers, luck))
 	local after = RollOdds.percentages(RollOdds.distribution(tiers, luck * mult))
 	local top = tiers[#tiers]
-	return string.format("%s %s → %s", Names.rollItem(roll, top.id), before[#tiers], after[#tiers]) -- percentages가 "%"를 붙인다
+	return Locale.t("shop.oddsChange", { mult = string.format("%g", mult), name = Names.rollItem(roll, top.id), before = before[#tiers],
+		after = after[#tiers] }) -- percentages가 "%"를 붙인다
 end
 
 local function passRow(key: string, owns: (string) -> boolean, ctx: Context, shop: any): Row

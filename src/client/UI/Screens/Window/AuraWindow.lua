@@ -14,6 +14,9 @@
 --   팩 탭 오른쪽 "로벅스" 탭 — 누르면 카드 자리에 상품 목록(럭키 롤 5 · 15 · 슈퍼 롤 5 · 15 · 10배 아우라 행운 — Components/RobuxList,
 --   롤 줄은 그 롤의 행운으로 바뀌는 확률). 다시 누르거나 팩 탭을 누르면 카드로 돌아온다. 제한 유저는 탭이 없다(S13).
 --   뽑기 줄 오른쪽 "럭키 롤 사용(N)" · "슈퍼 롤 사용(N)" — 고른 팩으로 1회(블럭스 비용 없음). 제한 유저면 숨긴다. 상태 문구는 아랫줄 오른쪽.
+-- 지시서 #27(유료 랜덤 상품 확률 표시 — docs/POLICY_CHECK.md): 안내 줄 오른쪽 "행운 ×N 적용" 자리가 "확률 보기" 버튼이 된다.
+--   누를 때마다 보통 → 럭키 롤 → 슈퍼 롤 → 보통. 카드 넷의 확률 칸이 그 롤의 실제 확률로 바뀐다(합 100 · 서버와 같은 행운 항).
+--   럭키 · 슈퍼 롤(로벅스로 사는 뽑기)의 결과 전부 · 확률을 사기 전에도 쓰기 전에도 볼 수 있게. 제한 유저는 버튼 대신 원래 행운 글자.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -88,6 +91,10 @@ export type Handle = {
 		pressTitles: () -> (),
 		pressRobuxTab: () -> (),
 		pressUse: (credit: string) -> (),
+		pressOddsMode: () -> (),
+		oddsMode: () -> string,
+		oddsButton: Button.ButtonHandle,
+		oddsLabel: TextLabel,
 		robuxShown: () -> boolean,
 		robux: RobuxList.Handle,
 		robuxTab: Button.ButtonHandle,
@@ -147,6 +154,9 @@ function AuraWindow.create(deps: Deps): Handle
 
 	local info = WindowParts.makeText("Info", body, "small", 0, INFO_Y, 0.6, INFO_H)
 	local luck = WindowParts.makeText("LuckLine", body, "small", 0.6, INFO_Y, 0.4, INFO_H, Enum.TextXAlignment.Right)
+	-- 확률 보기(지시서 #27) — 행운 글자와 같은 자리. 제한 유저가 아니면 이것이 보인다
+	local oddsButton, oddsLabel, oddsHit = makeButton("OddsMode", "gray", 0.6, INFO_Y, 0.4, INFO_H, body, "")
+	local oddsMode = "normal"
 
 	-- 카드 4장
 	local cards: { CardParts } = {}
@@ -231,7 +241,15 @@ function AuraWindow.create(deps: Deps): Handle
 			end
 		end
 		luck.Text = AuraWindowLogic.luckText(source.get("upgrades"), source.get("shop"))
-		view = AuraWindowLogic.cards(summary, source.get("upgrades"), packId, source.get("shop"))
+		local shopNow = source.get("shop")
+		local restrictedNow = type(shopNow) ~= "table" or shopNow.paidRandomRestricted ~= false
+		if restrictedNow then
+			oddsMode = "normal"
+		end
+		luck.Visible = restrictedNow
+		oddsButton.root.Visible = not restrictedNow
+		oddsLabel.Text = AuraWindowLogic.oddsModeText(oddsMode, source.get("upgrades"), shopNow)
+		view = AuraWindowLogic.cards(summary, source.get("upgrades"), packId, shopNow, oddsMode)
 		for i, parts in ipairs(cards) do
 			local c = view[i]
 			if c ~= nil then
@@ -314,6 +332,11 @@ function AuraWindow.create(deps: Deps): Handle
 		end
 	end
 
+	local function pressOddsMode()
+		oddsMode = AuraWindowLogic.nextOddsMode(oddsMode, source.get("shop"))
+		render()
+	end
+
 	local function pressRobuxTab()
 		robuxShown = not robuxShown
 		resultText = nil
@@ -366,6 +389,7 @@ function AuraWindow.create(deps: Deps): Handle
 	end
 	rollHit.Activated:Connect(pressRoll)
 	robuxTabHit.Activated:Connect(pressRobuxTab)
+	oddsHit.Activated:Connect(pressOddsMode)
 	for credit, hit in pairs(useHits) do
 		hit.Activated:Connect(function()
 			pressUse(credit)
@@ -412,6 +436,12 @@ function AuraWindow.create(deps: Deps): Handle
 			end,
 			pressRobuxTab = pressRobuxTab,
 			pressUse = pressUse,
+			pressOddsMode = pressOddsMode,
+			oddsMode = function()
+				return oddsMode
+			end,
+			oddsButton = oddsButton,
+			oddsLabel = oddsLabel,
 			robuxShown = function()
 				return robuxShown
 			end,

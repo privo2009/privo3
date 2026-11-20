@@ -15,6 +15,7 @@ local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local Names = require(ReplicatedStorage.Shared.Localization.Names)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 
@@ -74,6 +75,43 @@ end
 
 function AuraWindowLogic.luckText(levels: any, shop: any?): string
 	return RollOdds.luckText(AuraWindowLogic.luckOf(levels, shop))
+end
+
+-- 확률 보기(지시서 #27 — 공식 paid-random-items: 결과 전부 · 실제 확률을 구매 전에, 활성 중엔 바뀐 확률로).
+-- 럭키 · 슈퍼 롤은 로벅스로 사는 뽑기라 그 롤의 확률(행운 × ShopConfig.rollCreditLuck — 서버 AuraService rollProductMult와 같은 항)을
+-- 카드 넷에 그대로 보여 줄 수 있어야 한다. "normal" → "lucky" → "super" → "normal". 제한 유저는 "normal"만(S13 — 상품이 없다).
+AuraWindowLogic.ODDS_MODES = { "normal", "lucky", "super" }
+
+local function isRestricted(shop: any): boolean
+	return type(shop) ~= "table" or shop.paidRandomRestricted ~= false
+end
+
+-- 그 모드의 행운. normal은 luckOf 그대로, 럭키 · 슈퍼는 그 롤 1회의 배수를 더 곱한다. 제한 유저 · 모르는 모드는 normal.
+function AuraWindowLogic.modeLuck(levels: any, shop: any?, mode: string?): number
+	local base = AuraWindowLogic.luckOf(levels, shop)
+	if mode == nil or mode == "normal" or isRestricted(shop) then
+		return base
+	end
+	local mult = ShopConfig.rollCreditLuck(mode)
+	return if mult ~= nil then base * mult else base
+end
+
+function AuraWindowLogic.nextOddsMode(mode: string?, shop: any?): string
+	if isRestricted(shop) then
+		return "normal"
+	end
+	local modes = AuraWindowLogic.ODDS_MODES
+	local i = table.find(modes, mode or "normal") or 1
+	return modes[i % #modes + 1]
+end
+
+-- 확률 보기 버튼 글자: "확률: 럭키 롤 · 행운 ×7.50"
+function AuraWindowLogic.oddsModeText(mode: string?, levels: any, shop: any?): string
+	local m = if mode == "lucky" or mode == "super" then mode else "normal"
+	if isRestricted(shop) then
+		m = "normal"
+	end
+	return Locale.t("aura.odds." .. m, { luck = string.format("%.2f", AuraWindowLogic.modeLuck(levels, shop, m)) })
 end
 
 local function big(v: any): BigNumber
@@ -155,7 +193,8 @@ local function ownedSet(summary: any): { [string]: boolean }
 end
 
 -- 팩 하나의 카드 4장(희귀도 낮은 순 — 왼쪽 일반 → 오른쪽 전설).
-function AuraWindowLogic.cards(summary: any, levels: any, packId: number, shop: any?): { Card }
+-- mode = 확률 보기(지시서 #27 — nil이면 보통). 확률 칸만 바뀐다.
+function AuraWindowLogic.cards(summary: any, levels: any, packId: number, shop: any?, mode: string?): { Card }
 	local pack = AuraConfig.Packs[packId]
 	local out: { Card } = {}
 	if pack == nil then
@@ -163,7 +202,7 @@ function AuraWindowLogic.cards(summary: any, levels: any, packId: number, shop: 
 	end
 	local owned = ownedSet(summary)
 	local equippedId = if type(summary) == "table" and type(summary.equipped) == "string" then summary.equipped else ""
-	local texts = RollOdds.percentages(RollOdds.distribution(pack.auras, AuraWindowLogic.luckOf(levels, shop)))
+	local texts = RollOdds.percentages(RollOdds.distribution(pack.auras, AuraWindowLogic.modeLuck(levels, shop, mode)))
 	for tier, def in ipairs(pack.auras) do
 		local isOwned = owned[def.id] == true
 		local isEquipped = isOwned and equippedId == def.id

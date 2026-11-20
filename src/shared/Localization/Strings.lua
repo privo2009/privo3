@@ -323,6 +323,11 @@ Strings.Entries = {
 	["common.result.equip"] = { en = "Equipped: {name}", ko = "장착: {name}" },
 	["common.toast.result"] = { en = "{heading} {name} ({detail})", ko = "{heading} {name} ({detail})" },
 	["roll.luckApplied"] = { en = "Luck ×{luck} applied", ko = "행운 ×{luck} 적용" },
+	-- 유료 랜덤 상품 확률 표시(지시서 #27 — docs/POLICY_CHECK.md): 상품 줄의 행운 배수 · 아우라 창 확률 보기(보통 · 럭키 · 슈퍼)
+	["shop.oddsChange"] = { en = "Luck ×{mult}: {name} {before} → {after}", ko = "행운 ×{mult}: {name} {before} → {after}" },
+	["aura.odds.normal"] = { en = "Odds: Normal · Luck ×{luck}", ko = "확률: 보통 · 행운 ×{luck}" },
+	["aura.odds.lucky"] = { en = "Odds: Lucky Roll · Luck ×{luck}", ko = "확률: 럭키 롤 · 행운 ×{luck}" },
+	["aura.odds.super"] = { en = "Odds: Super Roll · Luck ×{luck}", ko = "확률: 슈퍼 롤 · 행운 ×{luck}" },
 	["title.title"] = { en = "Titles", ko = "칭호" },
 	["title.autoOn"] = { en = "Auto Roll On", ko = "자동 뽑기 켜짐" },
 	["title.autoOff"] = { en = "Auto Roll Off", ko = "자동 뽑기 꺼짐" },

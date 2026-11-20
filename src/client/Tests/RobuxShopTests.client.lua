@@ -130,7 +130,7 @@ do
 	local base = UpgradeConfig.getEffect("auraLuck", 0)
 	local before = RollOdds.percentages(RollOdds.distribution(tiers, base))
 	local after = RollOdds.percentages(RollOdds.distribution(tiers, base * 10))
-	local expect = string.format("%s %s → %s", Names.aura(tiers[#tiers].id), before[#tiers], after[#tiers])
+	local expect = Locale.t("shop.oddsChange", { mult = "10", name = Names.aura(tiers[#tiers].id), before = before[#tiers], after = after[#tiers] }) -- #27 배수 앞에
 	check("행운 줄: 확률 변화 숫자 = RollOdds(지금 → 10배)", aura.detail == expect, aura.detail .. " vs " .. expect)
 	check("행운 줄: 칭호 · 펫도 숫자가 있다", string.find((rowByKey(RobuxShopLogic.rows(shop(nil, false), ctx), "titleLuck10x") :: any).detail, "%", 1, true) ~= nil
 		and string.find((rowByKey(RobuxShopLogic.rows(shop(nil, false), ctx), "petLuck2x") :: any).detail, "→", 1, true) ~= nil)
@@ -527,8 +527,8 @@ do
 	local base = UpgradeConfig.getEffect("auraLuck", 0)
 	local before = RollOdds.percentages(RollOdds.distribution(tiers, base))
 	local after = RollOdds.percentages(RollOdds.distribution(tiers, base * 100))
-	check("슈퍼 롤 줄: 확률 변화 = 지금 → ×100(RollOdds)", aura[3].detail == string.format("%s %s → %s", Names.aura(tiers[#tiers].id),
-		before[#tiers], after[#tiers]), aura[3].detail)
+	check("슈퍼 롤 줄: 확률 변화 = 지금 → ×100(RollOdds)", aura[3].detail == Locale.t("shop.oddsChange", { mult = "100", name = Names.aura(tiers[#tiers].id),
+		before = before[#tiers], after = after[#tiers] }), aura[3].detail) -- #27 배수 앞에
 	check("창 상품: 제한 유저는 아우라 0줄 · 칭호 0줄 · 펫 3줄(펫 행운 숨김)", #RobuxShopLogic.windowRows("aura", shop(nil, true)) == 0
 		and #RobuxShopLogic.windowRows("title", shop(nil, true)) == 0 and #RobuxShopLogic.windowRows("pet", shop(nil, true)) == 3)
 	local pet = RobuxShopLogic.windowRows("pet", shop({ "hatch3x" }, false))

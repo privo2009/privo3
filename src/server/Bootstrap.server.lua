@@ -29,6 +29,12 @@ local TEST_PRESET: string? = nil
 -- ⚠️ 커밋 값은 언제나 nil이다(GamepassServiceTests가 잰다 — 켠 Play에서는 그 줄이 실패한다. 그 Play로 테스트 개수를 세지 않는다).
 local TEST_GAMEPASSES: { string }? = nil
 
+-- ── 가짜 제한 판정: TEST_PAID_RANDOM_RESTRICTED (Studio 전용, 지시서 #27) ─────────────────────────────
+-- true를 적고 Play하면 Studio에서만 "유료 랜덤 아이템 제한 유저"로 친다(행운 상품 숨김 · 효과 꺼짐 · 롤 쓰기 막힘 — PolicyGate).
+-- false면 제한 아님으로 친다. Studio가 아니면 무시하고 ERROR 로그. 세션 메모리 — 저장하지 않는다.
+-- ⚠️ 커밋 값은 언제나 nil이다(PolicyGateTests가 잰다 — 켠 Play에서는 그 줄이 실패한다. 그 Play로 테스트 개수를 세지 않는다).
+local TEST_PAID_RANDOM_RESTRICTED: boolean? = nil
+
 -- ── 가짜 영수증: TEST_RECEIPTS (Studio · Mock 프리셋 전용, 지시서 #17 6단계) ─────────────────
 -- 개발자 상품 키 목록을 적고 TEST_PRESET과 함께 Play하면 접속할 때 그 영수증을 처리 순서대로 흘린다(실제 결제 없음 · Mock 프로필만).
 -- 예: { "strengthPotion", "luckyRoll5", "gymUnlock5" }. Studio가 아니거나 프리셋이 없으면 무시하고 ERROR 로그(ProductService).
@@ -204,7 +210,7 @@ PetRequestService.init()
 local GamepassService = require(script.Parent.Systems.GamepassService)
 GamepassService.init(TEST_GAMEPASSES)
 local PolicyGate = require(script.Parent.Systems.PolicyGate)
-PolicyGate.init()
+PolicyGate.init(TEST_PAID_RANDOM_RESTRICTED)
 -- 부스트(포션) 엔진 — 접속 중에만 남은 시간을 깎는 서버 단일 루프(지시서 #16 4단계 S7).
 local BoostService = require(script.Parent.Systems.BoostService)
 BoostService.init()
