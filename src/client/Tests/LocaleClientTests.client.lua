@@ -236,7 +236,8 @@ do
 	local _a, packId, tier = AuraConfig.get(longAura.id)
 	local auraView = AuraWindowLogic.resultView({ action = "roll", ok = true, auraId = longAura.id, packId = packId, tier = tier, isNew = true, equipped = true })
 	modal.show(auraView :: any)
-	Fx.finishAll() -- 등장 연출(지시서 #25 U2)을 끝 상태로 보내고 잰다
+	-- 등장 연출(지시서 #25 U2)을 끝 상태로 보내고 잰다. 자기 판만 끝낸다 — finishAll은 같이 도는 FxTests 연출까지 끝냈다(#27 단계 0)
+	Fx.finish(modal._debug.panel, "pop")
 	judge("modal.aura(" .. Names.aura(longAura.id) .. ")", modal.root)
 	local auraPayload = { action = "roll", ok = true, auraId = longAura.id, packId = packId, tier = tier, isNew = true, equipped = false }
 	toastJudge("toast.aura(" .. Names.aura(longAura.id) .. ")", AuraWindowLogic.toastFor(auraPayload))
@@ -251,7 +252,7 @@ do
 	end)
 	local petView = PetWindowLogic.resultView({ action = "hatch", ok = true, petId = longPet.id, level = 1, isNew = true, equipped = true })
 	modal.show(petView :: any)
-	Fx.finishAll()
+	Fx.finish(modal._debug.panel, "pop")
 	judge("modal.pet(" .. Names.pet(longPet.id) .. ")", modal.root)
 	local petPayload = { action = "hatch", ok = true, petId = longPet.id, level = 1, isNew = true, equipped = false }
 	toastJudge("toast.pet(" .. Names.pet(longPet.id) .. ")", PetWindowLogic.toastFor(petPayload))
