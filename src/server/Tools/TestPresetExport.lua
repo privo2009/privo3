@@ -255,6 +255,7 @@ function TestPresetExport.entries(maxStage: number, stages: { number }): { { nam
 end
 
 function TestPresetExport.run()
+	if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
 	local SIM = SuccessRateReport.SIM
 	print("[PRESET] ===== 테스트 프리셋 값 (TestPresets.lua에 그대로 옮긴다) =====")
 	local startedAt = os.clock()

@@ -8,6 +8,8 @@
 -- ⚠️ 케이스마다 새 플레이어 테이블을 만든다. 디바운스 상태가 플레이어 키 싱글턴이라
 -- 공유하면 앞 케이스의 시각이 뒤 케이스를 막는다 (CashoutPadServiceTests 상단, U3-10a).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 

@@ -7,6 +7,8 @@
 -- BlockLayoutConfig를 튜닝하면 Config는 따라가는데 테스트만 옛 값에서 깨진다.
 -- 전부 파생값끼리 비교한다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BlockLayout = require(ReplicatedStorage.Shared.BlockLayout)

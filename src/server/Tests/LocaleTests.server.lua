@@ -6,6 +6,8 @@
 --   7. Config id → 이름 키가 전부 있다(K6)      8. 커밋된 TEST_LOCALE = nil
 -- ⚠️ 8번은 TEST_LOCALE을 켠 Play에서 실패한다(TestPresetGateTests와 같은 방식). 그 Play로 테스트 개수를 세지 않는다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Strings = require(ReplicatedStorage.Shared.Localization.Strings)

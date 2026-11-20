@@ -4,6 +4,8 @@
 -- 저장 1회 · 장착 · 팩 선택 · 행운 전달 · 요약 · 배수 두 자리 "한 번만". 기대값은 Config에서 읽는다.
 -- 럭키 · 슈퍼 롤 쓰기(지시서 #17): 블럭스 비용 없음 · 남은 횟수 −1 · 행운 ×rollCreditLuck · 제한 유저 restricted(충전 그대로) · 0이면 none_owned
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

@@ -6,6 +6,8 @@
 -- ⚠️ 수치를 리터럴로 적지 않는다 — ProximityConfig · LevelConfig · ArenaConfig · PadLayout에서 읽는다.
 -- 파트 · 캐릭터는 Workspace에 넣지 않는다(Parent 없음 — Touched도 물리도 없다).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 

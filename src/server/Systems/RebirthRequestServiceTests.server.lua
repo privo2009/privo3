@@ -2,6 +2,8 @@
 -- RebirthRequestService 검증: 거부 경로(블럭스 부족 · 빈도 상한 · 부분 실패) · 성공 결과 형태.
 -- 실제 RebirthService 대신 기록용 deps로 굴린다 — 프로필을 건드리지 않는다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 

@@ -2,6 +2,8 @@
 -- UiTheme 검증. Studio에서 Rojo 연결 후 Play 하면 서버 시작 시 자동 실행된다.
 -- U3 착수 준비: 8개 색 역할이 전부 존재하고 밝은/기본/어두운 3단계를 갖는지 확인.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 

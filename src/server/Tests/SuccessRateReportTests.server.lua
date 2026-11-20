@@ -6,6 +6,8 @@
 -- 펀치 간격 · 1회 데미지 = 힘(속도 미곱) · 반경 밖 시간 · 걷기 시간 · 결정성.
 -- ⚠️ 설정 숫자를 리터럴로 적지 않는다. 기대값은 Config에서 다시 유도한다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 

@@ -4,6 +4,8 @@
 --   효과마다 미보유 1 · 보유 시 정확한 배수 / 계단 최고만 / 공허 × 계단 곱 / 2배 환생 얻는 수 / 각 결합 자리에서 한 번만 /
 --   행운 상품은 제한 유저면 1 / 자동 클리커 높은 쪽만
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 

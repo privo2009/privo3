@@ -1840,6 +1840,7 @@ function SuccessRateReport.withUpgradeOverride(override: UpgradeOverride, fn: ()
 end
 
 function SuccessRateReport.run()
+	if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
 	print("[SUCCESSRATE] ===== 확률적 플레이어 성공률 (4-2-f) =====")
 	if SIM.PET_SWEEP_ONLY then
 		for i = 1, 2 do -- 결정 모델 · 펫 없음(B2)

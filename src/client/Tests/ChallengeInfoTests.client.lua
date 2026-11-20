@@ -4,6 +4,8 @@
 --
 -- 실제 RunStateChanged 없이 handle._debug.apply()로 표시 로직을 직접 검증한다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)

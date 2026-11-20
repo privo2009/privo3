@@ -13,6 +13,8 @@
 -- ⚠️ WarpConfig / RebirthConfig / WorldConfig는 읽기만 한다. 값을 바꾸지 않는다.
 --    수치는 전부 그 세 Config에서 읽는다 — 이 파일에 게임 수치를 하드코딩하지 않는다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

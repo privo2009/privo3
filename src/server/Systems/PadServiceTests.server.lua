@@ -6,6 +6,8 @@
 -- (BlockServiceTests와 같은 방식). 파트 생성과 Touched 연결은 여기서 다루지 않는다:
 -- 그쪽은 Instance가 필요해서 Studio Play 육안 확인 몫이다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

@@ -6,6 +6,8 @@
 -- 다른 함수에서 다시 유도한다 — 리터럴을 쓰면 설정을 바꾼 순간 테스트가 이유 없이 깨지거나,
 -- 같은 오타를 양쪽에 적어 조용히 통과한다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 

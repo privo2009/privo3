@@ -469,6 +469,7 @@ end
 -- ===== 진입점 =======================================================================
 
 function HudLayoutReport.run()
+	if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
 	-- task.defer: 이번 프레임에서 동기적으로 실행 중이던 스크립트(HudBoot 포함)가
 	-- 전부 끝난 뒤로 미룬다 (HudVisibilityTests와 같은 근거).
 	task.defer(function()

@@ -3,6 +3,8 @@
 -- U3-1 착수 준비: 글자 크기 5단계가 전부 존재하고 docs/UI.md "4. 글자 > 크기 5단계"
 -- 표와 일치하는지 확인한다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 

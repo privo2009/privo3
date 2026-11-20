@@ -8,6 +8,8 @@
 --        첫 화면부터 그 언어다. 고른 언어 = TEST_LOCALE(켰으면) 또는 계정 언어
 -- 이 파일은 읽기만 한다(인스턴스 · 프로필을 바꾸지 않는다).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")

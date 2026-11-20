@@ -5,6 +5,8 @@
 --   새 문장 en · ko · 폰 틀(705×338) 넘침 0 · 11px(그 Play의 언어)
 -- 실제 요청을 보내지 않는다 — 가짜 send.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 

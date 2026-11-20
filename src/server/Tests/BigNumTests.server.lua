@@ -20,6 +20,8 @@
 -- 측정했다 (이 게임의 실사용 범위 — Config 원값에서 몇 단계 안 되는 연산만 거친 값).
 -- ============================================================================
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 

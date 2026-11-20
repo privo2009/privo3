@@ -3,6 +3,8 @@
 -- 거부 경로 부작용 0 · 차감 → 롤 순서 · 신규 / 중복 · 자동 장착 · 롤 시계 · 자동 루프 틱 · 장착 · 자동 롤 토글 ·
 -- 행운 전달 · 상태 요약 · 배수 두 자리 "한 번만". 기대값은 Config에서 읽는다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

@@ -2,6 +2,8 @@
 -- PolicyGate 검증 (지시서 #16 3단계 · DESIGN 9장 S13). 가짜 게이트웨이로 정책 응답을 정한다 — 실제 PolicyService를 부르지 않는다.
 --   제한 판정 실패 → 제한 / 확인 전 → 제한 / 응답 false만 허용 / 나가면 지운다
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local MarketplaceGateway = require(ServerScriptService.Server.Systems.MarketplaceGateway)

@@ -6,6 +6,8 @@
 --         크래프팅(결과 · PlayerState 어느 쪽이 먼저 와도) · 연출 줄이기(버튼 반응 · 빛 띠)
 -- 실제 요청을 보내지 않는다. 가짜 GUI는 끝나면 지운다. 시계 · 설정은 끝나면 되돌린다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")

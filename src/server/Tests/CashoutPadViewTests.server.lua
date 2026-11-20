@@ -5,6 +5,8 @@
 -- 핵심 계약: 켜짐 조건은 서버 수령 판정(run.cleared + 밟은 발판 층 == 런 층)과 같다.
 -- 넓으면 "켜진 발판인데 수령 안 됨"(거짓 신호), 좁으면 "꺼진 발판인데 수령됨"이다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 

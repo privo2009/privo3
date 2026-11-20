@@ -3,6 +3,8 @@
 --   입력 글자를 결과에 쓰지 않는다 · 보내면 입력칸을 비운다 · 요청 한 번만 · 사유 문구 · PlaceholderText Strings ·
 --   새 문장 en · ko · 폰 틀(705×338) 넘침 0 · 11px · 입력칸과 확인 버튼이 창 위쪽(키보드에 안 가린다)
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 

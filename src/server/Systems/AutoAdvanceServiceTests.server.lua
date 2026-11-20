@@ -5,6 +5,8 @@
 --   벽 트리거 이중 진행 없음 · 디바운스 · 목표층 cashout("auto") · 반복 간격 · 실패 · 사람 수동 수령 · 중지(런 유지) · 캐릭터 없음 ·
 --   퇴장 · 안전층 고정 · 단일 루프(여러 명) · 구매 직후 · 안전층 함수 경계 · 워프 · 환생 auto_active · PlayerState 요약
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 

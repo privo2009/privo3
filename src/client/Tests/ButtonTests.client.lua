@@ -3,6 +3,8 @@
 -- 실행된다. U3-1 착수 준비. 생성한 Instance는 Parent를 세팅하지 않으므로 화면에는
 -- 나타나지 않는다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Button = require(script.Parent.Parent.UI.Components.Button)

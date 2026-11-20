@@ -6,6 +6,8 @@
 -- 기준** 값이 같은지로 검증한다 — Panel.lua가 하는 일이 정확히 그 환산이므로,
 -- root 기준 숫자만 비교하면 그 환산 로직 자체가 빠져도 테스트가 통과해버린다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local Button = require(script.Parent.Parent.UI.Components.Button)

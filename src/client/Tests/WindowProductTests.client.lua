@@ -6,6 +6,8 @@
 --   폰 틀(Galaxy A06 뷰포트 705×338) 안에 세 창을 그려 그 Play의 언어로: 보이는 글자 칸 넘침 0 · 11px 이상
 -- 실제 로벅스 프롬프트를 띄우지 않는다 — 구매 · 요청은 가짜 send로 받는다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 

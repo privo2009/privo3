@@ -4,6 +4,8 @@
 -- 재료 부족 크래프팅 · 최대 단계 크래프팅) · 차감 → 판정 순서 · uid 발급(문자열 키) · 새 펫만 저장 · 장착 ≤ 파생 슬롯 ·
 -- equipBest · 크래프팅이 장착 자리를 이어받음 · 배수 E3 식 · 한 번만 · 요약 · 프로필 크기. 기대값은 Config에서 읽는다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 

@@ -3,6 +3,8 @@
 --   초당 횟수(15 · 30 · 소수 이월) · 수동 무시(켜져 있는 동안) · 수동 상한 10 불변 · 미보유 잠김(not_owned) · 보유가 사라지면 끔 ·
 --   세션 토글(나가면 지운다) · payload 위생 · 빈도
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local AutoClickService = require(ServerScriptService.Server.Systems.AutoClickService)

@@ -5,6 +5,8 @@
 --   커밋된 TEST_GAMEPASSES = nil
 -- ⚠️ 마지막 검사는 TEST_GAMEPASSES를 켠 Play에서 실패한다(TestPresetGateTests와 같은 방식). 그 Play로 테스트 개수를 세지 않는다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local MarketplaceGateway = require(ServerScriptService.Server.Systems.MarketplaceGateway)

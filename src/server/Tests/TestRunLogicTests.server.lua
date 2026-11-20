@@ -2,6 +2,8 @@
 -- TestRunLogic 검증 (지시서 #26 단계 1). Studio에서 Rojo 연결 후 Play 하면 서버 시작 시 자동 실행된다.
 -- 테스트 끝 표시가 요약 줄을 맞게 읽고 · 기대 목록을 맞게 모으고 · 끝 줄이 CLAUDE.md 읽기 코드의 필터에 걸리는지 본다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TestRunLogic = require(ReplicatedStorage.Shared.TestRunLogic)
 

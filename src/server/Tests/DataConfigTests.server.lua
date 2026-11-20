@@ -3,6 +3,8 @@
 --   환경 결정(Studio → 언제나 studio · beta · live · 잘못된 값) · 저장소 이름 · Studio에서 beta · live 거부 ·
 --   DATA_ENV 커밋 값 · beta 개발자 상품 거부 · 허용 목록 · 게임패스 허용 · 시작 로그 한 줄
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataConfig = require(ReplicatedStorage.Shared.Config.DataConfig)

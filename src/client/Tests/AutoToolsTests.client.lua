@@ -3,6 +3,8 @@
 -- Play 하면 클라 시작 시 자동 실행된다. U3-6 착수 준비, U3-7에서 밝기 채널
 -- 검사를 추가했다(새 파일을 만들지 않았다).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local AssetRegistry = require(ReplicatedStorage.Shared.Config.AssetRegistry)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)

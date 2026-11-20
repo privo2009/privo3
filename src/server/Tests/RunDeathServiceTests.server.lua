@@ -4,6 +4,8 @@
 -- deps 이음매만 쓴다 — 진짜 ChallengeService도 Humanoid도 없이 검증한다
 -- (EntranceGateServiceTests와 같은 방식). 실제로 죽었을 때 abandon되는지는 Studio Play 몫이다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local RunDeathService = require(ServerScriptService.Server.Systems.RunDeathService)

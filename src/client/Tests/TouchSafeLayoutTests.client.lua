@@ -2,6 +2,8 @@
 -- TouchSafeLayout 순수 계산 검증 (Phase 6 지시서 #6). 사각형은 2026-10-22 실측값(Galaxy A06, HudGui 705×280)을
 -- Scale로 바꾼 것이다 — 실측 원본은 세션 로그와 UI/TouchSafeLayout 상단.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local TouchSafeLayout = require(script.Parent.Parent.UI.TouchSafeLayout)
 
 local passed = 0

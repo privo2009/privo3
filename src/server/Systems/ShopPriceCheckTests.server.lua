@@ -2,6 +2,8 @@
 -- ShopPriceCheck 검증 (지시서 #17 3단계 — DESIGN 9장 "가격 확인"). 가짜 게이트웨이의 productInfo로 응답을 정한다 — 실제 조회를 하지 않는다.
 --   판정(같음 · 할인 전 값으로 같음 · 다름 · 판매 안 함 · 조회 실패) / 등록된 상품만 조회 · 동시 / 다름만 WARN · 요약 한 줄 · 고치지 않는다
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 

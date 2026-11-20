@@ -1237,6 +1237,7 @@ end
 -- ===== 진입점 =======================================================================
 
 function StandardPathReport.run()
+	if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
 	local world = WorldConfig.get(SIM.WORLD_ID)
 	assert(world ~= nil, "StandardPathReport: 월드가 없다")
 	local maxStage = (world :: WorldConfig.WorldDef).stageRange[2]

@@ -3,6 +3,8 @@
 -- ROADMAP Phase 2-1 검증: 정상 템플릿이 자기 자신의 validate를 통과하는지,
 -- 그리고 오염된 데이터 각각이 의도한 이유로 정확히 실패하는지 확인한다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Schema = require(script.Parent.Schema)
 -- LIMITS는 Config와 중복이다(Schema는 Config를 몰라야 한다). 어긋나면 여기서 잡는다.

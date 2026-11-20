@@ -5,6 +5,8 @@
 -- UpgradeService._pure.runBuy에 **기록용 deps**를 넣는다(RebirthServiceTests와 같은 이유 — 가짜 Player로는
 -- 프로필이 없어 "프로필 없음" 한 갈래로만 끝난다).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)

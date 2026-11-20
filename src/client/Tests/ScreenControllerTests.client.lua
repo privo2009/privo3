@@ -11,6 +11,8 @@
 -- 완전히 별도인 인스턴스(자기만의 entries·ScreenGui 3장)를 만들어 쓴다 —
 -- 상태 자체가 갈렸으므로 이름을 가릴 필요가 없다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ScreenController = require(script.Parent.Parent.UI.ScreenController)
 
 local passed = 0

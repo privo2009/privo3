@@ -6,6 +6,8 @@
 --   실물: 재생 시도 기록(Attribute) · 효과음 끔이면 시도 0 · 풀(키마다 POOL_PER_KEY장 · 돌려 쓴다)
 -- 실제 소리를 내지 않는다(id가 없다 — 풀 검사는 가짜 정의로 Sound를 만들기만 하고 재생하지 않는다).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local SoundConfig = require(ReplicatedStorage.Shared.Config.SoundConfig)

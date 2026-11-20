@@ -2,6 +2,8 @@
 -- MenuRail 검증. Studio에서 Rojo 연결 후 Play 하면 클라 시작 시 자동 실행된다.
 -- U3-2b 착수 준비.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local Locale = require(game:GetService("ReplicatedStorage").Shared.Localization.Locale)
 local Layout = require(script.Parent.Parent.UI.Layout)
 local BloxDisplay = require(script.Parent.Parent.UI.Screens.Hud.BloxDisplay)

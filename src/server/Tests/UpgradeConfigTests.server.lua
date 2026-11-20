@@ -3,6 +3,8 @@
 -- 펀치 속도 증가량 유도 · 최대 레벨 = 상한(S2), 이동 속도 업그레이드 삭제(L3 — 최대 속도는 레벨로만),
 -- 비용 단조 증가, 구매 판정(canBuy) 사유 3종, validate가 규약 위반을 잡는가.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)

@@ -2,6 +2,8 @@
 -- 차단층 범용 큐 · 결과 모달 검증 (지시서 #11 5단계 A6): 한 번에 하나 · 닫으면 다음 · 우선순위(작을수록 먼저) ·
 -- 보이는 것을 가로채지 않음 · 같은 우선순위는 들어온 순서 · 모달 표시 · 차단층.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)

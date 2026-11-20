@@ -5,6 +5,8 @@
 --
 -- ⚠️ 수치를 리터럴로 적지 않는다 — AnalyticsConfig에서 읽는다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 

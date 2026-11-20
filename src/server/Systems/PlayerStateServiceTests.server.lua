@@ -2,6 +2,8 @@
 -- PlayerStateService 검증: 스냅샷 형태 · 직렬화 왕복 · 같음 비교 · 로드 시 1회 · 빈도 상한 · sync 모음.
 -- 실제 RemoteEvent 대신 기록용 deps로 runtime을 굴린다(RebirthServiceTests와 같은 패턴).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")

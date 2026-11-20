@@ -7,6 +7,8 @@
 -- (docs/PENDING.md 함정 절). 만든 파트는 부모를 붙이지 않고 끝에 지운다.
 -- ⚠️ 설정 숫자를 리터럴로 적지 않는다. 기대값은 AdvanceWallView·ArenaConfig·UiTheme에서 다시 유도한다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local AdvanceWallView = require(ReplicatedStorage.Shared.AdvanceWallView)

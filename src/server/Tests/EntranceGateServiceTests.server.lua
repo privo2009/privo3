@@ -8,6 +8,8 @@
 -- ⚠️ 설정 숫자를 여기 리터럴로 적지 않는다. 기대값은 ArenaConfig에서 다시 유도한다.
 -- ⚠️ 케이스마다 새 플레이어 테이블을 만든다 (CashoutPadServiceTests 상단, U3-10a).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 

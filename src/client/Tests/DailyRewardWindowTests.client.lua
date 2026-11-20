@@ -3,6 +3,8 @@
 --   표시 값(서버 원본) · 칸 상태 · 리미티드 칸 · 배지 · 자동 등장(안내 끝난 뒤 · 런 중 아님 · 그날 한 번) · 요청 한 번만 · 사유 문구 ·
 --   새 문장 en · ko · 폰 틀(705×338) 넘침 0 · 11px(그 Play의 언어)
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 

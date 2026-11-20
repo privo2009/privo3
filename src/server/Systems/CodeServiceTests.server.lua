@@ -2,6 +2,8 @@
 -- 코드 입력 검증 (지시서 #20 단계 5 — C1 ~ C6). CodesConfig(정리 · 표) · CodeService 런타임(가짜 시계 · 가짜 코드 표) ·
 -- RewardService 런타임(가짜 deps)을 이어 붙인다. 실제 프로필을 건드리지 않는다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

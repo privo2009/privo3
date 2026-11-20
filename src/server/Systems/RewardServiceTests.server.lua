@@ -2,6 +2,8 @@
 -- RewardService(무료 보상 지급 공용) · RewardLogic(형식 · 블럭스 양) · PetService.grant(보상 펫 발급) 검증 (지시서 #20 단계 3 — R1).
 -- 가짜 deps로 굴린다 — 실제 프로필을 건드리지 않는다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

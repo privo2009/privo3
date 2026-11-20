@@ -2,6 +2,8 @@
 -- BalanceSummary(튜닝 요약) 검증 (지시서 #13 6단계). 합성 지표로 줄을 만들어 잰다 — 시뮬레이터를 돌리지 않는다.
 --   30줄 안팎 · 앞머리에 측정 조건(seed · 인원 · 모델) · 목표 밖 층 · 레벨 상한 · 절벽 판정(임계 이상이면 실재) · 뽑기 분포
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 

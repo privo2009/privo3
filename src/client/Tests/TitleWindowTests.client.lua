@@ -2,6 +2,8 @@
 -- 타이틀 창 · 토스트 검증 (Phase 7 지시서 #10 5단계): 표시 값(TitleConfig · 서버 원본) · 잠김 사유 · 요청이 한 번만 나가는가 ·
 -- 토스트 큐(3개 상한 · 순서) · 희귀도 색이 쓰인다. 실물 싱글톤이 아니라 Store.new()로 굴린다. 기대값은 Config에서 읽는다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

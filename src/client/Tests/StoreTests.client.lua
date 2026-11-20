@@ -14,6 +14,8 @@
 -- 이름 접두어로 가리는 것으로는 안 된다(→ ScreenController.lua의 U3-4 주석,
 -- closeAll()이 실물 HUD를 껐던 그 부류). 상태 자체를 분리한다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Store = require(script.Parent.Parent.UI.Store)

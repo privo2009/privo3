@@ -10,6 +10,8 @@
 -- handle._debug.apply와 같은 패턴). Store 구독 자체가 반영되는지는 별도 절에서
 -- Store.setSource + task.wait()로 확인한다(BloxDisplayTests와 같은 패턴).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)

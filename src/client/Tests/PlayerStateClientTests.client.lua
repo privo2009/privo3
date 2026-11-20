@@ -2,6 +2,8 @@
 -- PlayerStateClient 검증: payload 형태 판정 · Store 반영 · 틀린 payload는 통째로 버림.
 -- 실물 싱글톤이 아니라 Store.new() 인스턴스에 반영한다(싱글톤은 서버 값이 채운다).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

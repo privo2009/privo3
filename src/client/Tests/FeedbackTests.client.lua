@@ -2,6 +2,8 @@
 -- 피드백 표시 검증 (Phase 6 지시서 #8 2단계): 클릭 팝업 증가분 · 문구 · 진행, HUD 환생 배수(서버와 같은 함수),
 -- 환생 안내 문구(×이전 → ×이후), 운동기구 3D 표시 역할 · 문구(GymConfig 원본). 실물 싱글톤이 아니라 Store.new()로 굴린다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

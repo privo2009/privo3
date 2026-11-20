@@ -2,6 +2,8 @@
 -- 일일 보상 검증 (지시서 #20 단계 4 — D1 ~ D5 · T1). DayClock · DailyLogic(순수) · DailyService 런타임(가짜 시계) ·
 -- RewardService · PetService 런타임(가짜 deps)을 이어 붙여 7일째 리미티드 펫 · 보관함 가득까지 본다. 실제 프로필을 건드리지 않는다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

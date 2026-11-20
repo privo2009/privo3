@@ -2,6 +2,8 @@
 -- 설정 창 · 아우라 파티클 방출량 검증 (지시서 #11 5단계 A7 · A8): 토글 요청 한 번만 · 지금의 반대 값 · 두 채널(테두리 · 밝기) ·
 -- 거부 문구 · 방출량(등급별 · 숨기기 반영 · 내 아우라는 언제나 · 전체 합 상한).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)

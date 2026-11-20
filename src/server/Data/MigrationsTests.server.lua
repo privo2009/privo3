@@ -3,6 +3,8 @@
 -- ROADMAP Phase 2-1 검증: 미래 버전 거부 / 동일 버전 통과 / schemaVersion 갱신.
 -- Migrations는 순수 함수라 실제 프로필 로드 없이도 단위 테스트 가능하다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local Migrations = require(script.Parent.Migrations)
 local Schema = require(script.Parent.Schema)
 

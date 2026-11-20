@@ -2,6 +2,8 @@
 -- RollOdds 검증 (지시서 #11 3단계 — 확률 공개 P3): 실제 등장 확률 분포(합 1 · 손계산 · p ≥ 1 · 폴백 몫 · 순수성) ·
 -- 표시 퍼센트(합이 표시 자릿수에서 정확히 100 · 작은 값이 0이 아님 · 반올림 경계 · 최대 나머지). 가짜 등급 표와 Config 표 둘 다 본다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)

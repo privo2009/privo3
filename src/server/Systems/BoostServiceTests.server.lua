@@ -2,6 +2,8 @@
 -- BoostService 검증 (지시서 #16 4단계 · DESIGN 9장 S7). 순수 함수만 굴린다 — 프로필을 건드리지 않는다.
 --   감소 · 연장 · 만료 · 오프라인 중 안 줄어듦(남은 초를 저장한다 — 시각을 저장하지 않는다) · 같은 종류는 한 번만 곱함 · 요약
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 

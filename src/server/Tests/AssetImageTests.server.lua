@@ -3,6 +3,8 @@
 -- U3 착수 준비: AssetRegistry.resolve() 결과를 넘겼을 때 미도착/도착 각각 올바른
 -- Instance가 나오는지, 공통으로 UIStroke(3px)가 붙는지 확인한다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local AssetImage = require(ReplicatedStorage.Shared.UI.AssetImage)
 local AssetRegistry = require(ReplicatedStorage.Shared.Config.AssetRegistry)

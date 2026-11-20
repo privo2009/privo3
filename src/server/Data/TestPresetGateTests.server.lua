@@ -4,6 +4,8 @@
 --   3. 프리셋은 세션 전에 템플릿으로(스키마 검증 통과)     4. 커밋된 TEST_PRESET은 nil
 -- ⚠️ 4번은 TEST_PRESET을 켠 Play에서 실패한다(PET_SWEEP_ONLY 검사와 같은 방식). 그 Play로 테스트 개수를 세지 않는다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 

@@ -2,6 +2,8 @@
 -- LogFold 검증 (지시서 #8 4단계): 첫 줄은 반드시 찍는다 · 창 안의 반복은 접는다 · 창이 지나면 "N번 더" 한 줄 + 새 줄 ·
 -- 키(플레이어 · 사유)가 다르면 서로 접지 않는다. 시계와 출력을 주입해 굴린다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local LogFold = require(script.Parent.LogFold)
 
 local passed = 0

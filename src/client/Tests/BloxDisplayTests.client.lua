@@ -7,6 +7,8 @@
 -- task.wait() 구간에서 이론적으로 겹칠 수 있다 — 지금은 파일 수가 적어 실전에서
 -- 문제가 된 적은 없다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)

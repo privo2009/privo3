@@ -6,6 +6,8 @@
 -- 여기에 25를 적으면 월드 2가 추가될 때 경계 테스트가 조용히 엉뚱한 층을 보게 된다.
 -- 그게 바로 WarpConfig가 막으려는 하드코딩과 같은 실수다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

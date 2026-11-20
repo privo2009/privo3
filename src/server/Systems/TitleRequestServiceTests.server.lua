@@ -2,6 +2,8 @@
 -- TitleRequestService 검증 (지시서 #10 4단계): payload 위생 · 빈도 상한 · 사유 코드를 그대로 돌려준다 ·
 -- 응답 필드가 전부 채워진다(선택 필드 금지) · 자동 롤 신규 알림 모양. 서비스는 가짜 deps다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)

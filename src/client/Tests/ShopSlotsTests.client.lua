@@ -2,6 +2,8 @@
 -- ShopSlots 검증. Studio에서 Rojo 연결 후 Play 하면 클라 시작 시 자동 실행된다.
 -- U3-6 착수 준비.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ShopSlotConfig = require(ReplicatedStorage.Shared.Config.ShopSlotConfig)
 local Layout = require(script.Parent.Parent.UI.Layout)

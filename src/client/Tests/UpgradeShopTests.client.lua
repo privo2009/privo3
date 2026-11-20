@@ -3,6 +3,8 @@
 -- 사유 문구 · 구매 요청이 한 번만 나가는가(결과 대기 중 · 잠김) · 로벅스 자리는 숨김 · 창 규격.
 -- 실물 싱글톤이 아니라 Store.new()로 굴린다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

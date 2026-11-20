@@ -2,6 +2,8 @@
 -- U4 코어 화면 검증 (지시서 #5): 로딩 · 클리어 선택 안내 · 실패 · 3D 안내의 표시 조건(순수 로직)과
 -- 화면 규칙(Offset 0 · 중앙 금지 구역 밖 · 층 순서 · 역할 색).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

@@ -6,6 +6,8 @@
 --
 -- BlockService._pure의 순수 함수만 호출한다 — Player/Instance 없이 검증한다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

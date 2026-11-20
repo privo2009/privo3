@@ -2,6 +2,8 @@
 -- RollService 검증 (지시서 #10 3단계): 행운 체인(G14) · 행운 업그레이드 효과(G13) · 롤 상품은 아우라만(G15) ·
 -- 깨진 배수 방어 · RNG 주입과 복구 · seed 결정성. 기대값은 UpgradeConfig에서 읽는다(숫자를 박지 않는다).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)

@@ -4,6 +4,8 @@
 --   16개 등록 · 종류별 지급(포션 · 번들 · 롤 · 선해금) · 표가 없으면 실패(반쪽 지급 없음) · 영수증 순서와 함께: 같은 영수증 두 번 = 지급 1회 ·
 --   선해금 중복(이미 열림) · 지급하면 알림(플레이어가 있을 때만)
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 

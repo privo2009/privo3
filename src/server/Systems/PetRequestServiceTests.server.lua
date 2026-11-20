@@ -2,6 +2,8 @@
 -- PetRequestService 검증 (지시서 #12 3단계): payload 위생 · 빈도 상한 · 사유 코드 그대로 · 응답 필드 전부(선택 필드 금지) ·
 -- 설정 hideOtherPets 저장(E10).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)

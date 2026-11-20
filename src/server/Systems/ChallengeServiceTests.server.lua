@@ -10,6 +10,8 @@
 -- maxStage 갱신과 블럭스 지급만 프로필을 요구하는데, 전자는 profile == nil이면 건너뛰고
 -- 후자는 CurrencyService가 거부하고 끝난다 — 둘 다 터지지 않으므로 나머지 경로는 검증 가능하다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

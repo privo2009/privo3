@@ -6,6 +6,8 @@
 --         상한 · 그림 덮개 · 둥근 모서리 · 떼기 · 파괴 정리 · HUD 구좌 · 상점 줄 연결)
 -- 실제 요청을 보내지 않는다. 가짜 GUI는 끝나면 지운다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 

@@ -6,6 +6,8 @@
 -- (RebirthServiceTests / WarpServiceTests와 같은 방식). 실제로 밟히는지는
 -- Studio Play 육안 확인 몫이다.
 --
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)

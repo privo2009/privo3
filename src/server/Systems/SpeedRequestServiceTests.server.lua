@@ -15,6 +15,8 @@
 -- 그래서 아래 "채널을 통과한 값" 절은 두 _pure를 **합성해서** 잰다 — 로직을 복사하지
 -- 않고 원본을 그대로 태우므로, 원본이 바뀌면 이 테스트도 함께 따라간다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)

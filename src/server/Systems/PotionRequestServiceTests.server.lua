@@ -3,6 +3,8 @@
 --   payload 거르기 · 빈도 · 판정 순서(invalid · restricted · none_owned) · 켜기(보관 −1 · 부스트 더하기 · 알림) ·
 --   부스트 실패면 보관 되돌림 · 같은 종류 두 번 = 시간 연장(BoostService 순수 함수로)
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 

@@ -4,6 +4,8 @@
 -- 도착·미도착 판정을 확인한다. AssetConfig 자체의 값 검증(9-slice 여백 등)은
 -- 기존 ConfigTests.server.lua가 이미 덮고 있으므로 여기서 반복하지 않는다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local AssetRegistry = require(ReplicatedStorage.Shared.Config.AssetRegistry)
 local AssetConfig = require(ReplicatedStorage.Shared.Config.AssetConfig)

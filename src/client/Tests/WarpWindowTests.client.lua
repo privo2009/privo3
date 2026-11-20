@@ -2,6 +2,8 @@
 -- 월드·워프 창 검증 (Phase 6 지시서 #6): 표시 값(WarpConfig 원본) · 잠김(블럭스 부족 · 런 중 W1) · 사유 문구 ·
 -- 확인 단계 없이는 요청이 안 나감 · 쪽 넘김 · 창 규격. 실물 싱글톤이 아니라 Store.new()로 굴린다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

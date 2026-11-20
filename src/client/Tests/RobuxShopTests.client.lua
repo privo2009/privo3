@@ -3,6 +3,8 @@
 --   탭 전환 · 표시 값(ShopConfig 원본) · 보유 / 준비 중 / 구매 가능 · 행운 줄 확률 숫자 · 제한 유저 숨김 · 계단 "지금 단계" ·
 --   구좌 요청 한 번만 · HUD 구좌 · 자동 클리커 잠김 · 부스트 표시 · 뽑기 창 행운(패스 · 포션) · 공허 기구 표시
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

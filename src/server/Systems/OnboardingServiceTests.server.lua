@@ -2,6 +2,8 @@
 -- 첫 접속 안내 검증 (지시서 #20 단계 6 — O1 ~ O5). OnboardingService 런타임(가짜 deps) · RewardService 런타임 · OnboardingConfig.
 -- 실제 프로필 · 실제 분석 이벤트를 건드리지 않는다(logFunnel은 기록만 한다).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local OnboardingConfig = require(ReplicatedStorage.Shared.Config.OnboardingConfig)

@@ -2,6 +2,8 @@
 -- 환생 창 검증 (Phase 6 지시서 #5): 표시 값(서버와 같은 함수) · 사유 문구 · 확인 단계 없이는
 -- 요청이 나가지 않음 · 잠김 · 창 규격. 실물 싱글톤이 아니라 Store.new()로 굴린다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

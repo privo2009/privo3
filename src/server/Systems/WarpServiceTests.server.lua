@@ -15,6 +15,8 @@
 -- 여기서 다루지 않는 것: 실제 프로필 왕복과 RunStateChanged 발화. 그쪽은 Play 육안
 -- 확인 몫이고 배선(Prompt 3) 이후에 본다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

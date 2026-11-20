@@ -4,6 +4,8 @@
 --   새 문장 en · ko · 폰 틀(705×338) 넘침 0 · 11px
 --   (#26) 토스트와 자리 나누기 — 띠가 보이는 동안 토스트는 띠 아래 칸 · 띠 보임 알림 · 폰 틀에서 띠와 겹침 0 · 긴 문구 넘침 0 · 11px
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 

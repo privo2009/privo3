@@ -55,6 +55,8 @@
 -- 픽셀로만 돌아오므로 여기서 픽셀 산술을 쓰는 것은 그 규칙 위반이 아니다 — 다음
 -- 세션에 이 파일을 보고 위반으로 오독하지 않도록 여기 못박아 둔다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local RunService = game:GetService("RunService")
 
 local ScreenController = require(script.Parent.Parent.UI.ScreenController)

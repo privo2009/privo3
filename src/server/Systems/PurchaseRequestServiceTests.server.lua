@@ -4,6 +4,8 @@
 --   통과면 프롬프트 · 게임패스 프롬프트가 닫힌 결과(산 것 · 취소) · 상위 보유 거부(지시서 #17 R1 계단 · R2 자동 클리커) ·
 --   운동기구 선해금 이미 열림 already_unlocked(#17) · beta 서버 개발자 상품 beta_disabled · 허용 목록 · 게임패스는 판다(#23 E5)
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local MarketplaceGateway = require(ServerScriptService.Server.Systems.MarketplaceGateway)

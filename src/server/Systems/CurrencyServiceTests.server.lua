@@ -5,6 +5,8 @@
 -- CurrencyService._pure의 순수 함수만 호출한다 — Player/ProfileManager 없이,
 -- {strength=BigNumber, blox=BigNumber, lifetimeBlox=BigNumber} 형태의 평범한 테이블만으로 검증한다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

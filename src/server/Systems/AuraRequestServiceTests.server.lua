@@ -2,6 +2,8 @@
 -- AuraRequestService · SettingsRequestService 검증 (지시서 #11 4단계): payload 위생 · 빈도 상한 · 사유 코드 그대로 ·
 -- 응답 필드 전부(선택 필드 금지) · 설정 화이트리스트(허용 키 · 타입).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)

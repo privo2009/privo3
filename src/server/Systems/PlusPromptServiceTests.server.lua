@@ -2,6 +2,8 @@
 -- PlusPromptService 검증 (S16 — 지시서 #17). 가짜 게이트웨이로 굴린다 — 실제 구독 프롬프트를 띄우지 않는다.
 --   꺼짐이면 아무것도 안 띄움 · 커밋된 플래그 = false / 켜짐: 세션 한 번 · 구독자 제외 · 모르는 이유 거부 · 나가면 지움 · 환생 알림 배선
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 

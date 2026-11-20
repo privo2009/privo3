@@ -33,6 +33,8 @@
 -- HudBoot(연다) 하나뿐이다 — U3-4에서 ScreenControllerTests를 별도 인스턴스로
 -- 옮겼으므로, 이 관찰 창 안에서 뒤집을 대상 자체가 없다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ScreenController = require(script.Parent.Parent.UI.ScreenController)

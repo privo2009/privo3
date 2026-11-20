@@ -15,6 +15,8 @@
 -- ⚠️ 경계 검사가 왜 "정확히 반경"이 아니라 float32 이웃으로 재는지는
 -- 아래 "경계를 float32 이웃으로 재는 이유" 참고. 2026-08-28 Play 실측 근거가 거기 있다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

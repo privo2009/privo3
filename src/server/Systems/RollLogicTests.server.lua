@@ -3,6 +3,8 @@
 -- 확률 합이 1을 넘어도 동작 · 분포 · 깨진 입력. 난수 열을 주입해 굴린다 — 게임 RNG는 건드리지 않는다.
 -- 등급 표는 테스트용 가짜 표다(Config 값이 아니다 — Config가 바뀌어도 이 성질은 같아야 한다).
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local RollLogic = require(script.Parent.RollLogic)
 
 local passed = 0

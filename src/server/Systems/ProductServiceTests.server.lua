@@ -4,6 +4,8 @@
 --   같은 PurchaseId 두 번 → 지급 1회 / 프로필 미로드 · 저장 실패 → NotProcessedYet / 지급 함수 없음 → NotProcessedYet + ERROR /
 --   기록 상한 100
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local ProfileStore = require(ServerScriptService.ServerPackages.ProfileStore)

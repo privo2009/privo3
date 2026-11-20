@@ -2,6 +2,8 @@
 -- 아우라 창 검증 (지시서 #11 5단계): 표시 값(AuraConfig · 서버 원본) · 확률 합 100(P3) · 행운 문구 · 잠김 사유(해금 · 잔액) ·
 -- 요청이 한 번만 나가는가 · 팩 탭 · 칭호 버튼 · 희귀도 색 매핑. 실물 싱글톤이 아니라 Store.new()로 굴린다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

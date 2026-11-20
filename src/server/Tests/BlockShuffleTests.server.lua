@@ -7,6 +7,8 @@
 -- 실행되는 서버 스크립트 위치(src/server/Tests)에 두고 여기서 그 모듈을 require한다.
 -- (Script는 ReplicatedStorage 밑에서는 자동 실행되지 않음 — ServerScriptService/Workspace만 실행됨)
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BlockShuffle = require(ReplicatedStorage.Shared.BlockShuffle)

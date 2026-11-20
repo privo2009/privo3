@@ -20,6 +20,8 @@
 -- 목표 성공률(DESIGN.md 1. 챌린지)은 여기서 못 잰다. 힘 성장이 있어야 계산되므로
 -- Phase 4-2-b(패드)와 4-2-d(환생)가 붙은 뒤 4-2-f에서 다룬다.
 
+if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)

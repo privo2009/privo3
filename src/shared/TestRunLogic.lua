@@ -104,11 +104,9 @@ function TestRunLogic.doneLine(side: string, r: { seen: number, expected: number
 	return string.format("[%s] %s %d/%d files · %d passed, %d failed", TestRunLogic.TAG, side, r.seen, r.expected, r.passed, r.failed)
 end
 
--- 이 쪽(server · client) 끝 표시를 돌린다. 스크립트 두 개가 부른다. Studio가 아니면 아무것도 하지 않는다.
+-- 이 쪽(server · client) 끝 표시를 돌린다. 스크립트 두 개가 부른다. Studio가 아니면 아무것도 하지 않는다(TestGate — #27 T1).
 function TestRunLogic.run(side: string, container: Instance)
-	if not game:GetService("RunService"):IsStudio() then
-		return
-	end
+	if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
 	local LogService = game:GetService("LogService")
 	local expected = TestRunLogic.expected(container)
 	local collector = TestRunLogic.newCollector(expected)

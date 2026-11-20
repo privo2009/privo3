@@ -317,6 +317,7 @@ function BalanceSummary.autoRows(): { AutoPair }
 end
 
 function BalanceSummary.run()
+	if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
 	task.wait(5) -- 시작 직후 테스트들이 MODEL · Config를 잠깐 흔드는 동안 기다린다
 	local startedAt = os.clock()
 	local m, results = SuccessRateReport.measure()
