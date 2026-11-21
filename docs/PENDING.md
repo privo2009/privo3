@@ -243,8 +243,8 @@ PENDING 곳곳의 잔재 · 작은 미결을 셋으로 나눴다. (가) 이번�
                               아래 "실플레이로 볼 것" 절 전부
 Phase 9                       실제 코드 목록 · 알릴 곳 · 첫 접속 분석 이벤트 대시보드(#20) · 구좌 4종 확정(ShopSlotConfig TEMP) → "구좌 아이콘 4종 발주"
                               → "구좌 4개가 시각적으로 구분되지 않는다" · "⚠️ S14 2배 블럭스 정책"(정책이 명확해지면)
-                              테스트 스크립트(*Tests 107개)가 Studio 밖(게시된 서버 · 클라)에서도 돈다 — Studio 확인이 없다(#26 훑기에서 봄 ·
-                              끝 표시 TestRunDone만 Studio 전용). 출시 전에 처리 방법(빼기 · Studio 확인 · 그대로)을 사람이 정한다. 코드는 안 바꿨다
+                              ~~테스트 스크립트가 Studio 밖(게시된 서버 · 클라)에서도 돈다~~ → 해소(#27 b8b4a2a — Shared/TestGate 첫 실행 줄 ·
+                              tools/check_test_gate.py). 게시 서버에서 실제로 안 도는지는 비공개 테스트 첫날 로그(ROADMAP 출시 체크리스트 28)
 운동기구 개편 · U4             "운동기구 시각 규격이 없다" · 공허 구역 구매 유도 자리
 수익 모델 상수                 "수동 클릭 상한 10회/초의 근거 문장" — 자동 클리커 가치가 걸려 판단 시점 미정
 게임 동작을 바꾸는 것           "워프 후 1초 동결"(SpeedService 동결 플래그 필요) · "maxStage를 읽는 게임 규칙이 없다"(쓸 곳 · 스키마 정리 때)
@@ -320,7 +320,7 @@ OnboardingRequest(Onboarding) action finish / skip만                0.5초     
 - 낮음 R6 `WalkSpeed` 조작은 최대 1.5초 남는다(되돌리기 주기) — 근거: `SpeedService.lua:73`
 - 낮음 R7 PlusPromptRequest는 빈도 상한이 없다(세션에 한 번 플래그 · 지금 꺼짐) — 근거: `PlusPromptService.lua:34 ~ 52`
 - 낮음 R8 코드 맞추기 — 틀림 1분 5번이면 막힘(세션 메모리 — 다시 들어오면 풀린다) — 근거: `CodesConfig.lua:19 ~ 20` · `CodeService.lua:66 ~ 80`
-- 낮음 R9 Studio 전용 플래그(TEST_PRESET · TEST_GAMEPASSES · TEST_RECEIPTS · TEST_LOCALE · TEST_DAY_OFFSET · TEST_DAILY_SEED · G-OWN)는 IsStudio로 막히고
+- 낮음 R9 Studio 전용 플래그(TEST_PRESET · TEST_GAMEPASSES · TEST_RECEIPTS · TEST_LOCALE · TEST_DAY_OFFSET · TEST_DAILY_SEED · G-OWN · TEST_PAID_RANDOM_RESTRICTED(#27))는 IsStudio로 막히고
   커밋 값 nil을 테스트가 잰다 — 출시 플레이스에서 켜지지 않는지는 테스트 의존 — 근거: Bootstrap 상단 · 각 Gate
 - 낮음 R10 프로필 크기 — 최악 추정 4MB의 0.49%(위)
 
@@ -669,6 +669,24 @@ Phase 9                    실제 코드 목록 · 알릴 곳 · 첫 접속 분�
                          상점 로벅스 탭을 열면 빛 띠 4개가 보여 HUD 2배 블럭스 구좌가 멈춘다(한 화면 3개 — 창 줄 우선)
                          프리미엄(남색 + 금테) 역할 칸이 지금 상점 · 구좌에 없어 premium 프리셋을 쓰는 곳이 없다(API · 테스트만)
 범위 밖                  클릭 소리(지시서 제외) · 운동기구 ProximityPrompt(로블록스가 그리는 UI) · 차단층 막(Dim — 누르면 아무 일도 없는 막이라 버튼이 아니다)
+```
+
+**#27 출시 전 필수 2건 — 테스트 Studio 전용 · 유료 랜덤 상품 점검(2026-11-20 — 코드 a5a9c16 · b8b4a2a · 003b58b)** — 정책 원본
+`docs/POLICY_CHECK.md` · 게이트 원본 `Shared/TestGate` · 검사 도구 `tools/check_test_gate.py`
+```
+게이트                   *Tests 108 · *Report 2 · TestRunDone 2 스크립트 첫 실행 줄 + 도구 run() 7개 첫 줄(StandardPath · SuccessRate · HpCandidate ·
+                         BalanceSummary · TestPresetExport · HudLayoutReport · TestRunLogic). 검사 도구 위반 0. Studio Play 개수 그대로(T4)
+게이트 안 단 것           TestHelpers(Shared) — 테스트 전용이지만 부르는 쪽이 전부 게이트 뒤라 게시 빌드에 남아도 불리지 않는다(무해 — 그대로 둠)
+단계 0에서 고친 것         DailyRewardWindowTests · LocaleClientTests의 전역 Fx.finishAll()이 같이 도는 FxTests 15절 크래프팅 연출을 끝내
+                         "PlayerState가 먼저 와도 결과 뒤에 한 번 재생"이 가끔 실패(77 / 1 — 3번 중 1번) → 자기 모달 판만 끝낸다(a5a9c16 · 사람 결정)
+사람 판단 1               S14 2배 블럭스 — 공식 paid-random-items 페이지는 버는 속도를 올리는 상품을 말하지 않는다(2026-11-20).
+                         로블록스 공지 https://devforum.roblox.com/t/clarifying-requirements-for-paid-random-items/4654622 를 사람이 읽고 판정 유지 여부
+사람 판단 2               행운 패스(10배 아우라 · 10배 칭호 · 2배 펫)의 구매 전 설명이 "배수 + 가장 귀한 것 하나"로 충분한가 —
+                         모자라면 칭호 · 펫 창에도 아우라 창 같은 "확률 보기"를 단다
+알려진 것                ① 아우라 창 로벅스 탭을 보는 동안 카드가 숨는다 — 결과 전부는 팩 탭 한 번(확률 보기 버튼은 남는다)
+                         ② 행운이 크면 낮은 등급 칸이 0.0%(슈퍼 롤 팩 1 = 오로라 100.0%) — 실제 확률 그대로 · 합 100
+                         ③ 게시 서버의 PolicyService 응답 · 테스트 줄 없음은 Studio로 못 본다 — 비공개 테스트 첫날(출시 체크리스트 28)
+잔재                     없음(TEST_* 전부 nil · git status 깨끗)
 ```
 
 **#25 U8 폴리시 — 화면 연출 6종 · 연출 줄이기 · 효과음 자리(2026-11-12 사람 결정 — 코드 완료: 70a4fcd · 586fd5b · 5169c91)** — 규칙 원본
@@ -1076,7 +1094,9 @@ Phase 7(#12 펫)이 끝나면 세부 스탯과 플레이 경험 조정은 **사�
 - **아우라 파티클이 screen_capture에 안 찍힌다.** — 2026-10-24 지시서 #11 7단계.
   값 읽기로 대신했다: 장착 epic → HumanoidRootPart의 AuraParticles Enabled · Rate 11 · 색 b050ff(tier4). 육안 확인은 사람 직접 플레이.
 
-- **로벅스 행운 상품은 유료 랜덤 아이템이다 — Phase 8 (P2, 2026-10-24 사람 결정).**
+- ~~**로벅스 행운 상품은 유료 랜덤 아이템이다 — Phase 8 (P2, 2026-10-24 사람 결정).**~~ → **해소(#27, 2026-11-20 — docs/POLICY_CHECK.md):**
+  (1) 행운 상품 줄이 "행운 ×N: <가장 귀한 것> a% → b%" · 럭키 · 슈퍼 롤은 아우라 창 "확률 보기"로 결과 전부 · 합 100 (2) 활성 중 창 확률 갱신은
+  테스트로 확인(PaidRandomPolicyTests) (3) 숨김 · 효과 끔(PolicyGate). 남은 판단 두 개는 아래 "#27" 블록
   → **#26 정리(2026-11-20):** (3) 제한 지역 숨김은 붙었다(`Server/Systems/PolicyGate` — ArePaidRandomItemsRestricted). (1) 구매 전 확률 영향 설명 · (2) 활성 중 확률 표시는 이번 정리에서 확인하지 않았다 — 항목을 남긴다
   대상: 럭키 · 슈퍼 롤, 10x 아우라 행운 · 10x 칭호 행운, 2x 펫 행운. 붙일 때 할 일:
   (1) 구매 전에 확률 영향을 숫자로 설명 (2) 활성 중에는 갱신된 실제 확률 표시 (3) 제한 지역 유저에게는 상품을 숨긴다
