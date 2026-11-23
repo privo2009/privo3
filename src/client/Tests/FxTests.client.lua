@@ -4,7 +4,9 @@
 --   구동기(Fx): 가짜 시계로 표본 · 끝값 · onDone · 교체 · finish · cancel · 연출 줄이기 · 멈춤값 · 트윈 정리(루프 끊김) · UIScale 하나 규칙
 --   연결: 창 열기 · 닫기(단일 오픈 · 닫는 중 다른 창 · 같은 창 다시) · 결과 모달(영웅 이상 · 빛 띠 1회) · 블럭스 올라가기 · 레벨 · 환생 배수 ·
 --         크래프팅(결과 · PlayerState 어느 쪽이 먼저 와도) · 연출 줄이기(버튼 반응 · 빛 띠)
--- 실제 요청을 보내지 않는다. 가짜 GUI는 끝나면 지운다. 시계 · 설정은 끝나면 되돌린다.
+-- 실제 요청을 보내지 않는다. 가짜 GUI는 끝나면 지운다.
+-- 전역 상태를 바꾸지 않는다(#28 단계 0): 구동기(Fx · Shine)와 설정(FxPrefs)은 이 파일만의 것(Fx.newDriver · Shine.newDriver · FxPrefs.new)을
+--   쓰고 화면 모듈에는 옵션 fx로 넘긴다. 전역 시계를 바꾸면 같이 도는 테스트의 연출이 같이 끝나 7절 수 세기가 흔들렸다.
 
 if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
 
@@ -52,10 +54,13 @@ local function ease(a: number, s: Enum.EasingStyle, d: Enum.EasingDirection): nu
 end
 
 local B = BigNum.new
-local savedReduce, savedSfx = FxPrefs.reduceMotion(), FxPrefs.sfxEnabled()
-
--- 가짜 시계(Fx 구동기). 실물 Heartbeat도 같은 시계를 읽는다 — 아래 UiFxTests를 기다린 뒤부터 테스트 동안만
+-- 이 파일만의 설정 · 구동기. 가짜 시계 T는 이 구동기만 읽는다(이 구동기의 Heartbeat도 같은 시계 — 시계가 안 움직이면 값도 그대로)
 local T = 1000
+local prefs = FxPrefs.new()
+local shine = Shine.newDriver({ prefs = prefs })
+local fx = Fx.newDriver({ clock = function()
+	return T
+end, prefs = prefs, shine = shine })
 
 -- 테스트 GUI 틀
 local gui = Instance.new("ScreenGui")
@@ -173,9 +178,9 @@ do
 	check("크래프팅: CRAFT_WAIT_SEC 안에 격자에 안 들어오면 버린다", (seq4.poll(find, 0.1 + UIFxConfig.CRAFT_WAIT_SEC + 0.01)) == "idle")
 end
 
--- ⚠️ 여기부터는 모든 화면이 같이 쓰는 값을 잠깐 바꾼다(Fx 시계 · FxPrefs 연출 줄이기 — 켜는 순간 붙은 버튼 전부가 1로 돌아간다).
--- 버튼 반응 · 빛 띠를 재는 UiFxTests가 끝난 뒤에 시작한다(2026-11-12 단계 3 실측: 같이 돌면 UiFxTests "올림" 검사 2개가 1을 읽었다).
--- 기다리는 방법은 그 파일의 요약 줄(LogService) — 30초가 지나면 실패 하나를 세고 시작한다(#26)
+-- 원래는 여기부터 모든 화면이 같이 쓰는 값(Fx 시계 · FxPrefs 연출 줄이기)을 바꿔서 UiFxTests가 끝난 뒤에 시작했다
+-- (2026-11-12 단계 3 실측: 같이 돌면 UiFxTests "올림" 검사 2개가 1을 읽었다). #28 단계 0부터는 전역 값을 바꾸지 않아 기다릴 까닭은 없지만,
+-- 개수를 그대로 두려고 기다림과 그 검사 하나는 남긴다(상한 30초 — 넘으면 실패 하나)
 do
 	local LogService = game:GetService("LogService")
 	local deadline = os.clock() + 30
@@ -193,80 +198,76 @@ do
 	end
 	check("UiFxTests 요약 줄을 본 뒤에 시작한다(상한 30초 — 같이 돌면 버튼 반응 검사가 흔들린다)", done)
 end
--- 시계는 기다린 뒤에 바꾼다
 T = 1000
-Fx._debug.setClock(function()
-	return T
-end)
 
 -- 7. 구동기 (가짜 시계) -------------------------------------------------------------------------------------------
 do
-	FxPrefs.set(false, true)
+	prefs.set(false, true)
 	local key = Instance.new("Folder")
 	local got, done = -1, 0
 	local spec = FxLogic.popInSpec(0.5, 0.2)
-	local base = Fx._debug.activeCount()
-	Fx.play(key, "a", spec, function(v)
+	local base = fx._debug.activeCount()
+	fx.play(key, "a", spec, function(v)
 		got = v
 	end, function()
 		done += 1
 	end)
-	check("구동기: 걸자마자 시작값 · 돌고 있음 · 루프 연결", got == 0.5 and Fx.isPlaying(key, "a") and Fx._debug.isLooping())
+	check("구동기: 걸자마자 시작값 · 돌고 있음 · 루프 연결", got == 0.5 and fx.isPlaying(key, "a") and fx._debug.isLooping())
 	T += 0.1
-	Fx._debug.step()
+	fx._debug.step()
 	check("구동기: 중간 값(이징)", got > 0.5 and got ~= 1 and done == 0)
 	T += 0.2
-	Fx._debug.step()
-	check("구동기: 끝 = 정확히 끝값 · onDone 한 번 · 목록에서 빠짐(트윈 정리)", got == 1 and done == 1 and not Fx.isPlaying(key, "a")
-		and Fx._debug.activeCount() == base)
+	fx._debug.step()
+	check("구동기: 끝 = 정확히 끝값 · onDone 한 번 · 목록에서 빠짐(트윈 정리)", got == 1 and done == 1 and not fx.isPlaying(key, "a")
+		and fx._debug.activeCount() == base)
 	local firstDone = 0
-	Fx.play(key, "b", spec, function() end, function()
+	fx.play(key, "b", spec, function() end, function()
 		firstDone += 1
 	end)
-	Fx.play(key, "b", spec, function(v)
+	fx.play(key, "b", spec, function(v)
 		got = v
 	end)
-	check("구동기: 같은 자리에 새로 걸면 앞 것은 onDone 없이 버린다", firstDone == 0 and Fx._debug.activeCount() == base + 1)
-	Fx.finish(key, "b")
-	check("구동기: finish = 끝값 · 목록에서 빠짐", got == 1 and not Fx.isPlaying(key, "b"))
+	check("구동기: 같은 자리에 새로 걸면 앞 것은 onDone 없이 버린다", firstDone == 0 and fx._debug.activeCount() == base + 1)
+	fx.finish(key, "b")
+	check("구동기: finish = 끝값 · 목록에서 빠짐", got == 1 and not fx.isPlaying(key, "b"))
 	local cancelDone = 0
-	Fx.play(key, "c", spec, function(v)
+	fx.play(key, "c", spec, function(v)
 		got = v
 	end, function()
 		cancelDone += 1
 	end)
-	Fx.cancel(key, "c")
-	check("구동기: cancel = 그 자리(시작값) · onDone 없음", got == 0.5 and cancelDone == 0 and not Fx.isPlaying(key, "c"))
+	fx.cancel(key, "c")
+	check("구동기: cancel = 그 자리(시작값) · onDone 없음", got == 0.5 and cancelDone == 0 and not fx.isPlaying(key, "c"))
 	-- 연출 줄이기
-	FxPrefs.set(true, true)
+	prefs.set(true, true)
 	local reducedDone = 0
-	Fx.play(key, "d", spec, function(v)
+	fx.play(key, "d", spec, function(v)
 		got = v
 	end, function()
 		reducedDone += 1
 	end)
-	check("연출 줄이기: 걸자마자 끝값 + onDone(움직임 없음)", got == 1 and reducedDone == 1 and not Fx.isPlaying(key, "d"))
-	FxPrefs.set(false, true)
-	Fx.play(key, "e", spec, function(v)
+	check("연출 줄이기: 걸자마자 끝값 + onDone(움직임 없음)", got == 1 and reducedDone == 1 and not fx.isPlaying(key, "d"))
+	prefs.set(false, true)
+	fx.play(key, "e", spec, function(v)
 		got = v
 	end)
-	FxPrefs.set(true, true)
-	check("연출 줄이기를 켠 순간 돌던 것도 끝값", got == 1 and not Fx.isPlaying(key, "e"))
-	FxPrefs.set(false, true)
+	prefs.set(true, true)
+	check("연출 줄이기를 켠 순간 돌던 것도 끝값", got == 1 and not fx.isPlaying(key, "e"))
+	prefs.set(false, true)
 	-- 스크린샷 멈춤(돌던 값은 되돌린다 — 스크린샷 Play에서 켜 둔 값을 지우지 않게)
 	local savedFreeze = UIFxConfig.DEBUG_FREEZE_PROGRESS
 	UIFxConfig.DEBUG_FREEZE_PROGRESS = 0.5
-	Fx.play(key, "f", FxLogic.progressSpec(0.2), function(v)
+	fx.play(key, "f", FxLogic.progressSpec(0.2), function(v)
 		got = v
 	end)
 	T += 5
-	Fx._debug.step()
+	fx._debug.step()
 	local frozen = got
-	local still = Fx.isPlaying(key, "f")
+	local still = fx.isPlaying(key, "f")
 	UIFxConfig.DEBUG_FREEZE_PROGRESS = nil
-	Fx._debug.step()
+	fx._debug.step()
 	UIFxConfig.DEBUG_FREEZE_PROGRESS = savedFreeze
-	check("멈춤값: 시간이 지나도 그 진행률(0.5)에 머문다 · 끄면 끝난다", near(frozen, 0.5) and still and got == 1 and not Fx.isPlaying(key, "f"))
+	check("멈춤값: 시간이 지나도 그 진행률(0.5)에 머문다 · 끄면 끝난다", near(frozen, 0.5) and still and got == 1 and not fx.isPlaying(key, "f"))
 	key:Destroy()
 end
 
@@ -282,9 +283,9 @@ do
 	hit.Name = "HitArea"
 	hit.Size = UDim2.fromScale(1, 1)
 	hit.Parent = btn
-	ButtonFx.attach(hit)
-	local skippedBefore = #Fx.skipped
-	check("UIScale 하나: 버튼 반응(ButtonFxScale)이 달린 그림에는 연출 UIScale을 달지 않는다", Fx.scaleOf(btn) == nil and #Fx.skipped == skippedBefore + 1
+	ButtonFx.attach(hit, { prefs = prefs })
+	local skippedBefore = #fx.skipped
+	check("UIScale 하나: 버튼 반응(ButtonFxScale)이 달린 그림에는 연출 UIScale을 달지 않는다", fx.scaleOf(btn) == nil and #fx.skipped == skippedBefore + 1
 		and #btn:GetChildren() == 2)
 	local label = Instance.new("TextLabel")
 	label.AnchorPoint = Vector2.new(0, 0.5)
@@ -293,24 +294,24 @@ do
 	label.Parent = holder
 	task.wait()
 	local restPos = label.Position
-	Fx.pop(label, UIFxConfig.LEVEL_POP_PEAK, UIFxConfig.LEVEL_POP_TIME)
+	fx.pop(label, UIFxConfig.LEVEL_POP_PEAK, UIFxConfig.LEVEL_POP_TIME)
 	local s = label:FindFirstChild(Fx.SCALE_NAME) :: UIScale
-	local pivoted = Fx.isPivoted(label) and label.AnchorPoint == Vector2.new(0.5, 0.5)
+	local pivoted = fx.isPivoted(label) and label.AnchorPoint == Vector2.new(0.5, 0.5)
 	T += UIFxConfig.LEVEL_POP_TIME * UIFxConfig.POP_PEAK_AT
-	Fx._debug.step()
+	fx._debug.step()
 	local peakScale = s.Scale
 	T += UIFxConfig.LEVEL_POP_TIME
-	Fx._debug.step()
+	fx._debug.step()
 	check("튀기: 가운데 기준으로 바꿨다가 · 꼭대기 LEVEL_POP_PEAK · 끝나면 1과 원래 AnchorPoint · Position", pivoted
 		and near(peakScale, UIFxConfig.LEVEL_POP_PEAK, 1e-3) and s.Scale == 1 and label.AnchorPoint == Vector2.new(0, 0.5) and label.Position == restPos
-		and not Fx.isPivoted(label))
+		and not fx.isPivoted(label))
 	check("튀기: 연출 UIScale 이름 FxScale 하나", #label:GetChildren() == 1 and s.Name == "FxScale")
 	holder:Destroy()
 end
 
 -- 9. 창 열기 · 닫기 (U1) ------------------------------------------------------------------------------------------
 do
-	local sc = ScreenController.new("FxTests_", { animate = true })
+	local sc = ScreenController.new("FxTests_", { animate = true, fx = fx })
 	local dbg = sc._debug
 	local function panel(): Frame
 		local f = Instance.new("Frame")
@@ -332,21 +333,21 @@ do
 	check("열기: 창 UIScale WINDOW_OPEN_SCALE_FROM에서 시작 · 막은 투명도 1에서", aScale ~= nil and near(aScale.Scale, UIFxConfig.WINDOW_OPEN_SCALE_FROM)
 		and blur.Visible and near(blur.BackgroundTransparency, 1))
 	T += UIFxConfig.WINDOW_OPEN_TIME + 0.01
-	Fx._debug.step()
+	fx._debug.step()
 	check("열기 끝: 창 1 · 막 원래 투명도", aScale.Scale == 1 and near(blur.BackgroundTransparency, 0.5))
 	sc.close("A")
 	check("닫기: isOpen은 바로 false · 모양은 닫는 중(보임 · isClosing)", not sc.isOpen("A") and a.Visible and sc.isClosing("A"))
 	T += UIFxConfig.WINDOW_CLOSE_TIME * 0.5
-	Fx._debug.step()
+	fx._debug.step()
 	local mid = aScale.Scale
 	T += UIFxConfig.WINDOW_CLOSE_TIME
-	Fx._debug.step()
+	fx._debug.step()
 	check("닫기 끝: 1 → WINDOW_CLOSE_SCALE_TO 사이를 지나 · 끝나면 숨김 · 크기 1로 · 막 숨김", mid < 1 and mid > UIFxConfig.WINDOW_CLOSE_SCALE_TO
 		and not a.Visible and aScale.Scale == 1 and not sc.isClosing("A") and not blur.Visible)
 	-- 닫는 중에 다른 창을 연다
 	sc.open("A")
 	T += 1
-	Fx._debug.step()
+	fx._debug.step()
 	sc.close("A")
 	sc.open("B")
 	local b = dbg.entries.B.instance :: GuiObject
@@ -354,24 +355,24 @@ do
 		and sc.isOpen("B") and not sc.isOpen("A"))
 	-- 열린 창에서 다른 창 열기(연출 없이 즉시 닫힘)
 	T += 1
-	Fx._debug.step()
+	fx._debug.step()
 	sc.open("A")
 	check("열린 창에서 다른 창: 앞 창은 즉시 닫힘(닫는 연출 없음)", not b.Visible and not sc.isClosing("B") and a.Visible)
 	-- 같은 창을 닫는 중에 다시 연다
 	T += 1
-	Fx._debug.step()
+	fx._debug.step()
 	sc.close("A")
 	sc.open("A")
 	check("같은 창 다시 열기: 닫힘을 끝내고 다시 연다(보임 · 열기 시작 크기)", a.Visible and sc.isOpen("A") and not sc.isClosing("A")
 		and near(aScale.Scale, UIFxConfig.WINDOW_OPEN_SCALE_FROM))
 	T += 1
-	Fx._debug.step()
+	fx._debug.step()
 	check("창 변화 알림: 연출과 무관하게 열림 · 닫힘 순서대로", changes[1] == true and changes[2] == false)
 	-- 연출 줄이기: 닫기가 바로 끝난다
-	FxPrefs.set(true, true)
+	prefs.set(true, true)
 	sc.close("A")
 	check("연출 줄이기: 닫기 즉시 숨김(움직임 없음)", not a.Visible and not sc.isClosing("A") and aScale.Scale == 1)
-	FxPrefs.set(false, true)
+	prefs.set(false, true)
 	-- 연출 없는 인스턴스(기존 테스트 전제)
 	local plain = ScreenController.new("FxTestsPlain_")
 	plain.register("P", "Window", panel)
@@ -385,76 +386,76 @@ end
 
 -- 10. 결과 모달 (U2) · 빛 띠 1회 ----------------------------------------------------------------------------------
 do
-	local m = ResultModal.create()
+	local m = ResultModal.create({ fx = fx })
 	m.root.Parent = gui
 	local panelF = m._debug.panel
 	m.show({ heading = "h", name = "n", rarityTier = UIFxConfig.MODAL_RARE_MIN_TIER - 1, detail = "d" })
 	local s = panelF:FindFirstChild(Fx.SCALE_NAME) :: UIScale
-	check("모달 보통: MODAL_SCALE_FROM에서 시작 · 빛 띠 없음", s ~= nil and near(s.Scale, UIFxConfig.MODAL_SCALE_FROM) and not Shine.isAttached(panelF))
+	check("모달 보통: MODAL_SCALE_FROM에서 시작 · 빛 띠 없음", s ~= nil and near(s.Scale, UIFxConfig.MODAL_SCALE_FROM) and not shine.isAttached(panelF))
 	T += 1
-	Fx._debug.step()
+	fx._debug.step()
 	check("모달 보통: 끝나면 1", s.Scale == 1)
 	m.hide()
 	m.show({ heading = "h", name = "n", rarityTier = 5, detail = "d" })
-	check("모달 영웅 이상: MODAL_RARE_SCALE_FROM에서 시작 · 빛 띠 1회 붙음", near(s.Scale, UIFxConfig.MODAL_RARE_SCALE_FROM) and Shine.isAttached(panelF))
+	check("모달 영웅 이상: MODAL_RARE_SCALE_FROM에서 시작 · 빛 띠 1회 붙음", near(s.Scale, UIFxConfig.MODAL_RARE_SCALE_FROM) and shine.isAttached(panelF))
 	T += UIFxConfig.MODAL_RARE_TIME * UIFxConfig.POP_PEAK_AT
-	Fx._debug.step()
+	fx._debug.step()
 	local peak = s.Scale
 	T += UIFxConfig.MODAL_RARE_TIME
-	Fx._debug.step()
+	fx._debug.step()
 	check("모달 영웅 이상: 꼭대기 MODAL_RARE_PEAK → 끝 1", near(peak, UIFxConfig.MODAL_RARE_PEAK, 1e-3) and s.Scale == 1)
 	m.hide()
-	check("모달 숨김: 빛 띠를 뗀다", not Shine.isAttached(panelF))
+	check("모달 숨김: 빛 띠를 뗀다", not shine.isAttached(panelF))
 	m.root:Destroy()
 end
 
 -- 11. 빛 띠 1회 모드 · 연출 줄이기 -----------------------------------------------------------------------------------
 do
 	local clockT = 0
-	Shine._debug.setClock(function()
+	shine._debug.setClock(function()
 		return clockT
 	end)
 	local f = Instance.new("Frame")
 	f.Size = UDim2.fromScale(0.2, 0.1)
 	f.Parent = gui
-	Shine.attach(f, { once = true, delay = 0.1, priority = UIFxConfig.SHINE_ONCE_PRIORITY })
-	Shine._debug.step()
-	local started = Shine._debug.isRunning(f)
+	shine.attach(f, { once = true, delay = 0.1, priority = UIFxConfig.SHINE_ONCE_PRIORITY })
+	shine._debug.step()
+	local started = shine._debug.isRunning(f)
 	clockT = 0.1 + UIFxConfig.SHINE_SWEEP_TIME * 0.5
-	Shine._debug.step()
-	local midOffset = (Shine._debug.gradientOf(f) :: UIGradient).Offset.X
+	shine._debug.step()
+	local midOffset = (shine._debug.gradientOf(f) :: UIGradient).Offset.X
 	clockT = 0.1 + UIFxConfig.SHINE_SWEEP_TIME + 0.05
-	Shine._debug.step()
+	shine._debug.step()
 	check("빛 띠 1회: delay 뒤 한 번 지나가고(가운데 근처) · 끝나면 스스로 떨어진다(반복 없음)", started and midOffset > -1 and midOffset < 1
-		and not Shine.isAttached(f))
+		and not shine.isAttached(f))
 	local g = Instance.new("Frame")
 	g.Size = UDim2.fromScale(0.2, 0.1)
 	g.Parent = gui
-	Shine.attach(g, { once = true })
+	shine.attach(g, { once = true })
 	g.Visible = false
-	Shine._debug.step()
-	check("빛 띠 1회: 숨으면 바로 뗀다", not Shine.isAttached(g))
+	shine._debug.step()
+	check("빛 띠 1회: 숨으면 바로 뗀다", not shine.isAttached(g))
 	local r = Instance.new("Frame")
 	r.Size = UDim2.fromScale(0.2, 0.1)
 	r.Parent = gui
-	Shine.attach(r, { priority = 50 })
-	Shine._debug.step()
-	local runningBefore = Shine._debug.isRunning(r)
-	FxPrefs.set(true, true)
-	Shine._debug.step()
-	local overlay = Shine._debug.overlayOf(r) :: GuiObject
-	check("연출 줄이기: 붙은 빛 띠가 바로 멈추고 덮개를 숨긴다", runningBefore and not Shine._debug.isRunning(r) and overlay ~= nil and not overlay.Visible)
+	shine.attach(r, { priority = 50 })
+	shine._debug.step()
+	local runningBefore = shine._debug.isRunning(r)
+	prefs.set(true, true)
+	shine._debug.step()
+	local overlay = shine._debug.overlayOf(r) :: GuiObject
+	check("연출 줄이기: 붙은 빛 띠가 바로 멈추고 덮개를 숨긴다", runningBefore and not shine._debug.isRunning(r) and overlay ~= nil and not overlay.Visible)
 	local o = Instance.new("Frame")
 	o.Size = UDim2.fromScale(0.2, 0.1)
 	o.Parent = gui
-	Shine.attach(o, { once = true })
-	Shine._debug.step()
-	check("연출 줄이기: 1회 모드는 바로 뗀다", not Shine.isAttached(o))
-	FxPrefs.set(false, true)
-	Shine._debug.step()
-	check("연출 줄이기 끔: 다시 돈다", Shine._debug.isRunning(r))
-	Shine.detach(r)
-	Shine._debug.setClock(nil)
+	shine.attach(o, { once = true })
+	shine._debug.step()
+	check("연출 줄이기: 1회 모드는 바로 뗀다", not shine.isAttached(o))
+	prefs.set(false, true)
+	shine._debug.step()
+	check("연출 줄이기 끔: 다시 돈다", shine._debug.isRunning(r))
+	shine.detach(r)
+	shine._debug.setClock(nil)
 	f:Destroy()
 	g:Destroy()
 	r:Destroy()
@@ -472,16 +473,16 @@ do
 	hit.Name = "HitArea"
 	hit.Size = UDim2.fromScale(1, 1)
 	hit.Parent = pic
-	local h = ButtonFx.attach(hit) :: any
+	local h = ButtonFx.attach(hit, { prefs = prefs }) :: any
 	h._debug.fire("enter", false, true)
 	h._debug.settle()
 	local hovered = h.scale.Scale
-	FxPrefs.set(true, true)
+	prefs.set(true, true)
 	check("연출 줄이기를 켠 순간: 커져 있던 버튼이 바로 1", near(hovered, UIFxConfig.HOVER_SCALE, 1e-4) and h.scale.Scale == 1)
 	h._debug.fire("down", false, true)
 	h._debug.settle()
 	check("연출 줄이기: 눌러도 크기 1(트윈 없음)", h.scale.Scale == 1 and h._debug.goal() == 1)
-	FxPrefs.set(false, true)
+	prefs.set(false, true)
 	h._debug.fire("up", false, true)
 	h._debug.fire("leave", false, false)
 	h._debug.fire("enter", false, true)
@@ -501,30 +502,30 @@ do
 	local live = false
 	local d = BloxDisplay.create(store, { live = function()
 		return live
-	end })
+	end, fx = fx })
 	d.root.Parent = gui
 	task.wait()
 	setter("blox", B(5, 2))
 	task.wait()
-	check("올라가기: 첫 상태(live 아님)는 즉시", BigNum.eq(d._debug.shown(), B(5, 2)) and not Fx.isPlaying(d.root, "countUp"))
+	check("올라가기: 첫 상태(live 아님)는 즉시", BigNum.eq(d._debug.shown(), B(5, 2)) and not fx.isPlaying(d.root, "countUp"))
 	live = true
 	setter("blox", B(5, 6))
 	task.wait()
-	check("올라가기: 늘면 연출 시작(지금 표시값에서)", Fx.isPlaying(d.root, "countUp") and BigNum.eq(d._debug.shown(), B(5, 2)))
+	check("올라가기: 늘면 연출 시작(지금 표시값에서)", fx.isPlaying(d.root, "countUp") and BigNum.eq(d._debug.shown(), B(5, 2)))
 	T += UIFxConfig.COUNT_UP_TIME * 0.5
-	Fx._debug.step()
+	fx._debug.step()
 	local mid = d._debug.shown()
 	check("올라가기: 중간 표시값은 이전 < 값 < 새 값 · 표시는 Formatter", BigNum.gt(mid, B(5, 2)) and BigNum.lt(mid, B(5, 6))
 		and d._debug.label.Text ~= "")
 	setter("blox", B(1, 8))
 	task.wait()
-	check("올라가기: 진행 중에 또 늘면 지금 표시값에서 다시", Fx.isPlaying(d.root, "countUp") and BigNum.eq(d._debug.shown(), mid))
+	check("올라가기: 진행 중에 또 늘면 지금 표시값에서 다시", fx.isPlaying(d.root, "countUp") and BigNum.eq(d._debug.shown(), mid))
 	T += UIFxConfig.COUNT_UP_TIME + 0.01
-	Fx._debug.step()
-	check("올라가기: 끝 = 정확히 새 값", BigNum.eq(d._debug.shown(), B(1, 8)) and not Fx.isPlaying(d.root, "countUp"))
+	fx._debug.step()
+	check("올라가기: 끝 = 정확히 새 값", BigNum.eq(d._debug.shown(), B(1, 8)) and not fx.isPlaying(d.root, "countUp"))
 	setter("blox", B(2, 3))
 	task.wait()
-	check("올라가기: 줄면 즉시", BigNum.eq(d._debug.shown(), B(2, 3)) and not Fx.isPlaying(d.root, "countUp"))
+	check("올라가기: 줄면 즉시", BigNum.eq(d._debug.shown(), B(2, 3)) and not fx.isPlaying(d.root, "countUp"))
 	d.root:Destroy()
 end
 
@@ -543,7 +544,7 @@ do
 		return live
 	end, now = function()
 		return clockNow
-	end })
+	end, fx = fx })
 	pb.root.Parent = gui
 	task.wait()
 	setter("strength", B(1, 3))
@@ -555,7 +556,7 @@ do
 	setter("strength", B(1, 6))
 	task.wait()
 	check("레벨: 오르면 튀기 1회(레벨 숫자)", LevelConfig.getLevel(B(1, 6)) > lv and pb._debug.pops().level == 1
-		and Fx.isPlaying(pb._debug.levelLabel, "pop"))
+		and fx.isPlaying(pb._debug.levelLabel, "pop"))
 	clockNow += UIFxConfig.LEVEL_POP_MIN_INTERVAL * 0.5
 	setter("strength", B(1, 9))
 	task.wait()
@@ -566,11 +567,11 @@ do
 	check("레벨: 간격이 지나면 다시 튄다", pb._debug.pops().level == 2)
 	setter("rebirths", B(3, 0))
 	task.wait()
-	check("환생 배수: 환생 수가 늘면 튀기(REBIRTH_POP)", pb._debug.pops().rebirth == 1 and Fx.isPlaying(pb._debug.multiplierLabel, "pop"))
+	check("환생 배수: 환생 수가 늘면 튀기(REBIRTH_POP)", pb._debug.pops().rebirth == 1 and fx.isPlaying(pb._debug.multiplierLabel, "pop"))
 	setter("rebirths", B(0, 0))
 	task.wait()
 	check("환생 배수: 줄면(초기화 등) 튀지 않는다", pb._debug.pops().rebirth == 1)
-	Fx.finishAll()
+	fx.finishAll()
 	pb.root:Destroy()
 end
 
@@ -593,7 +594,7 @@ do
 		local clock = 0
 		local w = PetWindow.create({ store = store, sendRequest = function() end, onClose = function() end, now = function()
 			return clock
-		end })
+		end, fx = fx })
 		w.root.Parent = gui
 		task.wait()
 		w._debug.select("1")
@@ -615,7 +616,7 @@ do
 		task.wait()
 		local hidden = w._debug.hiddenUid()
 		local plays = w._debug.craftPlays()
-		Fx.finishAll()
+		fx.finishAll()
 		task.wait()
 		local cleared = if w._debug.hiddenUid() == nil and not w._debug.ghosts[4].Visible then 1 else 0
 		w.root:Destroy()
@@ -628,9 +629,7 @@ do
 end
 
 -- 정리 ------------------------------------------------------------------------------------------------------------
-Fx.finishAll()
-Fx._debug.setClock(nil)
-FxPrefs.set(savedReduce, savedSfx)
+fx.finishAll()
 gui:Destroy()
 
 print(string.format("[FxTests] %d passed, %d failed", passed, failed))

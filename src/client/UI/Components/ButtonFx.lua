@@ -37,6 +37,7 @@ export type Mode = "direct" | "shift" | "wrapper"
 export type Options = {
 	target: GuiObject?, -- 커질 그림. 생략하면 hit.Parent
 	isDisabled: (() -> boolean)?,
+	prefs: FxPrefs.Prefs?, -- 테스트 전용: 따로 노는 설정(FxPrefs.new()). 없으면 전역 설정(#28 단계 0 — 전역을 바꾸면 남의 버튼까지 1로 돌아간다)
 }
 
 export type Handle = {
@@ -103,6 +104,7 @@ function ButtonFx.attach(hit: GuiButton, options: Options?): Handle?
 		return existing
 	end
 	local o: Options = options or {} :: Options
+	local prefs: FxPrefs.Prefs = o.prefs or FxPrefs.global
 	local parent = hit.Parent
 	local target: GuiObject? = o.target or (if parent ~= nil and parent:IsA("GuiObject") then parent :: GuiObject else nil)
 	if target == nil then
@@ -210,7 +212,7 @@ function ButtonFx.attach(hit: GuiButton, options: Options?): Handle?
 			cap = ButtonFxLogic.fitScale({ cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2 }, clip)
 			clipped = cap < UIFxConfig.HOVER_SCALE
 		end
-		local goal = if FxPrefs.reduceMotion() then 1 else ButtonFxLogic.cappedScale(newState, cap)
+		local goal = if prefs.reduceMotion() then 1 else ButtonFxLogic.cappedScale(newState, cap)
 		if not wrapped and layoutKindOf(t.Parent) == "list" then
 			-- UIListLayout 자식은 커지면 목록이 다시 배치돼 이웃이 밀린다(실측) — 크기를 바꾸지 않는다
 			goal = 1
@@ -228,7 +230,7 @@ function ButtonFx.attach(hit: GuiButton, options: Options?): Handle?
 			(tween :: Tween):Cancel()
 			tween = nil
 		end
-		if FxPrefs.reduceMotion() then -- 움직이지 않는다(트윈 없음)
+		if prefs.reduceMotion() then -- 움직이지 않는다(트윈 없음)
 			scale.Scale = 1
 			restoreShift()
 			return
@@ -305,7 +307,7 @@ function ButtonFx.attach(hit: GuiButton, options: Options?): Handle?
 		end
 		pressEnabled = false
 	end))
-	resets[hit] = function()
+	local function reset()
 		if tween ~= nil then
 			(tween :: Tween):Cancel()
 			tween = nil
@@ -313,6 +315,15 @@ function ButtonFx.attach(hit: GuiButton, options: Options?): Handle?
 		lastGoal = 1
 		scale.Scale = 1
 		restoreShift()
+	end
+	if o.prefs == nil then
+		resets[hit] = reset
+	else -- 따로 노는 설정: 그 설정이 바뀔 때 이 버튼만
+		(o.prefs :: FxPrefs.Prefs).onChanged(function(reduceMotion: boolean)
+			if reduceMotion and handles[hit] == handle then
+				reset()
+			end
+		end)
 	end
 	table.insert(connections, hit.Destroying:Connect(destroy))
 	table.insert(connections, t.Destroying:Connect(destroy))

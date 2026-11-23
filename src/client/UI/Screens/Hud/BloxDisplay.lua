@@ -37,11 +37,12 @@ export type BloxDisplayHandle = {
 }
 
 -- live: 지금 바뀐 값이 "게임 중 변화"인가(연출할까). 생략하면 싱글톤은 PlayerStateClient.hasReceived, 테스트 Store는 연출 안 함
-export type Options = { live: (() -> boolean)? }
+export type Options = { live: (() -> boolean)?, fx: Fx.Driver? } -- fx: 테스트 전용 따로 노는 구동기(#28 단계 0)
 
 -- store: 구독할 Store 인스턴스. 생략하면 실물 HUD가 쓰는 싱글톤이다. 테스트는 Store.new()를 넘긴다 —
 -- Phase 6부터 싱글톤은 서버 PlayerState가 채우므로, 테스트가 거기 값을 쓰면 실값을 덮는다.
 function BloxDisplay.create(store: Store.StoreInstance?, options: Options?): BloxDisplayHandle
+	local fx: Fx.Driver = (options and options.fx) or Fx.global
 	local source: Store.StoreInstance = store or (Store :: any)
 	local live: () -> boolean = (options and options.live) or (if store == nil then PlayerStateClient.hasReceived else function()
 		return false
@@ -93,12 +94,12 @@ function BloxDisplay.create(store: Store.StoreInstance?, options: Options?): Blo
 	valuePanel.setValue(shown)
 	source.subscribe("blox", function(value)
 		if live() and FxLogic.countUpPlan(shown, value) == "animate" then
-			Fx.countUp(root, shown, value, function(big)
+			fx.countUp(root, shown, value, function(big)
 				shown = big
 				valuePanel.setValue(big)
 			end)
 		else
-			Fx.cancel(root, "countUp")
+			fx.cancel(root, "countUp")
 			shown = value
 			valuePanel.setValue(value)
 		end

@@ -16,6 +16,8 @@
 -- 움직임: 서버 · 플레이어와 무관한 클라 연출. 하나의 Heartbeat가 모든 띠를 돌린다(띠마다 루프 · 트윈 객체를 만들지 않는다 —
 --   Offset = −1 + 2 × TweenService:GetValue(진행률, Sine, InOut)). 대상이나 조상이 숨으면 멈추고(덮개도 숨김) 다시 보이면 재개.
 --   한 화면 상한 SHINE_MAX_ACTIVE — 보이는 것 중 우선순위 높은 순 · 붙인 순만 돌린다. 파괴되면 정리한다.
+-- 구동기: 모듈 함수(Shine.attach …)는 전역 구동기 하나다. Shine.newDriver({ clock, prefs })는 자기 시계 · 자기 목록 · 자기 설정을 가진
+--   따로 노는 구동기(테스트 전용 — 전역 시계를 바꾸면 같이 도는 다른 테스트의 띠까지 움직인다. #28 단계 0)
 
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -26,6 +28,8 @@ local ShineLogic = require(script.Parent.Parent.Logic.ShineLogic)
 local FxPrefs = require(script.Parent.Parent.FxPrefs)
 
 local Shine = {}
+
+export type Prefs = { reduceMotion: () -> boolean, onChanged: ((boolean, boolean) -> ()) -> () }
 
 Shine.OVERLAY_NAME = "Shine"
 local VISIBILITY_CHECK_SEC = 0.2
@@ -47,11 +51,6 @@ type Entry = {
 	destroying: RBXScriptConnection,
 }
 
-local entries: { [GuiObject]: Entry } = {}
-local orderSeq = 0
-local heartbeat: RBXScriptConnection? = nil
-local lastVisibilityCheck = -math.huge
-local clock: () -> number = os.clock
 local random = Random.new()
 
 local function ease(alpha: number): number
@@ -145,171 +144,199 @@ local function makeGradient(): UIGradient
 	return g
 end
 
-local function step()
-	local now = clock()
-	if now - lastVisibilityCheck >= VISIBILITY_CHECK_SEC then
-		lastVisibilityCheck = now
+type Driver = {
+	attach: (target: GuiObject, options: Options?) -> boolean,
+	detach: (target: GuiObject) -> (),
+	isAttached: (target: GuiObject) -> boolean,
+	_debug: any,
+}
+export type ShineDriver = Driver
+
+local function newDriver(opts: { clock: (() -> number)?, prefs: Prefs? }?): Driver
+	local o = opts or {}
+	local defaultClock: () -> number = o.clock or os.clock
+	local prefs: Prefs = o.prefs or FxPrefs.global
+	local entries: { [GuiObject]: Entry } = {}
+	local orderSeq = 0
+	local heartbeat: RBXScriptConnection? = nil
+	local lastVisibilityCheck = -math.huge
+	local clock: () -> number = defaultClock
+	local D = {} :: Driver
+
+	local function step()
+		local now = clock()
+		if now - lastVisibilityCheck >= VISIBILITY_CHECK_SEC then
+			lastVisibilityCheck = now
+			for _, e in pairs(entries) do
+				e.visible = ShineLogic.isVisible(e.target, NODE_ACCESS)
+			end
+		end
+		local list: { Entry } = {}
+		local flat: { ShineLogic.Entry } = {}
 		for _, e in pairs(entries) do
-			e.visible = ShineLogic.isVisible(e.target, NODE_ACCESS)
+			table.insert(list, e)
+			table.insert(flat, { visible = e.visible, priority = e.priority, order = e.order })
 		end
-	end
-	local list: { Entry } = {}
-	local flat: { ShineLogic.Entry } = {}
-	for _, e in pairs(entries) do
-		table.insert(list, e)
-		table.insert(flat, { visible = e.visible, priority = e.priority, order = e.order })
-	end
-	local activeSet: { [Entry]: boolean } = {}
-	local reduced = FxPrefs.reduceMotion()
-	if not reduced then
-		for _, i in ipairs(ShineLogic.pickActive(flat, UIFxConfig.SHINE_MAX_ACTIVE)) do
-			activeSet[list[i]] = true
-		end
-	end
-	local finishedOnce: { GuiObject } = {}
-	for _, e in ipairs(list) do
-		if e.once and (reduced or not e.visible or (e.running and now - e.startAt > UIFxConfig.SHINE_SWEEP_TIME)) then
-			table.insert(finishedOnce, e.target) -- 한 번 지나갔거나 · 숨었거나 · 연출 줄이기 — 뗀다
-		elseif activeSet[e] then
-			if not e.running then
-				e.running = true
-				e.startAt = now + (if e.once then e.delay else random:NextNumber(0, UIFxConfig.SHINE_START_JITTER_MAX))
-			end
-			while not e.once and now - e.startAt >= UIFxConfig.SHINE_INTERVAL do
-				e.startAt += UIFxConfig.SHINE_INTERVAL
-			end
-			e.overlay.Visible = true
-			local freeze = UIFxConfig.DEBUG_FREEZE_OFFSET
-			e.gradient.Offset = Vector2.new(if freeze ~= nil then freeze else ShineLogic.offsetAt(now - e.startAt, ease), 0)
-		elseif e.running or e.overlay.Visible then
-			e.running = false
-			e.overlay.Visible = false
-			e.gradient.Offset = Vector2.new(-1, 0)
-		end
-	end
-	for _, target in ipairs(finishedOnce) do
-		Shine.detach(target)
-	end
-end
-
-local function ensureLoop()
-	if heartbeat == nil and next(entries) ~= nil then
-		heartbeat = RunService.Heartbeat:Connect(step)
-	elseif heartbeat ~= nil and next(entries) == nil then
-		(heartbeat :: RBXScriptConnection):Disconnect()
-		heartbeat = nil
-	end
-end
-
-function Shine.detach(target: GuiObject)
-	local e = entries[target]
-	if e == nil then
-		return
-	end
-	entries[target] = nil
-	e.destroying:Disconnect()
-	e.overlay:Destroy()
-	ensureLoop()
-end
-
-function Shine.attach(target: GuiObject, options: Options?): boolean
-	if not UIFxConfig.ENABLED then
-		return false
-	end
-	local o: Options = options or {}
-	local preset = if o.preset == "premium" then "premium" else "default"
-	local existing = entries[target]
-	if existing ~= nil then
-		if existing.preset ~= preset then
-			existing.preset = preset
-			local color = ShineLogic.colorOf(preset)
-			if existing.overlay:IsA("ImageLabel") then
-				(existing.overlay :: ImageLabel).ImageColor3 = color
-			else
-				existing.overlay.BackgroundColor3 = color
+		local activeSet: { [Entry]: boolean } = {}
+		local reduced = prefs.reduceMotion()
+		if not reduced then
+			for _, i in ipairs(ShineLogic.pickActive(flat, UIFxConfig.SHINE_MAX_ACTIVE)) do
+				activeSet[list[i]] = true
 			end
 		end
-		existing.priority = o.priority or existing.priority
-		if o.once then -- 1회 모드로 다시 붙이면 처음부터 한 번 더
-			existing.once = true
-			existing.delay = o.delay or 0
-			existing.running = false
+		local finishedOnce: { GuiObject } = {}
+		for _, e in ipairs(list) do
+			if e.once and (reduced or not e.visible or (e.running and now - e.startAt > UIFxConfig.SHINE_SWEEP_TIME)) then
+				table.insert(finishedOnce, e.target) -- 한 번 지나갔거나 · 숨었거나 · 연출 줄이기 — 뗀다
+			elseif activeSet[e] then
+				if not e.running then
+					e.running = true
+					e.startAt = now + (if e.once then e.delay else random:NextNumber(0, UIFxConfig.SHINE_START_JITTER_MAX))
+				end
+				while not e.once and now - e.startAt >= UIFxConfig.SHINE_INTERVAL do
+					e.startAt += UIFxConfig.SHINE_INTERVAL
+				end
+				e.overlay.Visible = true
+				local freeze = UIFxConfig.DEBUG_FREEZE_OFFSET
+				e.gradient.Offset = Vector2.new(if freeze ~= nil then freeze else ShineLogic.offsetAt(now - e.startAt, ease), 0)
+			elseif e.running or e.overlay.Visible then
+				e.running = false
+				e.overlay.Visible = false
+				e.gradient.Offset = Vector2.new(-1, 0)
+			end
 		end
+		for _, target in ipairs(finishedOnce) do
+			D.detach(target)
+		end
+	end
+
+	local function ensureLoop()
+		if heartbeat == nil and next(entries) ~= nil then
+			heartbeat = RunService.Heartbeat:Connect(step)
+		elseif heartbeat ~= nil and next(entries) == nil then
+			(heartbeat :: RBXScriptConnection):Disconnect()
+			heartbeat = nil
+		end
+	end
+
+	function D.detach(target: GuiObject)
+		local e = entries[target]
+		if e == nil then
+			return
+		end
+		entries[target] = nil
+		e.destroying:Disconnect()
+		e.overlay:Destroy()
+		ensureLoop()
+	end
+
+	function D.attach(target: GuiObject, options: Options?): boolean
+		if not UIFxConfig.ENABLED then
+			return false
+		end
+		local o: Options = options or {}
+		local preset = if o.preset == "premium" then "premium" else "default"
+		local existing = entries[target]
+		if existing ~= nil then
+			if existing.preset ~= preset then
+				existing.preset = preset
+				local color = ShineLogic.colorOf(preset)
+				if existing.overlay:IsA("ImageLabel") then
+					(existing.overlay :: ImageLabel).ImageColor3 = color
+				else
+					existing.overlay.BackgroundColor3 = color
+				end
+			end
+			existing.priority = o.priority or existing.priority
+			if o.once then -- 1회 모드로 다시 붙이면 처음부터 한 번 더
+				existing.once = true
+				existing.delay = o.delay or 0
+				existing.running = false
+			end
+			return true
+		end
+		local overlay = makeOverlay(target, ShineLogic.colorOf(preset))
+		local gradient = makeGradient()
+		gradient.Parent = overlay
+		overlay.Visible = false
+		overlay.Parent = target
+		orderSeq += 1
+		local e: Entry = {
+			target = target,
+			overlay = overlay,
+			gradient = gradient,
+			preset = preset,
+			priority = o.priority or 0,
+			order = orderSeq,
+			visible = ShineLogic.isVisible(target, NODE_ACCESS),
+			running = false,
+			startAt = 0,
+			once = o.once == true,
+			delay = o.delay or 0,
+			destroying = target.Destroying:Connect(function()
+				D.detach(target)
+			end),
+		}
+		entries[target] = e
+		ensureLoop()
 		return true
 	end
-	local overlay = makeOverlay(target, ShineLogic.colorOf(preset))
-	local gradient = makeGradient()
-	gradient.Parent = overlay
-	overlay.Visible = false
-	overlay.Parent = target
-	orderSeq += 1
-	local e: Entry = {
-		target = target,
-		overlay = overlay,
-		gradient = gradient,
-		preset = preset,
-		priority = o.priority or 0,
-		order = orderSeq,
-		visible = ShineLogic.isVisible(target, NODE_ACCESS),
-		running = false,
-		startAt = 0,
-		once = o.once == true,
-		delay = o.delay or 0,
-		destroying = target.Destroying:Connect(function()
-			Shine.detach(target)
-		end),
-	}
-	entries[target] = e
-	ensureLoop()
-	return true
-end
 
-function Shine.isAttached(target: GuiObject): boolean
-	return entries[target] ~= nil
-end
+	function D.isAttached(target: GuiObject): boolean
+		return entries[target] ~= nil
+	end
 
--- 테스트 전용: 시계 바꾸기 · 한 틱 돌리기 · 지금 도는 수 · 덮개 · 기본 시계로 되돌리기
-Shine._debug = {
-	setClock = function(f: (() -> number)?)
-		clock = f or os.clock
-		lastVisibilityCheck = -math.huge
-	end,
-	step = function()
-		lastVisibilityCheck = -math.huge
-		step()
-	end,
-	activeCount = function(): number
-		local n = 0
-		for _, e in pairs(entries) do
-			if e.running then
+	-- 테스트 전용: 시계 바꾸기 · 한 틱 돌리기 · 지금 도는 수(이 구동기 것만) · 덮개 · 기본 시계로 되돌리기
+	D._debug = {
+		setClock = function(f: (() -> number)?)
+			clock = f or defaultClock
+			lastVisibilityCheck = -math.huge
+		end,
+		step = function()
+			lastVisibilityCheck = -math.huge
+			step()
+		end,
+		activeCount = function(): number
+			local n = 0
+			for _, e in pairs(entries) do
+				if e.running then
+					n += 1
+				end
+			end
+			return n
+		end,
+		overlayOf = function(target: GuiObject): GuiObject?
+			local e = entries[target]
+			return if e ~= nil then e.overlay else nil
+		end,
+		gradientOf = function(target: GuiObject): UIGradient?
+			local e = entries[target]
+			return if e ~= nil then e.gradient else nil
+		end,
+		startAtOf = function(target: GuiObject): number?
+			local e = entries[target]
+			return if e ~= nil and e.running then e.startAt else nil
+		end,
+		isRunning = function(target: GuiObject): boolean
+			local e = entries[target]
+			return e ~= nil and e.running
+		end,
+		count = function(): number
+			local n = 0
+			for _ in pairs(entries) do
 				n += 1
 			end
-		end
-		return n
-	end,
-	overlayOf = function(target: GuiObject): GuiObject?
-		local e = entries[target]
-		return if e ~= nil then e.overlay else nil
-	end,
-	gradientOf = function(target: GuiObject): UIGradient?
-		local e = entries[target]
-		return if e ~= nil then e.gradient else nil
-	end,
-	startAtOf = function(target: GuiObject): number?
-		local e = entries[target]
-		return if e ~= nil and e.running then e.startAt else nil
-	end,
-	isRunning = function(target: GuiObject): boolean
-		local e = entries[target]
-		return e ~= nil and e.running
-	end,
-	count = function(): number
-		local n = 0
-		for _ in pairs(entries) do
-			n += 1
-		end
-		return n
-	end,
-}
+			return n
+		end,
+	}
+	return D
+end
+
+local global = newDriver()
+Shine.newDriver = newDriver
+Shine.attach = global.attach
+Shine.detach = global.detach
+Shine.isAttached = global.isAttached
+Shine._debug = global._debug
 
 return Shine

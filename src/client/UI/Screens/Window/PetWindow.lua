@@ -73,6 +73,7 @@ export type Deps = {
 	purchase: PurchaseClient.Client?, -- 로벅스 상품 구매(지시서 #17). 생략하면 실물(PurchaseClient.get)
 	onClose: () -> (),
 	now: (() -> number)?,
+	fx: Fx.Driver?, -- 테스트 전용 따로 노는 Fx 구동기(Fx.newDriver). 없으면 전역(#28 단계 0)
 }
 
 type CellParts = { frame: Frame, name: TextLabel, level: TextLabel, stroke: UIStroke, hit: TextButton }
@@ -134,6 +135,7 @@ export type Handle = {
 function PetWindow.create(deps: Deps): Handle
 	local source: any = deps.store or Store
 	local now = deps.now or os.clock
+	local fx: Fx.Driver = deps.fx or Fx.global
 	local purchase: PurchaseClient.Client = deps.purchase or PurchaseClient.get()
 	local panel = Panel.create("Large", PetWindowLogic.TITLE)
 	panel.root.Name = "PetWindow"
@@ -603,7 +605,7 @@ function PetWindow.create(deps: Deps): Handle
 			if resultView ~= nil then
 				local rv = resultView :: PetWindowLogic.Cell
 				placeGhost(4, rr, rv.name, UiTheme.rarityColor(rv.rarityTier))
-				Fx.popIn(ghosts[4], FxLogic.popInSpec(UIFxConfig.CRAFT_POP_FROM, UIFxConfig.CRAFT_POP_TIME), finishPop)
+				fx.popIn(ghosts[4], FxLogic.popInSpec(UIFxConfig.CRAFT_POP_FROM, UIFxConfig.CRAFT_POP_TIME), finishPop)
 			else
 				finishPop()
 			end
@@ -612,7 +614,7 @@ function PetWindow.create(deps: Deps): Handle
 			startPop()
 			return
 		end
-		Fx.play(fxLayer, "craftGather", FxLogic.progressSpec(UIFxConfig.CRAFT_GATHER_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+		fx.play(fxLayer, "craftGather", FxLogic.progressSpec(UIFxConfig.CRAFT_GATHER_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
 			function(a: number)
 				for i, st in ipairs(starts) do
 					local m = craftLook[i].rect

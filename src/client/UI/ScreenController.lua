@@ -119,7 +119,8 @@ end
 -- 인스턴스 하나를 만든다. namePrefix로만 서로 다른 인스턴스의 ScreenGui를 구분한다 —
 -- 그 외에는 entries·openInLayer·guis·blur 전부 이 함수 호출마다 새로 생기는
 -- 지역 상태라 인스턴스끼리 아무것도 공유하지 않는다.
-local function createInstance(namePrefix: string, animate: boolean): ScreenControllerInstance
+local function createInstance(namePrefix: string, animate: boolean, fxDriver: Fx.Driver?): ScreenControllerInstance
+	local fx: Fx.Driver = fxDriver or Fx.global
 	local guis: { [Layer]: ScreenGui } = {
 		Hud = createScreenGui("Hud", namePrefix),
 		Window = createScreenGui("Window", namePrefix),
@@ -150,11 +151,11 @@ local function createInstance(namePrefix: string, animate: boolean): ScreenContr
 					blur.BackgroundTransparency = 1
 					blur.Visible = true
 				end
-				Fx.play(blur, "dim", FxLogic.dimSpec(blur.BackgroundTransparency, true, BLUR_REST_TRANSPARENCY), function(v: number)
+				fx.play(blur, "dim", FxLogic.dimSpec(blur.BackgroundTransparency, true, BLUR_REST_TRANSPARENCY), function(v: number)
 					blur.BackgroundTransparency = v
 				end)
 			elseif blur.Visible then
-				Fx.play(blur, "dim", FxLogic.dimSpec(blur.BackgroundTransparency, false, BLUR_REST_TRANSPARENCY), function(v: number)
+				fx.play(blur, "dim", FxLogic.dimSpec(blur.BackgroundTransparency, false, BLUR_REST_TRANSPARENCY), function(v: number)
 					blur.BackgroundTransparency = v
 				end, function()
 					blur.Visible = false
@@ -172,14 +173,14 @@ local function createInstance(namePrefix: string, animate: boolean): ScreenContr
 	end
 
 	local function windowScale(instance: GuiObject): UIScale?
-		return Fx.scaleOf(instance, ScreenController.WINDOW_SCALE_NAME)
+		return fx.scaleOf(instance, ScreenController.WINDOW_SCALE_NAME)
 	end
 
 	-- 닫는 연출을 지금 끝낸다(Visible = false)
 	local function finishClosing(name: string)
 		local instance = closing[name]
 		if instance ~= nil then
-			Fx.finish(instance, "window")
+			fx.finish(instance, "window")
 			closing[name] = nil
 		end
 	end
@@ -241,7 +242,7 @@ local function createInstance(namePrefix: string, animate: boolean): ScreenContr
 				local scale = windowScale(instance)
 				if scale ~= nil then
 					local s = scale :: UIScale
-					Fx.play(instance, "window", FxLogic.windowOpenSpec(), function(v: number)
+					fx.play(instance, "window", FxLogic.windowOpenSpec(), function(v: number)
 						s.Scale = v
 					end)
 				end
@@ -269,7 +270,7 @@ local function createInstance(namePrefix: string, animate: boolean): ScreenContr
 				-- 닫는 연출: 지금 크기 → 닫힘 크기, 끝나면 숨김 · 크기 1로
 				local s = scale :: UIScale
 				closing[name] = gui
-				Fx.play(gui, "window", FxLogic.windowCloseSpec(s.Scale), function(v: number)
+				fx.play(gui, "window", FxLogic.windowCloseSpec(s.Scale), function(v: number)
 					s.Scale = v
 				end, function()
 					gui.Visible = false
@@ -283,7 +284,7 @@ local function createInstance(namePrefix: string, animate: boolean): ScreenContr
 					finishClosing(name)
 				end
 				if scale ~= nil then
-					Fx.cancel(gui, "window")
+					fx.cancel(gui, "window")
 					local s = scale :: UIScale
 					s.Scale = 1
 				end
@@ -366,14 +367,15 @@ ScreenController._debug = defaultInstance._debug
 -- 같은 문자열을 두 번 넘겨도 최종 이름은 자동으로 달라진다.
 local nextInstanceId = 1
 -- options.animate = true면 Window 층 열기 · 닫기 연출(지시서 #25 U1)을 켠다 — FxTests만 쓴다
-function ScreenController.new(namePrefix: string, options: { animate: boolean? }?): ScreenControllerInstance
+-- options.fx = 따로 노는 Fx 구동기(테스트 전용 — Fx.newDriver). 없으면 전역(#28 단계 0)
+function ScreenController.new(namePrefix: string, options: { animate: boolean?, fx: Fx.Driver? }?): ScreenControllerInstance
 	assert(
 		type(namePrefix) == "string" and #namePrefix > 0,
 		"ScreenController.new: namePrefix가 필요하다 (빈 문자열은 기본 인스턴스 전용이다)"
 	)
 	local id = nextInstanceId
 	nextInstanceId += 1
-	return createInstance(string.format("%s%d_", namePrefix, id), options ~= nil and options.animate == true)
+	return createInstance(string.format("%s%d_", namePrefix, id), options ~= nil and options.animate == true, options and options.fx)
 end
 
 return ScreenController

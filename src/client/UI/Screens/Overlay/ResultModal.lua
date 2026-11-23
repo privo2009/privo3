@@ -30,7 +30,9 @@ export type Handle = {
 	_debug: { heading: TextLabel, name: TextLabel, detail: TextLabel, confirmHit: TextButton, panel: Frame },
 }
 
-function ResultModal.create(): Handle
+-- options.fx: 테스트 전용 따로 노는 Fx 구동기(Fx.newDriver). 없으면 전역(#28 단계 0)
+function ResultModal.create(options: { fx: Fx.Driver? }?): Handle
+	local fx: Fx.Driver = (options and options.fx) or Fx.global
 	local root = Instance.new("Frame")
 	root.Name = "ResultModal"
 	root.Size = UDim2.fromScale(1, 1)
@@ -101,11 +103,11 @@ function ResultModal.create(): Handle
 		detail.Text = v.detail
 		dim.Visible = true
 		panel.Visible = true
-		Fx.modalIn(panel, v.rarityTier)
+		fx.modalIn(panel, v.rarityTier)
 	end
 
 	local function hide()
-		Fx.modalOut(panel)
+		fx.modalOut(panel)
 		dim.Visible = false
 		panel.Visible = false
 	end

@@ -20,6 +20,7 @@ local ButtonFxLogic = require(UI.Logic.ButtonFxLogic)
 local ShineLogic = require(UI.Logic.ShineLogic)
 local ButtonFx = require(UI.Components.ButtonFx)
 local Shine = require(UI.Components.Shine)
+local FxPrefs = require(UI.FxPrefs)
 local Button = require(UI.Components.Button)
 local WindowParts = require(UI.Components.WindowParts)
 local RobuxList = require(UI.Components.RobuxList)
@@ -344,10 +345,12 @@ end
 
 -- 6. 실물 — 빛 띠 덮개 --------------------------------------------------------------------------------------
 do
+	-- 이 절만의 빛 띠 구동기(자기 시계 · 자기 목록 · 자기 설정 — #28 단계 0). 전역 시계를 바꾸거나 전역 수를 세면
+	-- 같이 도는 테스트의 띠(HUD 구좌 · 결과 모달)가 상한 · 수 세기에 끼어든다
 	local fake = 1000
-	Shine._debug.setClock(function()
+	local shine = Shine.newDriver({ clock = function()
 		return fake
-	end)
+	end, prefs = FxPrefs.new() })
 	local tile = Instance.new("Frame")
 	tile.Position = UDim2.fromScale(0.6, 0.6)
 	tile.Size = UDim2.fromScale(0.1, 0.1)
@@ -359,85 +362,84 @@ do
 	price.TextColor3 = Color3.new(1, 1, 1)
 	price.Text = "3 R$"
 	price.Parent = tile
-	check("붙이기: true", Shine.attach(tile, { preset = "default", priority = 5 }))
-	local overlay = Shine._debug.overlayOf(tile) :: GuiObject
-	local g = Shine._debug.gradientOf(tile) :: UIGradient
+	check("붙이기: true", shine.attach(tile, { preset = "default", priority = 5 }))
+	local overlay = shine._debug.overlayOf(tile) :: GuiObject
+	local g = shine._debug.gradientOf(tile) :: UIGradient
 	check("덮개: 대상의 자식 · 크기 1 × 1 · 글씨보다 낮은 ZIndex · AutoLocalize false · 입력 안 받음", overlay ~= nil and overlay.Parent == tile
 		and overlay.Size == UDim2.fromScale(1, 1) and overlay.ZIndex < price.ZIndex and overlay.AutoLocalize == false and overlay.Active == false)
 	check("그라디언트: Rotation = SHINE_ANGLE · 키포인트 = ShineLogic · 시작 Offset −1 · 색 흰색(덮개 색 그대로)", g.Rotation == UIFxConfig.SHINE_ANGLE
 		and #g.Transparency.Keypoints == #ShineLogic.keypoints(UIFxConfig.SHINE_BAND_HALF_WIDTH, UIFxConfig.SHINE_PEAK_TRANSPARENCY)
 		and g.Offset.X == -1 and g.Color.Keypoints[1].Value == Color3.new(1, 1, 1))
-	Shine._debug.step()
-	local startAt = Shine._debug.startAtOf(tile) :: number
+	shine._debug.step()
+	local startAt = shine._debug.startAtOf(tile) :: number
 	check("시작 지연: 0 ~ SHINE_START_JITTER_MAX", startAt ~= nil and startAt >= fake and startAt <= fake + UIFxConfig.SHINE_START_JITTER_MAX)
 	fake = startAt + UIFxConfig.SHINE_SWEEP_TIME / 2
-	Shine._debug.step()
+	shine._debug.step()
 	check("지나가는 중: Offset이 −1과 1 사이(가운데 근처) · 덮개 보임 · 글씨 색 그대로", math.abs(g.Offset.X) < 0.5 and overlay.Visible
 		and price.TextColor3 == Color3.new(1, 1, 1), tostring(g.Offset.X))
 	fake = startAt + UIFxConfig.SHINE_INTERVAL + UIFxConfig.SHINE_SWEEP_TIME + 0.01
-	Shine._debug.step()
-	check("지나간 뒤 · 다음 간격 시작: SHINE_INTERVAL마다 다시(시작 시각이 간격만큼 밀린다)", checkClose(Shine._debug.startAtOf(tile) :: number,
+	shine._debug.step()
+	check("지나간 뒤 · 다음 간격 시작: SHINE_INTERVAL마다 다시(시작 시각이 간격만큼 밀린다)", checkClose(shine._debug.startAtOf(tile) :: number,
 		startAt + UIFxConfig.SHINE_INTERVAL) and g.Offset.X == -1)
 	tile.Visible = false
-	Shine._debug.step()
-	check("숨으면 멈춘다(덮개 숨김 · Offset −1)", not Shine._debug.isRunning(tile) and not overlay.Visible and g.Offset.X == -1)
+	shine._debug.step()
+	check("숨으면 멈춘다(덮개 숨김 · Offset −1)", not shine._debug.isRunning(tile) and not overlay.Visible and g.Offset.X == -1)
 	tile.Visible = true
 	gui.Enabled = false
-	Shine._debug.step()
-	local pausedByGui = not Shine._debug.isRunning(tile)
+	shine._debug.step()
+	local pausedByGui = not shine._debug.isRunning(tile)
 	gui.Enabled = true
-	Shine._debug.step()
-	check("ScreenGui가 꺼지면 멈추고 켜지면 재개", pausedByGui and Shine._debug.isRunning(tile))
+	shine._debug.step()
+	check("ScreenGui가 꺼지면 멈추고 켜지면 재개", pausedByGui and shine._debug.isRunning(tile))
 	-- 상한: 우선순위 높은 4개를 더 붙이면 그중 3개만 돈다(실물 HUD 구좌는 우선순위 0이라 밀린다)
 	local more: { Frame } = {}
 	for i = 1, 4 do
 		local f = Instance.new("Frame")
 		f.Size = UDim2.fromScale(0.05, 0.05)
 		f.Parent = gui
-		Shine.attach(f, { priority = 10 })
+		shine.attach(f, { priority = 10 })
 		table.insert(more, f)
 	end
-	Shine._debug.step()
+	shine._debug.step()
 	local running = 0
 	for _, f in ipairs(more) do
-		if Shine._debug.isRunning(f) then
+		if shine._debug.isRunning(f) then
 			running += 1
 		end
 	end
 	check("한 화면 상한: 동시에 도는 것은 SHINE_MAX_ACTIVE개(우선순위 높은 순) · 나머지는 멈춤", running == UIFxConfig.SHINE_MAX_ACTIVE
-		and Shine._debug.activeCount() == UIFxConfig.SHINE_MAX_ACTIVE and not Shine._debug.isRunning(tile))
+		and shine._debug.activeCount() == UIFxConfig.SHINE_MAX_ACTIVE and not shine._debug.isRunning(tile))
 	for _, f in ipairs(more) do
-		Shine.detach(f)
+		shine.detach(f)
 	end
-	Shine.attach(tile, { preset = "premium" })
+	shine.attach(tile, { preset = "premium" })
 	check("프리셋 바꾸기: 덮개 색 = 금테 노랑", overlay.BackgroundColor3 == UiTheme.Colors.cashout.base)
-	Shine.detach(tile)
-	check("떼기: 덮개 없어짐 · 목록에서 빠짐", tile:FindFirstChild(Shine.OVERLAY_NAME) == nil and not Shine.isAttached(tile))
+	shine.detach(tile)
+	check("떼기: 덮개 없어짐 · 목록에서 빠짐", tile:FindFirstChild(Shine.OVERLAY_NAME) == nil and not shine.isAttached(tile))
 	local round = Instance.new("Frame")
 	round.Parent = gui
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0.3, 0)
 	corner.Parent = round
-	Shine.attach(round)
-	local ro = Shine._debug.overlayOf(round) :: GuiObject
+	shine.attach(round)
+	local ro = shine._debug.overlayOf(round) :: GuiObject
 	check("둥근 모서리: 덮개도 같은 UICorner(모양 밖으로 새지 않게)", ro:FindFirstChildOfClass("UICorner") ~= nil
 		and (ro:FindFirstChildOfClass("UICorner") :: UICorner).CornerRadius == corner.CornerRadius)
 	round:Destroy()
 	task.wait()
-	check("파괴: 대상이 없어지면 정리", not Shine.isAttached(round))
+	check("파괴: 대상이 없어지면 정리", not shine.isAttached(round))
 	local img = Instance.new("ImageLabel")
 	img.Image = "rbxassetid://1"
 	img.ScaleType = Enum.ScaleType.Slice
 	img.SliceCenter = Rect.new(10, 10, 20, 20)
 	img.Parent = gui
-	Shine.attach(img)
-	local io = Shine._debug.overlayOf(img) :: ImageLabel
+	shine.attach(img)
+	local io = shine._debug.overlayOf(img) :: ImageLabel
 	check("9-slice 그림: 덮개 = 같은 그림 · 같은 SliceCenter의 ImageLabel(그림 모양 안에서만 보인다)", io:IsA("ImageLabel")
 		and io.Image == img.Image and io.SliceCenter == img.SliceCenter and io.ScaleType == Enum.ScaleType.Slice and io.BackgroundTransparency == 1)
-	Shine.detach(img)
+	shine.detach(img)
 	img:Destroy()
 	tile:Destroy()
-	Shine._debug.setClock(nil)
 end
 
 -- 7. 상점 로벅스 탭 줄 연결 ------------------------------------------------------------------------------------

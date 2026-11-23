@@ -136,7 +136,7 @@ export type PowerBlockHandle = {
 }
 
 -- live · now: BloxDisplay.Options와 같은 뜻(생략하면 싱글톤은 PlayerStateClient.hasReceived, 테스트 Store는 연출 안 함)
-export type Options = { live: (() -> boolean)?, now: (() -> number)? }
+export type Options = { live: (() -> boolean)?, now: (() -> number)?, fx: Fx.Driver? } -- fx: 테스트 전용 따로 노는 구동기(#28 단계 0)
 
 -- 진행률 = 그 레벨 안에서의 위치 (힘 − 2^L) ÷ 2^L (L1 — LevelConfig.getLevelProgress가 원본, 0 이상 1 미만).
 -- math.clamp로 한 번 더 방어한다(경계에서 소실되거나 예측 불가능한 값을 절대 화면에 보내지 않기 위해).
@@ -146,6 +146,7 @@ end
 
 -- store: 구독할 Store 인스턴스. 생략하면 싱글톤(BloxDisplay.create와 같은 이유).
 function PowerBlock.create(store: Store.StoreInstance?, options: Options?): PowerBlockHandle
+	local fx: Fx.Driver = (options and options.fx) or Fx.global
 	local source: Store.StoreInstance = store or (Store :: any)
 	local live: () -> boolean = (options and options.live) or (if store == nil then PlayerStateClient.hasReceived else function()
 		return false
@@ -390,7 +391,7 @@ function PowerBlock.create(store: Store.StoreInstance?, options: Options?): Powe
 		if before ~= nil and level > before and live() and FxLogic.throttle(lastLevelPopAt, now(), UIFxConfig.LEVEL_POP_MIN_INTERVAL) then
 			lastLevelPopAt = now()
 			levelPops += 1
-			Fx.pop(currentLabel, UIFxConfig.LEVEL_POP_PEAK, UIFxConfig.LEVEL_POP_TIME)
+			fx.pop(currentLabel, UIFxConfig.LEVEL_POP_PEAK, UIFxConfig.LEVEL_POP_TIME)
 			Sfx.play("levelUp")
 		end
 	end
@@ -402,7 +403,7 @@ function PowerBlock.create(store: Store.StoreInstance?, options: Options?): Powe
 		shownRebirths = { m = rebirths.m, e = rebirths.e }
 		if before ~= nil and BigNum.gt(rebirths, before) and live() then
 			rebirthPops += 1
-			Fx.pop(multValue.label, UIFxConfig.REBIRTH_POP_PEAK, UIFxConfig.REBIRTH_POP_TIME)
+			fx.pop(multValue.label, UIFxConfig.REBIRTH_POP_PEAK, UIFxConfig.REBIRTH_POP_TIME)
 		end
 	end
 

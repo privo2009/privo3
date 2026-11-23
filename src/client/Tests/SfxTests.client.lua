@@ -5,6 +5,8 @@
 --   매핑: 희귀도 → 키(칭호 · 아우라 · 펫 같은 규칙) · 런 상태 · 환생 · 구매 · 일일 보상
 --   실물: 재생 시도 기록(Attribute) · 효과음 끔이면 시도 0 · 풀(키마다 POOL_PER_KEY장 · 돌려 쓴다)
 -- 실제 소리를 내지 않는다(id가 없다 — 풀 검사는 가짜 정의로 Sound를 만들기만 하고 재생하지 않는다).
+-- 전역 상태를 바꾸지 않는다(#28 단계 0): 실물 절은 이 파일만의 재생기(Sfx.newPlayer — 자기 시계 · 스로틀 · DataModel 밖 기록 폴더)와
+--   설정(FxPrefs.new)으로 잰다. 전역 재생기를 쓰면 같이 도는 테스트의 버튼 소리가 시도 기록 · 스로틀을 흔든다.
 
 if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
 
@@ -30,7 +32,6 @@ local function check(name: string, ok: boolean, detail: string?)
 	end
 end
 
-local savedReduce, savedSfx = FxPrefs.reduceMotion(), FxPrefs.sfxEnabled()
 
 -- 1. 설정 --------------------------------------------------------------------------------------------------
 do
@@ -91,42 +92,40 @@ end
 -- 4. 실물 — 시도 기록 · 효과음 끔 · 스로틀 · 풀 --------------------------------------------------------------------------
 do
 	local t = 5000
-	Sfx._debug.setClock(function()
+	local prefs = FxPrefs.new()
+	local recordFolder = Instance.new("Folder") -- DataModel 밖 기록 폴더(이 재생기만)
+	local player = Sfx.newPlayer({ clock = function()
 		return t
-	end)
-	Sfx._debug.resetThrottle()
-	local folder = Sfx._debug.folder()
+	end, prefs = prefs, folder = recordFolder })
+	local folder = player._debug.folder()
 	local function attempts(key: string): number
 		local n = folder:GetAttribute(key)
 		return if type(n) == "number" then n else 0
 	end
-	FxPrefs.set(savedReduce, true)
+	prefs.set(false, true)
 	local before = attempts("rebirth")
-	local outcome = Sfx.play("rebirth")
+	local outcome = player.play("rebirth")
 	check("실물: id nil → 재생 안 함(noId) · 시도 기록 +1 · Sound를 만들지 않는다", outcome == "noId" and attempts("rebirth") == before + 1
-		and Sfx._debug.poolOf("rebirth") == nil)
+		and player._debug.poolOf("rebirth") == nil)
 	t += UIFxConfig.SFX_MIN_INTERVAL * 0.5
-	check("실물: 같은 키 간격 안 → throttled · 기록 그대로", Sfx.play("rebirth") == "throttled" and attempts("rebirth") == before + 1)
-	check("실물: 다른 키는 따로 센다", Sfx.play("purchase") == "noId")
+	check("실물: 같은 키 간격 안 → throttled · 기록 그대로", player.play("rebirth") == "throttled" and attempts("rebirth") == before + 1)
+	check("실물: 다른 키는 따로 센다", player.play("purchase") == "noId")
 	t += UIFxConfig.SFX_MIN_INTERVAL
-	FxPrefs.set(savedReduce, false)
+	prefs.set(false, false)
 	local mutedBefore = attempts("muted_rebirth")
 	local tries = attempts("rebirth")
-	check("실물: 효과음 끔 → muted · 시도 기록 0(늘지 않음) · 막은 수만 센다", Sfx.play("rebirth") == "muted" and attempts("rebirth") == tries
+	check("실물: 효과음 끔 → muted · 시도 기록 0(늘지 않음) · 막은 수만 센다", player.play("rebirth") == "muted" and attempts("rebirth") == tries
 		and attempts("muted_rebirth") == mutedBefore + 1)
-	FxPrefs.set(savedReduce, true)
-	check("실물: 모르는 키 → unknown(오류 없음)", Sfx.play("nope") == "unknown")
+	prefs.set(false, true)
+	check("실물: 모르는 키 → unknown(오류 없음)", player.play("nope") == "unknown")
 	local outside = Instance.new("Folder") -- DataModel 밖(없는 에셋 1을 불러오려 하지 않게)
-	local pool = Sfx._debug.poolFor("__test_pool", { id = 1, volume = 0.25 }, outside)
-	local again = Sfx._debug.poolFor("__test_pool", { id = 1, volume = 0.25 }, outside)
+	local pool = player._debug.poolFor("__test_pool", { id = 1, volume = 0.25 }, outside)
+	local again = player._debug.poolFor("__test_pool", { id = 1, volume = 0.25 }, outside)
 	check("풀: 키마다 POOL_PER_KEY장 · 다시 불러도 새로 만들지 않는다 · id · volume", #pool.sounds == SoundConfig.POOL_PER_KEY and pool == again
 		and #outside:GetChildren() == SoundConfig.POOL_PER_KEY and pool.sounds[1].SoundId == "rbxassetid://1" and pool.sounds[1].Volume == 0.25)
 	outside:Destroy()
-	Sfx._debug.setClock(nil)
-	Sfx._debug.resetThrottle()
+	recordFolder:Destroy()
 end
-
-FxPrefs.set(savedReduce, savedSfx)
 
 print(string.format("[SfxTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
