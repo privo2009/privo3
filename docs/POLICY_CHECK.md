@@ -1,6 +1,6 @@
 # 유료 랜덤 상품 정책 점검 (사람용 한 장)
 
-처음 작성 2026-11-20 (지시서 #27 단계 2). 상품을 새로 만들거나 뽑기 · 행운 식을 바꾸면 **이 표에 한 줄을 더하고** 아래 "다시 볼 때의 순서"를 돈다.
+처음 작성 2026-11-20 (지시서 #27 단계 2). 갱신 2026-11-24 (지시서 #28 — 칭호 · 펫 창 확률 보기). 상품을 새로 만들거나 뽑기 · 행운 식을 바꾸면 **이 표에 한 줄을 더하고** 아래 "다시 볼 때의 순서"를 돈다.
 테스트 원본은 `src/client/Tests/PaidRandomPolicyTests.client.lua`(점검표 한 칸 = 검사 한 묶음). 상품 목록 · 가격 원본은 `Shared/Config/ShopConfig`.
 
 ## 1. 공식 요구 (2026-11-20 다시 읽음)
@@ -21,7 +21,7 @@ R4 제한 유저  ArePaidRandomItemsRestricted가 true면 로벅스 · 로벅스
 
 ## 2. 상품 × 화면 점검표
 
-판정: 통과 · 고침(#27) · 확인 못 함. "보이는 곳"의 창 이름은 화면 문구 그대로.
+판정: 통과 · 고침(#27) · 고침(#28) · 확인 못 함. "보이는 곳"의 창 이름은 화면 문구 그대로.
 
 ```
 상품(종류)                     보이는 곳                 구매 전 표시                         활성 중 표시                       제한 유저
@@ -29,8 +29,12 @@ R4 제한 유저  ArePaidRandomItemsRestricted가 true면 로벅스 · 로벅스
  = 로벅스로 사는 뽑기(R1·R2)                              + 확률 보기로 결과 넷 전부 · 합 100   = 행운×5 실제 확률(서버와 같은 항)    서버 rollCredit restricted
 슈퍼 롤 5 · 15 (개발자 상품)    아우라 창 로벅스 탭만      고침 — "행운 ×100: …" + 확률 보기     고침 — 확률 보기 "슈퍼 롤"            통과 — 위와 같음
 10배 아우라 행운 (게임패스)     상점 로벅스 탭 · 아우라 창  고침 — "행운 ×10: <전설> a% → b%"     통과 — 아우라 카드 확률에 ×10         통과 — 줄 숨김 · 효과 1
-10배 칭호 행운 (게임패스)       상점 로벅스 탭 · 칭호 창    고침 — "행운 ×10: …"                  통과 — 칭호 표 확률에 ×10             통과 — 줄 · 버튼 숨김 · 효과 1
-2배 펫 행운 (게임패스)          상점 로벅스 탭 · 펫 창      고침 — "행운 ×2: …"                   통과 — 알 확률 줄에 ×2                통과 — 줄 숨김 · 효과 1
+10배 칭호 행운 (게임패스)       상점 로벅스 탭 · 칭호 창    고침(#28) — 줄 "행운 ×10: …" 그대로 +  통과 — 칭호 표 확률에 ×10 ·          통과 — 줄 · 버튼 · 토글 ·
+                                                        칭호 창 확률 보기: 6줄 전부 지금 ↔     가지면 토글 숨김(이미 "지금"에 든다)   "확률 보기" 버튼 숨김 · 효과 1
+                                                        더하면(합 100) · 상점 줄 "확률 보기"로 연다
+2배 펫 행운 (게임패스)          상점 로벅스 탭 · 펫 창      고침(#28) — 줄 "행운 ×2: …" 그대로 +   통과 — 알 확률 줄에 ×2 ·              통과 — 줄 · 토글 ·
+                                                        펫 창 확률 보기: 고른 알 4종 전부 지금  가지면 토글 숨김                      "확률 보기" 버튼 숨김 · 효과 1
+                                                        ↔ 더하면(합 100) · 상점 줄 "확률 보기"
 행운 포션 (개발자 상품)         상점 로벅스 탭(포션 묶음)   통과 — "15분 동안 칭호 · 아우라 · 펫   통과 — 켠 동안 세 창 확률 ×2 ·         통과 — 줄 숨김 · 켜기 거부
                                                         행운 ×2"                              끝나면(부스트 사라짐) 돌아온다         (PotionRequestService) · 효과 1
 포션 번들 (개발자 상품)         상점 로벅스 탭              통과 — "각 99개"(행운 포션 포함 —     행운 포션과 같다                       통과 — 줄 숨김(paidRandom)
@@ -39,9 +43,11 @@ R4 제한 유저  ArePaidRandomItemsRestricted가 true면 로벅스 · 로벅스
 리미티드 펫                     일일 보상 7일째             해당 없음 — 어느 알 확률표에도 없다(뽑기가 아니다 — PetConfig validate · 테스트)
 ```
 
-확인한 방법: 순수 로직 · 창 실물 테스트(`PaidRandomPolicyTests` 21 · `RobuxShopTests` · `WindowProductTests` · `AuraWindowTests` ·
+확인한 방법: 순수 로직 · 창 실물 테스트(`PaidRandomPolicyTests` 40(#27 21 + #28 19) · `RobuxShopTests` · `WindowProductTests` · `AuraWindowTests` ·
 `TitleWindowTests` · `PetWindowTests` · `PolicyGateTests`) + Studio 화면(Mock 프리셋 floor9 · 가짜 영수증 럭키 · 슈퍼 롤 5 ·
 가짜 제한 판정 `TEST_PAID_RANDOM_RESTRICTED` — en · ko 캡처, 아래 7절). 폰 틀 705×338 en · ko: 확률 보기 글자 · 카드 확률 넘침 0 · 11px.
+#28: 같은 테스트 6 · 7절 + Studio 화면(floor9 · `TEST_GAMEPASSES { titleLuck10x, petLuck2x }` · `TEST_PAID_RANDOM_RESTRICTED` — en · ko 캡처).
+폰 틀 705×338 en · ko: 칭호 · 펫 토글 두 상태 · 상점 "확률 보기" 버튼 · 줄 이름 넘침 0 · 11px 이상(토글 칭호 205×15 · 펫 217×14px).
 
 ## 3. 고친 곳 (지시서 #27 — 화면 · Strings만. 판정 로직 · 확률 값은 그대로)
 
@@ -53,14 +59,26 @@ R4 제한 유저  ArePaidRandomItemsRestricted가 true면 로벅스 · 로벅스
 - Strings 새 키 4개: `shop.oddsChange` · `aura.odds.normal` · `aura.odds.lucky` · `aura.odds.super`(en · ko).
 - Studio 전용 가짜 제한 판정 `TEST_PAID_RANDOM_RESTRICTED`(Bootstrap — 커밋 값 nil · `PolicyGateTests`가 잰다) — 제한 유저 화면을 띄워 보는 용도.
 
+### 고친 곳 (지시서 #28 — 화면 · Strings만. 판정 로직 · 확률 값은 그대로)
+
+- 칭호 창(맨 윗줄 왼쪽) · 펫 창(안내 줄 오른쪽)의 원래 "행운 ×N 적용" 자리가 **"확률 보기" 토글**이 된다: 지금 ↔ 그 뽑기의 행운 패스를 더하면.
+  표의 확률 칸 전부(칭호 6줄 · 고른 알 4종)가 그 행운의 실제 확률로 바뀐다(합 100). 행운 = 그 창의 지금 행운(업그레이드 × 가진 패스 ×
+  켜진 포션) × 패스 배수 — 서버 `RollService.computeLuck`의 `luckPassMult` 자리(패스는 뽑기마다 하나라 안 가졌을 때 그 자리는 1). 공용 로직
+  `UI/Logic/OddsPreviewLogic`. 이미 가졌거나 제한 유저면 토글 대신 원래 행운 글자(가진 것은 "지금"에 이미 들어 있다).
+- 상점 로벅스 탭 칭호 · 펫 행운 패스 줄(안 가짐)에 둘째 버튼 **"확률 보기"** — 누르면 그 창을 "더하면"으로 연다. 줄 설명(배수 + 가장 귀한 것)은 그대로.
+  아우라 패스 줄에는 없다(아래 4절).
+- Strings 새 키 3개: `odds.preview.now` · `odds.preview.pass` · `shop.oddsLink`(en · ko).
+
 ## 4. 남은 위험 · 사람이 볼 것
 
 - **S14 — 2배 블럭스(게임패스)가 블럭스를 "유료 화폐"로 만드는가.** 2026-11-20 다시 확인: 공식 페이지(위 URL)는 "로벅스로 산 게임 화폐"만
   말하고, 버는 속도를 올리는 상품은 **언급이 없다**. 판정은 그대로 "위험 기록 · 판다"(#16 사람 결정). 같은 주제의 로블록스 공지
   https://devforum.roblox.com/t/clarifying-requirements-for-paid-random-items/4654622 가 검색에 걸렸지만 이 세션에서는 본문을 읽지 못했다
   → **사람이 읽고** 2배 블럭스 · 뽑기에 대한 서술이 있는지 본다. 있으면 판매 중단 · 제한 지역 숨김 확대 · 그대로 중 하나를 정한다.
-- **행운 패스의 구매 전 설명은 "배수 + 가장 귀한 것 하나"다.** 산 뒤의 결과 전부 확률은 사기 전에는 한 줄로만 보인다(칭호 · 펫 창에는
-  아우라 창 같은 확률 보기가 없다). 공식 문장은 "구매 전에 설명"까지라 지금 꼴로 충분한지는 사람 판단 — 모자라면 칭호 · 펫 창에도 확률 보기를 단다.
+  2026-11-24(#28): 다시 확인하지 않았다 — S14 판정 · 공지 미확인 상태 그대로(공식 페이지도 2026-11-20 읽은 것 기준).
+- ~~행운 패스의 구매 전 설명은 "배수 + 가장 귀한 것 하나"다~~ → 칭호 · 펫은 해소(#28 — 창 확률 보기로 결과 전부의 전후 확률).
+  **10배 아우라 행운은 아직 "배수 + 가장 귀한 것 하나"다.** 아우라 창 확률 보기(#27)는 보통 · 럭키 · 슈퍼 롤만 돌고 "×10 패스를 더하면"은 없다.
+  칭호 · 펫과 같은 꼴로 맞출지는 사람 판단(#28 결정 O1은 칭호 · 펫만이었다).
 - 아우라 창 로벅스 탭을 보는 동안에는 카드가 숨는다 — 결과 전부는 팩 탭을 한 번 눌러야 보인다(확률 보기 버튼은 탭 화면에도 남는다).
 - 확률 0.0% 칸: 행운이 크면 낮은 등급이 실제로 0이 되거나 표시 자릿수 아래로 내려간다(슈퍼 롤 팩 1 = 오로라 100.0%). 합은 100.0%다.
 - 게시 서버에서 PolicyService 응답이 실제로 오는지는 Studio로 볼 수 없다 — 비공개 테스트 서버 로그 `[PolicyGate] … 제한=… (정책 응답=true)`.
@@ -76,9 +94,11 @@ R4 제한 유저  ArePaidRandomItemsRestricted가 true면 로벅스 · 로벅스
 ## 6. 관련 원본
 
 `Server/Systems/PolicyGate`(제한 판정) · `Shared/ShopEffectsLogic`(행운 항 — 제한이면 1) · `Shared/RollOdds`(확률 · 합 100) ·
-`UI/Logic/RobuxShopLogic`(상품 줄 · 숨김) · `UI/Logic/AuraWindowLogic`(확률 보기) · `DESIGN.md` 6장 "유료 랜덤 아이템 정책" · 9장 S13 · S14
+`UI/Logic/RobuxShopLogic`(상품 줄 · 숨김 · 행운 패스 줄 확률 보기) · `UI/Logic/AuraWindowLogic`(확률 보기) · `UI/Logic/OddsPreviewLogic`(칭호 · 펫 확률 보기) · `DESIGN.md` 6장 "유료 랜덤 아이템 정책" · 9장 S13 · S14
 
 ## 7. 캡처 (HANDOFF — 세션 기록, 커밋 안 됨)
 
 `HANDOFF/screens-2026-11-20/` p27_aura_normal_en · p27_aura_lucky_en · p27_aura_super_en · p27_aura_robux_en · p27_aura_lucky_ko ·
 p27_aura_robux_ko · p27_aura_restricted_en · p27_shop_robux_restricted_en
+`HANDOFF/screens-2026-11-24/` 28-ko-shop-link · 28-ko-title-pass · 28-ko-title-now · 28-ko-pet-pass · 28-ko-pet-now · 28-en-shop-link ·
+28-en-title-pass · 28-en-pet-pass · 28-en-title-owned · 28-en-pet-owned · 28-ko-title-restricted · 28-ko-pet-restricted

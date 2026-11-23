@@ -711,6 +711,29 @@ Phase 9                    실제 코드 목록 · 알릴 곳 · 첫 접속 분�
 범위 밖                  클릭 소리(지시서 제외) · 운동기구 ProximityPrompt(로블록스가 그리는 UI) · 차단층 막(Dim — 누르면 아무 일도 없는 막이라 버튼이 아니다)
 ```
 
+**#28 칭호 · 펫 창 "확률 보기" — 유료 랜덤 정책 보강(2026-11-24 — 코드 e74ecbd · 2eff6a7)** — 정책 원본 `docs/POLICY_CHECK.md`
+```
+단계 0 🔔                기준선 클라 1410 / 2 — FxTests 7절 구동기 검사 2개가 전역 Fx._debug.activeCount()를 세서 같이 도는 창 테스트의
+                         연출과 경합(가짜 시계로 바꾸면 남의 연출이 같이 끝난다 — Play 2번 재현). 사람 결정: 근본 수정(알려진 실패를 기준선으로 받지 않는다)
+격리 구동기 (e74ecbd)     Fx.newDriver · Shine.newDriver · Sfx.newPlayer · FxPrefs.new — 자기 시계 · 자기 목록 · 자기 설정. 게임은 전역 그대로.
+                         화면 모듈 옵션 fx(ScreenController · BloxDisplay · PowerBlock · ResultModal · PetWindow) · ButtonFx.attach 옵션 prefs
+공유 상태를 쓰던 테스트    FxTests 7 ~ 15절(전역 Fx 시계 · 진행 목록 · finishAll · FxPrefs 연출 줄이기 · Shine 시계) ·
+ (전부 고침 · 개수 그대로) UiFxTests 6절(전역 Shine 시계 · 전역 activeCount) · SfxTests 4절(전역 Sfx 시계 · 스로틀 · 기록 폴더 · FxPrefs 효과음)
+남겨 둔 것                FxTests 7절 멈춤값은 UIFxConfig.DEBUG_FREEZE_PROGRESS(전역 Config)를 잠깐 바꾼다 — 바꾸고 되돌리는 사이에 양보가 없어
+                         다른 스크립트가 끼어들 수 없다(그대로). FxTests의 UiFxTests 기다림 + 검사 1개는 개수를 지키려고 남겼다(이제 기다릴 까닭은 없다).
+                         DailyRewardWindowTests · LocaleClientTests의 Fx.finish(자기 판)는 자기 대상만이라 그대로
+기준선 다시               Play 3번 모두 서버 71행 2992 / 0 · 클라 38행 1412 / 0 · 끝 줄 71/71 · 38/38
+구현 (2eff6a7)            O1 칭호 창(맨 윗줄 왼쪽) · 펫 창(안내 줄 오른쪽) 행운 글자 자리 토글: 지금 ↔ 패스를 더하면(UI/Logic/OddsPreviewLogic).
+                         O2 상점 로벅스 탭 칭호 · 펫 행운 패스 줄(안 가짐) 둘째 버튼 "확률 보기" → 그 창을 더하면으로 연다(설명 줄 그대로).
+                         O3 제한 유저 · 이미 가짐 → 토글 · 버튼 없음. Strings odds.preview.now · odds.preview.pass · shop.oddsLink
+마무리                    Play 2번 같음 — 서버 71행 2992 / 0 · 클라 38행 1431 / 0(PaidRandomPolicyTests 21 → 40) · 합 4423
+사람 판단                 ① 10배 아우라 행운 줄은 아직 "배수 + 가장 귀한 것 하나" — 아우라 창 확률 보기(#27)는 보통 · 럭키 · 슈퍼만이고
+                         "×10 패스를 더하면"이 없다. 칭호 · 펫과 같은 꼴로 맞출지(O1은 칭호 · 펫만이었다)
+                         ② 영어 토글 글자 "Odds: +×10 Pass · Luck ×20.00"의 "+×10 Pass"가 읽히는가(폰 틀 넘침 0 · 11px은 통과)
+그대로                    S14 · devforum 공지 미확인(#27 사람 판단 1) — 이번에 다시 보지 않았다
+잔재                     없음(TEST_* 전부 nil · 캡처는 HANDOFF/screens-2026-11-24)
+```
+
 **#27 출시 전 필수 2건 — 테스트 Studio 전용 · 유료 랜덤 상품 점검(2026-11-20 — 코드 a5a9c16 · b8b4a2a · 003b58b)** — 정책 원본
 `docs/POLICY_CHECK.md` · 게이트 원본 `Shared/TestGate` · 검사 도구 `tools/check_test_gate.py`
 ```
@@ -721,8 +744,8 @@ Phase 9                    실제 코드 목록 · 알릴 곳 · 첫 접속 분�
                          "PlayerState가 먼저 와도 결과 뒤에 한 번 재생"이 가끔 실패(77 / 1 — 3번 중 1번) → 자기 모달 판만 끝낸다(a5a9c16 · 사람 결정)
 사람 판단 1               S14 2배 블럭스 — 공식 paid-random-items 페이지는 버는 속도를 올리는 상품을 말하지 않는다(2026-11-20).
                          로블록스 공지 https://devforum.roblox.com/t/clarifying-requirements-for-paid-random-items/4654622 를 사람이 읽고 판정 유지 여부
-사람 판단 2               행운 패스(10배 아우라 · 10배 칭호 · 2배 펫)의 구매 전 설명이 "배수 + 가장 귀한 것 하나"로 충분한가 —
-                         모자라면 칭호 · 펫 창에도 아우라 창 같은 "확률 보기"를 단다
+~~사람 판단 2~~            ~~행운 패스의 구매 전 설명이 "배수 + 가장 귀한 것 하나"로 충분한가~~ → 해소(#28 — 사람 결정 2026-11-23:
+                         칭호 · 펫 창 확률 보기 + 상점 줄 "확률 보기" · 2eff6a7). 10배 아우라 행운은 남음 — 아래 #28 블록
 알려진 것                ① 아우라 창 로벅스 탭을 보는 동안 카드가 숨는다 — 결과 전부는 팩 탭 한 번(확률 보기 버튼은 남는다)
                          ② 행운이 크면 낮은 등급 칸이 0.0%(슈퍼 롤 팩 1 = 오로라 100.0%) — 실제 확률 그대로 · 합 100
                          ③ 게시 서버의 PolicyService 응답 · 테스트 줄 없음은 Studio로 못 본다 — 비공개 테스트 첫날(출시 체크리스트 28)
@@ -1136,7 +1159,7 @@ Phase 7(#12 펫)이 끝나면 세부 스탯과 플레이 경험 조정은 **사�
 
 - ~~**로벅스 행운 상품은 유료 랜덤 아이템이다 — Phase 8 (P2, 2026-10-24 사람 결정).**~~ → **해소(#27, 2026-11-20 — docs/POLICY_CHECK.md):**
   (1) 행운 상품 줄이 "행운 ×N: <가장 귀한 것> a% → b%" · 럭키 · 슈퍼 롤은 아우라 창 "확률 보기"로 결과 전부 · 합 100 (2) 활성 중 창 확률 갱신은
-  테스트로 확인(PaidRandomPolicyTests) (3) 숨김 · 효과 끔(PolicyGate). 남은 판단 두 개는 아래 "#27" 블록
+  테스트로 확인(PaidRandomPolicyTests) (3) 숨김 · 효과 끔(PolicyGate). 남은 판단 두 개는 아래 "#27" 블록(판단 2는 #28에서 해소 — 아우라 패스만 남음)
   → **#26 정리(2026-11-20):** (3) 제한 지역 숨김은 붙었다(`Server/Systems/PolicyGate` — ArePaidRandomItemsRestricted). (1) 구매 전 확률 영향 설명 · (2) 활성 중 확률 표시는 이번 정리에서 확인하지 않았다 — 항목을 남긴다
   대상: 럭키 · 슈퍼 롤, 10x 아우라 행운 · 10x 칭호 행운, 2x 펫 행운. 붙일 때 할 일:
   (1) 구매 전에 확률 영향을 숫자로 설명 (2) 활성 중에는 갱신된 실제 확률 표시 (3) 제한 지역 유저에게는 상품을 숨긴다
