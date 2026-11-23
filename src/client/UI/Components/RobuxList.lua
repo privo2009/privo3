@@ -58,6 +58,7 @@ export type Options = {
 	purchase: any, -- PurchaseClient.Client
 	potion: any?, -- PotionClient(켜기). 없으면 켜기 버튼은 늘 잠김
 	onPressed: (() -> ())?, -- 요청을 보낸 직후(창이 상태 문구를 지운다)
+	onLink: ((roll: string) -> ())?, -- 행운 패스 줄의 "확률 보기"(지시서 #28 O2 — Row.linkRoll). 없으면 그 버튼은 잠김
 }
 
 export type Handle = {
@@ -131,7 +132,8 @@ function RobuxList.create(o: Options): Handle
 			parts.frame.Position = UDim2.fromScale(0, (i - 1) * (o.rowH + o.rowGap) / k)
 			parts.frame.Size = UDim2.fromScale(1, o.rowH / k)
 			if r ~= nil then
-				local hasUse = r.useKey ~= nil
+				-- 둘째 버튼: 포션 줄 "켜기"(useKey) 또는 상점 행운 패스 줄 "확률 보기"(linkRoll — 지시서 #28 O2). 같은 자리를 쓴다
+				local hasUse = r.useKey ~= nil or r.linkRoll ~= nil
 				parts.title.Size = UDim2.fromScale(if hasUse then LEFT_W_WITH_USE else LEFT_W, 0.5)
 				parts.title.Text = r.title
 				parts.effect.Text = r.detail
@@ -146,7 +148,10 @@ function RobuxList.create(o: Options): Handle
 					Shine.detach(parts.frame)
 				end
 				parts.use.root.Visible = hasUse
-				if hasUse then
+				if r.linkRoll ~= nil then
+					parts.useLabel.Text = r.useText
+					parts.use.setDisabled(o.onLink == nil)
+				elseif hasUse then
 					parts.useLabel.Text = r.useText
 					parts.use.setDisabled(not r.canUse or o.potion == nil or o.potion.isPending(r.useKey))
 				end
@@ -166,6 +171,12 @@ function RobuxList.create(o: Options): Handle
 
 	local function pressUse(index: number)
 		local r = view[index]
+		if r ~= nil and r.linkRoll ~= nil then
+			if o.onLink ~= nil then
+				o.onLink(r.linkRoll)
+			end
+			return
+		end
 		if r == nil or not r.canUse or r.useKey == nil or o.potion == nil then
 			return
 		end

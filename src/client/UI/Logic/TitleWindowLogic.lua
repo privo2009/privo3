@@ -15,6 +15,7 @@ local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
+local OddsPreviewLogic = require(script.Parent.OddsPreviewLogic)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 local Names = require(ReplicatedStorage.Shared.Localization.Names)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
@@ -97,10 +98,11 @@ local function ownedSet(summary: any): { [string]: boolean }
 end
 
 -- 6줄. 위가 가장 귀한 등급이다(희귀도 높은 순 — 목표가 위에 보인다). summary = Store "titles", levels = Store "upgrades".
-function TitleWindowLogic.rows(summary: any, levels: any, shop: any?): { Row }
+-- preview = 확률 보기 "x10 Title Luck을 더하면"(지시서 #28 O1 — OddsPreviewLogic). 확률 칸만 바뀐다
+function TitleWindowLogic.rows(summary: any, levels: any, shop: any?, preview: boolean?): { Row }
 	local owned = ownedSet(summary)
 	local equippedId = if type(summary) == "table" and type(summary.equipped) == "string" then summary.equipped else ""
-	local luck = TitleWindowLogic.luckOf(levels, shop)
+	local luck = OddsPreviewLogic.luck(TitleWindowLogic.luckOf(levels, shop), "title", shop, preview)
 	local texts = RollOdds.percentages(RollOdds.distribution(TitleConfig.Titles, luck))
 	local out: { Row } = {}
 	for tier = #TitleConfig.Titles, 1, -1 do

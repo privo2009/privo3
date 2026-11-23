@@ -56,6 +56,8 @@ export type Row = {
 	useKey: string?,
 	useText: string,
 	canUse: boolean,
+	-- 상점 로벅스 탭의 칭호 · 펫 행운 패스 줄(안 가짐)만: 그 창의 확률 보기로 가는 둘째 버튼(지시서 #28 O2). 그 밖에는 nil
+	linkRoll: string?,
 }
 
 function RobuxShopLogic.priceText(priceRobux: number): string
@@ -182,6 +184,9 @@ end
 -- ===== 개발자 상품 · 포션 줄 (지시서 #17) =========================================================
 
 RobuxShopLogic.USE_TEXT = Locale.t("shop.potion.use")
+RobuxShopLogic.LINK_TEXT = Locale.t("shop.oddsLink")
+-- 확률 보기 창이 있는 행운 패스(지시서 #28 O1). 아우라 패스는 아우라 창 확률 보기(#27 — 보통 · 럭키 · 슈퍼)가 따로 있다
+RobuxShopLogic.LINK_ROLLS = { title = true, pet = true } :: { [string]: boolean }
 RobuxShopLogic.ROBUX_TAB_TEXT = Locale.t("shop.tab.robux") -- 아우라 · 펫 창의 로벅스 탭(상점 탭과 같은 낱말)
 
 -- 개발자 상품 한 줄(보유 없음). 럭키 · 슈퍼 롤은 설명 대신 그 롤의 행운으로 바뀌는 아우라 확률.
@@ -304,7 +309,13 @@ function RobuxShopLogic.rows(shop: any, ctx: Context?): { Row }
 	for _, key in ipairs(ShopConfig.GAMEPASS_ORDER) do
 		local def = ShopConfig.get(key) :: ShopConfig.ProductDef
 		if not (def.paidRandom and view.restricted) then
-			table.insert(out, passRow(key, view.owns, c, shop))
+			local r = passRow(key, view.owns, c, shop)
+			-- 칭호 · 펫 행운 패스(안 가짐): 그 창 확률 보기로 가는 둘째 버튼(지시서 #28 O2 — 결과 전부의 전후 확률은 창 표에 있다)
+			if def.effect.type == "luckPass" and RobuxShopLogic.LINK_ROLLS[def.effect.roll] and r.state ~= "owned" then
+				r.linkRoll = def.effect.roll
+				r.useText = RobuxShopLogic.LINK_TEXT
+			end
+			table.insert(out, r)
 		end
 	end
 	return out

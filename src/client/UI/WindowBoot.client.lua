@@ -77,7 +77,16 @@ end)
 
 local UpgradeShopWindow = require(script.Parent.Screens.Window.UpgradeShopWindow)
 
+-- 상점 행운 패스 줄 "확률 보기"(지시서 #28 O2) → 그 창을 열고 "패스를 더하면"으로. 창은 아래에서 만든다 — 만든 뒤 채운다
+local oddsTargets: { [string]: () -> () } = {}
+
 local shopWindow = UpgradeShopWindow.create({
+	openOdds = function(roll: string)
+		local open = oddsTargets[roll]
+		if open ~= nil then
+			open()
+		end
+	end,
 	sendRequest = function(name: string)
 		local payload: Remotes.UpgradeRequestPayload = { name = name }
 		channels.upgradeRequest:FireServer(payload)
@@ -143,6 +152,10 @@ local titleWindow = TitleWindow.create({
 ScreenController.register("Title", "Window", function()
 	return titleWindow.root
 end)
+oddsTargets.title = function()
+	ScreenController.open("Title")
+	titleWindow.showOdds()
+end
 
 channels.titleResult.OnClientEvent:Connect(function(payload: Remotes.TitleResultPayload)
 	titleWindow.onResult(payload)
@@ -246,6 +259,10 @@ local petWindow = PetWindow.create({
 ScreenController.register("Pet", "Window", function()
 	return petWindow.root
 end)
+oddsTargets.pet = function()
+	ScreenController.open("Pet")
+	petWindow.showOdds()
+end
 petWindow.root:GetPropertyChangedSignal("Visible"):Connect(function()
 	if petWindow.root.Visible then
 		petWindow.onOpen()

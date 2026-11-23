@@ -81,6 +81,7 @@ export type Deps = {
 	potion: PurchaseClient.Client?, -- 포션 켜기 요청(지시서 #17). 생략하면 실물(PotionClient.get)
 	onClose: () -> (),
 	now: (() -> number)?, -- 테스트용 시계
+	openOdds: ((roll: string) -> ())?, -- 칭호 · 펫 행운 패스 줄 "확률 보기" → 그 창 확률 보기(지시서 #28 O2 — WindowBoot가 잇는다)
 }
 
 type RowParts = {
@@ -220,6 +221,7 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 		onPressed = function()
 			resultText = nil
 		end,
+		onLink = deps.openOdds,
 	})
 	local robuxList = robux.list
 	robuxList.Visible = false

@@ -4,6 +4,7 @@
 --   ① 사기 전에 결과 전부 · 실제 확률(% · 합 100) ② 확률을 바꾸는 상품은 사기 전에 설명 ③ 활성 중엔 바뀐 확률을 보인다
 --   ④ 제한 유저(ArePaidRandomItemsRestricted)는 유료 랜덤 · 행운 상품을 쓸 수 없다(우리 처리 = 숨김 · 효과 끔)
 -- 순수 로직(RobuxShopLogic · 창 Logic) + 아우라 창 실물(확률 보기 버튼) + 폰 틀 705×338(그 Play의 언어)로 잰다. 실제 구매 · 요청 없음.
+-- 지시서 #28(6 · 7절): 칭호 · 펫 창 확률 보기(지금 ↔ 행운 패스를 더하면 — OddsPreviewLogic) · 상점 행운 패스 줄 "확률 보기"(O2) · 제한 · 보유 숨김.
 
 if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
 
@@ -27,6 +28,10 @@ local AuraWindowLogic = require(UI.Logic.AuraWindowLogic)
 local TitleWindowLogic = require(UI.Logic.TitleWindowLogic)
 local PetWindowLogic = require(UI.Logic.PetWindowLogic)
 local AuraWindow = require(UI.Screens.Window.AuraWindow)
+local TitleWindow = require(UI.Screens.Window.TitleWindow)
+local PetWindow = require(UI.Screens.Window.PetWindow)
+local UpgradeShopWindow = require(UI.Screens.Window.UpgradeShopWindow)
+local OddsPreviewLogic = require(UI.Logic.OddsPreviewLogic)
 local PurchaseClient = require(script.Parent.Parent.Net.PurchaseClient)
 
 local passed = 0
@@ -293,6 +298,259 @@ do
 		table.concat(bad, " | "))
 	print(string.format("[PaidRandomPolicyTests] 폰 705×338(%s): 확률 보기 %.0fx%.0f · %s", Locale.current(), wp._debug.oddsLabel.AbsoluteSize.X,
 		wp._debug.oddsLabel.AbsoluteSize.Y, wp._debug.oddsLabel.Text))
+	gui:Destroy()
+end
+
+-- 6. 칭호 · 펫 확률 보기 — 로직(지시서 #28 O1 · O2) -----------------------------------------------------------
+-- "패스를 더하면" = 그 패스를 산 뒤 창이 보일 확률(서버 computeLuck의 luckPassMult 자리 — 그 체인은 위 2절 · 서버 RollServiceTests가 잰다)
+do
+	local function titleTexts(rows: { any }): { string }
+		local out = {}
+		for i, r in ipairs(rows) do
+			out[i] = r.chanceText
+		end
+		return out
+	end
+	local function petTexts(odds: { any }): { string }
+		local out = {}
+		for i, o in ipairs(odds) do
+			out[i] = string.match(o.text, "[%d%.]+%%") or "?"
+		end
+		return out
+	end
+	check("패스 키: 칭호 titleLuck10x ×10 · 펫 petLuck2x ×2 · 아우라 auraLuck10x(ShopConfig luckPass)", OddsPreviewLogic.passKey("title") == "titleLuck10x"
+		and OddsPreviewLogic.passKey("pet") == "petLuck2x" and OddsPreviewLogic.passKey("aura") == "auraLuck10x"
+		and OddsPreviewLogic.passMult("title") == 10 and OddsPreviewLogic.passMult("pet") == 2)
+	check("볼 수 있음: 안 가짐 · 제한 아님만(가졌으면 숨김 · 제한이면 숨김)", OddsPreviewLogic.canPreview("title", shop(nil, false))
+		and OddsPreviewLogic.canPreview("pet", shop(nil, false)) and not OddsPreviewLogic.canPreview("title", shop({ "titleLuck10x" }, false))
+		and not OddsPreviewLogic.canPreview("pet", shop({ "petLuck2x" }, false)) and not OddsPreviewLogic.canPreview("title", shop(nil, true))
+		and not OddsPreviewLogic.canPreview("pet", shop(nil, true)))
+	-- 칭호: 포션 없음 · 포션 ×2 · 업그레이드 레벨 3에서 — 더하면 = 산 뒤 창 확률, 지금 = 지금 창 확률. 합 100
+	local tBad = {}
+	for _, case in ipairs({ { lv = 0, boost = nil }, { lv = 0, boost = 2 }, { lv = 3, boost = 2 } }) do
+		local lv = { titleLuck = case.lv, petLuck = case.lv, auraLuck = 0 }
+		local now = titleTexts(TitleWindowLogic.rows(nil, lv, shop(nil, false, case.boost)))
+		local off = titleTexts(TitleWindowLogic.rows(nil, lv, shop(nil, false, case.boost), false))
+		local on = titleTexts(TitleWindowLogic.rows(nil, lv, shop(nil, false, case.boost), true))
+		local bought = titleTexts(TitleWindowLogic.rows(nil, lv, shop({ "titleLuck10x" }, false, case.boost)))
+		if table.concat(off, ",") ~= table.concat(now, ",") or table.concat(on, ",") ~= table.concat(bought, ",") or #on ~= #TitleConfig.Titles
+			or not sums100(on) or not sums100(off) or table.concat(on, ",") == table.concat(off, ",") then
+			table.insert(tBad, string.format("lv%d boost%s: %s / %s", case.lv, tostring(case.boost), table.concat(on, ","), table.concat(bought, ",")))
+		end
+	end
+	check("칭호 확률 보기: 지금 = 지금 창 · 더하면 = x10 Title Luck 산 뒤 창 확률(업그레이드 · 포션 포함) · 결과 전부 · 합 100", #tBad == 0,
+		table.concat(tBad, " | "))
+	-- 펫: 알마다 · 포션 ×2 — 더하면 = x2 Pet Luck 산 뒤 확률
+	local pBad = {}
+	for eggId, egg in pairs(PetConfig.Eggs) do
+		local on = petTexts(PetWindowLogic.odds(eggId, levels0, shop(nil, false, 2), true))
+		local bought = petTexts(PetWindowLogic.odds(eggId, levels0, shop({ "petLuck2x" }, false, 2)))
+		local off = petTexts(PetWindowLogic.odds(eggId, levels0, shop(nil, false, 2), false))
+		local now = petTexts(PetWindowLogic.odds(eggId, levels0, shop(nil, false, 2)))
+		if table.concat(on, ",") ~= table.concat(bought, ",") or table.concat(off, ",") ~= table.concat(now, ",") or #on ~= #egg.pets or not sums100(on) then
+			table.insert(pBad, "egg " .. eggId)
+		end
+	end
+	check("펫 확률 보기: 알마다 더하면 = x2 Pet Luck 산 뒤 확률 · 지금 = 지금 · 결과 전부 · 합 100", #pBad == 0, table.concat(pBad, ", "))
+	-- 가졌거나 제한이면 켜도 지금 그대로(가진 패스 · 켜진 포션은 "지금"에 이미 들어 있다)
+	local ownedT = titleTexts(TitleWindowLogic.rows(nil, levels0, shop({ "titleLuck10x" }, false), true))
+	local ownedT0 = titleTexts(TitleWindowLogic.rows(nil, levels0, shop({ "titleLuck10x" }, false)))
+	local resP = petTexts(PetWindowLogic.odds(1, levels0, shop(nil, true), true))
+	local resP0 = petTexts(PetWindowLogic.odds(1, levels0, shop(nil, true)))
+	check("확률 보기: 가졌으면 · 제한 유저면 켜도 지금 확률 그대로(두 번 곱하지 않는다)", table.concat(ownedT, ",") == table.concat(ownedT0, ",")
+		and table.concat(resP, ",") == table.concat(resP0, ","))
+	local base = TitleWindowLogic.luckOf(levels0, shop(nil, false))
+	check("토글 글자: 지금 · 더하면에 행운 숫자(×N.NN)와 패스 배수", OddsPreviewLogic.toggleText("title", false, base)
+		== Locale.t("odds.preview.now", { luck = string.format("%.2f", base) }) and OddsPreviewLogic.toggleText("title", true, base * 10)
+		== Locale.t("odds.preview.pass", { mult = "10", luck = string.format("%.2f", base * 10) }))
+	-- O2: 상점 로벅스 탭 행운 패스 줄 — 칭호 · 펫(안 가짐)만 둘째 버튼 "확률 보기". 설명(배수 + 가장 귀한 것)은 그대로. 창 상품 줄에는 없다
+	local rows = RobuxShopLogic.rows(shop(nil, false), { upgrades = levels0 })
+	local t, pp, a = rowByKey(rows, "titleLuck10x"), rowByKey(rows, "petLuck2x"), rowByKey(rows, "auraLuck10x")
+	local ownedRows = RobuxShopLogic.rows(shop({ "titleLuck10x", "petLuck2x" }, false), { upgrades = levels0 })
+	check("상점 행운 패스 줄: 칭호 · 펫에 확률 보기(linkRoll) · 설명 '행운 ×N:' 그대로 · 아우라 줄 없음 · 가지면 없음", t.linkRoll == "title"
+		and pp.linkRoll == "pet" and t.useText == RobuxShopLogic.LINK_TEXT and a.linkRoll == nil and rowByKey(ownedRows, "titleLuck10x").linkRoll == nil
+		and rowByKey(ownedRows, "petLuck2x").linkRoll == nil and string.find(t.detail, "→", 1, true) ~= nil)
+	check("창 상품 줄(칭호 · 펫 창 안)에는 확률 보기 버튼이 없다(그 창이 이미 토글을 가진다)",
+		(RobuxShopLogic.windowRows("title", shop(nil, false))[1] :: any).linkRoll == nil
+		and (rowByKey(RobuxShopLogic.windowRows("pet", shop(nil, false)), "petLuck2x") :: any).linkRoll == nil)
+end
+
+-- 7. 칭호 · 펫 창 실물 — 토글 · 보유 · 제한 숨김 · 요청 없음 · 상점 줄에서 열기 · 폰 틀 ---------------------------
+do
+	local requests, buys = 0, 0
+	local purchase = PurchaseClient.new({ send = function()
+		buys += 1
+	end })
+	local function storeWith(s: any): (any, any)
+		local store = Store.new()
+		local setter: any = nil
+		store.setSource(function(set)
+			setter = set
+			set("shop", s)
+			set("upgrades", levels0)
+			set("blox", BigNum.new(1, 30))
+			set("lifetimeBlox", BigNum.new(1, 30))
+		end)
+		return store, function(v: any)
+			setter("shop", v)
+		end
+	end
+	local function titleWin(s: any): (any, (any) -> ())
+		local store, setShop = storeWith(s)
+		return TitleWindow.create({ store = store, purchase = purchase, sendRequest = function()
+			requests += 1
+		end, onClose = function() end }), setShop
+	end
+	local function petWin(s: any): (any, (any) -> ())
+		local store, setShop = storeWith(s)
+		return PetWindow.create({ store = store, purchase = purchase, sendRequest = function()
+			requests += 1
+		end, onClose = function() end }), setShop
+	end
+	local function chances(w: any): string
+		local out = {}
+		for i, r in ipairs(w._debug.rows) do
+			out[i] = r.chance.Text
+		end
+		return table.concat(out, ",")
+	end
+	local function petChances(w: any): string
+		local out = {}
+		for i, l in ipairs(w._debug.odds) do
+			out[i] = l.Text
+		end
+		return table.concat(out, ",")
+	end
+	-- 칭호 창
+	local tw, setT = titleWin(shop(nil, false))
+	task.wait()
+	local d = tw._debug
+	local before = chances(tw)
+	d.pressOdds()
+	local onText = chances(tw)
+	local wantOn = {}
+	for i, r in ipairs(TitleWindowLogic.rows(nil, levels0, shop({ "titleLuck10x" }, false))) do
+		wantOn[i] = r.chanceText
+	end
+	check("칭호 창: 토글이 보이고 행운 글자는 숨는다 · 누르면 6줄 확률 = 산 뒤 확률 · 글자에 패스 배수", d.oddsButton.root.Visible and not d.luckLine.Visible
+		and d.preview() and onText == table.concat(wantOn, ",") and onText ~= before
+		and d.oddsLabel.Text == OddsPreviewLogic.toggleText("title", true, TitleWindowLogic.luckOf(levels0, shop(nil, false)) * 10), d.oddsLabel.Text)
+	d.pressOdds()
+	check("칭호 창: 다시 누르면 지금 확률", not d.preview() and chances(tw) == before)
+	d.pressOdds()
+	setT(shop({ "titleLuck10x" }, false))
+	task.wait()
+	check("칭호 창: 패스를 가지면 토글이 숨고 행운 글자 · 확률은 가진 확률(켠 상태가 풀린다)", not d.oddsButton.root.Visible and d.luckLine.Visible
+		and not d.preview() and chances(tw) == onText)
+	setT(shop(nil, true))
+	task.wait()
+	tw.showOdds()
+	check("칭호 창: 제한 유저 → 토글 없음 · showOdds도 켜지 않는다", not d.oddsButton.root.Visible and d.luckLine.Visible and not d.preview())
+	setT(shop(nil, false))
+	task.wait()
+	tw.showOdds()
+	check("칭호 창: showOdds(상점 줄에서) → 더하면으로 켠다", d.preview() and chances(tw) == onText)
+	tw.root:Destroy()
+	-- 펫 창
+	local pw, setP = petWin(shop(nil, false))
+	task.wait()
+	local pd = pw._debug
+	local pBefore = petChances(pw)
+	pd.pressOdds()
+	local pOn = petChances(pw)
+	local pWant = {}
+	for i, o in ipairs(PetWindowLogic.odds(pd.shownEgg(), levels0, shop({ "petLuck2x" }, false))) do
+		pWant[i] = o.text
+	end
+	check("펫 창: 토글 · 누르면 고른 알 4종 확률 = x2 Pet Luck 산 뒤 확률 · 다시 누르면 지금", pd.oddsButton.root.Visible and not pd.luck.Visible
+		and pOn == table.concat(pWant, ",") and pOn ~= pBefore)
+	pd.pressOdds()
+	local pOff = petChances(pw)
+	pd.pressRobuxTab()
+	pw.showOdds()
+	check("펫 창: 다시 누르면 지금 · showOdds는 로벅스 탭을 닫고 더하면으로", pOff == pBefore and pd.preview() and not pd.robuxShown())
+	setP(shop({ "petLuck2x" }, false))
+	task.wait()
+	local hidOwned = not pd.oddsButton.root.Visible and pd.luck.Visible and not pd.preview()
+	setP(shop(nil, true))
+	task.wait()
+	check("펫 창: 가지면 · 제한 유저면 토글 숨김 · 행운 글자", hidOwned and not pd.oddsButton.root.Visible and pd.luck.Visible)
+	pw.root:Destroy()
+	-- 상점 줄 → 그 창(O2): 누르면 openOdds(roll) 한 번 · 구매 요청 없음
+	local opened = {}
+	local sstore = storeWith(shop(nil, false))
+	local sw = UpgradeShopWindow.create({ store = sstore, purchase = purchase, sendRequest = function()
+		requests += 1
+	end, onClose = function() end, openOdds = function(roll: string)
+		table.insert(opened, roll)
+	end })
+	sw._debug.selectTab(UpgradeShopWindow.TAB_ROBUX)
+	task.wait()
+	local view = sw._debug.robuxView()
+	local idx: { [string]: number } = {}
+	for i, r in ipairs(view) do
+		idx[r.key] = i
+	end
+	local titleRow = sw._debug.robuxRows[idx.titleLuck10x]
+	sw._debug.pressUse(idx.titleLuck10x)
+	sw._debug.pressUse(idx.petLuck2x)
+	sw._debug.pressUse(idx.auraLuck10x)
+	check("상점 줄: 확률 보기 버튼이 보이고 켜져 있다 · 누르면 그 창(title · pet) · 아우라 줄은 없음", titleRow.use.root.Visible and not titleRow.use.isDisabled()
+		and titleRow.useLabel.Text == RobuxShopLogic.LINK_TEXT and not sw._debug.robuxRows[idx.auraLuck10x].use.root.Visible
+		and #opened == 2 and opened[1] == "title" and opened[2] == "pet", table.concat(opened, ","))
+	sw.root:Destroy()
+	check("요청 없음: 확률 보기 · 상점 줄 누름은 서버 요청 · 구매 요청을 보내지 않는다", requests == 0 and buys == 0,
+		string.format("요청 %d · 구매 %d", requests, buys))
+
+	-- 폰 틀(705×338) — 그 Play의 언어로 칭호 · 펫 토글 두 상태 · 상점 줄 버튼 넘침 0 · 11px
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "OddsPreviewPhone"
+	gui.ResetOnSpawn = false
+	gui.AutoLocalize = false -- K10
+	local phone = Instance.new("Frame")
+	phone.Size = UDim2.fromOffset(705, 338) -- 테스트 틀만 Offset
+	phone.BackgroundTransparency = 1
+	phone.Parent = gui
+	TextMinimum.attach(gui)
+	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local bad, worst = {}, math.huge
+	local function measure(l: TextLabel)
+		worst = math.min(worst, l.AbsoluteSize.Y)
+		if not l.TextFits or l.AbsoluteSize.Y < TextScale.MIN_TEXT_PX - 0.5 then
+			table.insert(bad, string.format("[%dx%d] %s", l.AbsoluteSize.X, l.AbsoluteSize.Y, l.Text))
+		end
+	end
+	local samples = {}
+	for _, make in ipairs({ titleWin, petWin }) do
+		local w = make(shop(nil, false, 2))
+		w.root.Parent = phone
+		w.root.Visible = true
+		for _ = 1, 2 do
+			task.wait()
+			task.wait()
+			measure(w._debug.oddsLabel)
+			table.insert(samples, string.format("%.0fx%.0f %s", w._debug.oddsLabel.AbsoluteSize.X, w._debug.oddsLabel.AbsoluteSize.Y, w._debug.oddsLabel.Text))
+			w._debug.pressOdds()
+		end
+		w.root:Destroy()
+	end
+	local sp = UpgradeShopWindow.create({ store = (storeWith(shop(nil, false))), purchase = purchase, sendRequest = function() end, onClose = function() end,
+		openOdds = function() end })
+	sp.root.Parent = phone
+	sp.root.Visible = true
+	sp._debug.selectTab(UpgradeShopWindow.TAB_ROBUX)
+	task.wait()
+	task.wait()
+	for i, r in ipairs(sp._debug.robuxView()) do
+		if r.linkRoll ~= nil then
+			measure(sp._debug.robuxRows[i].useLabel)
+			measure(sp._debug.robuxRows[i].title)
+		end
+	end
+	sp.root:Destroy()
+	check(string.format("폰(%s): 칭호 · 펫 토글 두 상태 · 상점 확률 보기 버튼 · 줄 이름 넘침 0 · 최소 %.1fpx ≥ 11", Locale.current(), worst), #bad == 0
+		and worst >= TextScale.MIN_TEXT_PX - 0.5, table.concat(bad, " | "))
+	print(string.format("[PaidRandomPolicyTests] 폰 705×338(%s): %s", Locale.current(), table.concat(samples, " · ")))
 	gui:Destroy()
 end
 

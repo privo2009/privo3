@@ -13,6 +13,9 @@
 -- 지시서 #17: 맨 윗줄 오른쪽에 "10배 칭호 행운 299 R$" 한 줄 버튼(초록 — 로벅스). 창이 작아 상품 목록 줄을 넣을 자리가 없어서다.
 -- 확률 변화 숫자(S13)는 평소 비어 있는 아래 상태 줄에 보인다(결과 문구가 오면 그것이 먼저). 보유면 "· 보유 중"(잠김),
 -- 제한 유저면 버튼과 숫자를 숨긴다.
+-- 지시서 #28 O1(유료 랜덤 상품 확률 — docs/POLICY_CHECK.md): 맨 윗줄 왼쪽 "행운 ×N 적용" 자리가 "확률 보기" 토글이 된다.
+--   누를 때마다 지금 ↔ x10 Title Luck을 더하면. 6줄의 확률 칸이 그 행운의 실제 확률로 바뀐다(합 100 · 서버와 같은 행운 항 —
+--   OddsPreviewLogic). 이미 가졌거나 제한 유저면 토글 대신 원래 행운 글자. 상점 행운 패스 줄의 "확률 보기"가 showOdds()로 켜서 연다(O2).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -24,6 +27,7 @@ local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local Store = require(script.Parent.Parent.Parent.Store)
 local TitleWindowLogic = require(script.Parent.Parent.Parent.Logic.TitleWindowLogic)
 local RobuxShopLogic = require(script.Parent.Parent.Parent.Logic.RobuxShopLogic)
+local OddsPreviewLogic = require(script.Parent.Parent.Parent.Logic.OddsPreviewLogic)
 local PurchaseClient = require(script.Parent.Parent.Parent.Parent.Net.PurchaseClient)
 local Names = require(ReplicatedStorage.Shared.Localization.Names)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
@@ -90,6 +94,7 @@ export type Handle = {
 	root: Frame,
 	refresh: () -> (),
 	onResult: (any) -> (),
+	showOdds: () -> (), -- 확률 보기를 "패스를 더하면"으로 켠다(상점 행운 패스 줄 — O2). 볼 수 없으면 지금 그대로
 	_debug: {
 		pressRoll: () -> (),
 		pressAuto: () -> (),
@@ -107,6 +112,10 @@ export type Handle = {
 		pressProduct: () -> (),
 		productButton: Button.ButtonHandle,
 		productLabel: TextLabel,
+		pressOdds: () -> (),
+		preview: () -> boolean,
+		oddsButton: Button.ButtonHandle,
+		oddsLabel: TextLabel,
 	},
 }
 
@@ -149,6 +158,15 @@ function TitleWindow.create(deps: Deps): Handle
 
 	-- 확률 표 위 "행운 ×N 적용"(P3) — 확률 칸 오른쪽 끝에 맞춘다
 	local luckLine = WindowParts.makeText("LuckLine", body, "small", 0, 0, LUCK_W, LUCK_H, Enum.TextXAlignment.Right)
+	-- 확률 보기(지시서 #28 O1) — 행운 글자와 같은 자리. 볼 수 있으면(패스 안 가짐 · 제한 아님) 이것이 보인다
+	local oddsButton = Button.create({ size = "Small", color = "gray", widthScale = LUCK_W, heightScale = LUCK_H })
+	oddsButton.root.Name = "OddsPreview"
+	oddsButton.root.Position = UDim2.fromScale(0, 0)
+	oddsButton.root.ZIndex = WindowParts.Z_BUTTON
+	oddsButton.root.Parent = body
+	local oddsLabel, oddsHit = WindowParts.decorateButton(oddsButton, "")
+	table.insert(raise, oddsButton.root)
+	local preview = false
 	-- 10배 칭호 행운(지시서 #17)
 	local productButton = Button.create({ size = "Small", color = "green", widthScale = PRODUCT_W, heightScale = LUCK_H })
 	productButton.root.Name = "ProductButton"
@@ -209,7 +227,12 @@ function TitleWindow.create(deps: Deps): Handle
 
 	local function render()
 		local t = now()
-		view = TitleWindowLogic.rows(source.get("titles"), source.get("upgrades"), source.get("shop"))
+		local shopNow = source.get("shop")
+		local canPreview = OddsPreviewLogic.canPreview("title", shopNow)
+		if not canPreview then
+			preview = false
+		end
+		view = TitleWindowLogic.rows(source.get("titles"), source.get("upgrades"), shopNow, preview)
 		-- 10배 칭호 행운(지시서 #17) — 창별 목록의 첫(유일한) 줄. 제한 유저면 목록이 비어 숨는다
 		productRow = RobuxShopLogic.windowRows("title", source.get("shop"), { upgrades = source.get("upgrades") })[1]
 		productButton.root.Visible = productRow ~= nil
@@ -219,7 +242,11 @@ function TitleWindow.create(deps: Deps): Handle
 				else Locale.t("title.luckProduct", { name = name, price = productRow.footText })
 			productButton.setDisabled(not productRow.canBuy or purchase.isPending(TitleWindow.PRODUCT_KEY))
 		end
-		luckLine.Text = TitleWindowLogic.luckText(source.get("upgrades"), source.get("shop"))
+		luckLine.Text = TitleWindowLogic.luckText(source.get("upgrades"), shopNow)
+		luckLine.Visible = not canPreview
+		oddsButton.root.Visible = canPreview
+		oddsLabel.Text = OddsPreviewLogic.toggleText("title", preview,
+			OddsPreviewLogic.luck(TitleWindowLogic.luckOf(source.get("upgrades"), shopNow), "title", shopNow, preview))
 		for i, r in ipairs(view) do
 			local parts = rows[i]
 			parts.name.Text = r.name
@@ -315,6 +342,15 @@ function TitleWindow.create(deps: Deps): Handle
 		end
 	end
 	productHit.Activated:Connect(pressProduct)
+	local function pressOdds()
+		preview = not preview and OddsPreviewLogic.canPreview("title", source.get("shop"))
+		render()
+	end
+	oddsHit.Activated:Connect(pressOdds)
+	local function showOdds()
+		preview = OddsPreviewLogic.canPreview("title", source.get("shop"))
+		render()
+	end
 	purchase.onResult(function(payload)
 		if type(payload) == "table" and payload.key == TitleWindow.PRODUCT_KEY then
 			resultText = RobuxShopLogic.resultText(payload)
@@ -340,6 +376,7 @@ function TitleWindow.create(deps: Deps): Handle
 		root = panel.root,
 		refresh = render,
 		onResult = onResult,
+		showOdds = showOdds,
 		_debug = {
 			pressRoll = pressRoll,
 			pressAuto = pressAuto,
@@ -359,6 +396,12 @@ function TitleWindow.create(deps: Deps): Handle
 			pressProduct = pressProduct,
 			productButton = productButton,
 			productLabel = productLabel,
+			pressOdds = pressOdds,
+			preview = function()
+				return preview
+			end,
+			oddsButton = oddsButton,
+			oddsLabel = oddsLabel,
 		},
 	}
 end

@@ -32,6 +32,7 @@ local Store = require(script.Parent.Parent.Parent.Store)
 local PetWindowLogic = require(script.Parent.Parent.Parent.Logic.PetWindowLogic)
 local TitleWindowLogic = require(script.Parent.Parent.Parent.Logic.TitleWindowLogic)
 local ConfirmFlow = require(script.Parent.Parent.Parent.Logic.ConfirmFlow)
+local OddsPreviewLogic = require(script.Parent.Parent.Parent.Logic.OddsPreviewLogic)
 local RobuxShopLogic = require(script.Parent.Parent.Parent.Logic.RobuxShopLogic)
 local UIFxConfig = require(ReplicatedStorage.Shared.Config.UIFxConfig)
 local Fx = require(script.Parent.Parent.Parent.Components.Fx)
@@ -85,7 +86,12 @@ export type Handle = {
 	refresh: () -> (),
 	onResult: (any) -> (),
 	onOpen: () -> (),
+	showOdds: () -> (), -- 확률 보기를 "x2 Pet Luck을 더하면"으로 켠다(상점 행운 패스 줄 — #28 O2). 볼 수 없으면 지금 그대로
 	_debug: {
+		pressOdds: () -> (),
+		preview: () -> boolean,
+		oddsButton: Button.ButtonHandle,
+		oddsLabel: TextLabel,
 		pressHatch: () -> (),
 		pressHatch3: () -> (),
 		pressRobuxTab: () -> (),
@@ -174,6 +180,10 @@ function PetWindow.create(deps: Deps): Handle
 
 	local info = WindowParts.makeText("Info", body, "small", 0, INFO_Y, 0.62, INFO_H)
 	local luck = WindowParts.makeText("LuckLine", body, "small", 0.62, INFO_Y, 0.38, INFO_H, Enum.TextXAlignment.Right)
+	-- 확률 보기(지시서 #28 O1 — docs/POLICY_CHECK.md): 행운 글자 자리의 토글. 지금 ↔ x2 Pet Luck을 더하면 — 고른 알 종 4개의 확률 칸이
+	-- 그 행운의 실제 확률로 바뀐다(합 100 · 서버와 같은 행운 항 — OddsPreviewLogic). 이미 가졌거나 제한 유저면 토글 대신 원래 행운 글자
+	local oddsButton, oddsLabel, oddsHit = makeButton("OddsPreview", "gray", 0.62, INFO_Y, 0.38, INFO_H, body, "")
+	local preview = false
 	local odds: { TextLabel } = {}
 	for i = 1, PetConfig.TIER_COUNT do
 		odds[i] = WindowParts.makeText("Odds" .. i, body, "small", (i - 1) * 0.25, ODDS_Y, 0.245, ODDS_H, Enum.TextXAlignment.Center)
@@ -366,8 +376,17 @@ function PetWindow.create(deps: Deps): Handle
 				end
 			end
 		end
-		luck.Text = PetWindowLogic.luckText(source.get("upgrades"), source.get("shop"))
-		local oddView = PetWindowLogic.odds(eggId, source.get("upgrades"), source.get("shop"))
+		local shopNow = source.get("shop")
+		local canPreview = OddsPreviewLogic.canPreview("pet", shopNow)
+		if not canPreview then
+			preview = false
+		end
+		luck.Text = PetWindowLogic.luckText(source.get("upgrades"), shopNow)
+		luck.Visible = not canPreview
+		oddsButton.root.Visible = canPreview
+		oddsLabel.Text = OddsPreviewLogic.toggleText("pet", preview,
+			OddsPreviewLogic.luck(PetWindowLogic.luckOf(source.get("upgrades"), shopNow), "pet", shopNow, preview))
+		local oddView = PetWindowLogic.odds(eggId, source.get("upgrades"), shopNow, preview)
 		for i, label in ipairs(odds) do
 			local o = oddView[i]
 			label.Text = if o ~= nil then o.text else ""
@@ -476,6 +495,17 @@ function PetWindow.create(deps: Deps): Handle
 			return
 		end
 		send("hatch3", { action = "hatch3", egg = eggId })
+	end
+
+	local function pressOdds()
+		preview = not preview and OddsPreviewLogic.canPreview("pet", source.get("shop"))
+		render()
+	end
+	oddsHit.Activated:Connect(pressOdds)
+	local function showOdds()
+		robuxShown = false -- 확률 칸(아래 칸 쪽 화면)이 보이게
+		preview = OddsPreviewLogic.canPreview("pet", source.get("shop"))
+		render()
 	end
 
 	local function pressRobuxTab()
@@ -745,7 +775,14 @@ function PetWindow.create(deps: Deps): Handle
 		refresh = render,
 		onResult = onResult,
 		onOpen = onOpen,
+		showOdds = showOdds,
 		_debug = {
+			pressOdds = pressOdds,
+			preview = function()
+				return preview
+			end,
+			oddsButton = oddsButton,
+			oddsLabel = oddsLabel,
 			pressHatch = pressHatch,
 			pressHatch3 = pressHatch3,
 			pressRobuxTab = pressRobuxTab,

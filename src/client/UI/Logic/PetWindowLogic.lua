@@ -15,6 +15,7 @@ local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
+local OddsPreviewLogic = require(script.Parent.OddsPreviewLogic)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 local Names = require(ReplicatedStorage.Shared.Localization.Names)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
@@ -149,13 +150,14 @@ end
 export type Odd = { id: string, name: string, rarity: number, rarityTier: number, text: string }
 
 -- 알 하나의 종 4개 실제 등장 확률(합 100) — "도토리 ×1.05 · 63.1%".
-function PetWindowLogic.odds(eggId: number, levels: any, shop: any?): { Odd }
+-- preview = 확률 보기 "x2 Pet Luck을 더하면"(지시서 #28 O1 — OddsPreviewLogic). 고른 알의 확률만 바뀐다
+function PetWindowLogic.odds(eggId: number, levels: any, shop: any?, preview: boolean?): { Odd }
 	local egg = PetConfig.Eggs[eggId]
 	local out: { Odd } = {}
 	if egg == nil then
 		return out
 	end
-	local texts = RollOdds.percentages(RollOdds.distribution(egg.pets, PetWindowLogic.luckOf(levels, shop)))
+	local texts = RollOdds.percentages(RollOdds.distribution(egg.pets, OddsPreviewLogic.luck(PetWindowLogic.luckOf(levels, shop), "pet", shop, preview)))
 	for rarity, def in ipairs(egg.pets) do
 		table.insert(out, {
 			id = def.id,
