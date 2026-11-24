@@ -15,7 +15,7 @@
 --   롤 줄은 그 롤의 행운으로 바뀌는 확률). 다시 누르거나 팩 탭을 누르면 카드로 돌아온다. 제한 유저는 탭이 없다(S13).
 --   뽑기 줄 오른쪽 "럭키 롤 사용(N)" · "슈퍼 롤 사용(N)" — 고른 팩으로 1회(블럭스 비용 없음). 제한 유저면 숨긴다. 상태 문구는 아랫줄 오른쪽.
 -- 지시서 #27(유료 랜덤 상품 확률 표시 — docs/POLICY_CHECK.md): 안내 줄 오른쪽 "행운 ×N 적용" 자리가 "확률 보기" 버튼이 된다.
---   누를 때마다 보통 → 럭키 롤 → 슈퍼 롤 → 보통. 카드 넷의 확률 칸이 그 롤의 실제 확률로 바뀐다(합 100 · 서버와 같은 행운 항).
+--   누를 때마다 보통 → (×10 패스를 더하면 — 안 가졌을 때만, #28 후속 ①) → 럭키 롤 → 슈퍼 롤 → 보통. 카드 넷의 확률 칸이 그 롤의 실제 확률로 바뀐다(합 100 · 서버와 같은 행운 항).
 --   럭키 · 슈퍼 롤(로벅스로 사는 뽑기)의 결과 전부 · 확률을 사기 전에도 쓰기 전에도 볼 수 있게. 제한 유저는 버튼 대신 원래 행운 글자.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -84,6 +84,7 @@ export type Handle = {
 	root: Frame,
 	refresh: () -> (),
 	onResult: (any) -> (),
+	showOdds: () -> (), -- 확률 보기를 "×10 패스를 더하면"으로(상점 행운 패스 줄 — #28 후속 ①). 볼 수 없으면 보통
 	_debug: {
 		pressRoll: () -> (),
 		pressTab: (index: number) -> (),
@@ -243,9 +244,7 @@ function AuraWindow.create(deps: Deps): Handle
 		luck.Text = AuraWindowLogic.luckText(source.get("upgrades"), source.get("shop"))
 		local shopNow = source.get("shop")
 		local restrictedNow = type(shopNow) ~= "table" or shopNow.paidRandomRestricted ~= false
-		if restrictedNow then
-			oddsMode = "normal"
-		end
+		oddsMode = AuraWindowLogic.validOddsMode(oddsMode, shopNow) -- 제한 · 패스를 사면 "더하면"이 풀린다
 		luck.Visible = restrictedNow
 		oddsButton.root.Visible = not restrictedNow
 		oddsLabel.Text = AuraWindowLogic.oddsModeText(oddsMode, source.get("upgrades"), shopNow)
@@ -334,6 +333,12 @@ function AuraWindow.create(deps: Deps): Handle
 
 	local function pressOddsMode()
 		oddsMode = AuraWindowLogic.nextOddsMode(oddsMode, source.get("shop"))
+		render()
+	end
+
+	local function showOdds()
+		oddsMode = AuraWindowLogic.validOddsMode("pass", source.get("shop"))
+		robuxShown = false
 		render()
 	end
 
@@ -427,6 +432,7 @@ function AuraWindow.create(deps: Deps): Handle
 		root = panel.root,
 		refresh = render,
 		onResult = onResult,
+		showOdds = showOdds,
 		_debug = {
 			pressRoll = pressRoll,
 			pressTab = pressTab,

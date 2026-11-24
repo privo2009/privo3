@@ -184,6 +184,10 @@ local auraWindow = AuraWindow.create({
 ScreenController.register("Aura", "Window", function()
 	return auraWindow.root
 end)
+oddsTargets.aura = function()
+	ScreenController.open("Aura")
+	auraWindow.showOdds()
+end
 
 channels.auraResult.OnClientEvent:Connect(function(payload: Remotes.AuraResultPayload)
 	auraWindow.onResult(payload)

@@ -5,6 +5,7 @@
 --   ④ 제한 유저(ArePaidRandomItemsRestricted)는 유료 랜덤 · 행운 상품을 쓸 수 없다(우리 처리 = 숨김 · 효과 끔)
 -- 순수 로직(RobuxShopLogic · 창 Logic) + 아우라 창 실물(확률 보기 버튼) + 폰 틀 705×338(그 Play의 언어)로 잰다. 실제 구매 · 요청 없음.
 -- 지시서 #28(6 · 7절): 칭호 · 펫 창 확률 보기(지금 ↔ 행운 패스를 더하면 — OddsPreviewLogic) · 상점 행운 패스 줄 "확률 보기"(O2) · 제한 · 보유 숨김.
+-- #28 후속(8절): 아우라 창 "×10 패스를 더하면" 단계 · 상점 아우라 줄 · 토글 글자 행운 배수 꼴(뒤 0 없음).
 
 if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
 
@@ -135,7 +136,8 @@ do
 	local m1 = AuraWindowLogic.nextOddsMode("normal", shop(nil, false))
 	local m2 = AuraWindowLogic.nextOddsMode(m1, shop(nil, false))
 	local m3 = AuraWindowLogic.nextOddsMode(m2, shop(nil, false))
-	check("확률 보기: 보통 → 럭키 → 슈퍼 → 보통", m1 == "lucky" and m2 == "super" and m3 == "normal")
+	local m4 = AuraWindowLogic.nextOddsMode(m3, shop(nil, false))
+	check("확률 보기: 보통 → ×10 패스를 더하면 → 럭키 → 슈퍼 → 보통(#28 후속 ①)", m1 == "pass" and m2 == "lucky" and m3 == "super" and m4 == "normal")
 	check("확률 보기: 제한 유저는 보통만(럭키 모드를 넘겨도 보통 확률)", AuraWindowLogic.nextOddsMode("normal", shop(nil, true)) == "normal"
 		and AuraWindowLogic.modeLuck(levels0, shop(nil, true), "lucky") == auraBase)
 	-- 1e. 제한 유저: 상품 줄 · 창 상품 · 사용 버튼이 없다
@@ -244,6 +246,7 @@ do
 	task.wait()
 	local d = w._debug
 	local normal = chanceTexts(d.view())
+	d.pressOddsMode() -- 더하면(#28 후속 ① — 8절이 잰다)
 	d.pressOddsMode()
 	local luckyTexts = chanceTexts(d.view())
 	local luckyLabel = d.oddsLabel.Text
@@ -253,8 +256,8 @@ do
 	local expectSuper = RollOdds.percentages(RollOdds.distribution(AuraConfig.Packs[d.shownPack()].auras, auraBase * 100))
 	check("창: 확률 보기 버튼이 보이고 행운 글자는 숨는다(제한 아님)", d.oddsButton.root.Visible and not d.luck.Visible)
 	check("창: 누르면 럭키 → 카드 확률이 바뀌고 글자에 럭키 · 행운 숫자", table.concat(luckyTexts, ",") ~= table.concat(normal, ",")
-		and string.find(luckyLabel, string.format("%.2f", auraBase * 5), 1, true) ~= nil, luckyLabel)
-	check("창: 슈퍼 = 카드 칸에 행운 ×100 실제 확률 · 세 번 누르면 보통", superCard == expectSuper[4] and d.oddsMode() == "normal"
+		and luckyLabel == Locale.t("aura.odds.lucky", { luck = OddsPreviewLogic.luckNum(auraBase * 5) }), luckyLabel)
+	check("창: 슈퍼 = 카드 칸에 행운 ×100 실제 확률 · 네 번 누르면 보통", superCard == expectSuper[4] and d.oddsMode() == "normal"
 		and table.concat(chanceTexts(d.view()), ",") == table.concat(normal, ","), superCard .. " vs " .. expectSuper[4])
 	w.root:Destroy()
 	local wr = make(shop(nil, true))
@@ -360,16 +363,16 @@ do
 	check("확률 보기: 가졌으면 · 제한 유저면 켜도 지금 확률 그대로(두 번 곱하지 않는다)", table.concat(ownedT, ",") == table.concat(ownedT0, ",")
 		and table.concat(resP, ",") == table.concat(resP0, ","))
 	local base = TitleWindowLogic.luckOf(levels0, shop(nil, false))
-	check("토글 글자: 지금 · 더하면에 행운 숫자(×N.NN)와 패스 배수", OddsPreviewLogic.toggleText("title", false, base)
-		== Locale.t("odds.preview.now", { luck = string.format("%.2f", base) }) and OddsPreviewLogic.toggleText("title", true, base * 10)
-		== Locale.t("odds.preview.pass", { mult = "10", luck = string.format("%.2f", base * 10) }))
+	check("토글 글자: 지금 · 더하면에 행운 숫자(뒤 0 없음)와 패스 이름(배수)", OddsPreviewLogic.toggleText("title", false, base)
+		== Locale.t("odds.preview.now", { luck = OddsPreviewLogic.luckNum(base) }) and OddsPreviewLogic.toggleText("title", true, base * 10)
+		== Locale.t("odds.preview.pass", { pass = Locale.t("odds.passName", { mult = "10" }), luck = OddsPreviewLogic.luckNum(base * 10) }))
 	-- O2: 상점 로벅스 탭 행운 패스 줄 — 칭호 · 펫(안 가짐)만 둘째 버튼 "확률 보기". 설명(배수 + 가장 귀한 것)은 그대로. 창 상품 줄에는 없다
 	local rows = RobuxShopLogic.rows(shop(nil, false), { upgrades = levels0 })
 	local t, pp, a = rowByKey(rows, "titleLuck10x"), rowByKey(rows, "petLuck2x"), rowByKey(rows, "auraLuck10x")
-	local ownedRows = RobuxShopLogic.rows(shop({ "titleLuck10x", "petLuck2x" }, false), { upgrades = levels0 })
-	check("상점 행운 패스 줄: 칭호 · 펫에 확률 보기(linkRoll) · 설명 '행운 ×N:' 그대로 · 아우라 줄 없음 · 가지면 없음", t.linkRoll == "title"
-		and pp.linkRoll == "pet" and t.useText == RobuxShopLogic.LINK_TEXT and a.linkRoll == nil and rowByKey(ownedRows, "titleLuck10x").linkRoll == nil
-		and rowByKey(ownedRows, "petLuck2x").linkRoll == nil and string.find(t.detail, "→", 1, true) ~= nil)
+	local ownedRows = RobuxShopLogic.rows(shop({ "titleLuck10x", "petLuck2x", "auraLuck10x" }, false), { upgrades = levels0 })
+	check("상점 행운 패스 줄: 칭호 · 펫 · 아우라(#28 후속 ①)에 확률 보기(linkRoll) · 설명 '행운 ×N:' 그대로 · 가지면 없음", t.linkRoll == "title"
+		and pp.linkRoll == "pet" and t.useText == RobuxShopLogic.LINK_TEXT and a.linkRoll == "aura" and rowByKey(ownedRows, "titleLuck10x").linkRoll == nil
+		and rowByKey(ownedRows, "petLuck2x").linkRoll == nil and rowByKey(ownedRows, "auraLuck10x").linkRoll == nil and string.find(t.detail, "→", 1, true) ~= nil)
 	check("창 상품 줄(칭호 · 펫 창 안)에는 확률 보기 버튼이 없다(그 창이 이미 토글을 가진다)",
 		(RobuxShopLogic.windowRows("title", shop(nil, false))[1] :: any).linkRoll == nil
 		and (rowByKey(RobuxShopLogic.windowRows("pet", shop(nil, false)), "petLuck2x") :: any).linkRoll == nil)
@@ -495,9 +498,9 @@ do
 	sw._debug.pressUse(idx.titleLuck10x)
 	sw._debug.pressUse(idx.petLuck2x)
 	sw._debug.pressUse(idx.auraLuck10x)
-	check("상점 줄: 확률 보기 버튼이 보이고 켜져 있다 · 누르면 그 창(title · pet) · 아우라 줄은 없음", titleRow.use.root.Visible and not titleRow.use.isDisabled()
-		and titleRow.useLabel.Text == RobuxShopLogic.LINK_TEXT and not sw._debug.robuxRows[idx.auraLuck10x].use.root.Visible
-		and #opened == 2 and opened[1] == "title" and opened[2] == "pet", table.concat(opened, ","))
+	check("상점 줄: 확률 보기 버튼이 보이고 켜져 있다 · 누르면 그 창(title · pet · aura)", titleRow.use.root.Visible and not titleRow.use.isDisabled()
+		and titleRow.useLabel.Text == RobuxShopLogic.LINK_TEXT and sw._debug.robuxRows[idx.auraLuck10x].use.root.Visible
+		and #opened == 3 and opened[1] == "title" and opened[2] == "pet" and opened[3] == "aura", table.concat(opened, ","))
 	sw.root:Destroy()
 	check("요청 없음: 확률 보기 · 상점 줄 누름은 서버 요청 · 구매 요청을 보내지 않는다", requests == 0 and buys == 0,
 		string.format("요청 %d · 구매 %d", requests, buys))
@@ -551,6 +554,118 @@ do
 	check(string.format("폰(%s): 칭호 · 펫 토글 두 상태 · 상점 확률 보기 버튼 · 줄 이름 넘침 0 · 최소 %.1fpx ≥ 11", Locale.current(), worst), #bad == 0
 		and worst >= TextScale.MIN_TEXT_PX - 0.5, table.concat(bad, " | "))
 	print(string.format("[PaidRandomPolicyTests] 폰 705×338(%s): %s", Locale.current(), table.concat(samples, " · ")))
+	gui:Destroy()
+end
+
+-- 8. 아우라 창 "×10 패스를 더하면"(#28 후속 ①) · 토글 글자 행운 배수 꼴(후속 ②) ------------------------------------
+do
+	local free, owned, restricted = shop(nil, false, 2), shop({ "auraLuck10x" }, false, 2), shop(nil, true)
+	local function walk(s: any): string
+		local out, m = {}, "normal"
+		for _ = 1, 5 do
+			m = AuraWindowLogic.nextOddsMode(m, s)
+			table.insert(out, m)
+		end
+		return table.concat(out, ",")
+	end
+	check("아우라 단계 · 순서: 보통 → 더하면 → 럭키 → 슈퍼 → 보통(안 가짐)", walk(free) == "pass,lucky,super,normal,pass", walk(free))
+	check("아우라: x10 Aura Luck을 가지면 더하면을 건너뛴다(보통 → 럭키 → 슈퍼) · 그 모드는 보통으로 풀린다", walk(owned) == "lucky,super,normal,lucky,super"
+		and AuraWindowLogic.validOddsMode("pass", owned) == "normal" and AuraWindowLogic.modeLuck(levels0, owned, "pass") == AuraWindowLogic.luckOf(levels0, owned),
+		walk(owned))
+	check("아우라: 제한 유저는 더하면도 없다(보통만 · 행운 그대로)", walk(restricted) == "normal,normal,normal,normal,normal"
+		and AuraWindowLogic.validOddsMode("pass", restricted) == "normal" and AuraWindowLogic.modeLuck(levels0, restricted, "pass") == auraBase)
+	-- 더하면 = 그 패스를 산 뒤 보통 확률(업그레이드 · 포션 포함 · 서버 computeLuck luckPassMult 자리) · 결과 전부 · 합 100 — 팩 셋 · 레벨 둘
+	local bad = {}
+	for _, lv in ipairs({ 0, 4 }) do
+		local levels = { auraLuck = lv, titleLuck = 0, petLuck = 0 }
+		for pid, pack in pairs(AuraConfig.Packs) do
+			local on = chanceTexts(AuraWindowLogic.cards(nil, levels, pid, free, "pass"))
+			local bought = chanceTexts(AuraWindowLogic.cards(nil, levels, pid, owned, "normal"))
+			local now = chanceTexts(AuraWindowLogic.cards(nil, levels, pid, free, "normal"))
+			if #on ~= #pack.auras or table.concat(on, ",") ~= table.concat(bought, ",") or table.concat(on, ",") == table.concat(now, ",") or not sums100(on) then
+				table.insert(bad, string.format("lv%d pack%d %s / %s", lv, pid, table.concat(on, ","), table.concat(bought, ",")))
+			end
+		end
+	end
+	check("아우라 더하면: 카드 4장 = x10 Aura Luck 산 뒤 확률(지금과 다름) · 합 100(팩 셋 · 레벨 0 · 4)", #bad == 0, table.concat(bad, " | "))
+	check("행운 배수 꼴: 20 · 2.5 · 1.25 · 100(뒤 0 없음)", OddsPreviewLogic.luckNum(20) == "20" and OddsPreviewLogic.luckNum(2.5) == "2.5"
+		and OddsPreviewLogic.luckNum(1.25) == "1.25" and OddsPreviewLogic.luckNum(100) == "100" and OddsPreviewLogic.luckNum(7.5) == "7.5",
+		table.concat({ OddsPreviewLogic.luckNum(20), OddsPreviewLogic.luckNum(2.5), OddsPreviewLogic.luckNum(1.25), OddsPreviewLogic.luckNum(100) }, ","))
+	local passText = OddsPreviewLogic.toggleText("aura", true, 20)
+	check("토글 글자 세 창 공통 키: 아우라 더하면 = odds.preview.pass(패스 이름 ×10 · 행운 20) · '20.00' 없음",
+		AuraWindowLogic.oddsModeText("pass", levels0, shop(nil, false)) == OddsPreviewLogic.toggleText("aura", true, auraBase * 10)
+		and passText == Locale.t("odds.preview.pass", { pass = Locale.t("odds.passName", { mult = "10" }), luck = "20" })
+		and string.find(passText, "20.00", 1, true) == nil, passText)
+
+	-- 창 실물: 토글 · showOdds(상점 줄) · 사면 · 제한이면 풀림
+	local purchase = PurchaseClient.new({ send = function() end })
+	local setter: any = nil
+	local store = Store.new()
+	store.setSource(function(set)
+		setter = set
+		set("shop", free)
+		set("upgrades", levels0)
+		set("lifetimeBlox", BigNum.mul(AuraConfig.Packs[1].rollCost, BigNum.fromNumber(10)))
+	end)
+	local w = AuraWindow.create({ store = store, purchase = purchase, sendRequest = function() end, onClose = function() end, openTitles = function() end })
+	task.wait()
+	local d = w._debug
+	d.pressOddsMode()
+	local wantOn = chanceTexts(AuraWindowLogic.cards(nil, levels0, d.shownPack(), owned, "normal"))
+	check("아우라 창: 첫 누름 = 더하면 · 카드 확률 = 산 뒤 확률 · 글자 = 공통 토글", d.oddsMode() == "pass"
+		and table.concat(chanceTexts(d.view()), ",") == table.concat(wantOn, ",")
+		and d.oddsLabel.Text == OddsPreviewLogic.toggleText("aura", true, AuraWindowLogic.luckOf(levels0, free) * 10), d.oddsLabel.Text)
+	d.pressOddsMode()
+	d.pressOddsMode()
+	d.pressOddsMode()
+	d.pressRobuxTab()
+	w.showOdds()
+	local shown = d.oddsMode() == "pass" and not d.robuxShown()
+	setter("shop", owned)
+	task.wait()
+	local ownedOk = d.oddsMode() == "normal" and d.oddsButton.root.Visible
+	setter("shop", restricted)
+	task.wait()
+	w.showOdds()
+	check("아우라 창: showOdds → 로벅스 탭 닫고 더하면 · 사면 보통으로 풀림 · 제한이면 버튼 없음 · showOdds도 보통", shown and ownedOk
+		and d.oddsMode() == "normal" and not d.oddsButton.root.Visible and d.luck.Visible)
+	w.root:Destroy()
+
+	-- 폰 틀(705×338) — 그 Play의 언어로 아우라 네 단계 글자(안 가짐) 넘침 0 · 11px
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "AuraPassPhone"
+	gui.ResetOnSpawn = false
+	gui.AutoLocalize = false -- K10
+	local phone = Instance.new("Frame")
+	phone.Size = UDim2.fromOffset(705, 338) -- 테스트 틀만 Offset
+	phone.BackgroundTransparency = 1
+	phone.Parent = gui
+	TextMinimum.attach(gui)
+	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local pstore = Store.new()
+	pstore.setSource(function(set)
+		set("shop", free)
+		set("upgrades", levels0)
+		set("lifetimeBlox", BigNum.mul(AuraConfig.Packs[1].rollCost, BigNum.fromNumber(10)))
+	end)
+	local wp = AuraWindow.create({ store = pstore, purchase = purchase, sendRequest = function() end, onClose = function() end, openTitles = function() end })
+	wp.root.Parent = phone
+	wp.root.Visible = true
+	local pbad, worst, samples = {}, math.huge, {}
+	for _ = 1, 4 do
+		task.wait()
+		task.wait()
+		local l = wp._debug.oddsLabel
+		worst = math.min(worst, l.AbsoluteSize.Y)
+		if not l.TextFits or l.AbsoluteSize.Y < TextScale.MIN_TEXT_PX - 0.5 then
+			table.insert(pbad, string.format("[%dx%d] %s", l.AbsoluteSize.X, l.AbsoluteSize.Y, l.Text))
+		end
+		table.insert(samples, string.format("%.0fx%.0f %s", l.AbsoluteSize.X, l.AbsoluteSize.Y, l.Text))
+		wp._debug.pressOddsMode()
+	end
+	check(string.format("폰(%s): 아우라 확률 보기 네 단계 글자 넘침 0 · 최소 %.1fpx ≥ 11", Locale.current(), worst), #pbad == 0
+		and worst >= TextScale.MIN_TEXT_PX - 0.5, table.concat(pbad, " | "))
+	print(string.format("[PaidRandomPolicyTests] 폰 705×338(%s) 아우라: %s", Locale.current(), table.concat(samples, " · ")))
 	gui:Destroy()
 end
 

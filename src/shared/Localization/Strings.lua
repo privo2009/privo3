@@ -325,12 +325,13 @@ Strings.Entries = {
 	["roll.luckApplied"] = { en = "Luck ×{luck} applied", ko = "행운 ×{luck} 적용" },
 	-- 유료 랜덤 상품 확률 표시(지시서 #27 — docs/POLICY_CHECK.md): 상품 줄의 행운 배수 · 아우라 창 확률 보기(보통 · 럭키 · 슈퍼)
 	["shop.oddsChange"] = { en = "Luck ×{mult}: {name} {before} → {after}", ko = "행운 ×{mult}: {name} {before} → {after}" },
-	["aura.odds.normal"] = { en = "Odds: Normal · Luck ×{luck}", ko = "확률: 보통 · 행운 ×{luck}" },
-	["aura.odds.lucky"] = { en = "Odds: Lucky Roll · Luck ×{luck}", ko = "확률: 럭키 롤 · 행운 ×{luck}" },
-	["aura.odds.super"] = { en = "Odds: Super Roll · Luck ×{luck}", ko = "확률: 슈퍼 롤 · 행운 ×{luck}" },
-	-- 칭호 · 펫 창 확률 보기(지시서 #28 O1): 지금 ↔ 그 뽑기의 행운 패스를 더하면 · 상점 행운 패스 줄에서 그 창으로(O2)
-	["odds.preview.now"] = { en = "Odds: Now · Luck ×{luck}", ko = "확률: 지금 · 행운 ×{luck}" },
-	["odds.preview.pass"] = { en = "Odds: +×{mult} Pass · Luck ×{luck}", ko = "확률: ×{mult} 패스 더하면 · 행운 ×{luck}" },
+	["aura.odds.normal"] = { en = "Normal Odds (Luck x{luck})", ko = "보통 확률 (행운 ×{luck})" },
+	["aura.odds.lucky"] = { en = "Lucky Roll Odds (Luck x{luck})", ko = "럭키 롤 확률 (행운 ×{luck})" },
+	["aura.odds.super"] = { en = "Super Roll Odds (Luck x{luck})", ko = "슈퍼 롤 확률 (행운 ×{luck})" },
+	-- 확률 보기 토글(지시서 #28 O1 · 후속 ②): 칭호 · 펫 · 아우라 창 공통 — 지금 ↔ 그 뽑기의 행운 패스를 더하면 · 상점 행운 패스 줄에서 그 창으로(O2)
+	["odds.preview.now"] = { en = "Odds Now (Luck x{luck})", ko = "지금 확률 (행운 ×{luck})" },
+	["odds.preview.pass"] = { en = "With {pass} (Luck x{luck})", ko = "{pass}를 더하면 (행운 ×{luck})" },
+	["odds.passName"] = { en = "x{mult} Pass", ko = "×{mult} 패스" },
 	["shop.oddsLink"] = { en = "All Odds", ko = "확률 보기" },
 	["title.title"] = { en = "Titles", ko = "칭호" },
 	["title.autoOn"] = { en = "Auto Roll On", ko = "자동 뽑기 켜짐" },

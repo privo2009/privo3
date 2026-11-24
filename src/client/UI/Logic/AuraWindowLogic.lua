@@ -18,6 +18,7 @@ local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local Names = require(ReplicatedStorage.Shared.Localization.Names)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
+local OddsPreviewLogic = require(script.Parent.OddsPreviewLogic)
 
 type BigNumber = BigNum.BigNumber
 
@@ -79,8 +80,9 @@ end
 
 -- 확률 보기(지시서 #27 — 공식 paid-random-items: 결과 전부 · 실제 확률을 구매 전에, 활성 중엔 바뀐 확률로).
 -- 럭키 · 슈퍼 롤은 로벅스로 사는 뽑기라 그 롤의 확률(행운 × ShopConfig.rollCreditLuck — 서버 AuraService rollProductMult와 같은 항)을
--- 카드 넷에 그대로 보여 줄 수 있어야 한다. "normal" → "lucky" → "super" → "normal". 제한 유저는 "normal"만(S13 — 상품이 없다).
-AuraWindowLogic.ODDS_MODES = { "normal", "lucky", "super" }
+-- 카드 넷에 그대로 보여 줄 수 있어야 한다. "normal" → "pass" → "lucky" → "super" → "normal". 제한 유저는 "normal"만(S13 — 상품이 없다).
+-- "pass" = x10 Aura Luck을 더하면(#28 후속 ① — 칭호 · 펫과 같은 OddsPreviewLogic). 이미 가졌으면 건너뛴다("지금"에 들어 있다).
+AuraWindowLogic.ODDS_MODES = { "normal", "pass", "lucky", "super" }
 
 local function isRestricted(shop: any): boolean
 	return type(shop) ~= "table" or shop.paidRandomRestricted ~= false
@@ -92,6 +94,9 @@ function AuraWindowLogic.modeLuck(levels: any, shop: any?, mode: string?): numbe
 	if mode == nil or mode == "normal" or isRestricted(shop) then
 		return base
 	end
+	if mode == "pass" then
+		return OddsPreviewLogic.luck(base, "aura", shop, true)
+	end
 	local mult = ShopConfig.rollCreditLuck(mode)
 	return if mult ~= nil then base * mult else base
 end
@@ -102,16 +107,32 @@ function AuraWindowLogic.nextOddsMode(mode: string?, shop: any?): string
 	end
 	local modes = AuraWindowLogic.ODDS_MODES
 	local i = table.find(modes, mode or "normal") or 1
-	return modes[i % #modes + 1]
+	local nextMode = modes[i % #modes + 1]
+	if nextMode == "pass" and not OddsPreviewLogic.canPreview("aura", shop) then
+		nextMode = modes[(i + 1) % #modes + 1]
+	end
+	return nextMode
 end
 
--- 확률 보기 버튼 글자: "확률: 럭키 롤 · 행운 ×7.50"
-function AuraWindowLogic.oddsModeText(mode: string?, levels: any, shop: any?): string
-	local m = if mode == "lucky" or mode == "super" then mode else "normal"
-	if isRestricted(shop) then
-		m = "normal"
+-- 지금 보일 수 있는 모드(가졌거나 제한이면 "pass"는 "normal"로 — 창이 그릴 때 맞춘다)
+function AuraWindowLogic.validOddsMode(mode: string?, shop: any?): string
+	if isRestricted(shop) or (mode ~= "pass" and mode ~= "lucky" and mode ~= "super") then
+		return "normal"
 	end
-	return Locale.t("aura.odds." .. m, { luck = string.format("%.2f", AuraWindowLogic.modeLuck(levels, shop, m)) })
+	if mode == "pass" and not OddsPreviewLogic.canPreview("aura", shop) then
+		return "normal"
+	end
+	return mode :: string
+end
+
+-- 확률 보기 버튼 글자: "럭키 롤 확률 (행운 ×7.5)" · pass는 세 창 공통 "×10 패스를 더하면 (행운 ×20)"(#28 후속 ②)
+function AuraWindowLogic.oddsModeText(mode: string?, levels: any, shop: any?): string
+	local m = AuraWindowLogic.validOddsMode(mode, shop)
+	local luck = AuraWindowLogic.modeLuck(levels, shop, m)
+	if m == "pass" then
+		return OddsPreviewLogic.toggleText("aura", true, luck)
+	end
+	return Locale.t("aura.odds." .. m, { luck = OddsPreviewLogic.luckNum(luck) })
 end
 
 local function big(v: any): BigNumber

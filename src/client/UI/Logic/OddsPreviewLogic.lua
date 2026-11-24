@@ -1,5 +1,5 @@
 --!strict
--- 확률 보기 — 행운 패스를 더하면(지시서 #28 O1 · docs/POLICY_CHECK.md). 칭호 창 · 펫 창이 같이 쓴다. 순수 모듈.
+-- 확률 보기 — 행운 패스를 더하면(지시서 #28 O1 · docs/POLICY_CHECK.md). 칭호 · 펫 · 아우라 창(#28 후속 ①)이 같이 쓴다. 순수 모듈.
 --
 -- 공식 paid-random-items "확률을 바꾸는 상품은 사기 전에 설명" — 상품 줄의 "배수 + 가장 귀한 것 하나"를 넘어
 -- 결과 전부의 전후 확률을 창 표에서 바꿔 보인다. 판정 로직 · 확률 값은 그대로다(여기는 표시만).
@@ -8,7 +8,7 @@
 --   canPreview(roll, shop)      토글을 보일까: 패스가 있고 · 제한 유저가 아니고(R4) · 아직 안 가졌다(가졌으면 "지금"에 이미 들어 있다)
 --   luck(base, roll, shop, on)  on이고 보일 수 있으면 base × 패스 배수 — 서버 computeLuck의 luckPassMult 자리(패스는 뽑기마다 하나라
 --                               안 가졌을 때 그 자리는 1이다). 그 밖에는 base 그대로
---   toggleText(roll, on, luck)  "확률: 지금 · 행운 ×N" ↔ "확률: ×M 패스 있으면 · 행운 ×N"
+--   toggleText(roll, on, luck)  "지금 확률 (행운 ×N)" ↔ "×M 패스를 더하면 (행운 ×N)" — 세 창 공통 키(#28 후속 ②)
 -- base = 그 창의 luckOf(업그레이드 × 가진 패스 × 켜진 포션 — 이미 가진 것 · 켜진 것은 "지금"에 들어 있다).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -50,10 +50,24 @@ function OddsPreviewLogic.luck(base: number, roll: string, shop: any, on: boolea
 	return base
 end
 
+-- 토글 글자의 행운 배수: 소수 둘째 자리까지, 뒤 0은 지운다(20.00 → 20 · 2.50 → 2.5 · 1.25 그대로 — #28 후속 ②).
+-- Formatter는 건드리지 않는다(다른 화면 숫자 꼴이 바뀐다). 세 창(칭호 · 펫 · 아우라) 토글 글자만 쓴다
+function OddsPreviewLogic.luckNum(luck: number): string
+	local s = string.format("%.2f", luck)
+	s = string.gsub(s, "0+$", "")
+	s = string.gsub(s, "%.$", "")
+	return s
+end
+
+-- 패스 이름 자리("x10 Pass" · "×10 패스")
+function OddsPreviewLogic.passName(roll: string): string
+	return Locale.t("odds.passName", { mult = string.format("%g", OddsPreviewLogic.passMult(roll)) })
+end
+
 function OddsPreviewLogic.toggleText(roll: string, on: boolean?, luck: number): string
-	local l = string.format("%.2f", luck)
+	local l = OddsPreviewLogic.luckNum(luck)
 	if on == true then
-		return Locale.t("odds.preview.pass", { mult = string.format("%g", OddsPreviewLogic.passMult(roll)), luck = l })
+		return Locale.t("odds.preview.pass", { pass = OddsPreviewLogic.passName(roll), luck = l })
 	end
 	return Locale.t("odds.preview.now", { luck = l })
 end
