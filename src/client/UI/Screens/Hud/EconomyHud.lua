@@ -3,8 +3,11 @@
 -- 자리: 좌측 레일 바로 오른쪽 상단 띠(Layout.RAIL_WIDTH ~ ChallengeInfo 왼쪽 끝 0.35 사이) — 상단 띠는 중앙 금지 구역이 아니다.
 -- 기존 컴포넌트(ValuePanel — Formatter · UiTheme.FONT · 외곽선)를 쓴다. 문장은 Strings 키(econ.*) · Locale.t · AutoLocalize = false.
 -- 아이콘 자리: EconomyV2Config.COIN_VISUAL.iconId — nil이면 임시 도형(코인 색 정사각형).
+-- #33: 셋째 줄 = 대장간 버튼(대장간이 열렸을 때만 보인다 — 어디서든 연다) + 자동 제작 상태(진행 중 · 횟수).
+-- 자리 맞춤: 기본 UI 인셋이 바뀌면(GuiService.TopbarInset 변경 신호 — 공식 문서 GuiService) 다시 맞춘다. #32의 "처음 5초 다시 맞춤"을 대신한다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GuiService = game:GetService("GuiService")
 
 local Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
@@ -12,6 +15,8 @@ local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local ValuePanel = require(script.Parent.Parent.Parent.Components.ValuePanel)
+local Button = require(script.Parent.Parent.Parent.Components.Button)
+local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 
 local EconomyHud = {}
 
@@ -25,6 +30,9 @@ export type Handle = {
 	coinValue: TextLabel,
 	bagName: TextLabel,
 	bagValue: TextLabel,
+	forgeRow: Frame,
+	forgeHit: TextButton,
+	autoStatus: TextLabel,
 	coinTarget: () -> Vector2, -- 코인 이펙트가 날아갈 화면 픽셀 위치(아이콘 가운데)
 	refreshInset: () -> (), -- 기본 UI 인셋을 다시 읽어 자리를 맞춘다(접속 직후에는 0으로 읽힐 수 있다 — Play 실측 #32)
 	set: (values: any) -> (),
@@ -34,7 +42,7 @@ local function row(name: string, order: number, parent: Instance): Frame
 	local f = Instance.new("Frame")
 	f.Name = name
 	f.BackgroundTransparency = 1
-	f.Size = UDim2.fromScale(1, 0.5)
+	f.Size = UDim2.fromScale(1, 1 / 3)
 	f.LayoutOrder = order
 	local list = Instance.new("UIListLayout")
 	list.FillDirection = Enum.FillDirection.Horizontal
@@ -69,7 +77,7 @@ local function textLabel(name: string, text: string, order: number, parent: Inst
 end
 
 function EconomyHud.create(parent: Instance?): Handle
-	local height = TextScale.Levels[LEVEL].heightFraction * 2.4
+	local height = TextScale.Levels[LEVEL].heightFraction * 3.6 -- 세 줄(코인 · 가방 · 대장간)
 	local root = Instance.new("Frame")
 	root.Name = "EconomyHud"
 	root.BackgroundTransparency = 1
@@ -105,6 +113,17 @@ function EconomyHud.create(parent: Instance?): Handle
 	local bagName = textLabel("Name", Locale.t("econ.bag.label"), 1, bagRow)
 	local bagValue = textLabel("Value", Locale.t("econ.bag.value", { used = "0", cap = "0" }), 2, bagRow)
 
+	local forgeRow = row("Forge", 3, root)
+	forgeRow.Visible = false
+	local forgeButton = Button.create({ size = "Small", color = "gray", widthScale = 0.45, heightScale = 0.8 })
+	forgeButton.root.Name = "ForgeButton"
+	forgeButton.root.LayoutOrder = 1
+	forgeButton.root.Parent = forgeRow
+	local forgeLabel, forgeHit = WindowParts.decorateButton(forgeButton, Locale.t("forge.title"))
+	forgeLabel.AutoLocalize = false
+	local autoStatus = textLabel("AutoStatus", "", 2, forgeRow)
+	autoStatus.Size = UDim2.fromScale(0.5, 1)
+
 	root.Parent = parent
 
 	local self = {} :: Handle
@@ -113,6 +132,9 @@ function EconomyHud.create(parent: Instance?): Handle
 	self.coinValue = coinPanel.label
 	self.bagName = bagName
 	self.bagValue = bagValue
+	self.forgeRow = forgeRow
+	self.forgeHit = forgeHit
+	self.autoStatus = autoStatus
 
 	function self.coinTarget(): Vector2
 		return icon.AbsolutePosition + icon.AbsoluteSize / 2
@@ -121,6 +143,13 @@ function EconomyHud.create(parent: Instance?): Handle
 	function self.refreshInset()
 		root.Position = UDim2.new(EconomyHud.X0, 0, 0, Layout.getTopInset())
 	end
+	-- 인셋 변경 신호(공식 문서 GuiService.TopbarInset · GetPropertyChangedSignal). 읽기는 다음 프레임에(같은 프레임에 아직 안 바뀌었을 수 있다)
+	local insetConn = GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(function()
+		task.defer(self.refreshInset)
+	end)
+	root.Destroying:Connect(function()
+		insetConn:Disconnect()
+	end)
 
 	function self.set(values: any)
 		self.refreshInset()
@@ -128,6 +157,9 @@ function EconomyHud.create(parent: Instance?): Handle
 		bagValue.Text = Locale.t("econ.bag.value", { used = tostring(values.bagUsed), cap = tostring(values.bagCap) })
 		-- 가득 차면 숫자를 경고색으로(색 역할: 위험 = danger)
 		bagValue.TextColor3 = if values.bagCap > 0 and values.bagUsed >= values.bagCap then UiTheme.Colors.danger.light else Color3.new(1, 1, 1)
+		-- 대장간: 열렸을 때만 버튼 · 자동 제작 중이면 횟수
+		forgeRow.Visible = values.forgeOpen == true
+		autoStatus.Text = if values.autoOn == true then Locale.t("forge.auto.status", { count = tostring(values.autoCount or 0) }) else ""
 	end
 
 	return self

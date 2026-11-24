@@ -5,8 +5,9 @@
 --    false면 게임은 지금과 똑같이 돈다 — 이 파일의 숫자를 읽는 게임 경로는 전부 이 플래그 뒤에 있다.
 --    Play 확인은 로컬에서만 잠깐 true로 바꾸고 되돌린다.
 --
--- ⚠️ 숫자는 전부 TEMP다(최종 결정은 사람 — D2). 지금 값 = 지시서 #32 결정(R1 — 대장간 8층 · 곡괭이 1.214 · 상위 드롭 0.109,
---    docs/TUNING.md 8절). #32 4차 측정이 끝나면 그 추천 1순위로 다시 채운다(환생 1000 · ×4 · 1.25^n · 연출 + 5초 스킵은 그대로).
+-- ⚠️ 숫자는 전부 TEMP다(최종 결정은 사람 — D2). 지금 값 = 지시서 #33 결정(광석 점수 표 · 모든 광석 드롭 0.5 이상 · 등급별 강화 비용) +
+--    시작값(광석별 드롭 · 등급별 강화 비용 — Claude가 고른 값). 5차 측정(docs/TUNING.md 10절)이 끝나면 추천 1순위로 다시 채운다.
+--    환생 1000 · ×4 · 1.25^n · 연출 + 5초 스킵 · 대장간 8층은 그대로.
 --    결정 문장 그대로인 값(층 구간 · 토큰 규칙 · 교환 비용 · 별 소모 · 강화 +10 · 곡괭이 15종 등급 수)은 사람 결정이다 — 측정 손잡이가 아니다.
 -- 식은 Shared/EconomyV2Logic이 한 곳에서 계산한다(게임 · 시뮬레이터가 같은 함수를 부른다). 여기는 값만 둔다.
 -- 이름은 Strings 키만 둔다(ORE_NAME_KEYS · PICKAXES.nameKey — 지시서 #31). ⚠️ 지금 이름은 전부 임시 이름이다 — 확정은 사람(docs/PENDING.md N1).
@@ -36,7 +37,9 @@ EconomyV2Config.ORE_BANDS = {
 	{ from = 23, to = 24 },
 	{ from = 25, to = 25 },
 } :: { { from: number, to: number } }
--- 게이지: 광석 k의 점수 = k(정수 — 0.1 × k칸을 10배로 저장). 칸 = 점수 합 ÷ GAUGE_UNIT 내림(실수로 더하지 않는다).
+-- 광석 점수 표(#33 결정 — TEMP · 정수). 게이지 칸 = 점수 합 ÷ GAUGE_UNIT 내림(실수로 더하지 않는다) · 강화 비용도 이 점수로 낸다.
+-- 규칙(validate): 정수 ≥ 1 · 광석 번호가 오를수록 줄지 않는다 · 마지막 광석 CRAFT_INPUT개만 꽉 찬 칸(25층 광석 5개로만 5칸 — 희준 결정)
+EconomyV2Config.ORE_POINTS = { 1, 1, 2, 2, 3, 4, 5, 6, 8, 10 } :: { number }
 EconomyV2Config.GAUGE_UNIT = 10
 EconomyV2Config.CRAFT_INPUT = 5 -- 제작 1회에 넣는 광석 수(= 게이지 칸 수 상한)
 -- 블록 하나가 부서질 때 떨어지는 광석 수(TEMP — 하위 광석 기본값)
@@ -45,8 +48,10 @@ EconomyV2Config.ORE_PER_BLOCK = 1
 -- 소수면 블록마다 확률로 하나 더(EconomyV2Logic.rollDrops — 기대값이 같다). 하위 광석은 ORE_PER_BLOCK 그대로(넉넉하게).
 EconomyV2Config.UPPER_ORE_FROM = 8
 EconomyV2Config.UPPER_ORE_DROP_MULT = 0.109
--- 광석 k별 블록당 드롭 기대값(#32 4차 측정 손잡이 — nil이면 위 ORE_PER_BLOCK · UPPER_ORE_DROP_MULT 규칙). 하위 광석(1 ~ 5)은 1 이상을 지킨다
-EconomyV2Config.ORE_DROP_BY_ORE = nil :: { [number]: number }?
+-- 광석 k별 블록당 드롭 기대값(#33 — TEMP · 5차 측정 손잡이. nil이면 위 ORE_PER_BLOCK · UPPER_ORE_DROP_MULT 규칙).
+-- #33 결정 N13: 모든 광석을 넉넉하게 — 광석 1 ~ 10 모두 ORE_DROP_MIN 이상(validate). 시간 조절은 점수 표 · 가방 · 확률표 · 강화가 맡는다
+EconomyV2Config.ORE_DROP_MIN = 0.5
+EconomyV2Config.ORE_DROP_BY_ORE = { 1, 1, 1, 1, 1, 0.8, 0.8, 0.6, 0.6, 0.5 } :: { [number]: number }?
 -- 자동으로 줍는 반경(스터드 — 사람 결정 "약 12" · TEMP)
 EconomyV2Config.PICKUP_RADIUS = 12
 -- 줍기 판정 주기(초 — 서버 단일 폴링 루프 · OreDropService). 시각 튜닝값
@@ -134,6 +139,12 @@ EconomyV2Config.ENHANCE_MAX = 10 -- 사람 결정(+10 · 100% 성공)
 EconomyV2Config.ENHANCE_STEP = 0.06
 EconomyV2Config.ENHANCE_COST_BASE = 10
 EconomyV2Config.ENHANCE_COST_GROWTH = 1.35
+-- #33 결정 N14: 강화 비용은 장착 곡괭이의 등급과 단계(지금 강화 수준)에 따라 커진다 — 곡괭이마다 강화가 따로 · 새 곡괭이는 +0부터.
+-- 비용(광석 점수) = ceil(ENHANCE_COST_BASE × ENHANCE_COST_BY_RARITY[등급] × ENHANCE_COST_GROWTH^수준) (TEMP — 5차 측정 손잡이)
+-- 효과(등급별 — nil이면 ENHANCE_STEP) = 1 + ENHANCE_STEP_BY_RARITY[등급] × 수준
+-- 목표(측정 기준): 새 곡괭이 +0 ≥ 이전 곡괭이 +10(바꾸는 것이 손해가 아니다) · 그 곡괭이 강화가 다음 곡괭이까지 공백을 채운다
+EconomyV2Config.ENHANCE_COST_BY_RARITY = { common = 1, rare = 3, epic = 9, mythic = 27, legendary = 81 } :: { [string]: number }
+EconomyV2Config.ENHANCE_STEP_BY_RARITY = nil :: { [string]: number }?
 -- 강화 블럭스 비용(PENDING N5 — 사람 결정 전이라 nil = 블럭스 안 씀). 측정 변형만 넣어 본다(지시서 #31): 비용 = BASE × GROWTH^(지금 수준)
 EconomyV2Config.ENHANCE_BLOX_COST_BASE = nil :: BigNumber?
 EconomyV2Config.ENHANCE_BLOX_COST_GROWTH = 10
@@ -190,6 +201,26 @@ EconomyV2Config.TRIPLE_CRAFT_COUNT = 3 -- 트리플 제작(사람 결정 "한 �
 -- 이유: 첫 환생(약 4분)과 대장간을 다른 시점에 보여 준다 · 처음부터 열면 1 ~ 7층이 20 ~ 31% 빠르다(#31 3차 측정).
 EconomyV2Config.FORGE_UNLOCK_REBIRTHS = nil :: number?
 EconomyV2Config.FORGE_UNLOCK_STAGE = 8 :: number?
+-- 대장간 화면 · 서버(#33). 결과 연출 길이(TEMP) — 스킵 버튼은 CRAFT_SKIP_SEC에 나타난다(무료 제작 간격과 같다)
+EconomyV2Config.CRAFT_ANIM_SEC = 6
+-- 로벅스 상품 자리(#35에서 잇는다 — ID가 nil이면 보유 없음 = 무료와 같다)
+EconomyV2Config.CRAFT_SKIP_PASS_ID = nil :: number?
+EconomyV2Config.TRIPLE_CRAFT_PASS_ID = nil :: number?
+-- 자동 제작 서버 루프 주기(초 — 제작 간격 판정은 CRAFT_SKIP_SEC · CRAFT_MIN_INTERVAL_SEC가 한다)
+EconomyV2Config.AUTO_CRAFT_POLL_SEC = 0.25
+-- 자동 제작 결과 목록에 남기는 줄 수(클라 표시)
+EconomyV2Config.AUTO_CRAFT_LOG_MAX = 5
+-- 이 등급 이상이면 자동 제작 중에도 크게 알린다(토스트)
+EconomyV2Config.CRAFT_BIG_NOTICE_RARITY = "mythic"
+-- 로비 임시 대장간(#33 — 에셋 자리). modelId가 nil이면 임시 도형(블록 + 지붕). 위치 = 스폰 바닥 빈 자리(바닥 위 Y 0)
+EconomyV2Config.FORGE_SITE = {
+	position = Vector3.new(-235, 0, -60),
+	size = Vector3.new(10, 7, 8),
+	color = Color3.fromRGB(110, 80, 60),
+	modelId = nil :: number?,
+	iconId = nil :: number?,
+	effectId = nil :: number?,
+}
 EconomyV2Config.HATCH_SKIP_SEC = 5
 EconomyV2Config.HATCH_MIN_INTERVAL_SEC = 1
 EconomyV2Config.TRIPLE_HATCH_COUNT = 3
@@ -270,10 +301,26 @@ function EconomyV2Config.validate(): boolean
 	if EconomyV2Config.ORE_DROP_BY_ORE ~= nil then
 		for k = 1, EconomyV2Config.ORE_COUNT do
 			local d = (EconomyV2Config.ORE_DROP_BY_ORE :: any)[k]
-			assert(type(d) == "number" and d > 0, string.format("EconomyV2Config: ORE_DROP_BY_ORE[%d] > 0", k))
-			assert(k > 5 or d >= 1, string.format("EconomyV2Config: 하위 광석 %d는 블록당 1 이상", k))
+			assert(type(d) == "number" and d >= EconomyV2Config.ORE_DROP_MIN, string.format("EconomyV2Config: ORE_DROP_BY_ORE[%d] ≥ ORE_DROP_MIN", k))
 		end
 	end
+	-- 점수 표: 정수 ≥ 1 · 줄지 않음 · 마지막 광석 CRAFT_INPUT개만 꽉 찬 칸
+	assert(#EconomyV2Config.ORE_POINTS == EconomyV2Config.ORE_COUNT, "EconomyV2Config: ORE_POINTS 수 ≠ ORE_COUNT")
+	local prevPt = 1
+	for k, pt in ipairs(EconomyV2Config.ORE_POINTS) do
+		assert(pt % 1 == 0 and pt >= prevPt, string.format("EconomyV2Config: ORE_POINTS[%d] 정수 · 줄지 않음", k))
+		prevPt = pt
+	end
+	local top = EconomyV2Config.ORE_POINTS[EconomyV2Config.ORE_COUNT]
+	local second = EconomyV2Config.ORE_POINTS[EconomyV2Config.ORE_COUNT - 1]
+	assert(top * EconomyV2Config.CRAFT_INPUT >= EconomyV2Config.GAUGE_UNIT * EconomyV2Config.CRAFT_INPUT
+		and top * (EconomyV2Config.CRAFT_INPUT - 1) + second < EconomyV2Config.GAUGE_UNIT * EconomyV2Config.CRAFT_INPUT,
+		"EconomyV2Config: 마지막 광석 CRAFT_INPUT개만 꽉 찬 칸")
+	for _, r in ipairs(EconomyV2Config.RARITIES) do
+		local c = EconomyV2Config.ENHANCE_COST_BY_RARITY[r]
+		assert(type(c) == "number" and c > 0, "EconomyV2Config: ENHANCE_COST_BY_RARITY." .. r .. " > 0")
+	end
+	assert(EconomyV2Config.CRAFT_ANIM_SEC >= EconomyV2Config.CRAFT_SKIP_SEC, "EconomyV2Config: 연출 길이 ≥ 스킵 시점")
 	for k, key in ipairs(EconomyV2Config.ORE_NAME_KEYS) do
 		assert(key == "ore.name." .. k, "EconomyV2Config: ORE_NAME_KEYS 꼴")
 	end

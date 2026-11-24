@@ -84,7 +84,7 @@ do
 		for i = 1, N do
 			same[i] = k
 		end
-		okInt = okInt and L.slotsOf(same) == math.min((k * N) // UNIT, N)
+		okInt = okInt and L.slotsOf(same) == math.min((L.gaugePoints(k) * N) // UNIT, N) -- #33 N12: 점수 = 점수 표
 	end
 	check("게이지: 같은 광석 5개 = (k × 5) ÷ 10 내림(모든 k)", okInt)
 	check("게이지: 점수는 정수(광석 k = k)", L.gaugePoints(1) == 1 and L.gaugePoints(Config.ORE_COUNT) == Config.ORE_COUNT)
@@ -140,16 +140,16 @@ do
 	inv[1], inv[Config.ORE_COUNT] = 3, 1
 	check("조합: 광석 5개 미만이면 nil", L.bestCombo(inv) == nil)
 	inv = L.newInv()
-	inv[2], inv[8], inv[Config.ORE_COUNT] = 10, 5, 4
+	inv[2], inv[9], inv[Config.ORE_COUNT] = 10, 5, 4 -- #33 N12: 점수 표(광석 9 = 8점 · 10 = 10점)
 	local combo, slots = L.bestCombo(inv)
-	local top = { Config.ORE_COUNT, Config.ORE_COUNT, Config.ORE_COUNT, Config.ORE_COUNT, 8 }
+	local top = { Config.ORE_COUNT, Config.ORE_COUNT, Config.ORE_COUNT, Config.ORE_COUNT, 9 }
 	check("조합: 칸은 가장 높은 5개와 같다", combo ~= nil and slots == L.slotsOf(top) and L.slotsOf(combo :: { number }) == slots)
 	local sum = 0
 	for _, k in ipairs(combo or {}) do
-		sum += k
+		sum += L.gaugePoints(k)
 	end
-	check("조합: 같은 칸이면 점수 합이 가장 작다(높은 광석을 아낀다 — 여기서는 광석 8 × 5 = 칸 × 10 딱)", sum == slots * UNIT
-		and combo ~= nil and (combo :: { number })[1] == 8 and (combo :: { number })[N] == 8, table.concat(combo or {}, ","))
+	check("조합: 같은 칸이면 점수 합이 가장 작다(높은 광석을 아낀다 — 여기서는 광석 9 × 5 = 칸 × 10 딱)", sum == slots * UNIT
+		and combo ~= nil and (combo :: { number })[1] == 9 and (combo :: { number })[N] == 9, table.concat(combo or {}, ","))
 	local picks = L.newPicks()
 	local before = table.clone(inv)
 	local res = L.craft(picks, inv, combo :: { number }, seq({ 0 }))

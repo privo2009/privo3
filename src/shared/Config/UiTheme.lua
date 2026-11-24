@@ -80,6 +80,22 @@ UiTheme.Rarity = {
 	tier6 = Color3.fromHex("FF1470"),
 } :: { [RarityTier]: Color3 }
 
+-- ===== 장비 등급 색 — 색 역할 규칙의 예외 (2026-11-24 지시서 #33 — PENDING C1 · docs/UI.md "3. 색 > 장비 등급 색") =====
+-- 새 경제 장비(곡괭이 · 칼) 등급: 일반 회색 · 희귀 파랑 · 에픽 보라 · 신화 빨강 · 전설 금색(게임 관례). next = ???(다음 등급 — 잠긴 칸).
+-- ⚠️ 아이템 테두리와 이름 글자에만 쓴다(버튼 바탕 · HUD · 3D 역할 파트 금지). 위 희귀도 색(Rarity — 칭호 · 아우라 · 펫)과 따로 둔다. hex는 Claude가 골랐다
+UiTheme.EquipGrade = {
+	common = Color3.fromHex("A8A8A8"),
+	rare = Color3.fromHex("4A90FF"),
+	epic = Color3.fromHex("B05CFF"),
+	mythic = Color3.fromHex("FF4040"),
+	legendary = Color3.fromHex("FFC83A"),
+	next = Color3.fromHex("FFFFFF"),
+} :: { [string]: Color3 }
+
+function UiTheme.equipGradeColor(rarity: string): Color3
+	return UiTheme.EquipGrade[rarity] or UiTheme.EquipGrade.common
+end
+
 -- 화면 글꼴 하나(지시서 #17 F1 · 2026-10-30 사람 결정 — #L2 후보 비교: 폭이 지금과 거의 같고 한글 대체 글꼴과 굵기 차이가 작다).
 -- 코드에서 Enum.Font를 직접 쓰지 않는다 — 글꼴을 바꾸면 여기 한 줄만 바꾼다(tools/check_fonts.py · LocaleClientTests가 잰다).
 UiTheme.FONT = Enum.Font.BuilderSansBold

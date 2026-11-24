@@ -11,7 +11,19 @@ type BigNumber = BigNum.BigNumber
 
 local EconomyV2State = {}
 
-export type Values = { coins: BigNumber, bagUsed: number, bagCap: number, bag: { number }, ores: { number }, forgeOpen: boolean }
+export type Values = {
+	coins: BigNumber,
+	bagUsed: number,
+	bagCap: number,
+	bag: { number },
+	ores: { number },
+	forgeOpen: boolean,
+	-- 대장간(#33 — ForgeService 신호)
+	tokens: { [string]: number },
+	owned: { [string]: number },
+	autoOn: boolean,
+	autoCount: number,
+}
 export type State = {
 	get: () -> Values,
 	apply: (payload: any) -> boolean, -- 값이 바뀌었으면 true
@@ -23,6 +35,19 @@ local function bigOf(v: any): BigNumber?
 		return BigNum.new(v.m, v.e)
 	end
 	return nil
+end
+
+local function countsOf(v: any): { [string]: number }?
+	if type(v) ~= "table" then
+		return nil
+	end
+	local out: { [string]: number } = {}
+	for key, n in pairs(v) do
+		if type(key) == "string" and type(n) == "number" then
+			out[key] = n
+		end
+	end
+	return out
 end
 
 local function intsOf(v: any): { number }?
@@ -45,6 +70,10 @@ function EconomyV2State.new(): State
 		bag = EconomyV2Logic.newInv(),
 		ores = EconomyV2Logic.newInv(),
 		forgeOpen = false,
+		tokens = {},
+		owned = {},
+		autoOn = false,
+		autoCount = 0,
 	}
 	local listeners: { (Values) -> () } = {}
 	local self = {} :: State
@@ -75,6 +104,27 @@ function EconomyV2State.new(): State
 		end
 		if payload.kind == "forge_open" or (payload.kind == "snapshot" and payload.forgeOpen == true) then
 			values.forgeOpen = true
+			changed = true
+		end
+		-- 대장간(#33): 토큰 · 보유 · 자동 제작
+		local tokens = countsOf(if payload.kind == "forge_state" then payload.tokens else payload.tokensTotal)
+		if tokens ~= nil then
+			values.tokens = tokens
+			changed = true
+		end
+		local owned = countsOf(payload.owned)
+		if owned ~= nil then
+			values.owned = owned
+			changed = true
+		end
+		if payload.kind == "forge_state" and type(payload.auto) == "table" then
+			values.autoOn, values.autoCount = payload.auto.on == true, tonumber(payload.auto.count) or 0
+			changed = true
+		elseif payload.kind == "auto_state" then
+			values.autoOn, values.autoCount = payload.on == true, tonumber(payload.count) or 0
+			changed = true
+		elseif payload.kind == "craft_result" and payload.ok == true and payload.auto == true then
+			values.autoCount = tonumber(payload.autoCount) or values.autoCount
 			changed = true
 		end
 		if changed then

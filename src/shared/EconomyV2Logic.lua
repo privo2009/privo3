@@ -95,14 +95,62 @@ function EconomyV2Logic.rollDrops(stage: number, blocks: number, rand: (() -> nu
 	return n
 end
 
--- 광석 k의 게이지 점수(정수). 0.1 × k칸을 10배로 둔 값이다.
+-- 광석 k의 점수(정수 — #33 점수 표 Config.ORE_POINTS). 게이지 칸 · 강화 비용이 같은 점수를 쓴다.
 function EconomyV2Logic.gaugePoints(k: number): number
 	assert(k % 1 == 0 and k >= 1 and k <= Config.ORE_COUNT, "EconomyV2Logic.gaugePoints: 광석 번호는 1 ~ ORE_COUNT 정수")
-	return k
+	return Config.ORE_POINTS[k]
+end
+
+-- 제작 조합 모양 검사(서버가 클라 요청을 받을 때 — #33): 광석 번호 정수 1 ~ ORE_COUNT가 정확히 CRAFT_INPUT개
+function EconomyV2Logic.isCombo(combo: any): boolean
+	if type(combo) ~= "table" or #combo ~= Config.CRAFT_INPUT then
+		return false
+	end
+	local n = 0
+	for _ in pairs(combo) do
+		n += 1
+	end
+	if n ~= Config.CRAFT_INPUT then
+		return false
+	end
+	for _, k in ipairs(combo) do
+		if type(k) ~= "number" or k ~= k or k % 1 ~= 0 or k < 1 or k > Config.ORE_COUNT then
+			return false
+		end
+	end
+	return true
+end
+
+-- 조합 → {광석 번호 = 개수} × times (InventoryService.takeOres 꼴)
+function EconomyV2Logic.comboCounts(combo: { number }, times: number?): { [number]: number }
+	local counts: { [number]: number } = {}
+	for _, k in ipairs(combo) do
+		counts[k] = (counts[k] or 0) + (times or 1)
+	end
+	return counts
+end
+
+-- 확률(%) 표시 글자(#33 — 확률 공개): 0이 아닌 확률은 0%로 보이지 않는다(유효 숫자 2개까지 소수 자리를 늘린다).
+-- 1% 이상은 소수 첫째 자리까지(끝 .0은 뗀다) · 0은 "0%"
+function EconomyV2Logic.formatPct(pct: number): string
+	if pct <= 0 then
+		return "0%"
+	end
+	local digits = 1
+	if pct < 1 then
+		digits = math.max(1, -math.floor(math.log10(pct)) + 1)
+	end
+	local s = string.format("%." .. tostring(digits) .. "f", pct)
+	if string.find(s, "%.") then
+		s = string.gsub(s, "0+$", "")
+		s = string.gsub(s, "%.$", "")
+	end
+	return s .. "%"
 end
 
 -- 광석 목록 → 칸 수. 정수 점수 합 ÷ GAUGE_UNIT 내림(실수로 더하지 않는다 — 3.9999 오차로 칸이 줄지 않게).
 function EconomyV2Logic.slotsOf(ores: { number }): number
+	-- (점수 = Config.ORE_POINTS — #33)
 	local sum = 0
 	for _, k in ipairs(ores) do
 		sum += EconomyV2Logic.gaugePoints(k)
@@ -135,6 +183,7 @@ function EconomyV2Logic.bestCombo(inv: { number }): ({ number }?, number)
 	end
 	local maxSlots = EconomyV2Logic.slotsOf(top)
 	local need = maxSlots * Config.GAUGE_UNIT
+	local maxPoint = Config.ORE_POINTS[Config.ORE_COUNT]
 	local best: { number }? = nil
 	local bestSum = math.huge
 	local pick = {}
@@ -160,14 +209,14 @@ function EconomyV2Logic.bestCombo(inv: { number }): ({ number }?, number)
 			return
 		end
 		-- 남은 칸을 전부 최고 광석으로 채워도 need에 못 닿으면 자른다
-		if sum + (n - #pick) * Config.ORE_COUNT < need then
+		if sum + (n - #pick) * maxPoint < need then
 			return
 		end
 		for k = from, Config.ORE_COUNT do
 			if (used[k] or 0) < (inv[k] or 0) then
 				used[k] = (used[k] or 0) + 1
 				table.insert(pick, k)
-				walk(k, sum + k)
+				walk(k, sum + Config.ORE_POINTS[k])
 				table.remove(pick)
 				used[k] -= 1
 			end
@@ -366,12 +415,21 @@ function EconomyV2Logic.starUp(picks: Picks, id: string): (boolean, string?)
 	return true, nil
 end
 
+-- 곡괭이 id의 등급(nil이면 시작 곡괭이)
+local function rarityOf(id: string?): string
+	local def = byId[id or Config.START_PICKAXE]
+	assert(def ~= nil, "EconomyV2Logic: 모르는 곡괭이 " .. tostring(id))
+	return def.rarity
+end
+
 -- 지금 강화 수준에서 +1 하는 데 드는 광석 점수(정수). +10이면 nil.
-function EconomyV2Logic.enhanceCost(level: number): number?
+-- #33: 등급과 단계에 따라 커진다 = ceil(BASE × BY_RARITY[등급] × GROWTH^수준). id가 nil이면 시작 곡괭이(일반)
+function EconomyV2Logic.enhanceCost(level: number, id: string?): number?
 	if level >= Config.ENHANCE_MAX then
 		return nil
 	end
-	return math.ceil(Config.ENHANCE_COST_BASE * Config.ENHANCE_COST_GROWTH ^ level)
+	local r = Config.ENHANCE_COST_BY_RARITY[rarityOf(id)] or 1
+	return math.ceil(Config.ENHANCE_COST_BASE * r * Config.ENHANCE_COST_GROWTH ^ level - 1e-9)
 end
 
 -- 강화 블럭스 비용(PENDING N5 — ENHANCE_BLOX_COST_BASE가 nil이면 nil = 블럭스 안 씀). 측정 변형용.
@@ -389,7 +447,7 @@ function EconomyV2Logic.payOrePoints(inv: { number }, points: number, maxOre: nu
 	local top = maxOre or Config.ORE_COUNT
 	local have = 0
 	for k = 1, top do
-		have += (inv[k] or 0) * k
+		have += (inv[k] or 0) * Config.ORE_POINTS[k]
 	end
 	if have < points then
 		return false
@@ -398,7 +456,7 @@ function EconomyV2Logic.payOrePoints(inv: { number }, points: number, maxOre: nu
 	for k = 1, top do
 		while left > 0 and (inv[k] or 0) > 0 do
 			inv[k] -= 1
-			left -= k
+			left -= Config.ORE_POINTS[k]
 		end
 		if left <= 0 then
 			break
@@ -413,7 +471,7 @@ function EconomyV2Logic.enhance(picks: Picks, id: string, inv: { number }, maxOr
 	if o == nil then
 		return false, "not_owned"
 	end
-	local cost = EconomyV2Logic.enhanceCost(o.enh)
+	local cost = EconomyV2Logic.enhanceCost(o.enh, id)
 	if cost == nil then
 		return false, "max"
 	end
@@ -433,8 +491,23 @@ function EconomyV2Logic.baseMult(id: string): number
 	return Config.PICK_RATIO ^ (def.rank - 1)
 end
 
-function EconomyV2Logic.enhanceMult(level: number): number
-	return 1 + Config.ENHANCE_STEP * level
+-- 강화 효과(#33 — 등급별 단계 효과가 있으면 그 값, 없으면 ENHANCE_STEP). id가 nil이면 시작 곡괭이
+function EconomyV2Logic.enhanceMult(level: number, id: string?): number
+	local byRarity = Config.ENHANCE_STEP_BY_RARITY
+	local step = if byRarity ~= nil then (byRarity[rarityOf(id)] or Config.ENHANCE_STEP) else Config.ENHANCE_STEP
+	return 1 + step * level
+end
+
+-- 바꾸는 것이 손해가 아닌가(#33 목표): 새 곡괭이 +0이 이전 곡괭이 +ENHANCE_MAX 이상인 가장 작은 강화 수준(따라잡는 강) — 0이면 바로 이득.
+-- 별은 보지 않는다(같은 별끼리). +ENHANCE_MAX까지 못 따라잡으면 nil
+function EconomyV2Logic.catchUpLevel(prevId: string, newId: string): number?
+	local target = EconomyV2Logic.baseMult(prevId) * EconomyV2Logic.enhanceMult(Config.ENHANCE_MAX, prevId)
+	for lv = 0, Config.ENHANCE_MAX do
+		if EconomyV2Logic.baseMult(newId) * EconomyV2Logic.enhanceMult(lv, newId) >= target - 1e-9 then
+			return lv
+		end
+	end
+	return nil
 end
 
 function EconomyV2Logic.starMult(stars: number): number
@@ -444,7 +517,7 @@ end
 -- 최종 채굴 데미지 배수 = 곡괭이 × 강화 × 별(출처끼리 곱한다 — DESIGN 3장 S3 · S5와 같은 꼴).
 -- AttackService.combineDamageMultiplier의 펀치 데미지 항 자리에 한 번만 들어간다.
 function EconomyV2Logic.pickaxeMult(id: string, enh: number, stars: number): number
-	return EconomyV2Logic.baseMult(id) * EconomyV2Logic.enhanceMult(enh) * EconomyV2Logic.starMult(stars)
+	return EconomyV2Logic.baseMult(id) * EconomyV2Logic.enhanceMult(enh, id) * EconomyV2Logic.starMult(stars)
 end
 
 function EconomyV2Logic.ownedMult(picks: Picks, id: string): number

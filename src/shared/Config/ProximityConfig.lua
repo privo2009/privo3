@@ -21,6 +21,9 @@ local ProximityConfig = {}
 ProximityConfig.REACH_STUDS = 6
 ProximityConfig.LAG_SEC = 0.25
 
+-- 로비 대장간 근접 프롬프트 거리(지시서 #33 — 스터드 · TEMP). 프롬프트는 창을 여는 신호일 뿐이다(제작 판정은 서버 ForgeService)
+ProximityConfig.FORGE_PROMPT_DISTANCE = 12
+
 -- 유도값. 테스트가 이 식을 다시 계산해 대조한다
 ProximityConfig.PROXIMITY_MARGIN = ProximityConfig.REACH_STUDS + LevelConfig.getMaxWalkSpeed() * ProximityConfig.LAG_SEC
 
@@ -28,6 +31,7 @@ function ProximityConfig.validate(): boolean
 	assert(ProximityConfig.REACH_STUDS > 0 and ProximityConfig.LAG_SEC > 0, "ProximityConfig: 여유 재료는 0 초과")
 	local m = ProximityConfig.PROXIMITY_MARGIN
 	assert(m == m and m > 0 and m < math.huge, "ProximityConfig: 여유는 유한한 양수")
+	assert(ProximityConfig.FORGE_PROMPT_DISTANCE > 0, "ProximityConfig: 대장간 프롬프트 거리 > 0")
 	return true
 end
 

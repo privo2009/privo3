@@ -193,6 +193,36 @@ local function applyOpenForge(data: any): (boolean, string?)
 	return true, nil
 end
 
+-- 제작 지급 한 번에(#33 — 대장간): 광석을 빼고 · 장비를 하나씩 얻고 · 토큰을 더한다. 하나라도 실패하면 전부 안 한다(applyChecked 사본)
+local function applyCraft(data: any, take: Counts, kind: string, ids: { string }, tokens: TokenCounts): (boolean, string?)
+	local ok, info = applyTakeOres(data, take)
+	if not ok then
+		return false, info
+	end
+	for _, id in ipairs(ids) do
+		ok, info = applyGrantEquipment(data, kind, id)
+		if not ok then
+			return false, info
+		end
+	end
+	if next(tokens) ~= nil then
+		ok, info = applyAddTokens(data, tokens)
+		if not ok then
+			return false, info
+		end
+	end
+	return true, nil
+end
+
+-- 교환 한 번에(#33 — 토큰 교환소): 토큰을 빼고 장비를 얻는다
+local function applyExchange(data: any, kind: string, id: string, tokens: TokenCounts): (boolean, string?)
+	local ok, info = applyTakeTokens(data, tokens)
+	if not ok then
+		return false, info
+	end
+	return applyGrantEquipment(data, kind, id)
+end
+
 -- 사본에 적용하고 Schema.validateEconomy로 다시 본 뒤에만 원본에 넣는다(CurrencyService.applyUpdatesWithRollback과 같은 뜻).
 local ECON_FIELDS = { "ores", "equipment", "equipped", "tokens", "forgeOpen" }
 local function applyChecked(data: any, fn: (any) -> (boolean, string?)): (boolean, string?)
@@ -225,6 +255,8 @@ InventoryService._pure = {
 	applyGrantEquipment = applyGrantEquipment,
 	applyEquip = applyEquip,
 	applyOpenForge = applyOpenForge,
+	applyCraft = applyCraft,
+	applyExchange = applyExchange,
 	applyChecked = applyChecked,
 }
 
@@ -302,6 +334,20 @@ function InventoryService.equip(player: Player, kind: string, id: string, reason
 	end)
 end
 
+-- 제작 결과 지급(#33 — ForgeService만 부른다). 광석 take · 장비 ids · 토큰을 한 번에 — 하나라도 안 되면 아무것도 안 바뀐다
+function InventoryService.craft(player: Player, take: Counts, kind: string, ids: { string }, tokens: TokenCounts, reason: string): boolean
+	return run("craft", player, reason, function(d)
+		return applyCraft(d, take, kind, ids, tokens)
+	end)
+end
+
+-- 토큰 교환(#33 — ForgeService만 부른다). 토큰 차감 · 장비 지급을 한 번에
+function InventoryService.exchange(player: Player, kind: string, id: string, tokens: TokenCounts, reason: string): boolean
+	return run("exchange", player, reason, function(d)
+		return applyExchange(d, kind, id, tokens)
+	end)
+end
+
 function InventoryService.openForge(player: Player, reason: string): boolean
 	return run("openForge", player, reason, applyOpenForge)
 end
@@ -325,6 +371,19 @@ function InventoryService.getEquipped(player: Player, kind: string): string?
 	end
 	local id = data.equipped[kind]
 	return if type(id) == "string" then id else nil
+end
+
+-- 종류별 가진 장비 id → 개수(사본 — 교환소 "보유" 표시 · #33)
+function InventoryService.getOwned(player: Player, kind: string): { [string]: number }?
+	local data = InventoryService._deps.getData(player)
+	if data == nil or type(data.equipment) ~= "table" or type(data.equipment[kind]) ~= "table" then
+		return nil
+	end
+	local out: { [string]: number } = {}
+	for id, o in pairs(data.equipment[kind]) do
+		out[id] = if type(o) == "table" and type(o.count) == "number" then o.count else 0
+	end
+	return out
 end
 
 function InventoryService.isForgeOpen(player: Player): boolean

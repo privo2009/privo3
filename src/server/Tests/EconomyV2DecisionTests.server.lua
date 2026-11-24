@@ -72,8 +72,16 @@ end
 do
 	local low = L.dropsPerBlock(Config.UPPER_ORE_FROM - 1)
 	local high = L.dropsPerBlock(Config.UPPER_ORE_FROM)
-	check("드롭: 하위 광석은 ORE_PER_BLOCK · 상위는 × UPPER_ORE_DROP_MULT", low == Config.ORE_PER_BLOCK
-		and math.abs(high - Config.ORE_PER_BLOCK * Config.UPPER_ORE_DROP_MULT) < 1e-12)
+	-- #33 N12: 광석별 드롭 표(ORE_DROP_BY_ORE)가 있으면 그 표 · 모든 광석 ORE_DROP_MIN 이상(N13). 없으면 예전 규칙(하위 ORE_PER_BLOCK · 상위 × MULT)
+	local byOre = Config.ORE_DROP_BY_ORE
+	local tableOk = true
+	if byOre ~= nil then
+		for k = 1, Config.ORE_COUNT do
+			tableOk = tableOk and L.dropsPerBlock(k) == byOre[k] and L.dropsPerBlock(k) >= Config.ORE_DROP_MIN
+		end
+	end
+	check("드롭: 광석별 표가 있으면 그 표(모두 ORE_DROP_MIN 이상) · 없으면 하위 ORE_PER_BLOCK · 상위는 × UPPER_ORE_DROP_MULT", if byOre ~= nil
+		then tableOk else (low == Config.ORE_PER_BLOCK and math.abs(high - Config.ORE_PER_BLOCK * Config.UPPER_ORE_DROP_MULT) < 1e-12))
 	local saved = Config.UPPER_ORE_DROP_MULT
 	Config.UPPER_ORE_DROP_MULT = 1.5
 	local upperStage = Config.ORE_BANDS[Config.UPPER_ORE_FROM].from

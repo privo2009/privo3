@@ -161,6 +161,8 @@ if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() then
 		onBlocksDestroyed = OreDropService.onBlocksDestroyed,
 		onRunEnded = OreDropService.onRunEnded,
 	}
+	-- 대장간(제작 · 자동 제작 · 토큰 교환 — 지시서 #33). 같은 플래그 뒤
+	require(script.Parent.Systems.ForgeService).init()
 end
 
 -- 환생을 연다 (4-2-d).

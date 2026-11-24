@@ -349,6 +349,19 @@ if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() then
 			toastStack.push({ text = Locale.t("econ.forge.open"), tier = 1 })
 		elseif payload.kind == "forge_hint" then
 			toastStack.push({ text = Locale.t("econ.forge.hint", { floor = tostring(payload.stage) }), tier = 1 })
+		elseif payload.kind == "craft_result" and payload.ok == true and payload.auto == true and type(payload.ids) == "table" then
+			-- 자동 제작 중 신화 이상만 크게 알린다(#33). 토스트 색은 희귀도 단계(tier) — 신화 6 · 전설 5(임시)
+			local Logic = require(script.Parent.Logic.ForgeWindowLogic)
+			local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
+			for _, id in ipairs(payload.ids) do
+				local def = EconomyV2Logic.pickaxe(id)
+				if def ~= nil and Logic.isBigNotice(def.rarity) then
+					toastStack.push({ text = Locale.t("forge.big", { name = Locale.t(def.nameKey) }), tier = if def.rarity == "legendary" then 5 else 6 })
+				end
+			end
+		elseif payload.kind == "auto_state" and payload.on ~= true and type(payload.reason) == "string" then
+			local Logic = require(script.Parent.Logic.ForgeWindowLogic)
+			toastStack.push({ text = Locale.t("forge.auto.stopped", { reason = Logic.reasonText(payload.reason) }), tier = 1 })
 		end
 	end)
 end

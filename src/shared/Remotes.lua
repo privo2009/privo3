@@ -42,6 +42,7 @@
 --   OnboardingRequest 클라→서버. 첫 접속 안내 끝(5단계 확인) · 건너뛰기 (지시서 #20 O2 · O3). 단계 판정은 서버 신호로 한다
 --   OnboardingResult  서버→클라. 그 요청의 결과. 지금 단계는 PlayerState가 보낸다
 --   EconomyEvent    서버→클라. 새 경제 신호(지시서 #32 — 플래그 ECONOMY_V2 뒤에서만 발화). kind로 갈린다 — EconomyEventPayload 주석
+--   ForgeRequest    클라→서버. 대장간 요청(지시서 #33 — craft · auto · exchange · sync). 결과는 EconomyEvent(forge_* kind). 플래그 뒤에서만 듣는다
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --
@@ -130,6 +131,7 @@ Remotes.CODE_RESULT = "CodeResult"
 Remotes.ONBOARDING_REQUEST = "OnboardingRequest"
 Remotes.ONBOARDING_RESULT = "OnboardingResult"
 Remotes.ECONOMY_EVENT = "EconomyEvent"
+Remotes.FORGE_REQUEST = "ForgeRequest"
 
 -- 새 경제 신호(서버 → 클라 · OreDropService). kind마다 싣는 것(빠진 필드 없이 — 위 "nil이면 키가 사라진다" 규약):
 --   snapshot    bag · used · cap · coins(BigNum) · ores · forgeOpen · drops   (접속 · 동기화 — HUD 시작값)
@@ -141,7 +143,18 @@ Remotes.ECONOMY_EVENT = "EconomyEvent"
 --   coins       amount · total(BigNum) · positions                            (코인 이펙트 — 블록에서 HUD로)
 --   forge_open  stage                                                         (대장간 열림 알림)
 --   forge_hint  stage                                                         ("그 층에 가면 대장간이 열린다" 안내 — 한 번)
+-- 대장간(ForgeService — #33):
+--   forge_state  tokens · owned{id = 개수} · ores · auto{on, count}           (접속 · 동기화 · 교환 뒤)
+--   craft_result ok · reason? · ids · slots · tokens(이번에 받은) · isNew · auto · ores · tokensTotal · owned · nextIn
+--   exchange_result ok · reason? · id? · tokensTotal · owned
+--   auto_state   on · count · reason?                                          (자동 제작 켜짐 · 꺼짐 · 멈춘 이유)
 export type EconomyEventPayload = any
+-- ForgeRequest(클라 → 서버 · #33). 결과값을 싣지 않는다 — 서버가 열림 · 광석 · 칸 · 간격 · 토큰을 다시 본다:
+--   { action = "craft", combo = {광석 번호 × 5}? , fill = boolean? }   (fill이면 서버가 자동 채우기 조합)
+--   { action = "auto", on = boolean, combo = {…}?, fill = boolean? }
+--   { action = "exchange", id = 곡괭이 id }
+--   { action = "sync" }
+export type ForgeRequestPayload = any
 
 -- ===== payload 타입 ====================================================================
 --
@@ -606,6 +619,7 @@ export type Channels = {
 	onboardingRequest: RemoteEvent,
 	onboardingResult: RemoteEvent,
 	economyEvent: RemoteEvent,
+	forgeRequest: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -692,6 +706,7 @@ function Remotes.getServer(): Channels
 		onboardingRequest = ensureEvent(folder, Remotes.ONBOARDING_REQUEST),
 		onboardingResult = ensureEvent(folder, Remotes.ONBOARDING_RESULT),
 		economyEvent = ensureEvent(folder, Remotes.ECONOMY_EVENT),
+		forgeRequest = ensureEvent(folder, Remotes.FORGE_REQUEST),
 	}
 	cached = channels
 	return channels
@@ -764,6 +779,7 @@ function Remotes.getClient(): Channels
 		onboardingRequest = waitFor(folder, Remotes.ONBOARDING_REQUEST) :: RemoteEvent,
 		onboardingResult = waitFor(folder, Remotes.ONBOARDING_RESULT) :: RemoteEvent,
 		economyEvent = waitFor(folder, Remotes.ECONOMY_EVENT) :: RemoteEvent,
+		forgeRequest = waitFor(folder, Remotes.FORGE_REQUEST) :: RemoteEvent,
 	}
 	cached = channels
 	return channels
