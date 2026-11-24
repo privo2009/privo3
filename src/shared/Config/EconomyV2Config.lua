@@ -5,9 +5,8 @@
 --    false면 게임은 지금과 똑같이 돈다 — 이 파일의 숫자를 읽는 게임 경로는 전부 이 플래그 뒤에 있다.
 --    Play 확인은 로컬에서만 잠깐 true로 바꾸고 되돌린다.
 --
--- ⚠️ 숫자는 전부 TEMP다(최종 결정은 사람 — D2). 지시서 #31 3차 측정(Tools/EconomyV2Report)의 추천 1순위 묶음 R2로 채웠다.
---    (R2 대장간 첫 환생 뒤: 환생 1000 · ×4 · 1.25^n(#30 묶음 C) · PICK_RATIO 1.2 · UPPER_ORE_DROP_MULT 0.1 · FORGE_UNLOCK_REBIRTHS 1 ·
---     제작 · 부화 연출 + 5초 스킵 — docs/TUNING.md 8절. 나머지 TEMP(확률표 · 가방 · 강화 · 별 · 코인 · 알 가격)는 고정한 출발값이다 — 측정 손잡이 아님)
+-- ⚠️ 숫자는 전부 TEMP다(최종 결정은 사람 — D2). 지금 값 = 지시서 #32 결정(R1 — 대장간 8층 · 곡괭이 1.214 · 상위 드롭 0.109,
+--    docs/TUNING.md 8절). #32 4차 측정이 끝나면 그 추천 1순위로 다시 채운다(환생 1000 · ×4 · 1.25^n · 연출 + 5초 스킵은 그대로).
 --    결정 문장 그대로인 값(층 구간 · 토큰 규칙 · 교환 비용 · 별 소모 · 강화 +10 · 곡괭이 15종 등급 수)은 사람 결정이다 — 측정 손잡이가 아니다.
 -- 식은 Shared/EconomyV2Logic이 한 곳에서 계산한다(게임 · 시뮬레이터가 같은 함수를 부른다). 여기는 값만 둔다.
 -- 이름은 Strings 키만 둔다(ORE_NAME_KEYS · PICKAXES.nameKey — 지시서 #31). ⚠️ 지금 이름은 전부 임시 이름이다 — 확정은 사람(docs/PENDING.md N1).
@@ -45,14 +44,43 @@ EconomyV2Config.ORE_PER_BLOCK = 1
 -- 상위 광석 공급(지시서 #31 — 15종 시간 손잡이). 광석 k(≥ UPPER_ORE_FROM)의 블록 하나 드롭 기대값 = ORE_PER_BLOCK × UPPER_ORE_DROP_MULT(TEMP).
 -- 소수면 블록마다 확률로 하나 더(EconomyV2Logic.rollDrops — 기대값이 같다). 하위 광석은 ORE_PER_BLOCK 그대로(넉넉하게).
 EconomyV2Config.UPPER_ORE_FROM = 8
-EconomyV2Config.UPPER_ORE_DROP_MULT = 0.1
--- 자동으로 줍는 반경(스터드 — 사람 결정 "약 12")
+EconomyV2Config.UPPER_ORE_DROP_MULT = 0.109
+-- 광석 k별 블록당 드롭 기대값(#32 4차 측정 손잡이 — nil이면 위 ORE_PER_BLOCK · UPPER_ORE_DROP_MULT 규칙). 하위 광석(1 ~ 5)은 1 이상을 지킨다
+EconomyV2Config.ORE_DROP_BY_ORE = nil :: { [number]: number }?
+-- 자동으로 줍는 반경(스터드 — 사람 결정 "약 12" · TEMP)
 EconomyV2Config.PICKUP_RADIUS = 12
+-- 줍기 판정 주기(초 — 서버 단일 폴링 루프 · OreDropService). 시각 튜닝값
+EconomyV2Config.PICKUP_POLL_SEC = 0.25
+-- 블록 하나에서 떨어진 드롭이 흩어지는 반경(스터드 — 표시 · 줍기 위치. 시각 튜닝값)
+EconomyV2Config.DROP_SCATTER = 2.5
+
+-- 광석 표시(#32 — 임시 도형 + 에셋 자리). color = 광석 재질 색(등급 색은 미결 PENDING C1).
+-- modelId · iconId · effectId가 nil이면 임시 도형(작은 Part · 색 칸)을 쓴다 — 방학 때 ID만 넣으면 모델로 바뀐다.
+export type OreVisual = { color: Color3, modelId: number?, iconId: number?, effectId: number? }
+EconomyV2Config.ORE_VISUALS = {
+	{ color = Color3.fromRGB(184, 115, 51) }, -- 1 구리 — 주황갈색
+	{ color = Color3.fromRGB(170, 176, 180) }, -- 2 주석 — 밝은 회색
+	{ color = Color3.fromRGB(120, 124, 130) }, -- 3 철 — 짙은 회색
+	{ color = Color3.fromRGB(214, 220, 228) }, -- 4 은 — 은백
+	{ color = Color3.fromRGB(240, 196, 60) }, -- 5 금 — 노랑
+	{ color = Color3.fromRGB(70, 170, 110) }, -- 6 비취 — 초록
+	{ color = Color3.fromRGB(205, 40, 60) }, -- 7 루비 — 빨강
+	{ color = Color3.fromRGB(40, 90, 210) }, -- 8 사파이어 — 파랑
+	{ color = Color3.fromRGB(150, 90, 200) }, -- 9 자수정 — 연보라(재질 색 — 등급 색 아님)
+	{ color = Color3.fromRGB(245, 245, 255) }, -- 10 별빛석 — 흰빛
+} :: { OreVisual }
+-- 코인 표시 자리(nil이면 임시 도형 — 노란 칸)
+EconomyV2Config.COIN_VISUAL = { color = Color3.fromRGB(255, 205, 60), iconId = nil :: number?, effectId = nil :: number? }
 -- 광석 이름 Strings 키(⚠️ 임시 이름 — 지시서 #31 · docs/LOCALIZATION.md 4절)
 EconomyV2Config.ORE_NAME_KEYS = {
 	"ore.name.1", "ore.name.2", "ore.name.3", "ore.name.4", "ore.name.5",
 	"ore.name.6", "ore.name.7", "ore.name.8", "ore.name.9", "ore.name.10",
 } :: { string }
+
+-- ===== 장비 종류 (DESIGN 16장 "장비 종류" — #32) ===========================================================
+-- 저장(equipment · equipped) · 설정 · 로직이 종류별로 갈라진다. 지금은 곡괭이 하나 · 4월 대형 업데이트에서 칼을 더한다.
+-- Schema는 Config를 모르므로 종류 이름 목록을 따로 들고 있다(SchemaTests가 대조).
+EconomyV2Config.EQUIPMENT_KINDS = { "pickaxe" } :: { string }
 
 -- ===== 곡괭이 (DESIGN 16장 "곡괭이") =======================================================================
 
@@ -83,9 +111,17 @@ EconomyV2Config.PICKAXES = {
 } :: { PickaxeDef }
 -- 처음부터 주는 곡괭이(TEMP — 일반 1번, 15종에 포함)
 EconomyV2Config.START_PICKAXE = "pick_c1"
+-- 종류 → 목록 · 시작 장비(InventoryService · 저장 기본값이 이 표를 본다)
+EconomyV2Config.EQUIPMENT = {
+	pickaxe = { list = EconomyV2Config.PICKAXES, start = EconomyV2Config.START_PICKAXE },
+} :: { [string]: { list: { PickaxeDef }, start: string } }
+
+-- 큰 가방 게임패스 자리(#32 — 상품 코드는 #35). ID가 nil이면 효과 없음(가방 배수 1)
+EconomyV2Config.BIG_BAG_PASS_ID = nil :: number?
+EconomyV2Config.BIG_BAG_MULT = 2
 
 -- 곡괭이 배수 = PICK_RATIO^(rank − 1)(TEMP — 측정 손잡이). 펀치 데미지 업그레이드 자리에 들어간다.
-EconomyV2Config.PICK_RATIO = 1.2
+EconomyV2Config.PICK_RATIO = 1.214
 -- 가방 용량 = BAG_BASE + BAG_PER_RANK × (rank − 1) (장착 곡괭이 — TEMP 측정 손잡이)
 EconomyV2Config.BAG_BASE = 20
 EconomyV2Config.BAG_PER_RANK = 4
@@ -148,13 +184,12 @@ EconomyV2Config.TOKENS_BY_GAUGE = {
 EconomyV2Config.CRAFT_SKIP_SEC = 5
 EconomyV2Config.CRAFT_MIN_INTERVAL_SEC = 1
 EconomyV2Config.TRIPLE_CRAFT_COUNT = 3 -- 트리플 제작(사람 결정 "한 번에 3개")
--- 대장간(제작 · 교환 · 강화)이 열리는 조건(⚠️ Claude 제안 — 사람 결정 전 · PENDING N8). 둘 다 nil = 처음부터 연다.
---   FORGE_UNLOCK_REBIRTHS  환생 수가 이 값 이상이면(지금 TEMP 1 = 첫 환생 뒤 — #31 추천 1순위 R2)
---   FORGE_UNLOCK_STAGE     평생 최고층이 이 층 이상이면(추천 2순위 R1 = 8)
--- 이유: 5초 제작이면 처음부터 열 때 1 ~ 7층에서 곡괭이 7종이 나와 초반이 지금보다 20 ~ 34% 빨라진다(#31 3차 측정 — 설정 값만으로는 못 맞춘다).
--- 한 번 열리면 영구다(환생 수는 줄지 않는다 · 평생 최고층 — 저장 필드는 대장간 단계).
-EconomyV2Config.FORGE_UNLOCK_REBIRTHS = 1 :: number?
-EconomyV2Config.FORGE_UNLOCK_STAGE = nil :: number?
+-- 대장간(제작 · 교환 · 강화)이 열리는 조건(#32 결정 N8 — 8층에 처음 도달하면 영구로 열린다 · 환생해도 안 닫힘). 둘 다 nil = 처음부터.
+--   FORGE_UNLOCK_STAGE     그 층에 처음 도달하면(지금 8) — 열림은 저장 필드 forgeOpen(v10)에 남는다(InventoryService.openForge)
+--   FORGE_UNLOCK_REBIRTHS  환생 수 조건(측정 비교용 — #31 R2. 지금 nil)
+-- 이유: 첫 환생(약 4분)과 대장간을 다른 시점에 보여 준다 · 처음부터 열면 1 ~ 7층이 20 ~ 31% 빠르다(#31 3차 측정).
+EconomyV2Config.FORGE_UNLOCK_REBIRTHS = nil :: number?
+EconomyV2Config.FORGE_UNLOCK_STAGE = 8 :: number?
 EconomyV2Config.HATCH_SKIP_SEC = 5
 EconomyV2Config.HATCH_MIN_INTERVAL_SEC = 1
 EconomyV2Config.TRIPLE_HATCH_COUNT = 3
@@ -222,6 +257,23 @@ function EconomyV2Config.validate(): boolean
 		assert(def.nameKey == "pickaxe.name." .. def.id, "EconomyV2Config: " .. def.id .. " nameKey 꼴")
 	end
 	assert(#EconomyV2Config.ORE_NAME_KEYS == EconomyV2Config.ORE_COUNT, "EconomyV2Config: ORE_NAME_KEYS 수 ≠ ORE_COUNT")
+	assert(#EconomyV2Config.ORE_VISUALS == EconomyV2Config.ORE_COUNT, "EconomyV2Config: ORE_VISUALS 수 ≠ ORE_COUNT")
+	for _, kind in ipairs(EconomyV2Config.EQUIPMENT_KINDS) do
+		local e = EconomyV2Config.EQUIPMENT[kind]
+		assert(e ~= nil and #e.list > 0, "EconomyV2Config: EQUIPMENT." .. kind .. " 목록 없음")
+		local found = false
+		for _, def in ipairs(e.list) do
+			found = found or def.id == e.start
+		end
+		assert(found, "EconomyV2Config: EQUIPMENT." .. kind .. " 시작 장비가 목록에 없다")
+	end
+	if EconomyV2Config.ORE_DROP_BY_ORE ~= nil then
+		for k = 1, EconomyV2Config.ORE_COUNT do
+			local d = (EconomyV2Config.ORE_DROP_BY_ORE :: any)[k]
+			assert(type(d) == "number" and d > 0, string.format("EconomyV2Config: ORE_DROP_BY_ORE[%d] > 0", k))
+			assert(k > 5 or d >= 1, string.format("EconomyV2Config: 하위 광석 %d는 블록당 1 이상", k))
+		end
+	end
 	for k, key in ipairs(EconomyV2Config.ORE_NAME_KEYS) do
 		assert(key == "ore.name." .. k, "EconomyV2Config: ORE_NAME_KEYS 꼴")
 	end

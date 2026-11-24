@@ -52,7 +52,7 @@ do
 	check("new()는 매번 독립된 깊은 복사본을 반환함", b.blox.m == 0)
 end
 
-check("Schema.VERSION == 9 (v9: cosmetics.reduceMotion · sfxEnabled — 지시서 #25 V9 / v8: daily · redeemedCodes · onboarding — #20)", Schema.VERSION == 9)
+check("Schema.VERSION == 10 (v10: 새 경제 저장 — 지시서 #32 / v9: cosmetics.reduceMotion · sfxEnabled — 지시서 #25 V9 / v8: daily · redeemedCodes · onboarding — #20)", Schema.VERSION == 10)
 do
 	local t = Schema.getTemplate() :: any
 	check("v9 템플릿: 설정 자리(hideOtherAuras · hideOtherPets 옆)에 reduceMotion false · sfxEnabled true",

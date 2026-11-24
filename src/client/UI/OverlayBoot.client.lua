@@ -338,4 +338,19 @@ AutoAdvanceClient.get().onResult(function(payload: Remotes.AutoAdvanceResultPayl
 	end
 end)
 
+-- 새 경제 대장간 알림 · 안내 토스트(지시서 #32 — 플래그 ECONOMY_V2 뒤. 꺼져 있으면 연결하지 않는다)
+if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() then
+	local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
+	channels.economyEvent.OnClientEvent:Connect(function(payload: any)
+		if type(payload) ~= "table" then
+			return
+		end
+		if payload.kind == "forge_open" then
+			toastStack.push({ text = Locale.t("econ.forge.open"), tier = 1 })
+		elseif payload.kind == "forge_hint" then
+			toastStack.push({ text = Locale.t("econ.forge.hint", { floor = tostring(payload.stage) }), tier = 1 })
+		end
+	end)
+end
+
 StateSync.request()

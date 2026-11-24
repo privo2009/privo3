@@ -22,7 +22,7 @@ end
 
 -- 1. 기본 -----------------------------------------------------------------
 
-check("Migrations.CURRENT == 9 (변환 8개: radius 제거 / selectedPadIndex 추가 / lifeBlox 추가 / 파생값 · 드론 삭제 / moveSpeed 삭제 / 수익화 v7 / 무료 요소 v8 / 설정 둘 v9)", Migrations.CURRENT == 9)
+check("Migrations.CURRENT == 10 (변환 9개: radius 제거 / selectedPadIndex 추가 / lifeBlox 추가 / 파생값 · 드론 삭제 / moveSpeed 삭제 / 수익화 v7 / 무료 요소 v8 / 설정 둘 v9 / 새 경제 v10)", Migrations.CURRENT == 10)
 
 -- v8 -> v9: cosmetics.reduceMotion(false) · sfxEnabled(true) (지시서 #25 V9)
 do
@@ -39,7 +39,7 @@ do
 		onboarding = { step = 5, done = true },
 	}
 	local ok, err = Migrations.run(data)
-	check("v8->v9: 변환 성공 · schemaVersion 9", ok and data.schemaVersion == 9, err)
+	check("v8->v9: 변환 성공 · schemaVersion은 최신(v10까지 이어서 탄다)", ok and data.schemaVersion == Migrations.CURRENT, err)
 	check("v8->v9: reduceMotion false · sfxEnabled true(기본값)", data.cosmetics.reduceMotion == false and data.cosmetics.sfxEnabled == true)
 	check("v8->v9: 기존 설정 · 장착 · 보유 그대로(hideOtherAuras true · 아우라 · 칭호)", data.cosmetics.hideOtherAuras == true
 		and data.cosmetics.hideOtherPets == false and data.cosmetics.equippedAura == "pack2_rare" and data.cosmetics.ownedAuras.pack2_rare == true
@@ -56,7 +56,7 @@ do
 	local none: any = { schemaVersion = 8 }
 	local noneOk = Migrations.run(none)
 	check("v8->v9: cosmetics가 없어도 오류 없이 넘어간다(만들지 않는다 — 손상은 validate가 잡는다)", noneOk and none.cosmetics == nil
-		and none.schemaVersion == 9)
+		and none.schemaVersion == Migrations.CURRENT)
 	local once = (Migrations :: any)[8]({ cosmetics = { hideOtherPets = true } })
 	local again = (Migrations :: any)[8](once)
 	check("v8->v9: 두 번 불러도 같다(멱등)", again.cosmetics.reduceMotion == false and again.cosmetics.sfxEnabled == true
@@ -66,7 +66,7 @@ do
 	fresh.cosmetics.reduceMotion = nil
 	fresh.cosmetics.sfxEnabled = nil
 	Migrations.run(fresh)
-	check("v8->v9: 마이그레이션 결과가 v9 검증을 통과한다", (Schema.validate(fresh)))
+	check("v8->v9: 마이그레이션 결과가 최신(v10) 검증을 통과한다", (Schema.validate(fresh)))
 end
 
 -- v7 -> v8: daily {streak, lastClaimDay}(freePotionDay 삭제) · redeemedCodes · onboarding (지시서 #20 R2)

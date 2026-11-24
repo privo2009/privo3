@@ -6,7 +6,7 @@
 
 local Schema = {}
 
-Schema.VERSION = 9 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드, Phase 4-2-b)
+Schema.VERSION = 10 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드, Phase 4-2-b)
 -- v4: lifeBlox 추가 (이번 생애 누적 blox — 패드 해금 기준, 환생하면 0. 2026-10-21)
 -- v5: pets.slots · pets.storage · rolling.unlockedAuraPacks · drones 삭제 (2026-10-24 지시서 #10 S12 · S13).
 --     슬롯 · 저장 공간 · 열린 아우라 팩은 저장하지 않고 파생한다 — PetConfig.getSlots · getStorage, AuraConfig.getUnlockedPacks.
@@ -18,6 +18,10 @@ Schema.VERSION = 9 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패드
 --     DESIGN 9장 "무료 요소"). 일일 보상 · 코드 입력 · 첫 접속 안내
 -- v9: cosmetics.reduceMotion(false) · cosmetics.sfxEnabled(true) (2026-11-12 지시서 #25 V9 — 설정 창 "연출 줄이기" · "효과음").
 --     표시 취향이라 게임 판정에 쓰지 않는다. 쓰는 곳은 SettingsRequestService 하나
+-- v10: 새 경제 저장 필드를 한 번에(2026-11-24 지시서 #32 — DESIGN 16장). coins(BigNum — CurrencyService) ·
+--      ores(광석 10종 개수) · equipment(장비 종류별 보유 {count, stars, enh}) · equipped(종류별 장착 id) ·
+--      tokens(희귀 · 에픽 · 신화 · 전설 · ???) · forgeOpen(대장간 열림). ores · equipment · tokens · forgeOpen은 InventoryService만 바꾼다.
+--      플래그 ECONOMY_V2가 꺼져 있으면 아무도 읽거나 쓰지 않는다(필드만 있다)
 
 -- 구조적 상한값. DESIGN.md 6장 수치와 같지만 Schema는 Config를 몰라야 하므로 별도로 둔다.
 -- 중복이 어긋나면 SchemaTests가 잡는다(PetConfig · AuraConfig 값과 대조한다).
@@ -35,6 +39,13 @@ Schema.LIMITS = {
 	-- 받은 코드 기록 상한 · 코드 글자 수 상한(= CodesConfig.MAX_LENGTH — 대조는 SchemaTests). 넘는 기록은 손상으로 본다(v8)
 	MAX_REDEEMED_CODES = 200,
 	MAX_CODE_LENGTH = 32,
+	-- v10 새 경제(= EconomyV2Config — 대조는 EconomyV2SaveTests). 광석 종류 수 · 장비 종류 · 시작 장비 · 토큰 종류 · 별 · 강화 상한
+	ORE_COUNT = 10,
+	EQUIPMENT_KINDS = { "pickaxe" },
+	START_EQUIPMENT = { pickaxe = "pick_c1" },
+	TOKEN_KEYS = { "rare", "epic", "mythic", "legendary", "next" },
+	MAX_STARS = 5,
+	MAX_ENHANCE = 10,
 }
 
 local function isFiniteNumber(n: any): boolean
@@ -73,6 +84,44 @@ local function deepCopy(value: any): any
 	end
 	return copy
 end
+
+-- v10 기본값 만들기(Migrations[9]도 같은 함수를 쓴다 — 기본값이 두 곳에 생기지 않게)
+local function newOres(): { number }
+	local t = {}
+	for k = 1, Schema.LIMITS.ORE_COUNT do
+		t[k] = 0
+	end
+	return t
+end
+
+local function newEquipment(): { [string]: { [string]: any } }
+	local t = {}
+	for _, kind in ipairs(Schema.LIMITS.EQUIPMENT_KINDS) do
+		t[kind] = { [Schema.LIMITS.START_EQUIPMENT[kind]] = { count = 1, stars = 0, enh = 0 } }
+	end
+	return t
+end
+
+local function newEquipped(): { [string]: string }
+	local t = {}
+	for _, kind in ipairs(Schema.LIMITS.EQUIPMENT_KINDS) do
+		t[kind] = Schema.LIMITS.START_EQUIPMENT[kind]
+	end
+	return t
+end
+
+local function newTokens(): { [string]: number }
+	local t = {}
+	for _, key in ipairs(Schema.LIMITS.TOKEN_KEYS) do
+		t[key] = 0
+	end
+	return t
+end
+
+Schema.newOres = newOres
+Schema.newEquipment = newEquipment
+Schema.newEquipped = newEquipped
+Schema.newTokens = newTokens
 
 local function buildTemplate()
 	return {
@@ -164,6 +213,14 @@ local function buildTemplate()
 			step = 1,
 			done = false,
 		},
+
+		-- 새 경제(v10 — 지시서 #32 · DESIGN 16장). 플래그 ECONOMY_V2가 꺼져 있으면 아무도 쓰지 않는다
+		coins = newBigNum(0, 0), -- 코인(BigNum — CurrencyService "coins"만 바꾼다)
+		ores = newOres(), -- 광석 1 ~ ORE_COUNT 개수(정수 배열 — InventoryService만)
+		equipment = newEquipment(), -- {[종류] = {[id] = {count, stars, enh}}} — 시작 장비 1개 보유
+		equipped = newEquipped(), -- {[종류] = id} — 시작 장비 장착
+		tokens = newTokens(), -- {rare, epic, mythic, legendary, next}
+		forgeOpen = false, -- 대장간 열림(8층 첫 도달 — 영구 · 환생해도 유지)
 
 		stats = {
 			totalRuns = 0,
@@ -438,7 +495,76 @@ function Schema.validate(data: any): (boolean, { string })
 		addError(errors, "onboarding 테이블이 없음")
 	end
 
+	-- 새 경제 (v10) ----------------------------------------------------------------------------------
+	Schema.validateEconomy(data, errors)
+
 	return #errors == 0, errors
+end
+
+local function isWhole(v: any, lo: number, hi: number): boolean
+	return isFiniteNumber(v) and v % 1 == 0 and v >= lo and v <= hi
+end
+
+-- v10 필드 검증(Schema.validate가 부른다 · 테스트도 직접 부른다). errors에 사유를 더한다.
+function Schema.validateEconomy(data: any, errors: { string })
+	if not Schema.isBigNum(data.coins) or (type(data.coins) == "table" and data.coins.m < 0) then
+		addError(errors, "coins가 0 이상의 BigNum이 아님")
+	end
+	local ores = data.ores
+	if type(ores) ~= "table" then
+		addError(errors, "ores 테이블이 없음")
+	else
+		local n = 0
+		for _ in pairs(ores) do
+			n += 1
+		end
+		if n ~= Schema.LIMITS.ORE_COUNT then
+			addError(errors, string.format("ores 칸 수(%d)가 %d이 아님", n, Schema.LIMITS.ORE_COUNT))
+		end
+		for k = 1, Schema.LIMITS.ORE_COUNT do
+			if not isWhole(ores[k], 0, math.huge) then
+				addError(errors, string.format("ores[%d]는 0 이상 정수여야 함", k))
+				break
+			end
+		end
+	end
+	local equipment, equipped = data.equipment, data.equipped
+	if type(equipment) ~= "table" or type(equipped) ~= "table" then
+		addError(errors, "equipment · equipped 테이블이 없음")
+	else
+		for _, kind in ipairs(Schema.LIMITS.EQUIPMENT_KINDS) do
+			local owned = equipment[kind]
+			if type(owned) ~= "table" then
+				addError(errors, string.format("equipment.%s 테이블이 없음", kind))
+			else
+				for id, o in pairs(owned) do
+					if type(id) ~= "string" or type(o) ~= "table" or not isWhole(o.count, 1, math.huge)
+						or not isWhole(o.stars, 0, Schema.LIMITS.MAX_STARS) or not isWhole(o.enh, 0, Schema.LIMITS.MAX_ENHANCE) then
+						addError(errors, string.format("equipment.%s[%s]가 {count≥1, stars 0~%d, enh 0~%d} 형태가 아님", kind, tostring(id),
+							Schema.LIMITS.MAX_STARS, Schema.LIMITS.MAX_ENHANCE))
+						break
+					end
+				end
+				local e = equipped[kind]
+				if type(e) ~= "string" or owned[e] == nil then
+					addError(errors, string.format("equipped.%s(%s)가 equipment.%s에 없음", kind, tostring(e), kind))
+				end
+			end
+		end
+	end
+	local tokens = data.tokens
+	if type(tokens) ~= "table" then
+		addError(errors, "tokens 테이블이 없음")
+	else
+		for _, key in ipairs(Schema.LIMITS.TOKEN_KEYS) do
+			if not isWhole(tokens[key], 0, math.huge) then
+				addError(errors, string.format("tokens.%s는 0 이상 정수여야 함", key))
+			end
+		end
+	end
+	if type(data.forgeOpen) ~= "boolean" then
+		addError(errors, "forgeOpen이 boolean이 아님")
+	end
 end
 
 return Schema

@@ -211,6 +211,30 @@ ChallengeService._deps = {
 	returnToSpawn = ArenaService.returnToSpawn,
 }
 
+-- 새 경제 고리(지시서 #32 — 플래그 ECONOMY_V2 뒤). nil이면 이 파일은 지금과 똑같이 돈다. Bootstrap이 플래그가 켜졌을 때만
+-- OreDropService를 건다. 고리는 판정에 끼어들지 않는다(런 · 보상 · 타이머는 그대로) — 드롭 · 가방 · 코인 · 대장간 열림만 따라 한다.
+-- 고리가 던져도 런은 그대로 간다(pcall · warn). ⚠️ 고리는 yield하지 않는다.
+export type EconomyHooks = {
+	onStageEnter: (Player, number, string) -> (), -- (플레이어, 층, "start" · "advance")
+	onBlocksDestroyed: (Player, number, { Vector3 }) -> (), -- (플레이어, 층, 깨진 블록 자리)
+	onRunEnded: (Player, string) -> (), -- (플레이어, endRun 사유 "cashout" · "timeout" · "abandon")
+}
+ChallengeService.economyHooks = nil :: EconomyHooks?
+
+local function callHook(name: string, ...)
+	local hooks = ChallengeService.economyHooks :: any
+	if hooks == nil then
+		return
+	end
+	local args = table.pack(...)
+	local ok, err = pcall(function()
+		hooks[name](table.unpack(args, 1, args.n))
+	end)
+	if not ok then
+		warn(string.format("[ChallengeService] 새 경제 고리 %s 오류(런은 그대로): %s", name, tostring(err)))
+	end
+end
+
 Players.PlayerRemoving:Connect(function(player: Player)
 	-- 여기서는 통지하지 않는다. 나가는 중인 클라에 보낼 것이 없다.
 	runs[player] = nil
@@ -336,6 +360,7 @@ end
 local function endRun(player: Player, run: RunState, reason: string)
 	runs[player] = nil
 	notifyRunState(player, run, false, reason)
+	callHook("onRunEnded", player, reason) -- 새 경제(플래그 뒤): 수령이면 가방 → 인벤토리, 아니면 가방을 잃는다
 
 	-- ⚠️ pcall로 감싼다. ArenaService.returnToSpawn은 자기 안에서 이미 실패를 접지만,
 	-- 여기서 한 겹 더 두는 것은 그 함수를 믿기 위해서가 아니라 **이 지점의 계약**이기
@@ -391,6 +416,7 @@ function ChallengeService.startRun(player: Player, stage: number?): boolean
 	local snapshot = BlockService.enterStage(player, targetStage)
 
 	notifyRunState(player, run, true, "start", seedsOf(snapshot))
+	callHook("onStageEnter", player, targetStage, "start")
 
 	return true
 end
@@ -416,6 +442,27 @@ function ChallengeService.applyDamage(player: Player, originPosition: Vector3, d
 	-- 클리어 통지보다 먼저 보낸다. 마지막 블록이 부서지는 연출이 끝나기 전에 "클리어됐다"가
 	-- 도착하면 클라에서 순서가 뒤집혀 보인다.
 	notifyBlockDamaged(player, changes)
+
+	-- 새 경제(플래그 뒤): 이번 타격에 깨진 블록 자리 → 드롭 · 코인. 고리가 없으면 스냅샷도 읽지 않는다
+	if ChallengeService.economyHooks ~= nil then
+		local snapshot = BlockService.getSnapshot(player)
+		if snapshot ~= nil then
+			local positions: { Vector3 } = {}
+			for _, change in ipairs(changes) do
+				if change.destroyed then
+					for _, entry in ipairs(snapshot) do
+						if entry.index == change.index then
+							table.insert(positions, entry.position)
+							break
+						end
+					end
+				end
+			end
+			if #positions > 0 then
+				callHook("onBlocksDestroyed", player, run.stage, positions)
+			end
+		end
+	end
 
 	if BlockService.isCleared(player) then
 		run.cleared = true
@@ -486,6 +533,7 @@ function ChallengeService.advance(player: Player, source: string?): boolean
 
 	-- 새 층의 런이 시작된 것이므로 startRun과 같은 성격의 전이다.
 	notifyRunState(player, nextRun, true, "advance", seedsOf(snapshot))
+	callHook("onStageEnter", player, nextStage, "advance")
 
 	return true
 end

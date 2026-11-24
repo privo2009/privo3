@@ -68,6 +68,10 @@ end
 
 -- 광석 k의 블록 하나 드롭 기대값(지시서 #31 — 상위 광석은 UPPER_ORE_DROP_MULT를 곱한다)
 function EconomyV2Logic.dropsPerBlock(k: number): number
+	local byOre = Config.ORE_DROP_BY_ORE
+	if byOre ~= nil and byOre[k] ~= nil then
+		return byOre[k]
+	end
 	local base = Config.ORE_PER_BLOCK
 	return if k >= Config.UPPER_ORE_FROM then base * Config.UPPER_ORE_DROP_MULT else base
 end

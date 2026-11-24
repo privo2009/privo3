@@ -152,6 +152,17 @@ local ATTACK_VERIFY_POLL_SEC = 0.5
 local AttackService = require(script.Parent.Systems.AttackService)
 AttackService.init()
 
+-- 새 경제 드롭 · 줍기 · 가방 · 코인 · 대장간 열림(지시서 #32 — 플래그 ECONOMY_V2 뒤). 꺼져 있으면 init도 고리도 없다 — 게임은 지금과 같다.
+if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() then
+	local OreDropService = require(script.Parent.Systems.OreDropService)
+	OreDropService.init()
+	require(script.Parent.Systems.ChallengeService).economyHooks = {
+		onStageEnter = OreDropService.onStageEnter,
+		onBlocksDestroyed = OreDropService.onBlocksDestroyed,
+		onRunEnded = OreDropService.onRunEnded,
+	}
+end
+
 -- 환생을 연다 (4-2-d).
 -- ⚠️ 순서: CurrencyService · ChallengeService · SpeedService가 전부 준비된 뒤여야 한다.
 -- 환생은 그 셋을 한 흐름 안에서 순서대로 부르는 오케스트레이터이고, 스스로 계산하는

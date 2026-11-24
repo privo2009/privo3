@@ -336,6 +336,12 @@ Strings.Entries = {
 	["pickaxe.name.pick_m2"] = { en = "Magma Pickaxe", ko = "용암 곡괭이" }, -- 임시 이름
 	["pickaxe.name.pick_m3"] = { en = "Frost Pickaxe", ko = "서리 곡괭이" }, -- 임시 이름
 	["pickaxe.name.pick_l1"] = { en = "Starforge Pickaxe", ko = "별대장간 곡괭이" }, -- 임시 이름
+	-- 새 경제 HUD · 알림(지시서 #32 — 플래그 ECONOMY_V2 뒤)
+	["econ.coins.label"] = { en = "Coins", ko = "코인" },
+	["econ.bag.label"] = { en = "Bag", ko = "가방" },
+	["econ.bag.value"] = { en = "{used}/{cap}", ko = "{used}/{cap}" },
+	["econ.forge.open"] = { en = "The Forge is open! Craft pickaxes from your ores", ko = "대장간이 열렸어요! 광석으로 곡괭이를 만들 수 있어요" },
+	["econ.forge.hint"] = { en = "Reach Floor {floor} to open the Forge", ko = "{floor}층에 가면 대장간이 열려요" },
 	["warp.title"] = { en = "World · Warp", ko = "월드 · 워프" },
 	["warp.world"] = { en = "World {n}", ko = "월드 {n}" },
 	["warp.button"] = { en = "Warp", ko = "워프" },

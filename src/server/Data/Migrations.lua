@@ -183,6 +183,45 @@ Migrations[8] = function(data)
 	return data
 end
 
+-- v9 -> v10: 새 경제 저장 필드를 한 번에 (2026-11-24 지시서 #32 — DESIGN 16장 · 10장).
+--   coins(BigNum 0) · ores(광석 10종 0) · equipment(종류별 — 시작 장비 1개) · equipped(종류별 시작 장비) · tokens(5종 0) · forgeOpen(false)
+-- 이미 그 꼴이면 그대로 둔다(멱등 — 두 번 불러도 같다). 꼴이 틀린 필드만 기본값으로(그 필드 값은 아무 코드도 쓴 적이 없다 — 플래그 뒤).
+-- 다른 필드는 손대지 않는다. 기본값은 Schema의 같은 함수에서 만든다(두 곳에 쓰지 않는다).
+Migrations[9] = function(data)
+	if not Schema.isBigNum(data.coins) then
+		data.coins = { m = 0, e = 0 }
+	end
+	if type(data.ores) ~= "table" then
+		data.ores = Schema.newOres()
+	end
+	if type(data.equipment) ~= "table" then
+		data.equipment = Schema.newEquipment()
+	else
+		local fresh = Schema.newEquipment()
+		for kind, owned in pairs(fresh) do
+			if type(data.equipment[kind]) ~= "table" then
+				data.equipment[kind] = owned
+			end
+		end
+	end
+	if type(data.equipped) ~= "table" then
+		data.equipped = Schema.newEquipped()
+	else
+		for kind, id in pairs(Schema.newEquipped()) do
+			if type(data.equipped[kind]) ~= "string" then
+				data.equipped[kind] = id
+			end
+		end
+	end
+	if type(data.tokens) ~= "table" then
+		data.tokens = Schema.newTokens()
+	end
+	if type(data.forgeOpen) ~= "boolean" then
+		data.forgeOpen = false
+	end
+	return data
+end
+
 -- data.schemaVersion부터 Migrations.CURRENT까지 등록된 변환 함수를 순서대로 적용하고
 -- data.schemaVersion을 최종 버전으로 갱신한다. data는 in-place로 수정된다.
 --

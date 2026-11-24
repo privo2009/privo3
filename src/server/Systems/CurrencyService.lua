@@ -7,6 +7,8 @@
 --   blox        — 블럭스. add로 증가할 때마다 lifetimeBlox(평생 누적)와 lifeBlox(이번 생애
 --                 누적 — 패드 해금 기준)도 동일량 증가
 --   rebirths    — 환생 배수. add로만 늘고 줄지 않는다 (4-2-d)
+--   coins       — 코인(새 경제 v10 — 지시서 #32). 블록을 깰 때마다 늘고 펫 뽑기에 쓴다(#35). 실패해도 잃지 않는다.
+--                 블록마다 늘어 로그가 너무 많아지므로 성공 로그(print)만 찍지 않는다(QUIET) — 거부 · 롤백 warn은 그대로
 --
 -- ⚠️ lifetimeBlox · lifeBlox는 여기 없다. 둘 다 blox add에 딸려 오르는 파생 필드이지 직접 증감
 --    대상이 아니다. 목록에 넣으면 blox를 거치지 않고 진척도만 올리는 경로가 생긴다.
@@ -35,8 +37,12 @@ local CURRENCIES: { [string]: boolean } = {
 	strength = true,
 	blox = true,
 	rebirths = true,
+	coins = true,
 }
 CurrencyService.CURRENCIES = CURRENCIES
+
+-- 성공 로그를 찍지 않는 재화(검증 · 롤백 · 거부 warn은 그대로다)
+local QUIET: { [string]: boolean } = { coins = true }
 
 -- amount 자체의 형태/부호 검증. add에 음수를 넣어 subtract를 흉내내는 것을 막는다.
 local function validateAmount(amount: any): (boolean, string?)
@@ -195,6 +201,9 @@ CurrencyService._pure = {
 -- `amount`는 add/subtract에서는 증감액이고 `set`에서는 세팅할 값이다 —
 -- 어느 쪽인지는 `opName`이 말해주므로 이름을 op마다 바꾸지 않는다.
 local function logChange(opName: string, player: Player, currency: string, amount: BigNumber, newValue: BigNumber, reason: string)
+	if QUIET[currency] then
+		return
+	end
 	print(string.format(
 		"[CurrencyService] %s: %s(%d) %s amount=%s result=%s (reason=%s)",
 		opName,
