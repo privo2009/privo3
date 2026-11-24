@@ -268,6 +268,17 @@ function Analytics.new(deps: Deps)
 		return self.custom(player, AnalyticsConfig.EVENTS.rebirth, log10Big(gained) :: number)
 	end
 
+	-- 새 경제 환생(지시서 #31): 값 = 환생 뒤 환생 수(정수) · 필드 1 = 낸 비용 자릿수 floor(log10 비용)
+	function self.rebirthV2(player: any, total: any, cost: any): boolean
+		if not isSafeBig(total) or total.m <= 0 or not isSafeBig(cost) or cost.m <= 0 then
+			reject(AnalyticsConfig.EVENTS.rebirth, "환생 수 · 비용이 양의 BigNum이 아님")
+			return false
+		end
+		local n = math.floor(total.m * 10 ^ total.e + 1e-6)
+		local digits = math.floor((log10Big(cost) :: number) + 1e-9)
+		return self.custom(player, AnalyticsConfig.EVENTS.rebirth, n, { tostring(digits) })
+	end
+
 	function self.floorFirstClear(player: any, floor: number): boolean
 		return self.custom(player, AnalyticsConfig.EVENTS.floorFirstClear, floor)
 	end
@@ -371,6 +382,11 @@ end
 function Analytics.rebirth(player: any, gained: any)
 	if live ~= nil then
 		live.rebirth(player, gained)
+	end
+end
+function Analytics.rebirthV2(player: any, total: any, cost: any)
+	if live ~= nil then
+		live.rebirthV2(player, total, cost)
 	end
 end
 function Analytics.floorFirstClear(player: any, floor: number)

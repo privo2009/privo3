@@ -235,9 +235,11 @@ SuccessRateReport.SIM = SIM
 --   onRunStart(p)               런 직전(스폰) — 제작 · 강화
 --   eager                       true면 "막혔을 때(REBIRTH_PATIENCE_RUNS)"를 기다리지 않고 살 수 있으면 바로 환생한다
 --   keepBlox                    true면 환생 뒤 남은 블럭스를 0으로 만들지 않는다(새 경제 — 비용만 뺀다 · 지시서 #30)
+--   advance(p, stage, timeLeft) 있으면 결정 모델(wantsAdvance) 대신 이것이 진행을 정한다(자동 진행 구매자 — 지시서 #31 · AutoAdvanceLogic)
 export type EconHooks = {
 	eager: boolean?,
 	keepBlox: boolean?,
+	advance: ((p: any, stage: number, timeLeft: number) -> boolean)?,
 	canRebirth: (p: any) -> boolean,
 	rebirthCost: (p: any) -> BigNumber,
 	applyRebirth: (p: any) -> (),
@@ -894,7 +896,9 @@ function SuccessRateReport.runOnce(
 		end
 
 		local nextExists = StageConfig.hasStage(stage + 1)
-		if not (nextExists and SuccessRateReport.wantsAdvance(p, stage, outcome.timeLeft)) then
+		local wants = if econ ~= nil and econ.advance ~= nil then econ.advance(p, stage, outcome.timeLeft)
+			else SuccessRateReport.wantsAdvance(p, stage, outcome.timeLeft)
+		if not (nextExists and wants) then
 			break
 		end
 		stage += 1

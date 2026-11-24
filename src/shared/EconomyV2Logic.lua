@@ -66,6 +66,31 @@ function EconomyV2Logic.oreOf(stage: number): number
 	return Config.ORE_COUNT
 end
 
+-- 광석 k의 블록 하나 드롭 기대값(지시서 #31 — 상위 광석은 UPPER_ORE_DROP_MULT를 곱한다)
+function EconomyV2Logic.dropsPerBlock(k: number): number
+	local base = Config.ORE_PER_BLOCK
+	return if k >= Config.UPPER_ORE_FROM then base * Config.UPPER_ORE_DROP_MULT else base
+end
+
+-- 층 stage의 블록 blocks개가 떨어뜨리는 광석 수(정수). 기대값의 소수 부분은 블록마다 확률로 하나 더(rand: [0, 1)).
+-- rand가 nil이면 기대값을 반올림한다(시뮬레이터 — 같은 기대값).
+function EconomyV2Logic.rollDrops(stage: number, blocks: number, rand: (() -> number)?): number
+	local d = EconomyV2Logic.dropsPerBlock(EconomyV2Logic.oreOf(stage))
+	if rand == nil then
+		return math.floor(d * blocks + 0.5)
+	end
+	local whole = math.floor(d)
+	local frac = d - whole
+	local n = 0
+	for _ = 1, blocks do
+		n += whole
+		if frac > 0 and rand() < frac then
+			n += 1
+		end
+	end
+	return n
+end
+
 -- 광석 k의 게이지 점수(정수). 0.1 × k칸을 10배로 둔 값이다.
 function EconomyV2Logic.gaugePoints(k: number): number
 	assert(k % 1 == 0 and k >= 1 and k <= Config.ORE_COUNT, "EconomyV2Logic.gaugePoints: 광석 번호는 1 ~ ORE_COUNT 정수")
@@ -252,6 +277,39 @@ function EconomyV2Logic.craft(picks: Picks, inv: { number }, combo: { number }, 
 	return { id = id, slots = slots, tokens = tokens, isNew = isNew }
 end
 
+-- 제작 · 부화 시간(지시서 #31 — 연출 + 스킵). 한 번(버튼 한 번 · 자동 1틱)에 걸리는 초와 그 한 번에 몇 회인가.
+--   skipPass = 연출 생략 상품 보유 · triple = 트리플 상품 보유. 무료는 스킵 시점마다 1회.
+function EconomyV2Logic.craftStep(skipPass: boolean?, triple: boolean?): (number, number)
+	return (if skipPass then Config.CRAFT_MIN_INTERVAL_SEC else Config.CRAFT_SKIP_SEC), (if triple then Config.TRIPLE_CRAFT_COUNT else 1)
+end
+
+function EconomyV2Logic.hatchStep(skipPass: boolean?, triple: boolean?): (number, number)
+	return (if skipPass then Config.HATCH_MIN_INTERVAL_SEC else Config.HATCH_SKIP_SEC), (if triple then Config.TRIPLE_HATCH_COUNT else 1)
+end
+
+-- 대장간이 열렸는가(⚠️ FORGE_UNLOCK_REBIRTHS · FORGE_UNLOCK_STAGE — Claude 제안 · 사람 결정 전). 설정한 조건을 전부 채워야 한다.
+-- bestStageEver = 평생 최고층(환생으로 줄지 않는다) · rebirths = 환생 수(BigNum 또는 number)
+function EconomyV2Logic.forgeOpen(bestStageEver: number, rebirths: (BigNumber | number)?): boolean
+	local needStage = Config.FORGE_UNLOCK_STAGE
+	local needRebirths = Config.FORGE_UNLOCK_REBIRTHS
+	if needStage ~= nil and bestStageEver < needStage then
+		return false
+	end
+	if needRebirths ~= nil and EconomyV2Logic.rebirthCount(rebirths or 0) < needRebirths then
+		return false
+	end
+	return true
+end
+
+-- 자동 제작이 sec초 동안 할 수 있는 회수(재료 제한은 따로 — craft가 nil을 돌려준다)
+function EconomyV2Logic.autoCraftCount(sec: number, skipPass: boolean?, triple: boolean?): number
+	local step, per = EconomyV2Logic.craftStep(skipPass, triple)
+	if sec <= 0 then
+		return 0
+	end
+	return math.floor(sec / step) * per
+end
+
 -- ===== 교환 ==============================================================================================
 
 -- 토큰으로 그 등급 곡괭이를 확정으로 얻는다. 사유: "unknown" · "not_exchangeable"(일반) · "not_enough_tokens"
@@ -310,6 +368,15 @@ function EconomyV2Logic.enhanceCost(level: number): number?
 		return nil
 	end
 	return math.ceil(Config.ENHANCE_COST_BASE * Config.ENHANCE_COST_GROWTH ^ level)
+end
+
+-- 강화 블럭스 비용(PENDING N5 — ENHANCE_BLOX_COST_BASE가 nil이면 nil = 블럭스 안 씀). 측정 변형용.
+function EconomyV2Logic.enhanceBloxCost(level: number): BigNumber?
+	local base = Config.ENHANCE_BLOX_COST_BASE
+	if base == nil or level >= Config.ENHANCE_MAX then
+		return nil
+	end
+	return BigNum.mul(base, BigNum.pow(BigNum.fromNumber(Config.ENHANCE_BLOX_COST_GROWTH), level))
 end
 
 -- 광석 점수 points만큼 낸다 — 낮은 광석부터(maxOre 이하만 — nil이면 전부). 모자라면 아무것도 안 빼고 false.
@@ -490,6 +557,25 @@ function EconomyV2Logic.rebirthRemainder(blox: BigNumber, rebirths: BigNumber | 
 		return BigNum.new(0, 0)
 	end
 	return left
+end
+
+-- 새 경제에서 빠진 로벅스 상품인가(지시서 #31 G14 — x2 Rebirths). economyV2 = nil이면 플래그.
+function EconomyV2Logic.isRemovedProduct(key: string, economyV2: boolean?): boolean
+	local v2 = if economyV2 ~= nil then economyV2 else EconomyV2Logic.isOn()
+	return v2 and Config.REMOVED_PRODUCTS[key] == true
+end
+
+-- 이름 Strings 키(⚠️ 임시 이름 — 지시서 #31). 화면은 Locale.t(키)로 꺼낸다(Shared/Localization/Names).
+function EconomyV2Logic.oreNameKey(k: number): string
+	local key = Config.ORE_NAME_KEYS[k]
+	assert(key ~= nil, "EconomyV2Logic.oreNameKey: 광석 번호는 1 ~ ORE_COUNT")
+	return key
+end
+
+function EconomyV2Logic.pickaxeNameKey(id: string): string
+	local def = byId[id]
+	assert(def ~= nil, "EconomyV2Logic.pickaxeNameKey: 모르는 곡괭이 " .. id)
+	return def.nameKey
 end
 
 -- 새 경제 운동기구 해금 환생 수(기구 번호 — 로벅스 전용 기구는 nil)

@@ -23,6 +23,7 @@
 --   강화 단계 Normal · Gold · Diamond · Rainbow
 --   포션 Potion · 행운 Luck · 부스트 Boost · 자동 클리커 Auto Clicker · 자동 진행 Auto Advance
 --   상품 이름은 대시보드 이름과 같은 꼴: x2 Power · Auto Clicker · Lucky Roll x5 (배수가 앞, 횟수가 뒤)
+--   새 경제(#31): 광석 Ore · 곡괭이 Pickaxe · 제작 Craft · 토큰 Token · 교환 Exchange · 별 Star · 강화 Enhance · 가방 Bag · 코인 Coin
 
 local Strings = {}
 
@@ -309,6 +310,32 @@ Strings.Entries = {
 	["rebirth.v2.reason.not_enough_blox"] = { en = "You need {cost} Blox to rebirth", ko = "{cost} 블럭스가 있어야 환생할 수 있어요" },
 	["rebirth.v2.reset.blox"] = { en = "Blox → cost paid (rest stays)", ko = "블럭스 → 비용만 빠짐 (나머지는 남음)" },
 	["rebirth.v2.keeps"] = { en = "You keep: Rebirth Multiplier (goes up) · Gyms · lifetime Blox · Shop Upgrades · Pickaxes · Ores", ko = "남는 것: 환생 배수(오름) · 운동기구 · 평생 누적 블럭스 · 상점 업그레이드 · 곡괭이 · 광석" },
+	-- 새 경제 광석 · 곡괭이 이름(지시서 #31 — ⚠️ 전부 임시 이름 · 확정은 docs/PENDING.md N1). 키는 EconomyV2Config ORE_NAME_KEYS · PICKAXES.nameKey
+	["ore.name.1"] = { en = "Copper", ko = "구리" }, -- 임시 이름
+	["ore.name.2"] = { en = "Tin", ko = "주석" }, -- 임시 이름
+	["ore.name.3"] = { en = "Iron", ko = "철" }, -- 임시 이름
+	["ore.name.4"] = { en = "Silver", ko = "은" }, -- 임시 이름
+	["ore.name.5"] = { en = "Gold", ko = "금" }, -- 임시 이름
+	["ore.name.6"] = { en = "Jade", ko = "비취" }, -- 임시 이름
+	["ore.name.7"] = { en = "Ruby", ko = "루비" }, -- 임시 이름
+	["ore.name.8"] = { en = "Sapphire", ko = "사파이어" }, -- 임시 이름
+	["ore.name.9"] = { en = "Amethyst", ko = "자수정" }, -- 임시 이름
+	["ore.name.10"] = { en = "Starstone", ko = "별빛석" }, -- 임시 이름
+	["pickaxe.name.pick_c1"] = { en = "Wooden Pickaxe", ko = "나무 곡괭이" }, -- 임시 이름
+	["pickaxe.name.pick_c2"] = { en = "Stone Pickaxe", ko = "돌 곡괭이" }, -- 임시 이름
+	["pickaxe.name.pick_c3"] = { en = "Copper Pickaxe", ko = "구리 곡괭이" }, -- 임시 이름
+	["pickaxe.name.pick_r1"] = { en = "Iron Pickaxe", ko = "철 곡괭이" }, -- 임시 이름
+	["pickaxe.name.pick_r2"] = { en = "Silver Pickaxe", ko = "은 곡괭이" }, -- 임시 이름
+	["pickaxe.name.pick_r3"] = { en = "Gold Pickaxe", ko = "금 곡괭이" }, -- 임시 이름
+	["pickaxe.name.pick_r4"] = { en = "Jade Pickaxe", ko = "비취 곡괭이" }, -- 임시 이름
+	["pickaxe.name.pick_e1"] = { en = "Ruby Pickaxe", ko = "루비 곡괭이" }, -- 임시 이름
+	["pickaxe.name.pick_e2"] = { en = "Sapphire Pickaxe", ko = "사파이어 곡괭이" }, -- 임시 이름
+	["pickaxe.name.pick_e3"] = { en = "Amethyst Pickaxe", ko = "자수정 곡괭이" }, -- 임시 이름
+	["pickaxe.name.pick_e4"] = { en = "Crystal Pickaxe", ko = "수정 곡괭이" }, -- 임시 이름
+	["pickaxe.name.pick_m1"] = { en = "Storm Pickaxe", ko = "폭풍 곡괭이" }, -- 임시 이름
+	["pickaxe.name.pick_m2"] = { en = "Magma Pickaxe", ko = "용암 곡괭이" }, -- 임시 이름
+	["pickaxe.name.pick_m3"] = { en = "Frost Pickaxe", ko = "서리 곡괭이" }, -- 임시 이름
+	["pickaxe.name.pick_l1"] = { en = "Starforge Pickaxe", ko = "별대장간 곡괭이" }, -- 임시 이름
 	["warp.title"] = { en = "World · Warp", ko = "월드 · 워프" },
 	["warp.world"] = { en = "World {n}", ko = "월드 {n}" },
 	["warp.button"] = { en = "Warp", ko = "워프" },

@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Locale = require(script.Parent.Locale)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
+local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 
 local Names = {}
 
@@ -32,6 +33,15 @@ end
 
 function Names.world(worldId: number): string -- 1 → world.name.1
 	return Locale.t("world.name." .. tostring(worldId))
+end
+
+-- 새 경제(지시서 #31 — ⚠️ 임시 이름). 키는 EconomyV2Config(ORE_NAME_KEYS · PICKAXES.nameKey)가 가리킨다.
+function Names.ore(k: number): string -- 3 → ore.name.3
+	return Locale.t(EconomyV2Logic.oreNameKey(k))
+end
+
+function Names.pickaxe(id: string): string -- "pick_c1" → pickaxe.name.pick_c1
+	return Locale.t(EconomyV2Logic.pickaxeNameKey(id))
 end
 
 -- 희귀도 단계(1 ~ 4) — 아우라 · 펫이 같은 낱말을 쓴다(K8 Common · Rare · Epic · Legendary).

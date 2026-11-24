@@ -119,6 +119,7 @@ end
 export type RebirthResult = {
 	gained: BigNumber,
 	total: BigNumber,
+	cost: BigNumber?, -- 새 경제에서 낸 비용(지시서 #31 — 분석 이벤트 rebirth v2 값). 지금 경제는 nil
 }
 
 -- 이 흐름이 바깥 세계에 하는 일 전부. 실제 서비스 대신 기록용 테이블을 넣으면
@@ -153,7 +154,7 @@ export type Deps = {
 -- 새 경제 환생(지시서 #30 — DESIGN 16장 "환생 (새 경제)"). 플래그가 켜졌을 때만 탄다.
 --   조건  블럭스 ≥ 다음 비용(EconomyV2Logic.rebirthCost — 환생 수 n에 따라)
 --   블럭스  비용만 뺀다(CurrencyService.subtract — REBIRTH_KEEP_REMAINDER) · false면 0(지금과 같다)
---   환생 수 +1(x2 Rebirths는 새 경제에서 뜻이 정해지지 않았다 — PENDING G14. 정해질 때까지 1)
+--   환생 수 +1(x2 Rebirths는 새 경제에 없다 — 지시서 #31 G14. 보유해도 getRebirthMult를 읽지 않는다)
 --   나머지 초기화(런 · 힘 · maxStage · 월드 · 속도 · lifeBlox · 패드)는 지금 환생과 같은 단계 · 같은 deps
 --   곡괭이 · 광석 · 토큰 · 코인은 건드리지 않는다(EconomyV2Logic.REBIRTH_KEEPS — 저장 필드가 아직 없다. deps에 그 통로가 없다)
 local function runRebirthV2(deps: Deps, player: Player, blox: BigNumber, sourceTag: string, reason: string): (boolean, any)
@@ -165,11 +166,12 @@ local function runRebirthV2(deps: Deps, player: Player, blox: BigNumber, sourceT
 		return false, REASON_NOT_ENOUGH_BLOX
 	end
 	local gained = BigNum.new(1, 0)
+	local cost = EconomyV2Logic.rebirthCost(rebirths)
 	deps.abandonRun(player)
 	local remainder = EconomyV2Logic.rebirthRemainder(blox, rebirths)
 	local paid: boolean
 	if BigNum.gt(remainder, BigNum.new(0, 0)) and deps.subtractBlox ~= nil then
-		paid = deps.subtractBlox(player, EconomyV2Logic.rebirthCost(rebirths), reason)
+		paid = deps.subtractBlox(player, cost, reason)
 	else
 		paid = deps.setBlox(player, BigNum.new(0, 0), reason)
 	end
@@ -190,7 +192,7 @@ local function runRebirthV2(deps: Deps, player: Player, blox: BigNumber, sourceT
 		return reportPartialFailure(player, 11, "resetLifeBlox", gained, sourceTag, "환생은 끝났으나 패드 해금 기준(lifeBlox)이 0이 되지 않았다")
 	end
 	deps.resetPad(player)
-	local result: RebirthResult = { gained = gained, total = total }
+	local result: RebirthResult = { gained = gained, total = total, cost = cost }
 	return true, result
 end
 
@@ -355,7 +357,11 @@ end
 function RebirthService.rebirth(player: Player, source: string?): (boolean, any)
 	local ok, value = runRebirth(REAL, player, source)
 	if ok then
-		Analytics.rebirth(player, value.gained) -- 분석 커스텀 이벤트(지시서 #23 A3 — 값 log10 얻은 환생 수)
+		if value.cost ~= nil then
+			Analytics.rebirthV2(player, value.total, value.cost) -- 새 경제(지시서 #31 — 값 환생 뒤 환생 수 · 필드 비용 자릿수 log10)
+		else
+			Analytics.rebirth(player, value.gained) -- 분석 커스텀 이벤트(지시서 #23 A3 — 값 log10 얻은 환생 수)
+		end
 		for _, cb in ipairs(rebirthedListeners) do
 			task.spawn(cb, player)
 		end

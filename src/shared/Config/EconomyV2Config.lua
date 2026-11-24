@@ -5,12 +5,12 @@
 --    false면 게임은 지금과 똑같이 돈다 — 이 파일의 숫자를 읽는 게임 경로는 전부 이 플래그 뒤에 있다.
 --    Play 확인은 로컬에서만 잠깐 true로 바꾸고 되돌린다.
 --
--- ⚠️ 숫자는 전부 TEMP다(최종 결정은 사람 — D2). 지시서 #30 6번 측정(Tools/EconomyV2Report)의 추천 1순위 묶음으로 채웠다.
---    (묶음 C 균형: ORE_PER_BLOCK 1 · PICK_RATIO 1.255 · AUTO_CRAFT_INTERVAL_SEC 150 · 환생 1000 · ×4 · 1.25^n — docs/TUNING.md 7절.
---     나머지 TEMP(확률표 · 가방 · 강화 · 별 · 코인 · 알 가격)는 이 묶음들에서 고정한 출발값이다 — 측정 손잡이 아님)
+-- ⚠️ 숫자는 전부 TEMP다(최종 결정은 사람 — D2). 지시서 #31 3차 측정(Tools/EconomyV2Report)의 추천 1순위 묶음 R2로 채웠다.
+--    (R2 대장간 첫 환생 뒤: 환생 1000 · ×4 · 1.25^n(#30 묶음 C) · PICK_RATIO 1.2 · UPPER_ORE_DROP_MULT 0.1 · FORGE_UNLOCK_REBIRTHS 1 ·
+--     제작 · 부화 연출 + 5초 스킵 — docs/TUNING.md 8절. 나머지 TEMP(확률표 · 가방 · 강화 · 별 · 코인 · 알 가격)는 고정한 출발값이다 — 측정 손잡이 아님)
 --    결정 문장 그대로인 값(층 구간 · 토큰 규칙 · 교환 비용 · 별 소모 · 강화 +10 · 곡괭이 15종 등급 수)은 사람 결정이다 — 측정 손잡이가 아니다.
 -- 식은 Shared/EconomyV2Logic이 한 곳에서 계산한다(게임 · 시뮬레이터가 같은 함수를 부른다). 여기는 값만 둔다.
--- 이름은 ID와 TEMP 문자열만 둔다 — 정식 이름(영어 · 한국어)은 사람이 정한다(docs/PENDING.md N1).
+-- 이름은 Strings 키만 둔다(ORE_NAME_KEYS · PICKAXES.nameKey — 지시서 #31). ⚠️ 지금 이름은 전부 임시 이름이다 — 확정은 사람(docs/PENDING.md N1).
 
 local BigNum = require(script.Parent.Parent.BigNum)
 
@@ -40,10 +40,19 @@ EconomyV2Config.ORE_BANDS = {
 -- 게이지: 광석 k의 점수 = k(정수 — 0.1 × k칸을 10배로 저장). 칸 = 점수 합 ÷ GAUGE_UNIT 내림(실수로 더하지 않는다).
 EconomyV2Config.GAUGE_UNIT = 10
 EconomyV2Config.CRAFT_INPUT = 5 -- 제작 1회에 넣는 광석 수(= 게이지 칸 수 상한)
--- 블록 하나가 부서질 때 떨어지는 광석 수(TEMP — 측정 손잡이 "드롭 수")
+-- 블록 하나가 부서질 때 떨어지는 광석 수(TEMP — 하위 광석 기본값)
 EconomyV2Config.ORE_PER_BLOCK = 1
+-- 상위 광석 공급(지시서 #31 — 15종 시간 손잡이). 광석 k(≥ UPPER_ORE_FROM)의 블록 하나 드롭 기대값 = ORE_PER_BLOCK × UPPER_ORE_DROP_MULT(TEMP).
+-- 소수면 블록마다 확률로 하나 더(EconomyV2Logic.rollDrops — 기대값이 같다). 하위 광석은 ORE_PER_BLOCK 그대로(넉넉하게).
+EconomyV2Config.UPPER_ORE_FROM = 8
+EconomyV2Config.UPPER_ORE_DROP_MULT = 0.1
 -- 자동으로 줍는 반경(스터드 — 사람 결정 "약 12")
 EconomyV2Config.PICKUP_RADIUS = 12
+-- 광석 이름 Strings 키(⚠️ 임시 이름 — 지시서 #31 · docs/LOCALIZATION.md 4절)
+EconomyV2Config.ORE_NAME_KEYS = {
+	"ore.name.1", "ore.name.2", "ore.name.3", "ore.name.4", "ore.name.5",
+	"ore.name.6", "ore.name.7", "ore.name.8", "ore.name.9", "ore.name.10",
+} :: { string }
 
 -- ===== 곡괭이 (DESIGN 16장 "곡괭이") =======================================================================
 
@@ -51,32 +60,32 @@ EconomyV2Config.PICKUP_RADIUS = 12
 EconomyV2Config.RARITIES = { "common", "rare", "epic", "mythic", "legendary" }
 EconomyV2Config.NEXT_RARITY = "next"
 
-export type PickaxeDef = { id: string, rarity: string, rank: number, name: string, exchangeCost: number? }
+export type PickaxeDef = { id: string, rarity: string, rank: number, nameKey: string, exchangeCost: number? }
 -- 월드 1 곡괭이 15종(일반 3 · 희귀 4 · 에픽 4 · 신화 3 · 전설 1 — 사람 결정). rank = 강한 순서(1이 가장 약하다).
 -- exchangeCost = 그 등급 토큰으로 확정 교환하는 비용(사람 결정: 희귀 3 · 4 · 5 · 7 / 에픽 2 · 3 · 5 · 9 / 신화 10 · 25 · 50 / 전설 50). 일반은 교환 없음.
--- name은 TEMP 문자열이다(Strings에 넣지 않는다 — 화면에 나가기 전에 사람이 이름을 정한다).
+-- nameKey = Strings 키("pickaxe.name." .. id — ⚠️ 임시 이름 · 지시서 #31).
 EconomyV2Config.PICKAXES = {
-	{ id = "pick_c1", rarity = "common", rank = 1, name = "TEMP Common 1" },
-	{ id = "pick_c2", rarity = "common", rank = 2, name = "TEMP Common 2" },
-	{ id = "pick_c3", rarity = "common", rank = 3, name = "TEMP Common 3" },
-	{ id = "pick_r1", rarity = "rare", rank = 4, name = "TEMP Rare 1", exchangeCost = 3 },
-	{ id = "pick_r2", rarity = "rare", rank = 5, name = "TEMP Rare 2", exchangeCost = 4 },
-	{ id = "pick_r3", rarity = "rare", rank = 6, name = "TEMP Rare 3", exchangeCost = 5 },
-	{ id = "pick_r4", rarity = "rare", rank = 7, name = "TEMP Rare 4", exchangeCost = 7 },
-	{ id = "pick_e1", rarity = "epic", rank = 8, name = "TEMP Epic 1", exchangeCost = 2 },
-	{ id = "pick_e2", rarity = "epic", rank = 9, name = "TEMP Epic 2", exchangeCost = 3 },
-	{ id = "pick_e3", rarity = "epic", rank = 10, name = "TEMP Epic 3", exchangeCost = 5 },
-	{ id = "pick_e4", rarity = "epic", rank = 11, name = "TEMP Epic 4", exchangeCost = 9 },
-	{ id = "pick_m1", rarity = "mythic", rank = 12, name = "TEMP Mythic 1", exchangeCost = 10 },
-	{ id = "pick_m2", rarity = "mythic", rank = 13, name = "TEMP Mythic 2", exchangeCost = 25 },
-	{ id = "pick_m3", rarity = "mythic", rank = 14, name = "TEMP Mythic 3", exchangeCost = 50 },
-	{ id = "pick_l1", rarity = "legendary", rank = 15, name = "TEMP Legendary 1", exchangeCost = 50 },
+	{ id = "pick_c1", rarity = "common", rank = 1, nameKey = "pickaxe.name.pick_c1" },
+	{ id = "pick_c2", rarity = "common", rank = 2, nameKey = "pickaxe.name.pick_c2" },
+	{ id = "pick_c3", rarity = "common", rank = 3, nameKey = "pickaxe.name.pick_c3" },
+	{ id = "pick_r1", rarity = "rare", rank = 4, nameKey = "pickaxe.name.pick_r1", exchangeCost = 3 },
+	{ id = "pick_r2", rarity = "rare", rank = 5, nameKey = "pickaxe.name.pick_r2", exchangeCost = 4 },
+	{ id = "pick_r3", rarity = "rare", rank = 6, nameKey = "pickaxe.name.pick_r3", exchangeCost = 5 },
+	{ id = "pick_r4", rarity = "rare", rank = 7, nameKey = "pickaxe.name.pick_r4", exchangeCost = 7 },
+	{ id = "pick_e1", rarity = "epic", rank = 8, nameKey = "pickaxe.name.pick_e1", exchangeCost = 2 },
+	{ id = "pick_e2", rarity = "epic", rank = 9, nameKey = "pickaxe.name.pick_e2", exchangeCost = 3 },
+	{ id = "pick_e3", rarity = "epic", rank = 10, nameKey = "pickaxe.name.pick_e3", exchangeCost = 5 },
+	{ id = "pick_e4", rarity = "epic", rank = 11, nameKey = "pickaxe.name.pick_e4", exchangeCost = 9 },
+	{ id = "pick_m1", rarity = "mythic", rank = 12, nameKey = "pickaxe.name.pick_m1", exchangeCost = 10 },
+	{ id = "pick_m2", rarity = "mythic", rank = 13, nameKey = "pickaxe.name.pick_m2", exchangeCost = 25 },
+	{ id = "pick_m3", rarity = "mythic", rank = 14, nameKey = "pickaxe.name.pick_m3", exchangeCost = 50 },
+	{ id = "pick_l1", rarity = "legendary", rank = 15, nameKey = "pickaxe.name.pick_l1", exchangeCost = 50 },
 } :: { PickaxeDef }
 -- 처음부터 주는 곡괭이(TEMP — 일반 1번, 15종에 포함)
 EconomyV2Config.START_PICKAXE = "pick_c1"
 
 -- 곡괭이 배수 = PICK_RATIO^(rank − 1)(TEMP — 측정 손잡이). 펀치 데미지 업그레이드 자리에 들어간다.
-EconomyV2Config.PICK_RATIO = 1.255
+EconomyV2Config.PICK_RATIO = 1.2
 -- 가방 용량 = BAG_BASE + BAG_PER_RANK × (rank − 1) (장착 곡괭이 — TEMP 측정 손잡이)
 EconomyV2Config.BAG_BASE = 20
 EconomyV2Config.BAG_PER_RANK = 4
@@ -89,6 +98,9 @@ EconomyV2Config.ENHANCE_MAX = 10 -- 사람 결정(+10 · 100% 성공)
 EconomyV2Config.ENHANCE_STEP = 0.06
 EconomyV2Config.ENHANCE_COST_BASE = 10
 EconomyV2Config.ENHANCE_COST_GROWTH = 1.35
+-- 강화 블럭스 비용(PENDING N5 — 사람 결정 전이라 nil = 블럭스 안 씀). 측정 변형만 넣어 본다(지시서 #31): 비용 = BASE × GROWTH^(지금 수준)
+EconomyV2Config.ENHANCE_BLOX_COST_BASE = nil :: BigNumber?
+EconomyV2Config.ENHANCE_BLOX_COST_GROWTH = 10
 
 -- 별 1 ~ 5성에 소모하는 같은 곡괭이 수(사람 결정 — 누적 26)
 EconomyV2Config.STAR_CONSUME = { 1, 3, 5, 7, 10 }
@@ -128,10 +140,24 @@ EconomyV2Config.TOKENS_BY_GAUGE = {
 	[5] = { legendary = 1, next = 1 },
 } :: { [number]: { [string]: number } }
 
--- 자동 제작 간격(초 — TEMP 측정 손잡이). 무료 토글. 빠른 제작(로벅스 · 가격 미정)은 FAST_CRAFT_FACTOR를 곱한다.
-EconomyV2Config.AUTO_CRAFT_INTERVAL_SEC = 150
-EconomyV2Config.FAST_CRAFT_FACTOR = 0.5 -- TEMP(상품 효과 — 참고 측정)
+-- 제작 · 부화 시간 = 연출 + 스킵(지시서 #31 — DESIGN 16장 "제작"). 제작 간격은 시간 목표 손잡이가 아니다(15종은 상위 광석 공급으로 맞춘다).
+--   무료        연출이 CRAFT_SKIP_SEC 지나면 스킵 → 자동 제작도 그 간격마다 1회(TEMP — 연출 길이는 나중)
+--   연출 생략   로벅스 상품 "제작 연출 생략" 보유 → 서버 최소 간격 CRAFT_MIN_INTERVAL_SEC마다 1회(TEMP)
+--   트리플      로벅스 상품 "트리플 제작" → 한 번에 TRIPLE_CRAFT_COUNT회(광석 5 × 3)
+-- 부화도 같은 모델(HATCH_* · 트리플 부화 = 기존 Triple Hatch).
+EconomyV2Config.CRAFT_SKIP_SEC = 5
+EconomyV2Config.CRAFT_MIN_INTERVAL_SEC = 1
 EconomyV2Config.TRIPLE_CRAFT_COUNT = 3 -- 트리플 제작(사람 결정 "한 번에 3개")
+-- 대장간(제작 · 교환 · 강화)이 열리는 조건(⚠️ Claude 제안 — 사람 결정 전 · PENDING N8). 둘 다 nil = 처음부터 연다.
+--   FORGE_UNLOCK_REBIRTHS  환생 수가 이 값 이상이면(지금 TEMP 1 = 첫 환생 뒤 — #31 추천 1순위 R2)
+--   FORGE_UNLOCK_STAGE     평생 최고층이 이 층 이상이면(추천 2순위 R1 = 8)
+-- 이유: 5초 제작이면 처음부터 열 때 1 ~ 7층에서 곡괭이 7종이 나와 초반이 지금보다 20 ~ 34% 빨라진다(#31 3차 측정 — 설정 값만으로는 못 맞춘다).
+-- 한 번 열리면 영구다(환생 수는 줄지 않는다 · 평생 최고층 — 저장 필드는 대장간 단계).
+EconomyV2Config.FORGE_UNLOCK_REBIRTHS = 1 :: number?
+EconomyV2Config.FORGE_UNLOCK_STAGE = nil :: number?
+EconomyV2Config.HATCH_SKIP_SEC = 5
+EconomyV2Config.HATCH_MIN_INTERVAL_SEC = 1
+EconomyV2Config.TRIPLE_HATCH_COUNT = 3
 
 -- ===== 코인 · 펫 (DESIGN 16장 "재화") ======================================================================
 
@@ -154,6 +180,10 @@ EconomyV2Config.REBIRTH_COST_GROWTH = 4
 EconomyV2Config.REBIRTH_MULT_BASE = 1.25
 -- true = 비용만 빼고 나머지 블럭스를 남긴다(기본 — 지시서 #30). false = #29 R4 측정처럼 0(지금 환생과 같다).
 EconomyV2Config.REBIRTH_KEEP_REMAINDER = true
+
+-- 새 경제에서 빠지는 로벅스 상품(ShopConfig 키 — 지시서 #31 G14). 플래그가 켜지면 상점에 안 보이고 효과도 없다 · 구매 요청은 not_available.
+-- 플래그가 꺼진 경로는 그대로다. 코드에서 완전히 지우는 일은 플래그를 켜는 단계에서 한다(대시보드 판매 중지는 사람 — ROADMAP 출시 체크리스트 30).
+EconomyV2Config.REMOVED_PRODUCTS = { rebirth2x = true } :: { [string]: boolean }
 
 -- 운동기구 해금 환생 수(새 경제 TEMP — GymConfig 기구 순서. 로벅스 전용 기구는 GymConfig 그대로).
 -- 지금 값(1 · 3 · 5 · 10 · 50 · 500 · 1e4 · 1e6)은 환생이 1000 블럭스마다 +1일 때 값이라 새 경제(25층까지 10 ~ 20회)에서는 뒤 기구가 안 열린다.
@@ -188,6 +218,18 @@ function EconomyV2Config.validate(): boolean
 		assert((def.rarity == "common") == (def.exchangeCost == nil), string.format("EconomyV2Config: %s 교환 비용(일반만 없음)", def.id))
 	end
 	assert(seen[EconomyV2Config.START_PICKAXE], "EconomyV2Config: START_PICKAXE가 목록에 없다")
+	for _, def in ipairs(EconomyV2Config.PICKAXES) do
+		assert(def.nameKey == "pickaxe.name." .. def.id, "EconomyV2Config: " .. def.id .. " nameKey 꼴")
+	end
+	assert(#EconomyV2Config.ORE_NAME_KEYS == EconomyV2Config.ORE_COUNT, "EconomyV2Config: ORE_NAME_KEYS 수 ≠ ORE_COUNT")
+	for k, key in ipairs(EconomyV2Config.ORE_NAME_KEYS) do
+		assert(key == "ore.name." .. k, "EconomyV2Config: ORE_NAME_KEYS 꼴")
+	end
+	assert(EconomyV2Config.UPPER_ORE_DROP_MULT > 0 and EconomyV2Config.ORE_PER_BLOCK > 0, "EconomyV2Config: 드롭 기대값 > 0")
+	assert(EconomyV2Config.CRAFT_SKIP_SEC >= EconomyV2Config.CRAFT_MIN_INTERVAL_SEC and EconomyV2Config.CRAFT_MIN_INTERVAL_SEC > 0,
+		"EconomyV2Config: 제작 스킵 ≥ 최소 간격 > 0")
+	assert(EconomyV2Config.HATCH_SKIP_SEC >= EconomyV2Config.HATCH_MIN_INTERVAL_SEC and EconomyV2Config.HATCH_MIN_INTERVAL_SEC > 0,
+		"EconomyV2Config: 부화 스킵 ≥ 최소 간격 > 0")
 	for rarity, split in pairs(EconomyV2Config.RARITY_SPLIT) do
 		local n = 0
 		for _, def in ipairs(EconomyV2Config.PICKAXES) do

@@ -7,6 +7,7 @@
 -- 판정 순서(앞에서 걸리면 거기서 끝 — 프롬프트를 띄우지 않는다):
 --   1. 빈도 — 플레이어당 MIN_INTERVAL_SEC에 1회. 넘으면 rate_limited(WarpRequestService와 같은 구조)
 --   2. 키 — ShopConfig에 없는 키면 invalid_key
+--   2a. 새 경제에서 빠진 상품 — 플래그 ECONOMY_V2가 켜졌고 EconomyV2Config.REMOVED_PRODUCTS(x2 Rebirths)면 not_available(지시서 #31 G14 · 끄면 그대로)
 --   2b. 환경 — beta 서버의 개발자 상품이면 beta_disabled(지시서 #23 E5 — 허용 목록 DataConfig.BETA_PRODUCT_ALLOWLIST 제외 ·
 --       게임패스는 판다 · studio · live는 그대로). 출시 때 진행이 초기화되면 산 것이 사라지기 때문이다
 --   3. 이미 보유 — 그 게임패스를 가졌으면 already_owned(소유는 GamepassService 세션 값)
@@ -28,6 +29,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
+local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local DataConfig = require(ReplicatedStorage.Shared.Config.DataConfig)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
@@ -76,6 +78,8 @@ export type Deps = {
 	catalog: any?,
 	-- 이번 서버의 데이터 환경(E5 — 기본 ProfileManager.dataEnv). 없으면 studio와 같다(막지 않는다)
 	dataEnv: (() -> string?)?,
+	-- 새 경제 플래그(지시서 #31). nil이면 EconomyV2Config.ECONOMY_V2 — 테스트만 true / false를 넣는다
+	economyV2: boolean?,
 }
 
 local function createHandler(deps: Deps)
@@ -92,6 +96,9 @@ local function createHandler(deps: Deps)
 		local def = if key ~= nil then catalog.get(key) else nil
 		if def == nil then
 			return PurchaseRequestService.REASON_INVALID_KEY, nil
+		end
+		if EconomyV2Logic.isRemovedProduct(def.key, deps.economyV2) then
+			return PurchaseRequestService.REASON_NOT_AVAILABLE, def
 		end
 		local env = if deps.dataEnv ~= nil then deps.dataEnv() else nil
 		if DataConfig.productBlocked(env, def.kind, def.key) then

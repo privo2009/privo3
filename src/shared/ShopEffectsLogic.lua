@@ -7,6 +7,7 @@
 -- 각 효과는 자기 결합 자리에서 **한 번만** 곱해진다(S5) — 여기서 곱해 넘기지 않는다(행운의 패스 × 포션만 표시용 luckMult가 곱한다).
 
 local ShopConfig = require(script.Parent.Config.ShopConfig)
+local EconomyV2Logic = require(script.Parent.EconomyV2Logic)
 
 local ShopEffectsLogic = {}
 
@@ -40,8 +41,11 @@ function ShopEffectsLogic.blox(view: View): number
 	return ShopConfig.passMult("blox2x", view.owns)
 end
 
--- 얻는 환생 수 배수(S6).
-function ShopEffectsLogic.rebirth(view: View): number
+-- 얻는 환생 수 배수(S6). 새 경제에는 x2 Rebirths가 없다 — 켜지면 보유해도 1(지시서 #31 G14). economyV2 = nil이면 플래그.
+function ShopEffectsLogic.rebirth(view: View, economyV2: boolean?): number
+	if EconomyV2Logic.isRemovedProduct("rebirth2x", economyV2) then
+		return 1
+	end
 	return ShopConfig.passMult("rebirth2x", view.owns)
 end
 

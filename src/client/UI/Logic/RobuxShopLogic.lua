@@ -27,6 +27,7 @@ local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
+local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local Names = require(ReplicatedStorage.Shared.Localization.Names)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 
@@ -70,6 +71,7 @@ export type Context = {
 	auras: any?, -- Store "auras"(selectedPack)
 	lifetimeBlox: BigNumber?,
 	pets: any?, -- Store "pets"(world)
+	economyV2: boolean?, -- 새 경제 플래그(지시서 #31 — 빠진 상품 줄을 뺀다). nil이면 EconomyV2Config.ECONOMY_V2
 }
 
 local function tiersFor(roll: string, ctx: Context): { any }?
@@ -298,7 +300,7 @@ function RobuxShopLogic.potionResultText(payload: any): string?
 	return RobuxShopLogic.reasonText(tostring(payload.reason))
 end
 
--- 로벅스 탭 줄 전부. shop = Store "shop". 제한 유저면 로벅스 행운 상품 줄이 빠진다.
+-- 로벅스 탭 줄 전부. shop = Store "shop". 제한 유저면 로벅스 행운 상품 줄이 빠진다. 새 경제면 빠진 상품(x2 Rebirths) 줄도 빠진다(#31).
 function RobuxShopLogic.rows(shop: any, ctx: Context?): { Row }
 	local view = ShopEffectsLogic.fromSummary(shop)
 	local c: Context = ctx or {}
@@ -308,7 +310,7 @@ function RobuxShopLogic.rows(shop: any, ctx: Context?): { Row }
 	end
 	for _, key in ipairs(ShopConfig.GAMEPASS_ORDER) do
 		local def = ShopConfig.get(key) :: ShopConfig.ProductDef
-		if not (def.paidRandom and view.restricted) then
+		if not (def.paidRandom and view.restricted) and not EconomyV2Logic.isRemovedProduct(key, c.economyV2) then
 			local r = passRow(key, view.owns, c, shop)
 			-- 칭호 · 펫 · 아우라 행운 패스(안 가짐): 그 창 확률 보기로 가는 둘째 버튼(지시서 #28 O2 — 결과 전부의 전후 확률은 창 표에 있다)
 			if def.effect.type == "luckPass" and RobuxShopLogic.LINK_ROLLS[def.effect.roll] and r.state ~= "owned" then
