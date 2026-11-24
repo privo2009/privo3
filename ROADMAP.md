@@ -59,6 +59,7 @@
 | `Systems/ArenaServiceTests.server.lua` | 130 | 스폰 좌표·경계 높이·스테이지 수에 따른 경계 확장·출입구 개방·어깨 벽·바닥 파생과 파트 상한 분할(층 수 흔들기)·전 층 바닥 위 |
 | `Systems/CashoutPadServiceTests.server.lua` | 50 | 발판 좌표·측면 오프셋·디바운스·런당 1회·플레이어별 격리·source 경로·층 불일치 무시·UiTheme 색 · 근처 확인(멀면 cashout 0 · 런 없으면 묻지 않음 — #23 N1) |
 | `Tests/SuccessRateReportTests.server.lua` | 151 | 확률 시뮬레이터 식 — 펀치 간격·속도 미곱·반경 밖 지연·런 중 클릭·걷기 시간·진행 규칙 2종·모델 범위·seed 결정성·워프 비교(판단·워프 런)·문턱 구간 비교(구간 수·순서·합산·seed 재현)·운동기구 훈련·공허 구매자·업그레이드 S5(가장 싼 것부터 · 예산 = getLeftover · 최대 레벨 건너뜀)·TEMP 후보 교체 되돌림 · 칭호 S7(자동 롤 기준 · 지출 · 장착 · 배수 한 번씩 · 후보 권한) · S5' 1차 4종 · 아우라 A4(20% · 가장 높은 팩 · 장착 · m 클릭 · 1펀치 한 번씩 · 후보 G4) · 펫 E11(15% · 슬롯 먼저 · 가장 높은 알 · 크래프팅 연쇄 · 실효 증가분 순 장착 · 가득 차면 약한 것 놓아주기 · 클릭 힘 한 번 · 데미지 없음 · 후보 되돌림) · S5' 3종(L3) · 걷기 L1 · L2 · 배수 세 자리 공개 함수 · rebirth 공개 · 관측 고리가 결과를 안 바꿈 · StandardPathReport cliffRatio · boundaries · TARGETS · metrics(#13) |
+| `Tests/EconomyCandidateReportTests.server.lua` | 9 | 경제 재설계 후보 도구(#29 — Studio 전용) — 빈 고리 · 단독 모드 false · S5' 그대로 · 환생 비용 1000 × g^n · 배수 1 + a·n / b^n · 곡괭이 N^(t−1) × 강화 · 광석 = HP 구간 · 가방 남김 / 바꿔 줍기 / 무한 · 제작 규칙 2 · 줍기 거리 |
 | `Systems/GymServiceTests.server.lua` | 46 | 운동기구 조건·배수·가격 순증가·해금 경계·공허 훈련 구역(로벅스 전용·맨 끝·가장 비쌈·가장 셈·ShopConfig 가격)·스폰 구역 안·게이트 앞·패드와 안 겹침·발판 판정·배수 결정 · getShopKey · 선해금 가격 = ShopConfig(#16) |
 | `Tests/CashoutPadViewTests.server.lua` | 23 | 런 상태 → 발판 켜짐(클리어 + 같은 층)·꺼짐(미클리어·다른 층·런 없음)·켜진 발판 1개·역할 키 |
 | `Tests/AdvanceWallViewTests.server.lua` | 97 | 런 상태 → 벽 모습(숨김·닫힘·열림)·크기 파생·층별 위치·잘못된 stage·LevelConfig 깊이 소스 등록 |
@@ -127,7 +128,7 @@
 | `Tests/AnalyticsTests.server.lua` | 55 | 분석 래퍼(#23 A1 ~ A5) — 흐름표 11종 · 엔진 Enum 이름 · 흐름별 호출 1회 · 모아 보내기(합 · 마지막 잔액) · tick · 나갈 때 · 1e15 넘으면 blox_flow_large(log10 · 필드 · 10^2000) · 경계 · inf · NaN · 음수 거부 · 상한(창 · 플레이어별 · 버림 로그) · pcall 실패 무해 · Player 아님 건너뜀 · 도우미 4종 · 퍼널 · 처음 깬 층 중복 없음(firstClear) |
 | `Tests/FxTests.client.lua` | 78 | 화면 연출(#25 U1 ~ U7) — 구간 표본 · 사양 = Config · log10 보간(0 · 같은 값 · 줄어듦 · 10^2000 · 지수 경계) · 계획 · 스로틀 · 가운데 기준 · 크래프팅 순서(결과 · PlayerState 어느 쪽 먼저 · 거부 · 시간 초과) · 구동기(가짜 시계 · 끝값 · onDone · 교체 · finish · cancel · 연출 줄이기 · 멈춤값 · 정리) · UIScale 하나 규칙 · 튀기 가운데 기준 · 창 열기 · 닫기(닫는 중 다른 창 · 같은 창 다시 · 알림 순서 · 연출 없는 인스턴스) · 결과 모달(보통 · 영웅 이상 · 빛 띠 1회) · 빛 띠 1회 모드 · 연출 줄이기(버튼 · 빛 띠) · 블럭스 올라가기 · 레벨 · 환생 배수 튀기 · 크래프팅 연결 · UiFxTests 요약 줄을 본 뒤 시작(상한 30초 — 넘으면 실패 1, #26 +1) |
 | `Tests/SfxTests.client.lua` | 19 | 효과음(#25 S1 ~ S3) — 키 12개 · 커밋 값 id 전부 nil · 판정(id 없음 · 끔 · 스로틀 · 모르는 키) · 희귀도 → 키(칭호 · 아우라 · 펫) · 런 상태 · 환생 · 구매 · 일일 보상 · 시도 기록 · 끔이면 시도 0 · 풀 |
-| **합계** | **4432** | 서버 71행 2992 · 클라 38행 1440 — 2026-11-24 #28 후속 마무리 Play 2번 실측(플래그 전부 끔 · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
+| **합계** | **4441** | 서버 72행 3001 · 클라 38행 1440 — 2026-11-24 #29 마무리 Play 2번 실측(플래그 전부 끔 · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -155,7 +156,17 @@
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-11-24 Studio Play 런타임 실측 (전량, 지시서 #28 후속 — 아우라 창 "×10 패스를 더하면" · 토글 글자 · 플래그 전부 끈 Play 2번).**
+최근 갱신: **2026-11-24 Studio Play 런타임 실측 (전량, 지시서 #29 — 경제 재설계 조사 · 후보 도구 · 플래그 전부 끈 Play 2번).**
+110개 행 전부가 두 Play 모두에 같은 개수로 찍혔다. **4441 passed / 0 failed** — 서버 3001(72행) + 클라 1440(38행). 끝 표시 `server 72/72 files · 3001` ·
+`client 38/38 files · 1440`. 단계 0 기준선(#28 후속 뒤)은 서버 71행 2992 · 클라 38행 1440으로 같았다.
+
+```
+신설   EconomyCandidateReportTests     9    경제 후보 도구 식 (d55ad59)
+유지   나머지 109행 — SuccessRateReportTests 151은 빈 고리(ECON nil)를 더해도 그대로
+대조   직전 4432(서버 2992 + 클라 1440) + 신설 9 = 4441 (서버 +9 · 클라 0)
+```
+
+그 전 갱신: **2026-11-24 Studio Play 런타임 실측 (전량, 지시서 #28 후속 — 아우라 창 "×10 패스를 더하면" · 토글 글자 · 플래그 전부 끈 Play 2번).**
 109개 행 전부가 두 Play 모두에 같은 개수로 찍혔다. **4432 passed / 0 failed** — 서버 2992(71행) + 클라 1440(38행). 끝 표시 `server 71/71 files · 2992` ·
 `client 38/38 files · 1440`.
 
@@ -1707,6 +1718,26 @@ Phase 8에 남은 것(코드 아님): 보상형 광고는 출시 후 · Roblox P
 
 ---
 
+## 경제 재설계 (출시 전) — 지시서 #29 조사 완료 · 착수 전 사람 결정 대기
+
+방향: 블록 → 광석(바닥 드롭 · 걸어서 줍기 · 런 가방) → 곡괭이 제작 · 강화(펀치 데미지 업그레이드 자리) · 환생 1번 +1 · 비용 점증 · 25층까지 10 ~ 20회.
+조사 결과(바뀌는 곳 · 후보 8 · 비교 줄 20 · 결정 G 16 · S 7 · H 6) → `docs/PENDING.md` "경제 재설계 착수 전 결정". 에셋 규격 초안 → `docs/UI_ASSET_SPEC.md` "6".
+측정 도구: `Tools/EconomyCandidateReport`(Studio 전용 · 채택 안 함 D2).
+
+예상 지시서 순서(사람 결정 뒤 — 번호는 예상):
+```
+1  결정 반영 문서        DESIGN 3장(환생) · 새 장(광석 · 드롭 · 가방 · 곡괭이) · 데이터 스키마 · TUNING — 코드 없음
+2  스키마 · 인벤토리      schemaVersion 올림 · inventory · pickaxe · upgrades.punchDamage 처리 · InventoryService(단일 통로) · Migrations
+3  환생 규칙 · 배수       RebirthConfig · RebirthService · StrengthMultiplier 환생 항 · x2 Rebirths +2 · 운동기구 해금 · 환생 창 · 분석 이벤트
+4  드롭 · 줍기 · 가방      DropService(서버 판정 · Proximity) · 런 가방 · 수령 → 인벤토리 · 실패 · 사망 · 로그아웃 → 잃음 · 클라 드롭 렌더러(풀링)
+5  곡괭이 제작 · 강화      PickaxeConfig · PickaxeService · 곡괭이 창 · 펀치 데미지 업그레이드 없앰 · 가방 업그레이드 · 1펀치 결합 함수
+6  자동 진행 · 안내        자동 진행 줍기 모드 · 첫 접속 안내 단계 · 경제 분석 이벤트 · 수령 발판 안내
+7  에셋(사람 업로드)       곡괭이 · 광석 · 채굴 애니메이션 · 이펙트(AI 가능 — UI_ASSET_SPEC 6) · Tool 배선
+8  튜닝 · 시뮬레이터       결정 모델 교체(SuccessRateReport · StandardPathReport · BalanceSummary) · HP 곡선 · 프리셋 다시 뽑기 · 목표 성공률 대조
+```
+
+---
+
 ## Phase 9 — 출시 준비 [대부분 수동]
 ```
 [수동]  게임 아이콘, 썸네일  ← CTR 결정. 절대 대충 금지
@@ -1822,7 +1853,8 @@ UI 이미지 / 색상 / 아이콘
 ```
 Creator Store 무료 에셋  — 펫, 이펙트, 운동기구
 블록                     — Studio에서 직접 (정육면체라 쉬움)
-아이콘                   — AI 생성
+아이콘 · 3D · 애니메이션 · 이펙트 텍스처 — AI 사용 가능(2026-11-24 사람 결정 — 업로드 · ID · 최종 확인은 사람 ·
+                           알려진 게임 · 캐릭터 모양을 따라 하지 않는다. docs/UI.md "파이프라인")
 고품질 모델              — Discord 커미션 (로벅스)
 ```
 

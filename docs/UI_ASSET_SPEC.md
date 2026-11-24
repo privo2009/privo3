@@ -1,6 +1,6 @@
 # UI 에셋 제작 규격서
 
-문서 갱신: 2026-10-22
+문서 갱신: 2026-11-24 (6절 장비 · 이펙트 초안 — 지시서 #29)
 
 > **대상**: 디자인 담당(지환)
 > **범위**: 피그마에서 **무엇을 / 어떤 크기로** 그려서 내보내는지만 적는다.
@@ -460,7 +460,110 @@ PNG 필요    없음
 
 ---
 
-## 6. 크기 요약
+## 6. 장비 · 이펙트 (초안 — 지시서 #29 · 경제 재설계 결정 전)
+
+⚠️ **초안이다. 아직 만들지 않는다.** 곡괭이 등급 수 · 광석 종류 · 3D로 할지 아이콘으로 할지는
+`docs/PENDING.md` "경제 재설계 착수 전 결정"에서 사람이 정한다. 정해지면 이 절의 "결정 대기" 줄을 고친다.
+아래 로블록스 규격은 전부 공식 문서에서 읽은 값이다(2026-11-24 확인 — 페이지에 갱신 날짜 없음). 기억으로 적지 않는다.
+못 찾은 것은 **"확인 못 함"**으로 둔다 — 만들기 전에 그 줄부터 다시 확인한다.
+
+### 6-0. AI 사용 (2026-11-24 사람 결정 — 지시서 #29)
+
+```
+쓸 수 있음   3D 모델 · 애니메이션 · 이펙트 텍스처 · 아이콘에 AI를 써도 된다
+사람이 함    업로드 · 에셋 ID 기록(AssetConfig) · 최종 확인(이 절 검수 + 화면에서 눈으로)
+하지 않음    알려진 게임 · 캐릭터의 모양을 따라 하지 않는다(이름 · 실루엣 · 배색 · 로고를 흉내 내는 프롬프트 금지)
+```
+AI 조건 문장(프롬프트 앞에 붙인다 — 초안):
+```
+"original design, simple low-poly, chunky toy-like proportions, thick readable silhouette,
+ 2-3 flat colors, no logos, no text, not resembling any existing game or character"
+3D면 덧붙임:  "single mesh, under 20,000 triangles, watertight, pivot at grip point"
+텍스처면:     "seamless where tiled, transparent background, PNG"
+```
+⚠️ Studio MCP의 생성 · 업로드 도구(generate_mesh · generate_material · upload_image 등)는 쓰지 않는다(CLAUDE.md 절대 규칙 8).
+
+### 6-1. 공식 규격 (읽은 것)
+
+```
+3D 가져오기   .fbx · .obj · .gltf. 단위 기본 Studs. 축 Forward = Front · Up = Top. 리그 R15 / Custom / No Rig
+              https://create.roblox.com/docs/studio/importer
+메시          메시 하나 삼각형 20,000개까지 · watertight · 두께 0 면 금지 · 뼈 영향 4개 이하 · 애니메이션 트랙 1개
+              https://create.roblox.com/docs/art/modeling/specifications
+텍스처        png · jpg · tga · bmp. UV 0 ~ 1 · 메시당 재질 1 · 노멀은 OpenGL 탄젠트
+              크기 권장: 물체가 5×5 스터드면 256 · 10×10이면 512 · 20×20이면 1024
+              ⚠️ 최대 해상도가 같은 페이지 안에서 4096과 1024로 다르게 적혀 있다 — 1024 이하로 만든다(둘 다 지킨다)
+              https://create.roblox.com/docs/art/modeling/texture-specifications
+PBR           SurfaceAppearance 맵 5종(color · normal · roughness · metalness · emissive) · MeshPart에만 붙는다
+              · 게임 실행 중 스크립트로 맵을 못 바꾼다(등급별 빛은 맵 교체가 아니라 다른 파트 · 이펙트로)
+              https://create.roblox.com/docs/art/modeling/surface-appearance
+도구(Tool)    Handle 파트 하나 → R15는 RightHand에 붙는다 · 쥐는 자리는 Grip(CFrame) · RequiresHandle
+              · Handle은 Anchored 금지
+              https://create.roblox.com/docs/players/tools · https://create.roblox.com/docs/reference/engine/classes/Tool
+애니메이션    Animation Editor 30fps · 우선순위 7단계 · 루프 · Publish하면 ID. 재생은 Animator:LoadAnimation ·
+              이벤트는 GetMarkerReachedSignal
+              https://create.roblox.com/docs/animation/editor · https://create.roblox.com/docs/animation/using
+              FBX 애니메이션 가져오기 절차 · 마커 이름 규칙: 확인 못 함(/docs/animation/events 안 읽음)
+권한          애니메이션은 Asset Privacy 대상이 아니라고 적혀 있다
+              https://create.roblox.com/docs/projects/assets/privacy
+              남이 올린 애니메이션을 쓸 수 있는 조건: 확인 못 함 → 우리 계정(그룹)으로 올린 것만 쓴다
+파티클        플립북 2×2 · 4×4 · 8×8 · Custom(예: 1024×1024 = 8×8 칸 · 칸 사이 여백) · 최대 30fps ·
+              초당 400개(모바일 100) · 메모리가 모자라면 플립북이 자동으로 꺼진다 · 수명 최대 20초
+              https://create.roblox.com/docs/effects/particle-emitters · /reference/engine/classes/ParticleEmitter
+빔 · 트레일    Wrap / Static / Stretch · 품질 설정에 따라 달라진다 · 텍스처 크기 규정은 페이지에 없음
+              https://create.roblox.com/docs/effects/beams · https://create.roblox.com/docs/effects/trails
+모바일 성능    메모리 부족으로 꺼질 수 있다 · 예시 기준 드로콜 1,000 · 삼각형 1,000,000 이하 · 투명도는 0 / 1 권장
+              · 텍스처 메모리 = 픽셀 수 · 대부분 512 이하 · 작은 이미지는 256 이하 · 파티클은 배치(batch)되지 않는다
+              https://create.roblox.com/docs/performance-optimization/design · /performance-optimization/improve
+```
+
+### 6-2. 곡괭이 (펀치 데미지 업그레이드 자리 — 결정 대기: 등급 수 5 ~ 7)
+
+```
+형태        Tool. Handle 하나(손잡이) + 머리 메시. 쥐는 자리 = Handle 아래쪽 끝(Grip)
+크기        캐릭터 키(R15 약 5 스터드)의 0.6 ~ 0.8배 — 길이 3 ~ 4 스터드(초안)
+삼각형      등급 하나 2,000개 이하(초안 — 메시 상한 20,000의 1/10. 다른 플레이어 것도 한 화면에 여럿 보인다)
+텍스처      512 × 512 이하 한 장(물체 5×5 스터드 이하 → 공식 권장 256 · 등급 색 구분을 위해 512까지)
+등급 구분   실루엣(머리 모양)이 등급마다 달라야 한다 — 색만 바꾸지 않는다. 등급 색은 희귀도 색(docs/UI.md "3. 색")을 따른다
+강화 표시   메시를 바꾸지 않는다. 강화 단계는 손잡이 띠 · 작은 빛(이펙트)으로 — 결정 대기
+아이콘      곡괭이 창 · 제작 줄용 256 × 256(4-1 타일 아이콘 규격) — 3D와 같은 실루엣
+```
+
+### 6-3. 광석 · 바닥 드롭 (결정 대기: 3D냐 아이콘(빌보드)이냐)
+
+```
+후보 A 3D    광석 덩어리 MeshPart. 삼각형 200개 이하(초안 — 한 화면에 수십 개) · 텍스처 없이 색만 또는 128 × 128
+후보 B 아이콘  BillboardGui 그림 128 × 128 PNG(투명). 삼각형 0 · 가장 가볍다 · 멀리서도 같은 크기
+크기         바닥 드롭 1 ~ 1.5 스터드(초안 — 블록 큐브 4 스터드보다 작게)
+등급별 빛     구간(광석 종류)마다 색 하나 + 높은 구간만 약한 빛(PointLight 대신 이펙트 텍스처 — 모바일 성능)
+동시 상한     한 화면 드롭 40개(폰 초안 — 블록 최대 7개 × 블록당 양 + 남은 드롭). 넘으면 오래된 것부터 끌어당겨 합친다
+              ⚠️ 표시만 클라 전용 · 풀링 · 물리 없음(Anchored + 손으로 튀기기 · 떠 있기 — CLAUDE.md 절대 규칙 4)
+```
+
+### 6-4. 채굴 모션 · 이펙트
+
+```
+채굴 모션     R15 애니메이션 하나(휘두르기) · 0.3 ~ 0.5초 · 우선순위 Action · 펀치 속도(최대 5회/초)에 맞춰 재생 속도만 바꾼다
+              때리는 순간 마커 하나(이름 결정 대기 — 마커 이름 규칙 확인 못 함) → 클라가 파편 · 소리를 맞춘다
+때리는 순간   작은 파편 플립북 4×4 · 256 × 256(초안) · 모바일 초당 100 상한 안에서
+줍는 순간     드롭이 캐릭터로 빨려 오는 선(Trail 또는 Beam · 텍스처 64 × 256 이하 초안) + 작은 반짝임 1회
+가방 가득     HUD 가방 칸이 빨갛게 깜빡 + 바닥 드롭 위 "가득" 표시(글자는 코드 — Strings). 이펙트 PNG 없음
+```
+
+### 6-5. 검수 (만든 뒤)
+
+```
+[ ] 삼각형 수가 위 초안 안인가(곡괭이 2,000 · 3D 광석 200)
+[ ] 텍스처가 1024 이하 · 512 권장 안인가
+[ ] 곡괭이 등급끼리 실루엣만 보고(검은 단색) 구분되는가
+[ ] 알려진 게임 · 캐릭터와 닮지 않았는가(두 사람이 같이 본다)
+[ ] 애니메이션 · 메시를 우리 계정(그룹)으로 올렸는가 · ID를 AssetConfig에 적었는가
+[ ] 폰(705×338)에서 드롭 40개 + 이펙트를 켜고 프레임이 떨어지지 않는가
+```
+
+---
+
+## 7. 크기 요약
 
 | 에셋 | 크기 | 9-slice |
 |---|---|---|
@@ -480,7 +583,7 @@ PNG 필요    없음
 
 ---
 
-## 7. 내보내기 전 검수
+## 8. 내보내기 전 검수
 
 ```
 [ ] 40px로 축소해도 무엇인지 구분되는가
