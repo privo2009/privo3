@@ -67,6 +67,10 @@ EconomyV2Report.GOAL = {
 	early = 0.10, -- 1 ~ 7층 첫 도달 ±10%
 	earlyTo = 7,
 	robust = 0.10, -- 1회 제작 0 · 5 · 10초 · 트리플이 15종을 바꾸는 폭
+	k5 = 25, -- #32 획득 퍼짐: 5종째 25분 이내
+	k10 = { 50, 90 }, -- 10종째
+	k14 = { 120, 160 }, -- 14종째
+	gap2425 = 10, -- 24 → 25층 체류 중앙값(분) 이하
 	legendChance = 0.1, -- 3시간 안 확률 전설 기대 횟수
 	horizonMin = 180,
 }
@@ -451,6 +455,12 @@ local function measureV2(b: Bundle, players: number): any
 				end
 				noteOwned(p, s)
 				hatchWithCoins(p, s)
+				if s.enh60 == nil and p.elapsedSec >= 3600 then
+					s.enh60 = s.picks.owned[s.picks.equipped].enh
+				end
+				if s.enh120 == nil and p.elapsedSec >= 7200 then
+					s.enh120 = s.picks.owned[s.picks.equipped].enh
+				end
 				if s.star180 == nil and p.elapsedSec >= EconomyV2Report.GOAL.horizonMin * 60 then
 					local hist = { [0] = 0, 0, 0, 0, 0, 0 }
 					for _, o in pairs(s.picks.owned) do
@@ -502,6 +512,14 @@ local function measureV2(b: Bundle, players: number): any
 			onRunEnd = function(p, best, cashed)
 				local s = st(p)
 				doCrafts(p, s)
+				-- 3시간 시점 별 분포: 런 시작에서 못 잡고 끝나는 플레이어(마지막 런이 3시간을 넘김)도 여기서 잡는다
+				if s.star180 == nil and p.elapsedSec >= EconomyV2Report.GOAL.horizonMin * 60 then
+					local hist = { [0] = 0, 0, 0, 0, 0, 0 }
+					for _, o in pairs(s.picks.owned) do
+						hist[o.stars] += 1
+					end
+					s.star180 = { hist = hist, owned = ownedCount(s) }
+				end
 				if s.first24 ~= nil and s.at25 == nil then
 					if cashed and best == 24 then
 						s.stop24 += 1
@@ -558,7 +576,8 @@ local function measureV2(b: Bundle, players: number): any
 		MODEL.WARP_POLICY = pol.warp or "none"
 
 		out = EconomyV2Report.collect(players, maxStage, st, function(p: any)
-			return ownedCount(st(p)) >= #Config.PICKAXES
+			-- #32: 15종을 다 모아도 3시간 시점까지 돈다(별 분포를 3시간 시점 전원으로 잰다 — #31 해석 4줄 다시 잼)
+			return ownedCount(st(p)) >= #Config.PICKAXES and p.elapsedSec >= EconomyV2Report.GOAL.horizonMin * 60
 		end)
 	end)
 	return out
@@ -593,7 +612,7 @@ function EconomyV2Report.collect(players: number, maxStage: number, st: ((any) -
 						local s = st(p)
 						s.at25 = true
 						cur.at25 = { n = s.n, blox = log10Big(p.blox), rebirthAt = table.clone(s.rebirthAt), pet = SuccessRateReport.petMult(p),
-							owned = #s.kthAt, pick = EconomyV2Logic.equippedMult(s.picks) }
+							owned = #s.kthAt, pick = EconomyV2Logic.equippedMult(s.picks), enh = s.picks.owned[s.picks.equipped].enh }
 					end
 				end
 			end
@@ -615,6 +634,7 @@ function EconomyV2Report.collect(players: number, maxStage: number, st: ((any) -
 				lostOre = s.lostOre, collected = s.collected, pickSec = s.pickSec, n = s.n, picks = s.picks,
 				backlogMax = s.backlogMax, backlogMean = if s.backlogN > 0 then s.backlogSum / s.backlogN else 0, star180 = s.star180,
 				enhanceBlox = log10Big(s.enhanceBlox), stop24 = s.stop24, fail24 = s.fail24, n24 = s.n24,
+				enh = s.picks.owned[s.picks.equipped].enh, enh60 = s.enh60, enh120 = s.enh120,
 			}
 		end
 		cur.p = nil
@@ -728,7 +748,24 @@ function EconomyV2Report.summarize(r: any): any
 		early = v1 ~= nil and worstEarly <= G.early,
 		legend = legendMean ~= nil and legendMean < G.legendChance,
 	}
-	return { t25 = t25, k15 = k15, got15 = got15, n25 = n25, legendMean = legendMean, worstEarly = worstEarly, pass = pass }
+	local function kth(k: number): number?
+		return endMed(r, function(e)
+			return if e.kthAt[k] ~= nil then e.kthAt[k] / 60 else nil
+		end)
+	end
+	local gaps = {}
+	for _, row in ipairs(r.rows) do
+		if row.first[24] ~= nil and row.first[25] ~= nil then
+			table.insert(gaps, (row.first[25] - row.first[24]) / 60)
+		end
+	end
+	local k5, k10, k14, gap = kth(5), kth(10), kth(14), median(gaps)
+	pass.k5 = k5 ~= nil and k5 <= G.k5
+	pass.k10 = k10 ~= nil and k10 >= G.k10[1] and k10 <= G.k10[2]
+	pass.k14 = k14 ~= nil and k14 >= G.k14[1] and k14 <= G.k14[2]
+	pass.gap = gap ~= nil and gap <= G.gap2425
+	return { t25 = t25, k15 = k15, got15 = got15, n25 = n25, legendMean = legendMean, worstEarly = worstEarly, pass = pass, k5 = k5, k10 = k10,
+		k14 = k14, gap = gap }
 end
 
 function EconomyV2Report.report(b: Bundle, players: number): any
@@ -780,7 +817,7 @@ function EconomyV2Report.report(b: Bundle, players: number): any
 		end
 	end
 	local kth = {}
-	for k = 2, #Config.PICKAXES do
+	for k = 1, #Config.PICKAXES do
 		local v = endMed(r, function(e)
 			return if e.kthAt[k] ~= nil then e.kthAt[k] / 60 else nil
 		end)
@@ -841,6 +878,16 @@ function EconomyV2Report.report(b: Bundle, players: number): any
 		end), "%.2f"), fmt(at25Med(r, function(a)
 			return a.pick
 		end), "%.1f")))
+print(string.format("[ECON2]   획득 퍼짐(#32): 5종 %s분[%s] · 10종 %s분[%s] · 14종 %s분[%s] · 24→25 체류 %s분[%s] · 강화(장착) 25층 %s · 1시간 %s · 2시간 %s · 끝 %s",
+	fmt(sm.k5), mark(p.k5), fmt(sm.k10), mark(p.k10), fmt(sm.k14), mark(p.k14), fmt(sm.gap), mark(p.gap), fmt(at25Med(r, function(a)
+		return a.enh
+	end), "%.0f"), fmt(endMed(r, function(e)
+		return e.enh60
+	end), "%.0f"), fmt(endMed(r, function(e)
+		return e.enh120
+	end), "%.0f"), fmt(endMed(r, function(e)
+		return e.enh
+	end), "%.0f")))
 -- 지시서 #31: 쌓이는 광석 · 별(3시간) · 강화 블럭스 · 24 → 25층
 local hist = { [0] = 0, 0, 0, 0, 0, 0 }
 local nStar = 0
@@ -897,6 +944,26 @@ print(string.format("[ECON2]   24→25층 간격 %s분 · 그동안 환생 %s회
 return sm
 end
 
+-- 손잡이 하나를 setter(set, 값)로 넣으며 log 공간 이분 탐색한다(#32 — 광석별 드롭 표처럼 Config 이름 하나가 아닌 손잡이)
+function EconomyV2Report.tuneWith(b: any, setter: ({ [string]: any }, number) -> (), range: { number }, metric: string, target: number, faster: boolean): number
+	local lo, hi = math.log(range[1]), math.log(range[2])
+	for _ = 1, EconomyV2Report.TUNE_STEPS do
+		local mid = (lo + hi) / 2
+		local set = table.clone(b.set or {})
+		setter(set, math.exp(mid))
+		local r = measureV2({ label = b.label, set = set, policy = b.policy }, EconomyV2Report.TUNE_PLAYERS)
+		local sm = EconomyV2Report.summarize(r)
+		local v = sm[metric]
+		local slow = v == nil or v > target
+		if slow == faster then
+			lo = mid
+		else
+			hi = mid
+		end
+	end
+	return math.exp((lo + hi) / 2)
+end
+
 -- 손잡이 하나(key — Config 이름)를 log 공간 이분 탐색해 지표(metric: 요약 → 분)를 target에 맞춘다. 키우면 빨라지는 손잡이면 faster = true.
 function EconomyV2Report.tune(b: Bundle, key: string, range: { number }, metric: string, target: number, faster: boolean): number
 	local lo, hi = math.log(range[1]), math.log(range[2])
@@ -934,21 +1001,33 @@ local function withSet(base: { [string]: any }, extra: { [string]: any }): { [st
 end
 EconomyV2Report.C_BASE = C_BASE
 
+-- #32 4차 결과(2026-11-24 — docs/TUNING.md 9절): 추천 1순위 S2(맞춘 값 = EXPLORE E0 — 광석 6~7 0.013 · 8~10 0.155 · PICK 1.234 · 2 · 3칸 신화 확률 낮춤).
+-- ⚠️ EconomyV2Config TEMP는 R1 그대로다 — S2의 광석별 드롭 표를 넣으면 #31 EconomyV2DecisionTests "드롭" 줄(하위 광석 = ORE_PER_BLOCK)을
+--    바꿔야 해서(지시서 #32 7번 🔔 조건) 넣지 않았다. 사람 결정 뒤 그 줄과 함께 바꾼다.
+-- #32 4차 측정: 곡괭이 얻는 시점을 3시간에 퍼뜨린다(N9). 대장간 8층(R1) 바탕 · 하위 광석(1 ~ 5)은 블록당 1 그대로.
+-- 손잡이 셋: 광석 6 ~ 7 드롭 x(신화 토큰 — 14종째) · 광석 8 ~ 10 드롭 y(전설 토큰 — 15종째) · PICK_RATIO(25층). run()이 차례로 맞춘다
+local function oreDrops(x: number, y: number): { number }
+	return { 1, 1, 1, 1, 1, x, x, y, y, y }
+end
+EconomyV2Report.oreDrops = oreDrops
+local ODDS_SLOW_MYTHIC = table.clone(Config.RARITY_ODDS)
+ODDS_SLOW_MYTHIC[2] = { common = 45, rare = 40, epic = 14.5, mythic = 0.5, legendary = 0 }
+ODDS_SLOW_MYTHIC[3] = { common = 30, rare = 40, epic = 28.5, mythic = 1.5, legendary = 0 }
 EconomyV2Report.BUNDLES = {
-	-- 2026-11-24 탐색 2회: 설정만으로는 1 ~ 7층 ±10%가 안 된다(곡괭이 1.10이어도 7층 −20% — 5초 제작이면 3분 안에 7종).
-	-- 대장간을 8층에서 열면(Claude 제안) 1 ~ 7층 5% 안. 셋 다 15종은 상위 드롭(UPPER_ORE_DROP_MULT)으로 맞춘다
-	{ label = "R1 대장간 8층", set = withSet(C_BASE, { FORGE_UNLOCK_STAGE = 8, PICK_RATIO = 1.21, UPPER_ORE_DROP_MULT = 0.10 }), k15Key = "UPPER_ORE_DROP_MULT", k15Range = { 0.03, 1 } },
-	{ label = "R2 대장간 첫 환생 뒤", set = withSet(C_BASE, { FORGE_UNLOCK_REBIRTHS = 1, PICK_RATIO = 1.21, UPPER_ORE_DROP_MULT = 0.10 }),
-		k15Key = "UPPER_ORE_DROP_MULT", k15Range = { 0.03, 1 } },
-	{ label = "R3 설정만(대장간 처음부터)", set = withSet(C_BASE, { PICK_RATIO = 1.15, UPPER_ORE_DROP_MULT = 0.12 }), k15Key = "UPPER_ORE_DROP_MULT", k15Range = { 0.03, 1 } },
+	{ label = "S1 중간 · 상위 광석 줄임", set = withSet(C_BASE, { FORGE_UNLOCK_STAGE = 8, PICK_RATIO = 1.214, ORE_DROP_BY_ORE = oreDrops(0.15, 0.11) }),
+		x0 = 0.15, y0 = 0.11 },
+	{ label = "S2 S1 + 2 · 3칸 신화 확률 낮춤", set = withSet(C_BASE, { FORGE_UNLOCK_STAGE = 8, PICK_RATIO = 1.214, ORE_DROP_BY_ORE = oreDrops(0.15, 0.11),
+		RARITY_ODDS = ODDS_SLOW_MYTHIC }), x0 = 0.15, y0 = 0.11 },
 } :: { any }
 
 EconomyV2Report.EXPLORE = {
-	-- 커밋한 TEMP 값(추천 1순위 R2 반올림) 확인 + 견고함
-	{ label = "TEMP 지금 값(R2 반올림)" },
-	{ label = "TEMP · 1회 0초", policy = { craftSec = 0 } },
-	{ label = "TEMP · 1회 10초", policy = { craftSec = 10 } },
-	{ label = "TEMP · 트리플", policy = { tripleCraft = true } },
+	-- #32 4차: S2 맞춘 값 + 강화 비용 성장(TEMP) 변형 — 후반 힘 성장이 24 → 25층 체류를 줄이는가
+	{ label = "E0 S2 맞춘 값", set = withSet(C_BASE, { FORGE_UNLOCK_STAGE = 8, PICK_RATIO = 1.234, ORE_DROP_BY_ORE = oreDrops(0.01318, 0.155),
+		RARITY_ODDS = ODDS_SLOW_MYTHIC }) },
+	{ label = "E1 E0 + 강화 비용 성장 1.8", set = withSet(C_BASE, { FORGE_UNLOCK_STAGE = 8, PICK_RATIO = 1.234, ORE_DROP_BY_ORE = oreDrops(0.01318, 0.155),
+		RARITY_ODDS = ODDS_SLOW_MYTHIC, ENHANCE_COST_GROWTH = 1.8 }) },
+	{ label = "E2 E0 + 강화 비용 성장 2.3", set = withSet(C_BASE, { FORGE_UNLOCK_STAGE = 8, PICK_RATIO = 1.234, ORE_DROP_BY_ORE = oreDrops(0.01318, 0.155),
+		RARITY_ODDS = ODDS_SLOW_MYTHIC, ENHANCE_COST_GROWTH = 2.3 }) },
 } :: { any }
 
 -- 24 → 25층 막힘 줄이는 방법(run 끝에서 측정). hpSegments가 있는 줄은 ⚠️ HP 곡선 변형 — 희준 결정 영역, 기본안 아님
@@ -995,7 +1074,7 @@ function EconomyV2Report.run()
 	task.wait(5) -- 시작 직후 테스트들이 MODEL · Config를 잠깐 흔드는 동안 기다린다
 	local E = EconomyV2Report
 	local t0 = os.clock()
-	print(string.format("[ECON2] ===== 새 경제 3차 측정 (지시서 #31 — 추천까지만 · 숫자는 사람이 정한다) · 모드 %s =====", E.MODE))
+	print(string.format("[ECON2] ===== 새 경제 4차 측정 (지시서 #32 — 곡괭이 얻는 시점 퍼뜨리기 · 추천까지만) · 모드 %s =====", E.MODE))
 	E.reproduceV1(200)
 	if E.MODE == "explore" then
 		for _, b in ipairs(E.EXPLORE) do
@@ -1009,15 +1088,27 @@ function EconomyV2Report.run()
 	local summaries: { any } = {}
 	for _, b in ipairs(E.BUNDLES) do
 		local set = table.clone(b.set or {})
-		-- 1) 25층 ≈ 2시간: 곡괭이 배수 PICK_RATIO(키우면 빨라진다)
-		set.PICK_RATIO = E.tune({ label = b.label, set = set, policy = b.policy }, "PICK_RATIO", { 1.05, 1.5 }, "t25", 120, true)
-		-- 2) 15종 ≈ 3시간: 상위 광석 공급(키우면 빨라진다)
-		set[b.k15Key] = E.tune({ label = b.label, set = set, policy = b.policy }, b.k15Key, b.k15Range, "k15", 180, true)
-		-- 3) 15종을 바꾸면 25층이 조금 움직인다 — 곡괭이 배수를 한 번 더 맞춘다
-		set.PICK_RATIO = E.tune({ label = b.label, set = set, policy = b.policy }, "PICK_RATIO", { set.PICK_RATIO / 1.06, set.PICK_RATIO * 1.06 }, "t25", 120, true)
+		local x, y = b.x0, b.y0
+		local function setX(st: { [string]: any }, v: number)
+			st.ORE_DROP_BY_ORE = oreDrops(v, y)
+		end
+		local function setY(st: { [string]: any }, v: number)
+			st.ORE_DROP_BY_ORE = oreDrops(x, v)
+		end
+		-- 1) 14종째 ≈ 140분: 광석 6 ~ 7 드롭(키우면 빨라진다)
+		x = E.tuneWith({ label = b.label, set = set, policy = b.policy }, setX, { 0.02, 1 }, "k14", 140, true)
+		set.ORE_DROP_BY_ORE = oreDrops(x, y)
+		-- 2) 15종째 ≈ 180분: 광석 8 ~ 10 드롭
+		y = E.tuneWith({ label = b.label, set = set, policy = b.policy }, setY, { 0.02, 1 }, "k15", 180, true)
+		set.ORE_DROP_BY_ORE = oreDrops(x, y)
+		-- 3) 25층 ≈ 2시간: 곡괭이 배수
+		set.PICK_RATIO = E.tune({ label = b.label, set = set, policy = b.policy }, "PICK_RATIO", { 1.05, 1.6 }, "t25", 120, true)
+		-- 4) 곡괭이가 바뀌면 14종이 조금 움직인다 — 광석 6 ~ 7을 한 번 더
+		x = E.tuneWith({ label = b.label, set = set, policy = b.policy }, setX, { x / 1.6, x * 1.6 }, "k14", 140, true)
+		set.ORE_DROP_BY_ORE = oreDrops(x, y)
 		local tb = { label = b.label, set = set, policy = b.policy }
 		table.insert(tuned, tb)
-		print(string.format("[ECON2] 묶음 %s 맞춘 값: %s · %.0f초", b.label, setText(set), os.clock() - t0))
+		print(string.format("[ECON2] 묶음 %s 맞춘 값: 광석 6~7 드롭 %.4g · 8~10 드롭 %.4g · PICK_RATIO %.4g · %.0f초", b.label, x, y, set.PICK_RATIO, os.clock() - t0))
 		table.insert(summaries, E.report(tb, E.PLAYERS))
 	end
 	local ref = tuned[1]
@@ -1033,24 +1124,6 @@ function EconomyV2Report.run()
 		end
 		print(string.format("[ECON2] 견고함 %s: 15종 %s분 대비 %s", b.label, fmt(base.k15), table.concat(deltas, " · ")))
 	end
-	print(string.format("[ECON2] ----- N5 강화에 블럭스 변형 (%s) · %.0f초 -----", ref.label, os.clock() - t0))
-	E.report(withExtra(ref, "강화 블럭스 1e4 × 10^수준", { ENHANCE_BLOX_COST_BASE = BigNum.new(1, 4), ENHANCE_BLOX_COST_GROWTH = 10 }), E.PLAYERS)
-	E.report(withExtra(ref, "강화 블럭스 1e7 × 10^수준", { ENHANCE_BLOX_COST_BASE = BigNum.new(1, 7), ENHANCE_BLOX_COST_GROWTH = 10 }), E.PLAYERS)
-	print(string.format("[ECON2] ----- 24 → 25층 막힘 방법 (%s) · %.0f초 -----", ref.label, os.clock() - t0))
-	for _, c in ipairs(E.CLIFF) do
-		local b = { label = ref.label .. " · " .. c.label, set = withSet(ref.set, c.set or {}), policy = ref.policy, hpSegments = c.hpSegments,
-			bloxSegments = c.bloxSegments }
-		E.report(b, E.PLAYERS)
-	end
-	print(string.format("[ECON2] ----- 참고 측정 · 유료 상품 효과 (%s) · %.0f초 -----", ref.label, os.clock() - t0))
-	E.report(withPolicy(ref, "자동 진행(AutoAdvanceLogic 목표층 · 전부 자동 줍기)", { pickup = "auto" }), E.PLAYERS)
-	E.report(withPolicy(ref, "큰 가방 ×2", { bagPass = 2 }), E.PLAYERS)
-	E.report(withPolicy(ref, "제작 연출 생략", { craftSkip = true }), E.PLAYERS)
-	E.report(withPolicy(ref, "트리플 제작", { tripleCraft = true }), E.PLAYERS)
-	E.report(withPolicy(ref, "부화 연출 생략", { hatchSkip = true }), E.PLAYERS)
-	E.report(withPolicy(ref, "트리플 부화", { tripleHatch = true }), E.PLAYERS)
-	E.report(withPolicy(ref, "비교 2배 블럭스", { bloxPass = 2 }), E.PLAYERS)
-	E.report(withPolicy(ref, "비교 2배 데미지", { damagePass = 2 }), E.PLAYERS)
 	print(string.format("[ECON2] 기준 %s 25층 %s · 15종 %s", ref.label, fmt(refSm.t25), fmt(refSm.k15)))
 	print(string.format("[ECON2] ===== 끝 · %.0f초 =====", os.clock() - t0))
 end
