@@ -52,7 +52,12 @@ R4 제한 유저  ArePaidRandomItemsRestricted가 true면 로벅스 · 로벅스
 #28: 같은 테스트 6 · 7절 + Studio 화면(floor9 · `TEST_GAMEPASSES { titleLuck10x, petLuck2x }` · `TEST_PAID_RANDOM_RESTRICTED` — en · ko 캡처).
 폰 틀 705×338 en · ko: 칭호 · 펫 토글 두 상태 · 상점 "확률 보기" 버튼 · 줄 이름 넘침 0 · 11px 이상(토글 칭호 205×15 · 펫 217×14px).
 
-### 새 경제(플래그 `ECONOMY_V2` 뒤 — 지시서 #30 · #31 사람 결정 · 상품은 아직 없다) — 제한 지역에서 숨길 상품
+### 새 경제(플래그 `ECONOMY_V2` 뒤 — 지시서 #30 · #31 사람 결정 · #35 코드) — 제한 지역에서 숨길 상품
+
+#35 코드 목록(원본 `EconomyV2Config.RESTRICTED_RANDOM_PASSES` — 새 경제일 때 제한 유저에게: 로벅스 탭 줄 없음 · 구매 요청 restricted ·
+보유해도 효과 없음): bigBag(큰 가방) · instantCraft(즉시 제작) · tripleCraft(트리플 제작) · instantHatch(즉시 부화) · hatch3x(Triple Hatch).
+행운 상품(paidRandom)은 기존 경로 그대로. 새 패스 4개는 ID가 nil이면 누구에게도 안 보인다(사람 등록 대기 — DASHBOARD_PRODUCTS 4절).
+제작 · 교환 · 부화(코인)는 제한 유저에게도 보인다(무료 랜덤). 테스트 `ShopV2Tests`(켜고 끈 두 경우)
 
 원본 `DESIGN.md` "16. 경제 재설계 > 제한 지역". 상품을 만드는 지시서에서 위 표에 한 줄씩 옮긴다(가격 · ID는 미정 — PENDING N2).
 ```

@@ -95,7 +95,16 @@ strength1024x  x1024 Power   2052390076    699
 - 로블록스 게임패스는 지울 수 없고 판매 중지만 할 수 있다(희준 — 지시서 #31 문장. 2026-11-24 공식 passes 페이지에는 삭제 · 판매 중지 절차와
   이미 산 사람의 소유 유지가 적혀 있지 않다 — 확인 못 함). **사람 작업: 플래그를 켜는 날 대시보드에서 이 패스의 판매를 중지한다**
   (ROADMAP 출시 체크리스트 30). 메뉴 위치는 그때 대시보드에서 확인한다.
-- 새 상품(가격 · ID 미정 — PENDING N2): 큰 가방 · 제작 연출 생략 · 트리플 제작 · 부화 연출 생략. 트리플 부화는 Triple Hatch(2052474059) 재사용.
+- **새 게임패스 4개(#35 — 사람 등록 대기)**. 코드 자리는 `ShopConfig.V2_GAMEPASS_IDS`(지금 nil — nil이면 상점 줄 없음 · 효과 없음).
+  등록하면 받은 ID를 알려 준다 → 다음 지시서에서 넣는다. 4개 모두 제한 지역에서 숨긴다(랜덤의 재료 · 횟수를 로벅스로 늘린다 — POLICY_CHECK).
+  트리플 부화는 Triple Hatch(2052474059) 재사용.
+```
+키            대시보드 이름   R$   설명(영어 = 대시보드 · 한국어 = 게임 문구)                                  아이콘(임시)       ID
+bigBag        Big Bag         99   Bag capacity ×2 / 가방 용량 ×2                                         가방 실루엣       (빈칸 — 사람 등록 대기)
+instantCraft  Instant Craft   79   Skip craft animations — craft every 1s / 제작 연출 생략 · 1초마다 제작   망치 + 번개       (빈칸 — 사람 등록 대기)
+tripleCraft   Triple Craft    99   Craft 3 at once (uses 15 ores) / 한 번에 3회 제작(광석 15개)            망치 ×3          (빈칸 — 사람 등록 대기)
+instantHatch  Instant Hatch   49   Skip hatch animations — hatch every 1s / 부화 연출 생략 · 1초마다 부화   알 + 번개        (빈칸 — 사람 등록 대기)
+```
 
 ## 5. 개발자 상품 (16)
 
