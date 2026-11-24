@@ -28,7 +28,10 @@ R4 제한 유저  ArePaidRandomItemsRestricted가 true면 로벅스 · 로벅스
 럭키 롤 5 · 15 (개발자 상품)    아우라 창 로벅스 탭만      고침 — 줄에 "행운 ×5: <전설> a% → b%"  고침 — 확률 보기 "럭키 롤": 카드 넷   통과 — 탭 · 줄 · 사용 버튼 없음 ·
  = 로벅스로 사는 뽑기(R1·R2)                              + 확률 보기로 결과 넷 전부 · 합 100   = 행운×5 실제 확률(서버와 같은 항)    서버 rollCredit restricted
 슈퍼 롤 5 · 15 (개발자 상품)    아우라 창 로벅스 탭만      고침 — "행운 ×100: …" + 확률 보기     고침 — 확률 보기 "슈퍼 롤"            통과 — 위와 같음
-10배 아우라 행운 (게임패스)     상점 로벅스 탭 · 아우라 창  고침 — "행운 ×10: <전설> a% → b%"     통과 — 아우라 카드 확률에 ×10         통과 — 줄 숨김 · 효과 1
+10배 아우라 행운 (게임패스)     상점 로벅스 탭 · 아우라 창  고침(#28 후속) — 줄 "행운 ×10: …" 그대로  통과 — 아우라 카드 확률에 ×10 ·       통과 — 줄 · 버튼 · 단계 ·
+                                                        + 아우라 창 확률 보기: 카드 넷 전부    가지면 "더하면" 단계 건너뜀           "확률 보기" 버튼 숨김 · 효과 1
+                                                        보통 → ×10 패스 더하면 → 럭키 → 슈퍼
+                                                        (합 100) · 상점 줄 "확률 보기"로 연다
 10배 칭호 행운 (게임패스)       상점 로벅스 탭 · 칭호 창    고침(#28) — 줄 "행운 ×10: …" 그대로 +  통과 — 칭호 표 확률에 ×10 ·          통과 — 줄 · 버튼 · 토글 ·
                                                         칭호 창 확률 보기: 6줄 전부 지금 ↔     가지면 토글 숨김(이미 "지금"에 든다)   "확률 보기" 버튼 숨김 · 효과 1
                                                         더하면(합 100) · 상점 줄 "확률 보기"로 연다
@@ -66,8 +69,17 @@ R4 제한 유저  ArePaidRandomItemsRestricted가 true면 로벅스 · 로벅스
   켜진 포션) × 패스 배수 — 서버 `RollService.computeLuck`의 `luckPassMult` 자리(패스는 뽑기마다 하나라 안 가졌을 때 그 자리는 1). 공용 로직
   `UI/Logic/OddsPreviewLogic`. 이미 가졌거나 제한 유저면 토글 대신 원래 행운 글자(가진 것은 "지금"에 이미 들어 있다).
 - 상점 로벅스 탭 칭호 · 펫 행운 패스 줄(안 가짐)에 둘째 버튼 **"확률 보기"** — 누르면 그 창을 "더하면"으로 연다. 줄 설명(배수 + 가장 귀한 것)은 그대로.
-  아우라 패스 줄에는 없다(아래 4절).
+  (#28 후속: 아우라 패스 줄에도 있다 — 아래.)
 - Strings 새 키 3개: `odds.preview.now` · `odds.preview.pass` · `shop.oddsLink`(en · ko).
+
+### 고친 곳 (#28 후속 — 사람 판단 ① ②를 Claude가 정함 · 화면 · Strings만)
+
+- 아우라 창 확률 보기에 **"×10 패스를 더하면"** 단계: 보통 → 더하면 → 럭키 → 슈퍼 → 보통. x10 Aura Luck을 안 가졌고 제한 유저가 아닐 때만
+  (가졌으면 건너뛴다 — "보통"에 이미 들어 있다). 카드 넷 전부가 산 뒤 확률(합 100) — 칭호 · 펫과 같은 `OddsPreviewLogic.luck`.
+- 상점 로벅스 탭 10배 아우라 행운 줄(안 가짐)에도 "확률 보기" → 아우라 창을 더하면으로 연다(`AuraWindow.showOdds` — 로벅스 탭은 닫는다).
+- 토글 글자 세 창 공통 꼴: en "With x10 Pass (Luck x20)" · ko "×10 패스를 더하면 (행운 ×20)"(`odds.preview.pass` + 패스 이름 `odds.passName`).
+  지금 · 보통 · 럭키 · 슈퍼 글자도 같은 꼴("Odds Now (Luck x2)" · "럭키 롤 확률 (행운 ×10)"). 행운 배수는 뒤 0을 지운다(`OddsPreviewLogic.luckNum` —
+  20 · 2.5 · 1.25 · 100. Formatter는 그대로).
 
 ## 4. 남은 위험 · 사람이 볼 것
 
@@ -76,9 +88,7 @@ R4 제한 유저  ArePaidRandomItemsRestricted가 true면 로벅스 · 로벅스
   https://devforum.roblox.com/t/clarifying-requirements-for-paid-random-items/4654622 가 검색에 걸렸지만 이 세션에서는 본문을 읽지 못했다
   → **사람이 읽고** 2배 블럭스 · 뽑기에 대한 서술이 있는지 본다. 있으면 판매 중단 · 제한 지역 숨김 확대 · 그대로 중 하나를 정한다.
   2026-11-24(#28): 다시 확인하지 않았다 — S14 판정 · 공지 미확인 상태 그대로(공식 페이지도 2026-11-20 읽은 것 기준).
-- ~~행운 패스의 구매 전 설명은 "배수 + 가장 귀한 것 하나"다~~ → 칭호 · 펫은 해소(#28 — 창 확률 보기로 결과 전부의 전후 확률).
-  **10배 아우라 행운은 아직 "배수 + 가장 귀한 것 하나"다.** 아우라 창 확률 보기(#27)는 보통 · 럭키 · 슈퍼 롤만 돌고 "×10 패스를 더하면"은 없다.
-  칭호 · 펫과 같은 꼴로 맞출지는 사람 판단(#28 결정 O1은 칭호 · 펫만이었다).
+- ~~행운 패스의 구매 전 설명은 "배수 + 가장 귀한 것 하나"다~~ → 해소. 칭호 · 펫(#28) · 아우라(#28 후속) 모두 창 확률 보기로 결과 전부의 전후 확률.
 - 아우라 창 로벅스 탭을 보는 동안에는 카드가 숨는다 — 결과 전부는 팩 탭을 한 번 눌러야 보인다(확률 보기 버튼은 탭 화면에도 남는다).
 - 확률 0.0% 칸: 행운이 크면 낮은 등급이 실제로 0이 되거나 표시 자릿수 아래로 내려간다(슈퍼 롤 팩 1 = 오로라 100.0%). 합은 100.0%다.
 - 게시 서버에서 PolicyService 응답이 실제로 오는지는 Studio로 볼 수 없다 — 비공개 테스트 서버 로그 `[PolicyGate] … 제한=… (정책 응답=true)`.
@@ -101,4 +111,5 @@ R4 제한 유저  ArePaidRandomItemsRestricted가 true면 로벅스 · 로벅스
 `HANDOFF/screens-2026-11-20/` p27_aura_normal_en · p27_aura_lucky_en · p27_aura_super_en · p27_aura_robux_en · p27_aura_lucky_ko ·
 p27_aura_robux_ko · p27_aura_restricted_en · p27_shop_robux_restricted_en
 `HANDOFF/screens-2026-11-24/` 28-ko-shop-link · 28-ko-title-pass · 28-ko-title-now · 28-ko-pet-pass · 28-ko-pet-now · 28-en-shop-link ·
-28-en-title-pass · 28-en-pet-pass · 28-en-title-owned · 28-en-pet-owned · 28-ko-title-restricted · 28-ko-pet-restricted
+28-en-title-pass · 28-en-pet-pass · 28-en-title-owned · 28-en-pet-owned · 28-ko-title-restricted · 28-ko-pet-restricted ·
+28b-en-aura-pass · 28b-ko-aura-pass(#28 후속)
