@@ -216,8 +216,32 @@ local SIM = {
 	PET_SEED = 20261026,
 	-- true면 run()이 결정 모델 · 펫 없음(B2) · 펫 m · CRAFT_FACTOR 후보만 돈다(지시서 #12 5단계). 커밋 값은 false.
 	PET_SWEEP_ONLY = false,
+	-- true면 run()이 경제 후보 측정(Tools/EconomyCandidateReport — 지시서 #29)만 돈다. 커밋 값은 false.
+	ECONOMY_SWEEP_ONLY = false,
 }
 SuccessRateReport.SIM = SIM
+
+-- ===== 경제 후보 고리 (지시서 #29 — Tools/EconomyCandidateReport만 채운다) ==================================
+--
+-- nil이면 이 파일은 예전과 똑같이 돈다(SuccessRateReportTests · 결정 모델 숫자 그대로). 후보 도구가 측정하는 동안만 잠깐 넣고 되돌린다.
+-- 게임 코드 · Config를 바꾸지 않는다 — 환생 규칙 · 드롭 · 줍기 · 가방 · 곡괭이는 아직 게임에 없는 후보 모델이다(D2: 고르는 것은 사람).
+--   canRebirth(p)               환생할 수 있는가(RebirthConfig.canRebirth 자리)
+--   rebirthCost(p)              이번 환생 비용 — 아우라 · 펫 · 업그레이드에 쓰기 전에 따로 둔다(나머지만 "버려질 양")
+--   applyRebirth(p)             환생 수를 더한다(RebirthConfig.getGainedRebirths 자리). 초기화(블럭스 · 힘 · 패드)는 여기 그대로
+--   onStageClear(p, stage)      층을 깬 직후 — 드롭 · 줍기. 걸린 초를 돌려준다(그동안 런 중 클릭 속도로 클릭한다)
+--   onRunEnd(p, best, cashed)   런 끝 — 수령이면 가방 → 인벤토리, 실패면 가방을 잃는다
+--   onRunStart(p)               런 직전(스폰) — 제작 · 강화
+--   eager                       true면 "막혔을 때(REBIRTH_PATIENCE_RUNS)"를 기다리지 않고 살 수 있으면 바로 환생한다
+export type EconHooks = {
+	eager: boolean?,
+	canRebirth: (p: any) -> boolean,
+	rebirthCost: (p: any) -> BigNumber,
+	applyRebirth: (p: any) -> (),
+	onStageClear: (p: any, stage: number) -> number,
+	onRunEnd: (p: any, best: number, cashed: boolean) -> (),
+	onRunStart: (p: any) -> (),
+}
+SuccessRateReport.ECON = nil :: EconHooks?
 
 -- ===== 목표 성공률 (판정 기준 — 지시서 #13 HP 후보 도구 · 튜닝 요약) ===================================
 --
@@ -814,6 +838,10 @@ function SuccessRateReport.runOnce(
 	startStage: number?
 ): number
 	p.runCount += 1
+	local econ = SuccessRateReport.ECON
+	if econ ~= nil then
+		econ.onRunStart(p)
+	end
 	SuccessRateReport.decideAutoRoll(p) -- S7: 매 런 시작에 마지막 런 벌이로 다시 판단한다
 	local runStartedAt = p.elapsedSec
 	local walked = startStage == nil
@@ -838,9 +866,20 @@ function SuccessRateReport.runOnce(
 			p.lastRunSec = p.elapsedSec - runStartedAt
 			p.lastBest = best
 			SuccessRateReport.spendAutoRolls(p, p.lastRunSec :: number) -- 런 동안 흐른 시간의 자동 롤
+			if econ ~= nil then
+				econ.onRunEnd(p, best, false)
+			end
 			return best -- 실패: 보상 0, 스폰 복귀
 		end
 		best = stage
+		if econ ~= nil then
+			-- 드롭 줍기(후보 모델). 걷는 동안 런 중 클릭 속도로 클릭한다 — 타이머는 이미 멈췄다(cleared)
+			local pickSec = econ.onStageClear(p, stage)
+			if pickSec > 0 then
+				addClicks(p, math.floor(p.clickRate * MODEL.RUN_CLICK_FACTOR * pickSec))
+				p.elapsedSec += pickSec
+			end
+		end
 		if walked then
 			p.climbSec[stage] = p.elapsedSec - gateAt
 		end
@@ -864,6 +903,9 @@ function SuccessRateReport.runOnce(
 	p.lastRunReward = reward
 	p.lastRunSec = p.elapsedSec - runStartedAt
 	p.lastBest = best
+	if econ ~= nil then
+		econ.onRunEnd(p, best, true)
+	end
 	return best
 end
 local runOnce = SuccessRateReport.runOnce
@@ -910,15 +952,24 @@ end
 -- RebirthService와 같은 대상: blox 0, 힘 초기값, rebirths 누적, lifeBlox 0 · 패드 1. lifetimeBlox 유지.
 -- StandardPathReport도 이 함수로 환생한다(SuccessRateReport.rebirth — 지시서 #13 4단계).
 local function rebirth(p: Player)
+	-- 경제 후보(#29): 환생 비용을 먼저 떼어 두고, 나머지(버려질 양)로 아래 A4 · E11 · S5'를 한다
+	local econ = SuccessRateReport.ECON
+	if econ ~= nil then
+		p.blox = BigNum.sub(p.blox, econ.rebirthCost(p))
+	end
 	-- A4: 환생 직전 보유 블럭스의 20%로 아우라(가장 높은 해금 팩). E11: 그다음 남은 보유의 15%로 펫. 그다음 환생 → 남는 양으로 S5'.
 	SuccessRateReport.spendAuraBeforeRebirth(p)
 	SuccessRateReport.spendPetBeforeRebirth(p)
 	-- S5: 환생 직전 버려질 나머지로 업그레이드(나머지만 쓰므로 얻는 배수는 그대로다).
 	if MODEL.UPGRADE_POLICY == "s5" then
-		local spent = SuccessRateReport.buyCheapestFirst(p.upgrades, RebirthConfig.getLeftover(p.blox))
+		local spent = SuccessRateReport.buyCheapestFirst(p.upgrades, if econ ~= nil then p.blox else RebirthConfig.getLeftover(p.blox))
 		p.upgradeSpent = BigNum.add(p.upgradeSpent, spent)
 	end
-	p.rebirths = BigNum.add(p.rebirths, RebirthConfig.getGainedRebirths(p.blox))
+	if econ ~= nil then
+		econ.applyRebirth(p)
+	else
+		p.rebirths = BigNum.add(p.rebirths, RebirthConfig.getGainedRebirths(p.blox))
+	end
 	p.blox = BigNum.new(0, 0)
 	p.strength = copyBig(Schema.new().strength)
 	p.lifeBlox = BigNum.new(0, 0)
@@ -1032,7 +1083,10 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 			SuccessRateReport.trainAtGym(p, MODEL.GYM_TRAIN_SEC)
 			checkLevelCap(bestThisLife)
 		end
-		if stale >= SIM.REBIRTH_PATIENCE_RUNS and RebirthConfig.canRebirth(p.blox) then
+		local econ = SuccessRateReport.ECON
+		local canRebirth = if econ ~= nil then econ.canRebirth(p) else RebirthConfig.canRebirth(p.blox)
+		local eager = econ ~= nil and econ.eager == true
+		if (stale >= SIM.REBIRTH_PATIENCE_RUNS or eager) and canRebirth then
 			if observer ~= nil then
 				observer("rebirth_before", p, seen, nil)
 			end
@@ -1841,6 +1895,10 @@ end
 
 function SuccessRateReport.run()
 	if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+	if SIM.ECONOMY_SWEEP_ONLY then
+		require(script.Parent.EconomyCandidateReport).run()
+		return
+	end
 	print("[SUCCESSRATE] ===== 확률적 플레이어 성공률 (4-2-f) =====")
 	if SIM.PET_SWEEP_ONLY then
 		for i = 1, 2 do -- 결정 모델 · 펫 없음(B2)
