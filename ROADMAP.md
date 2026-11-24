@@ -60,6 +60,7 @@
 | `Systems/CashoutPadServiceTests.server.lua` | 50 | 발판 좌표·측면 오프셋·디바운스·런당 1회·플레이어별 격리·source 경로·층 불일치 무시·UiTheme 색 · 근처 확인(멀면 cashout 0 · 런 없으면 묻지 않음 — #23 N1) |
 | `Tests/SuccessRateReportTests.server.lua` | 151 | 확률 시뮬레이터 식 — 펀치 간격·속도 미곱·반경 밖 지연·런 중 클릭·걷기 시간·진행 규칙 2종·모델 범위·seed 결정성·워프 비교(판단·워프 런)·문턱 구간 비교(구간 수·순서·합산·seed 재현)·운동기구 훈련·공허 구매자·업그레이드 S5(가장 싼 것부터 · 예산 = getLeftover · 최대 레벨 건너뜀)·TEMP 후보 교체 되돌림 · 칭호 S7(자동 롤 기준 · 지출 · 장착 · 배수 한 번씩 · 후보 권한) · S5' 1차 4종 · 아우라 A4(20% · 가장 높은 팩 · 장착 · m 클릭 · 1펀치 한 번씩 · 후보 G4) · 펫 E11(15% · 슬롯 먼저 · 가장 높은 알 · 크래프팅 연쇄 · 실효 증가분 순 장착 · 가득 차면 약한 것 놓아주기 · 클릭 힘 한 번 · 데미지 없음 · 후보 되돌림) · S5' 3종(L3) · 걷기 L1 · L2 · 배수 세 자리 공개 함수 · rebirth 공개 · 관측 고리가 결과를 안 바꿈 · StandardPathReport cliffRatio · boundaries · TARGETS · metrics(#13) |
 | `Tests/EconomyCandidateReportTests.server.lua` | 9 | 경제 재설계 후보 도구(#29 — Studio 전용) — 빈 고리 · 단독 모드 false · S5' 그대로 · 환생 비용 1000 × g^n · 배수 1 + a·n / b^n · 곡괭이 N^(t−1) × 강화 · 광석 = HP 구간 · 가방 남김 / 바꿔 줍기 / 무한 · 제작 규칙 2 · 줍기 거리 |
+| `Tests/EconomyV2Tests.server.lua` | 54 | 새 경제(#30 — 플래그 ECONOMY_V2 뒤) — 플래그 커밋 값 false · validate · 곡괭이 15종 · 교환 비용 · 별 · 강화 · 광석 구간 · 정수 게이지 · 확률표 합 100 · 칸 단조 · 전설 상한 · ??? 5칸만 · 최고 칸 조합 · 제작 · 교환 · 별 · 강화 · 배수 곱 · 가방 바꿔 줍기 · 환생 v2 비용 · b^n · 나머지 · 운동기구 해금 · RebirthService v2 경로(가짜 deps) |
 | `Systems/GymServiceTests.server.lua` | 46 | 운동기구 조건·배수·가격 순증가·해금 경계·공허 훈련 구역(로벅스 전용·맨 끝·가장 비쌈·가장 셈·ShopConfig 가격)·스폰 구역 안·게이트 앞·패드와 안 겹침·발판 판정·배수 결정 · getShopKey · 선해금 가격 = ShopConfig(#16) |
 | `Tests/CashoutPadViewTests.server.lua` | 23 | 런 상태 → 발판 켜짐(클리어 + 같은 층)·꺼짐(미클리어·다른 층·런 없음)·켜진 발판 1개·역할 키 |
 | `Tests/AdvanceWallViewTests.server.lua` | 97 | 런 상태 → 벽 모습(숨김·닫힘·열림)·크기 파생·층별 위치·잘못된 stage·LevelConfig 깊이 소스 등록 |
@@ -72,6 +73,7 @@
 | `Tests/CoreScreensTests.client.lua` | 56 | 런 안내 · 로딩 판정, 3D 안내 내용(서버 · Config 원본), 화면 규칙(Offset 0 · 금지 구역 밖 · 층 순서 · 역할 색), 패드 표시 역할 3종 · 역할별 높이 · 다음 해금 크기 · 벽 표시 서버 nextReward |
 | `Systems/RebirthRequestServiceTests.server.lua` | 12 | 환생 요청 거부 경로(블럭스 부족 · 빈도 상한 · 부분 실패) · 성공 결과 형태 |
 | `Tests/RebirthWindowTests.client.lua` | 53 | 표시 값(서버와 같은 함수) · 사유 문구 · 확인 단계 없이는 요청 안 나감 · 잠김 · 창 규격 · 버튼 그림 ZIndex · 남는 것에 업그레이드 · 상점 안내 · 상점으로 · 자동이 꺼지면 auto_active 문구 지움(#18) |
+| `Tests/RebirthV2WindowTests.client.lua` | 17 | 새 경제 환생 창(#30 — economyV2 인자) — 다음 비용 · 잠김 · ×b^n 전후 · 사유 문구 · 초기화 첫 줄 · 새 키 7 · 확인 두 번 · 성공 문구 · 끔이면 지금 창 |
 | `Tests/TouchSafeLayoutTests.client.lua` | 13 | 폰 실측 사각형으로 겹침 판정(구좌 · 자동 도구 겹침, 힘 블록 안 겹침) · 점프 버튼 위로 올림 양(간격 포함) · 올릴 필요 없으면 0 · Scale 환산 |
 | `Systems/WarpRequestServiceTests.server.lua` | 12 | 워프 요청 payload 위생(invalid_stage) · 서버 거부 사유 그대로(W1 · 블럭스 부족) · 성공 결과 형태 · 빈도 상한 · 결과 매번 송신 |
 | `Tests/WarpWindowTests.client.lua` | 41 | 표시 값(WarpConfig.cost 원본) · 잠김(블럭스 부족 · W1 런 중) · 사유 문구 · 확인 단계 · 쪽 넘김 · 창 규격 · 행 색 3단계 · 자동 중 auto_active 잠김이 먼저(런 사이 · 런 중 — #18 AA9) |
@@ -128,7 +130,7 @@
 | `Tests/AnalyticsTests.server.lua` | 55 | 분석 래퍼(#23 A1 ~ A5) — 흐름표 11종 · 엔진 Enum 이름 · 흐름별 호출 1회 · 모아 보내기(합 · 마지막 잔액) · tick · 나갈 때 · 1e15 넘으면 blox_flow_large(log10 · 필드 · 10^2000) · 경계 · inf · NaN · 음수 거부 · 상한(창 · 플레이어별 · 버림 로그) · pcall 실패 무해 · Player 아님 건너뜀 · 도우미 4종 · 퍼널 · 처음 깬 층 중복 없음(firstClear) |
 | `Tests/FxTests.client.lua` | 78 | 화면 연출(#25 U1 ~ U7) — 구간 표본 · 사양 = Config · log10 보간(0 · 같은 값 · 줄어듦 · 10^2000 · 지수 경계) · 계획 · 스로틀 · 가운데 기준 · 크래프팅 순서(결과 · PlayerState 어느 쪽 먼저 · 거부 · 시간 초과) · 구동기(가짜 시계 · 끝값 · onDone · 교체 · finish · cancel · 연출 줄이기 · 멈춤값 · 정리) · UIScale 하나 규칙 · 튀기 가운데 기준 · 창 열기 · 닫기(닫는 중 다른 창 · 같은 창 다시 · 알림 순서 · 연출 없는 인스턴스) · 결과 모달(보통 · 영웅 이상 · 빛 띠 1회) · 빛 띠 1회 모드 · 연출 줄이기(버튼 · 빛 띠) · 블럭스 올라가기 · 레벨 · 환생 배수 튀기 · 크래프팅 연결 · UiFxTests 요약 줄을 본 뒤 시작(상한 30초 — 넘으면 실패 1, #26 +1) |
 | `Tests/SfxTests.client.lua` | 19 | 효과음(#25 S1 ~ S3) — 키 12개 · 커밋 값 id 전부 nil · 판정(id 없음 · 끔 · 스로틀 · 모르는 키) · 희귀도 → 키(칭호 · 아우라 · 펫) · 런 상태 · 환생 · 구매 · 일일 보상 · 시도 기록 · 끔이면 시도 0 · 풀 |
-| **합계** | **4441** | 서버 72행 3001 · 클라 38행 1440 — 2026-11-24 #29 마무리 Play 2번 실측(플래그 전부 끔 · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
+| **합계** | **4512** | 서버 73행 3055 · 클라 39행 1457 — 2026-11-24 #30 마무리 Play 2번 실측(플래그 전부 끔 · ECONOMY_V2 false · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -156,7 +158,18 @@
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-11-24 Studio Play 런타임 실측 (전량, 지시서 #29 — 경제 재설계 조사 · 후보 도구 · 플래그 전부 끈 Play 2번).**
+최근 갱신: **2026-11-24 Studio Play 런타임 실측 (전량, 지시서 #30 — 새 경제 플래그 · 환생 v2 · 2차 측정 · 플래그 전부 끈 Play 2번).**
+112개 행 전부가 두 Play 모두에 같은 개수로 찍혔다. **4512 passed / 0 failed** — 서버 3055(73행) + 클라 1457(39행). 끝 표시 `server 73/73 files · 3055` ·
+`client 39/39 files · 1457`. 단계 0 기준선(#29 뒤)은 서버 72행 3001 · 클라 38행 1440으로 같았다.
+
+```
+신설   EconomyV2Tests            54    새 경제 설정 · 순수 로직 · 환생 v2 (794be32)
+신설   RebirthV2WindowTests      17    새 경제 환생 창 (794be32)
+유지   나머지 110행 — RebirthServiceTests 71 · RebirthWindowTests 53 · UpgradeServiceTests 35 · SuccessRateReportTests 151 그대로
+대조   시작 4441(서버 3001 + 클라 1440) + 신설 71 = 4512 (서버 +54 · 클라 +17)
+```
+
+그 전 갱신: **2026-11-24 Studio Play 런타임 실측 (전량, 지시서 #29 — 경제 재설계 조사 · 후보 도구 · 플래그 전부 끈 Play 2번).**
 110개 행 전부가 두 Play 모두에 같은 개수로 찍혔다. **4441 passed / 0 failed** — 서버 3001(72행) + 클라 1440(38행). 끝 표시 `server 72/72 files · 3001` ·
 `client 38/38 files · 1440`. 단계 0 기준선(#28 후속 뒤)은 서버 71행 2992 · 클라 38행 1440으로 같았다.
 
@@ -1729,8 +1742,9 @@ Phase 8에 남은 것(코드 아님): 보상형 광고는 출시 후 · Roblox P
 
 단계(이 순서 — 사람 결정):
 ```
-1  #30  플래그 · 환생 v2 · 2차 측정      EconomyV2Config(광석 · 곡괭이 · 제작 · 교환 · 별 · 강화 · 코인 · 환생 비용 — TEMP) · 순수 로직 ·
+1  #30  플래그 · 환생 v2 · 2차 측정 ✅  EconomyV2Config(광석 · 곡괭이 · 제작 · 교환 · 별 · 강화 · 코인 · 환생 비용 — TEMP) · 순수 로직 ·
                                         환생 v2(비용 · 배수 · 환생 창) · Tools/EconomyV2Report(후보 묶음 2 ~ 3)
+                                        → 2026-11-24 773e84d docs · 794be32 코드 · 묶음 A · B · C → docs/TUNING.md 7 · PENDING "5. #30 후보 묶음"
 2       재료 · 드롭 · 줍기 서버          광석 드롭(서버 판정 · 반경 약 12 자동) · 런 가방 · 바꿔 줍기 · 수령 → 인벤토리 · 실패 → 잃음 · 스키마
 3       곡괭이 · 대장간                  확률 제작 · 토큰 · 토큰 교환소 · 별 · 강화 · 자동 제작 · 펀치 데미지 업그레이드 자리 교체
 4       이펙트                          드롭 · 줍기 · 코인 · 제작 연출(UI_ASSET_SPEC 6 — AI 가능 · 업로드는 사람)

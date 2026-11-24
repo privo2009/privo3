@@ -2763,6 +2763,9 @@ https://create.roblox.com/docs/production/analytics/event-types
 - 블럭스는 비용만 빼고 나머지를 남긴다(기본 — #29 R4 측정은 "나머지를 쓰고 0"이었다. 비교는 지시서 #30 6번 측정)
 - 나머지 초기화(힘 · maxStage · lifeBlox · 패드 · 런)는 지금 환생과 같다
 - 무과금으로 25층에 처음 도달할 때까지 환생 약 14회가 목표다(허용 10 ~ 20회). 환생 창에 "다음 환생 비용"을 보여 준다
+- 환생 수를 쓰는 곳(지시서 #30 조사): 힘 배수(StrengthMultiplier — b^n) · 운동기구 해금(GymConfig — 새 경제 TEMP `GYM_UNLOCK_REBIRTHS`, 기구 개편은 사람 결정 PENDING N3) ·
+  환생 창 · HUD 배수(FeedbackLogic) · 분석 이벤트(값 log10 얻은 수 — 새 경제에서는 늘 0이 된다, 바꿀지는 다음 지시서) · x2 Rebirths(새 경제에서는 +1 그대로 — PENDING G14).
+  칭호 · 아우라 · 패드 · 워프는 환생 수를 쓰지 않는다
 
 ### 시간 목표 (무과금)
 - 25층 첫 도달 약 2시간 · 15번째 곡괭이(15종째 획득) 약 3시간
