@@ -6,7 +6,8 @@
 --    Play 확인은 로컬에서만 잠깐 true로 바꾸고 되돌린다.
 --
 -- ⚠️ 숫자는 전부 TEMP다(최종 결정은 사람 — D2). 지금 값 = 지시서 #33 결정(광석 점수 표 · 모든 광석 드롭 0.5 이상 · 등급별 강화 비용) +
---    시작값(광석별 드롭 · 등급별 강화 비용 — Claude가 고른 값). 5차 측정(docs/TUNING.md 10절)이 끝나면 추천 1순위로 다시 채운다.
+--    #33 5차 측정 추천 1순위 T1을 깔끔한 값으로 옮긴 V4(docs/TUNING.md 10절 — 확인 측정 25층 125 · 15종 162): 곡괭이 1.245 ·
+--    광석 8 ~ 10 드롭 0.5(바닥) · 강화 비용 바탕 2.2 · 효과 0.02 · 1 ~ 3칸 신화 확률 낮춤.
 --    환생 1000 · ×4 · 1.25^n · 연출 + 5초 스킵 · 대장간 8층은 그대로.
 --    결정 문장 그대로인 값(층 구간 · 토큰 규칙 · 교환 비용 · 별 소모 · 강화 +10 · 곡괭이 15종 등급 수)은 사람 결정이다 — 측정 손잡이가 아니다.
 -- 식은 Shared/EconomyV2Logic이 한 곳에서 계산한다(게임 · 시뮬레이터가 같은 함수를 부른다). 여기는 값만 둔다.
@@ -51,7 +52,7 @@ EconomyV2Config.UPPER_ORE_DROP_MULT = 0.109
 -- 광석 k별 블록당 드롭 기대값(#33 — TEMP · 5차 측정 손잡이. nil이면 위 ORE_PER_BLOCK · UPPER_ORE_DROP_MULT 규칙).
 -- #33 결정 N13: 모든 광석을 넉넉하게 — 광석 1 ~ 10 모두 ORE_DROP_MIN 이상(validate). 시간 조절은 점수 표 · 가방 · 확률표 · 강화가 맡는다
 EconomyV2Config.ORE_DROP_MIN = 0.5
-EconomyV2Config.ORE_DROP_BY_ORE = { 1, 1, 1, 1, 1, 0.8, 0.8, 0.6, 0.6, 0.5 } :: { [number]: number }?
+EconomyV2Config.ORE_DROP_BY_ORE = { 1, 1, 1, 1, 1, 0.8, 0.8, 0.5, 0.5, 0.5 } :: { [number]: number }?
 -- 자동으로 줍는 반경(스터드 — 사람 결정 "약 12" · TEMP)
 EconomyV2Config.PICKUP_RADIUS = 12
 -- 줍기 판정 주기(초 — 서버 단일 폴링 루프 · OreDropService). 시각 튜닝값
@@ -126,7 +127,7 @@ EconomyV2Config.BIG_BAG_PASS_ID = nil :: number?
 EconomyV2Config.BIG_BAG_MULT = 2
 
 -- 곡괭이 배수 = PICK_RATIO^(rank − 1)(TEMP — 측정 손잡이). 펀치 데미지 업그레이드 자리에 들어간다.
-EconomyV2Config.PICK_RATIO = 1.214
+EconomyV2Config.PICK_RATIO = 1.245
 -- 가방 용량 = BAG_BASE + BAG_PER_RANK × (rank − 1) (장착 곡괭이 — TEMP 측정 손잡이)
 EconomyV2Config.BAG_BASE = 20
 EconomyV2Config.BAG_PER_RANK = 4
@@ -136,8 +137,8 @@ EconomyV2Config.BAG_PER_RANK = 4
 EconomyV2Config.ENHANCE_MAX = 10 -- 사람 결정(+10 · 100% 성공)
 -- 강화 효과 = 1 + ENHANCE_STEP × 강화 수준(TEMP). 비용 = 광석 점수 ENHANCE_COST_BASE × ENHANCE_COST_GROWTH^(지금 수준)(TEMP —
 -- 광석 점수 = 게이지 점수와 같다 · 낮은 광석부터 낸다. Claude 해석: 결정은 "광석을 쓴다"뿐이다)
-EconomyV2Config.ENHANCE_STEP = 0.06
-EconomyV2Config.ENHANCE_COST_BASE = 10
+EconomyV2Config.ENHANCE_STEP = 0.02 -- #33: +10 = ×1.2 < 곡괭이 한 칸(PICK_RATIO) — 새 곡괭이 +0 ≥ 이전 +10
+EconomyV2Config.ENHANCE_COST_BASE = 2.2
 EconomyV2Config.ENHANCE_COST_GROWTH = 1.35
 -- #33 결정 N14: 강화 비용은 장착 곡괭이의 등급과 단계(지금 강화 수준)에 따라 커진다 — 곡괭이마다 강화가 따로 · 새 곡괭이는 +0부터.
 -- 비용(광석 점수) = ceil(ENHANCE_COST_BASE × ENHANCE_COST_BY_RARITY[등급] × ENHANCE_COST_GROWTH^수준) (TEMP — 5차 측정 손잡이)
@@ -160,9 +161,9 @@ EconomyV2Config.STAR_STEP = 0.1
 -- 규칙(validate · EconomyV2Tests): 칸마다 합 100 · 칸이 늘수록 "그 등급 이상" 확률이 줄지 않는다 · 전설 ≤ LEGENDARY_ODDS_MAX_PCT.
 EconomyV2Config.RARITY_ODDS = {
 	[0] = { common = 94, rare = 5.5, epic = 0.5, mythic = 0, legendary = 0 },
-	[1] = { common = 70, rare = 26, epic = 3.7, mythic = 0.3, legendary = 0 },
-	[2] = { common = 45, rare = 40, epic = 13.5, mythic = 1.5, legendary = 0 },
-	[3] = { common = 30, rare = 40, epic = 25, mythic = 5, legendary = 0 },
+	[1] = { common = 70, rare = 26, epic = 3.9, mythic = 0.1, legendary = 0 }, -- #33: 1 ~ 3칸 신화 낮춤(2칸 제작이 수백 번 — 신화가 확률로 몰려 14종째가 빨랐다)
+	[2] = { common = 45, rare = 40, epic = 14.7, mythic = 0.3, legendary = 0 },
+	[3] = { common = 30, rare = 40, epic = 28.5, mythic = 1.5, legendary = 0 },
 	[4] = { common = 20, rare = 37, epic = 33, mythic = 9.98, legendary = 0.02 },
 	[5] = { common = 10, rare = 33, epic = 40, mythic = 16.95, legendary = 0.05 },
 } :: { [number]: { [string]: number } }
