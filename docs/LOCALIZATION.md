@@ -142,6 +142,18 @@ Strings 상단 주석에 같은 표가 있다. 바꿀 때는 둘 다 바꾼다(�
 자동 진행 Auto Advance
 ```
 
+새 경제(플래그 `ECONOMY_V2` 뒤 — 지시서 #31) — ⚠️ **광석 · 곡괭이 이름은 전부 임시 이름이다(확정은 `docs/PENDING.md` N1).**
+```
+광석 Ore              곡괭이 Pickaxe         제작 Craft             토큰 Token
+교환 Exchange         별 Star                강화 Enhance           가방 Bag              코인 Coin
+광석 1 ~ 10(임시)     Copper 구리 · Tin 주석 · Iron 철 · Silver 은 · Gold 금 · Jade 비취 · Ruby 루비 ·
+                      Sapphire 사파이어 · Amethyst 자수정 · Starstone 별빛석
+곡괭이 15종(임시)     일반 Wooden 나무 · Stone 돌 · Copper 구리 / 희귀 Iron 철 · Silver 은 · Gold 금 · Jade 비취 /
+                      에픽 Ruby 루비 · Sapphire 사파이어 · Amethyst 자수정 · Crystal 수정 / 신화 Storm 폭풍 · Magma 용암 · Frost 서리 /
+                      전설 Starforge 별대장간 — 뒤에 en "Pickaxe" · ko "곡괭이"
+```
+Strings 키: `ore.name.<1 ~ 10>` · `pickaxe.name.<id>`(id = `EconomyV2Config.PICKAXES`). 설정의 `nameKey`가 키를 가리킨다.
+
 - 상품 이름은 대시보드 이름과 같은 표기를 쓴다: `x2 Power` · `Auto Clicker` · `Lucky Roll x5` 꼴(배수가 앞, 횟수가 뒤)
 - 아우라 · 펫 · 알 개별 영어 이름은 #L1에서 Claude가 한국어 뜻을 살려 지었다 — 바꾸려면 Strings에서 바꾼다
 
