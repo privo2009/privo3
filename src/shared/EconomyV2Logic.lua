@@ -683,9 +683,19 @@ function EconomyV2Logic.rebirthRemainder(blox: BigNumber, rebirths: BigNumber | 
 end
 
 -- 새 경제에서 빠진 로벅스 상품인가(지시서 #31 G14 — x2 Rebirths). economyV2 = nil이면 플래그.
+-- #35: 새 경제 전용 상품(V2_ONLY_PRODUCTS — 새 패스 4개)은 꺼져 있을 때 "빠진" 것으로 본다(상점 · 구매 · 효과가 같은 함수를 본다)
 function EconomyV2Logic.isRemovedProduct(key: string, economyV2: boolean?): boolean
 	local v2 = if economyV2 ~= nil then economyV2 else EconomyV2Logic.isOn()
-	return v2 and Config.REMOVED_PRODUCTS[key] == true
+	if v2 then
+		return Config.REMOVED_PRODUCTS[key] == true
+	end
+	return Config.V2_ONLY_PRODUCTS[key] == true
+end
+
+-- 제한 지역에서 숨기는 새 경제 상품인가(#35 — RESTRICTED_RANDOM_PASSES). 새 경제가 꺼져 있으면 false(지금 경로 그대로)
+function EconomyV2Logic.isRestrictedRandom(key: string, economyV2: boolean?): boolean
+	local v2 = if economyV2 ~= nil then economyV2 else EconomyV2Logic.isOn()
+	return v2 and Config.RESTRICTED_RANDOM_PASSES[key] == true
 end
 
 -- 새 경제에서 빠진 상점 업그레이드인가(#34 — 펀치 데미지). economyV2 = nil이면 플래그

@@ -9,6 +9,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
+local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
@@ -42,6 +43,8 @@ PetWindowLogic.RARITY_TIER = { 1, 3, 4, 5, 6 } -- 5 = 리미티드(PetConfig.LIM
 
 PetWindowLogic.REASONS = {
 	insufficient_blox = Locale.t("common.reason.insufficient_blox"),
+	insufficient_coins = Locale.t("pet.reason.insufficient_coins"), -- 새 경제(#35)
+	too_soon = Locale.t("pet.reason.too_soon"), -- 새 경제(#35)
 	rate_limited = Locale.t("common.reason.rate_limited"),
 	no_profile = Locale.t("common.reason.no_profile"),
 	egg_locked = Locale.t("pet.reason.egg_locked"),
@@ -173,12 +176,23 @@ end
 export type HatchState = { canHatch: boolean, buttonText: string, footText: string }
 
 -- 부화 버튼 상태(안내 — 서버가 다시 판정한다). 잠긴 알 → 사유, 보관함 가득 → 사유, 블럭스 부족 → 사유.
-function PetWindowLogic.hatchState(summary: any, lifetimeBlox: any, blox: any, eggId: number): HatchState
+-- coins가 있으면 새 경제(#35 — 플래그 뒤): 비용 = EconomyV2Config.EGG_COIN_COST · 잔액 = 코인 · 문구 "코인". 없으면 지금 그대로(블럭스)
+local function costOf(eggId: number, count: number, coins: any): (any, any, string)
+	local egg = PetConfig.Eggs[eggId]
+	if coins ~= nil then
+		local unit = EconomyV2Logic.eggCoinCost(eggId) or BigNum.new(0, 0)
+		return (if count == 1 then unit else BigNum.mul(unit, BigNum.fromNumber(count))), big(coins), "insufficient_coins"
+	end
+	return (if count == 1 then egg.rollCost else BigNum.mul(egg.rollCost, BigNum.fromNumber(count))), nil, "insufficient_blox"
+end
+
+function PetWindowLogic.hatchState(summary: any, lifetimeBlox: any, blox: any, eggId: number, coins: any?): HatchState
 	local egg = PetConfig.Eggs[eggId]
 	if egg == nil then
 		return { canHatch = false, buttonText = PetWindowLogic.HATCH_TEXT, footText = PetWindowLogic.reasonText("invalid_request") }
 	end
-	local buttonText = Locale.t("pet.hatchCost", { cost = Formatter.format(egg.rollCost) })
+	local cost, coinBalance, shortReason = costOf(eggId, 1, coins)
+	local buttonText = Locale.t(if coins ~= nil then "pet.hatchCostCoins" else "pet.hatchCost", { cost = Formatter.format(cost) })
 	if not PetConfig.isUnlocked(eggId, big(lifetimeBlox), worldOf(summary)) then
 		return { canHatch = false, buttonText = buttonText, footText = PetWindowLogic.reasonText("egg_locked") }
 	end
@@ -186,27 +200,29 @@ function PetWindowLogic.hatchState(summary: any, lifetimeBlox: any, blox: any, e
 	if #ownedList(summary) >= storage then
 		return { canHatch = false, buttonText = buttonText, footText = PetWindowLogic.reasonText("storage_full") }
 	end
-	if BigNum.lt(big(blox), egg.rollCost) then
-		return { canHatch = false, buttonText = buttonText, footText = PetWindowLogic.reasonText("insufficient_blox") }
+	if BigNum.lt(coinBalance or big(blox), cost) then
+		return { canHatch = false, buttonText = buttonText, footText = PetWindowLogic.reasonText(shortReason) }
 	end
 	return { canHatch = true, buttonText = buttonText, footText = "" }
 end
 
 -- 3배 부화 버튼(지시서 #17 — S18). 3배 부화 게임패스가 있을 때만 누를 수 있다(없으면 보이되 잠김 — 로벅스 탭에서 산다).
 -- 비용 = 알 비용 × 마리 수, 저장 공간에 마리 수만큼 자리가 있어야 한다(서버 PetService.hatchMulti와 같은 조건 — 서버가 다시 판정).
-function PetWindowLogic.hatch3State(summary: any, lifetimeBlox: any, blox: any, eggId: number, shop: any): HatchState
+function PetWindowLogic.hatch3State(summary: any, lifetimeBlox: any, blox: any, eggId: number, shop: any, coins: any?): HatchState
 	local def = ShopConfig.get("hatch3x")
 	local count = if def ~= nil then def.effect.count else 3
 	local egg = PetConfig.Eggs[eggId]
 	if egg == nil then
 		return { canHatch = false, buttonText = Locale.t("pet.hatch3", { n = count, cost = "" }), footText = "" }
 	end
-	local cost = BigNum.mul(egg.rollCost, BigNum.fromNumber(count))
-	local buttonText = Locale.t("pet.hatch3", { n = count, cost = Formatter.format(cost) })
-	local owns = ShopEffectsLogic.fromSummary(shop).owns("hatch3x")
+	local cost, coinBalance = costOf(eggId, count, coins)
+	local buttonText = Locale.t(if coins ~= nil then "pet.hatch3Coins" else "pet.hatch3", { n = count, cost = Formatter.format(cost) })
+	-- 새 경제면 제한 지역에서 Triple Hatch를 끈다(#35 — v2PassActive). 꺼져 있으면 지금 그대로(보유)
+	local view = ShopEffectsLogic.fromSummary(shop)
+	local owns = if coins ~= nil then ShopEffectsLogic.v2PassActive(view, "hatch3x", true) else view.owns("hatch3x")
 	local storage = if type(summary) == "table" and type(summary.storage) == "number" then summary.storage else 0
 	local can = owns and PetConfig.isUnlocked(eggId, big(lifetimeBlox), worldOf(summary)) and #ownedList(summary) + count <= storage
-		and not BigNum.lt(big(blox), cost)
+		and not BigNum.lt(coinBalance or big(blox), cost)
 	return { canHatch = can, buttonText = buttonText, footText = "" }
 end
 

@@ -310,7 +310,9 @@ function RobuxShopLogic.rows(shop: any, ctx: Context?): { Row }
 	end
 	for _, key in ipairs(ShopConfig.GAMEPASS_ORDER) do
 		local def = ShopConfig.get(key) :: ShopConfig.ProductDef
-		if not (def.paidRandom and view.restricted) and not EconomyV2Logic.isRemovedProduct(key, c.economyV2) then
+		-- 제한 유저: 행운 상품 · 새 경제가 숨기는 상품(#35) 줄이 빠진다. 새 경제 전용 상품은 꺼져 있으면 빠진다(isRemovedProduct)
+		local hiddenForRestricted = def.paidRandom or EconomyV2Logic.isRestrictedRandom(key, c.economyV2)
+		if not (hiddenForRestricted and view.restricted) and not EconomyV2Logic.isRemovedProduct(key, c.economyV2) then
 			local r = passRow(key, view.owns, c, shop)
 			-- 칭호 · 펫 · 아우라 행운 패스(안 가짐): 그 창 확률 보기로 가는 둘째 버튼(지시서 #28 O2 — 결과 전부의 전후 확률은 창 표에 있다)
 			if def.effect.type == "luckPass" and RobuxShopLogic.LINK_ROLLS[def.effect.roll] and r.state ~= "owned" then

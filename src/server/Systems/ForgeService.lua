@@ -143,12 +143,12 @@ local function liveDeps(): Deps
 		end,
 		craft = InventoryService.craft,
 		exchange = InventoryService.exchange,
-		-- 상품 자리(#35에서 잇는다). ID가 nil이면 보유 없음 = 무료와 같다
-		ownsSkipPass = function(_player)
-			return false
+		-- 즉시 제작 · 트리플 제작(#35 — ShopConfig 키 · 제한 지역이면 끔). ID가 nil이면 상품 표에 없어 보유 없음 = 무료와 같다
+		ownsSkipPass = function(player)
+			return require(script.Parent.ShopEffects).v2PassActive(player, "instantCraft")
 		end,
-		ownsTriple = function(_player)
-			return false
+		ownsTriple = function(player)
+			return require(script.Parent.ShopEffects).v2PassActive(player, "tripleCraft")
 		end,
 		send = function(player, payload)
 			if typeof(player) == "Instance" and player:IsA("Player") then

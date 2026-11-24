@@ -14,6 +14,7 @@
 -- 이름은 Strings 키만 둔다(ORE_NAME_KEYS · PICKAXES.nameKey — 지시서 #31). ⚠️ 지금 이름은 전부 임시 이름이다 — 확정은 사람(docs/PENDING.md N1).
 
 local BigNum = require(script.Parent.Parent.BigNum)
+local ShopConfig = require(script.Parent.ShopConfig) -- 새 패스 ID 원본(#35 — ShopConfig.V2_GAMEPASS_IDS)
 
 type BigNumber = BigNum.BigNumber
 
@@ -122,8 +123,8 @@ EconomyV2Config.EQUIPMENT = {
 	pickaxe = { list = EconomyV2Config.PICKAXES, start = EconomyV2Config.START_PICKAXE },
 } :: { [string]: { list: { PickaxeDef }, start: string } }
 
--- 큰 가방 게임패스 자리(#32 — 상품 코드는 #35). ID가 nil이면 효과 없음(가방 배수 1)
-EconomyV2Config.BIG_BAG_PASS_ID = nil :: number?
+-- 큰 가방 게임패스(#32 자리 · #35 연결 — ID 원본 ShopConfig.V2_GAMEPASS_IDS.bigBag). ID가 nil이면 효과 없음(가방 배수 1)
+EconomyV2Config.BIG_BAG_PASS_ID = ShopConfig.V2_GAMEPASS_IDS.bigBag :: number?
 EconomyV2Config.BIG_BAG_MULT = 2
 
 -- 곡괭이 배수 = PICK_RATIO^(rank − 1)(TEMP — 측정 손잡이). 펀치 데미지 업그레이드 자리에 들어간다.
@@ -204,9 +205,23 @@ EconomyV2Config.FORGE_UNLOCK_REBIRTHS = nil :: number?
 EconomyV2Config.FORGE_UNLOCK_STAGE = 8 :: number?
 -- 대장간 화면 · 서버(#33). 결과 연출 길이(TEMP) — 스킵 버튼은 CRAFT_SKIP_SEC에 나타난다(무료 제작 간격과 같다)
 EconomyV2Config.CRAFT_ANIM_SEC = 6
--- 로벅스 상품 자리(#35에서 잇는다 — ID가 nil이면 보유 없음 = 무료와 같다)
-EconomyV2Config.CRAFT_SKIP_PASS_ID = nil :: number?
-EconomyV2Config.TRIPLE_CRAFT_PASS_ID = nil :: number?
+-- 로벅스 상품(#35 연결 — ID 원본 ShopConfig.V2_GAMEPASS_IDS. ID가 nil이면 보유 없음 = 무료와 같다)
+EconomyV2Config.CRAFT_SKIP_PASS_ID = ShopConfig.V2_GAMEPASS_IDS.instantCraft :: number?
+EconomyV2Config.TRIPLE_CRAFT_PASS_ID = ShopConfig.V2_GAMEPASS_IDS.tripleCraft :: number?
+EconomyV2Config.HATCH_SKIP_PASS_ID = ShopConfig.V2_GAMEPASS_IDS.instantHatch :: number?
+-- 부화 연출 길이(TEMP — 스킵 버튼은 HATCH_SKIP_SEC에 나타난다 · #35)
+EconomyV2Config.HATCH_ANIM_SEC = 6
+-- 자동 부화 서버 루프 주기(초 · #35)
+EconomyV2Config.AUTO_HATCH_POLL_SEC = 0.25
+-- 자동 부화 중 크게 알릴 펫 희귀도(1 ~ 4 — 이 값 이상 · #35)
+EconomyV2Config.HATCH_BIG_NOTICE_RARITY = 3
+-- 부화 연출 에셋 자리(#35 — nil이면 임시 도형: 흔들리는 알 칸)
+EconomyV2Config.HATCH_FX_VISUAL = { eggModelId = nil :: number?, effectId = nil :: number? }
+-- 새 경제 전용 상품(꺼져 있으면 안 보이고 효과 없음 — #35)
+EconomyV2Config.V2_ONLY_PRODUCTS = { bigBag = true, instantCraft = true, tripleCraft = true, instantHatch = true } :: { [string]: boolean }
+-- 제한 지역(ArePaidRandomItemsRestricted)에서 숨기는 새 경제 상품(DESIGN 16장 — 랜덤의 재료 · 횟수를 로벅스로 늘린다 · #35).
+-- 행운 상품(paidRandom)은 기존 경로가 따로 숨긴다. 새 경제가 켜졌을 때만 적용한다(꺼지면 Triple Hatch는 지금처럼 보인다)
+EconomyV2Config.RESTRICTED_RANDOM_PASSES = { bigBag = true, instantCraft = true, tripleCraft = true, instantHatch = true, hatch3x = true } :: { [string]: boolean }
 -- 자동 제작 서버 루프 주기(초 — 제작 간격 판정은 CRAFT_SKIP_SEC · CRAFT_MIN_INTERVAL_SEC가 한다)
 EconomyV2Config.AUTO_CRAFT_POLL_SEC = 0.25
 -- 자동 제작 결과 목록에 남기는 줄 수(클라 표시)

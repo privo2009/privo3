@@ -270,6 +270,9 @@ channels.petResult.OnClientEvent:Connect(function(payload: Remotes.PetResultPayl
 	if not PetWindowLogic.shouldModal(payload) then
 		return -- 중복 하위 등급 · 크래프팅 · 장착 · 거부는 창 안 상태 문구로만
 	end
+	if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() and not runActive then
+		return -- 새 경제(#35): 부화 결과는 부화 연출(EconomyV2Boot HatchFx — 스킵 5초)이 보여 준다
+	end
 	if runActive then
 		local toast = PetWindowLogic.toastFor(payload)
 		if toast ~= nil then
@@ -359,6 +362,14 @@ if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() then
 					toastStack.push({ text = Locale.t("forge.big", { name = Locale.t(def.nameKey) }), tier = if def.rarity == "legendary" then 5 else 6 })
 				end
 			end
+		elseif payload.kind == "auto_hatch_result" and type(payload.big) == "table" then
+			-- 자동 부화 중 좋은 등급만 크게(#35 — HATCH_BIG_NOTICE_RARITY 이상)
+			local Names = require(ReplicatedStorage.Shared.Localization.Names)
+			for _, petId in ipairs(payload.big) do
+				toastStack.push({ text = Locale.t("pet.auto.big", { name = Names.pet(petId) }), tier = 5 })
+			end
+		elseif payload.kind == "auto_hatch_state" and payload.on ~= true and type(payload.reason) == "string" then
+			toastStack.push({ text = Locale.t("pet.auto.stopped", { reason = PetWindowLogic.reasonText(payload.reason) }), tier = 1 })
 		elseif payload.kind == "auto_state" and payload.on ~= true and type(payload.reason) == "string" then
 			local Logic = require(script.Parent.Logic.ForgeWindowLogic)
 			toastStack.push({ text = Locale.t("forge.auto.stopped", { reason = Logic.reasonText(payload.reason) }), tier = 1 })

@@ -47,6 +47,11 @@ function ShopEffects.rebirth(player: Player): number
 	return ShopEffectsLogic.rebirth(viewOf(player))
 end
 
+-- 새 경제 패스 효과(#35 — 보유 · 새 경제 · 제한 지역을 함께 본다. ShopEffectsLogic.v2PassActive)
+function ShopEffects.v2PassActive(player: Player, key: string): boolean
+	return ShopEffectsLogic.v2PassActive(viewOf(player), key)
+end
+
 function ShopEffects.luckOptions(player: Player, roll: string): { luckPassMult: number, boostMult: number }
 	return ShopEffectsLogic.luckOptions(viewOf(player), roll)
 end

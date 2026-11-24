@@ -22,6 +22,7 @@ local ForgeWindow = require(script.Parent.Parent.UI.Screens.Window.ForgeWindow)
 local EquipmentWindow = require(script.Parent.Parent.UI.Screens.Window.EquipmentWindow)
 local ForgeSite = require(script.Parent.ForgeSite)
 local ScreenController = require(script.Parent.Parent.UI.ScreenController)
+local HatchFx = require(script.Parent.HatchFx)
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "EconomyV2Gui"
@@ -30,7 +31,7 @@ gui.IgnoreGuiInset = true -- 코인 이펙트가 카메라 뷰포트 좌표를 �
 gui.DisplayOrder = 1
 gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
-local state = EconomyV2State.new()
+local state = EconomyV2State.shared() -- 펫 창(#35)이 같은 상태를 읽는다
 local hud = EconomyHud.create(gui)
 hud.set(state.get())
 state.subscribe(hud.set)
@@ -87,6 +88,22 @@ state.subscribe(function(values)
 end)
 channels.forgeRequest:FireServer({ action = "sync" })
 channels.equipmentRequest:FireServer({ action = "sync" })
+
+-- 부화 연출(#35 — 손으로 부화한 결과마다 · 스킵 5초). 결과 모달 대신이다(OverlayBoot는 새 경제면 부화 모달을 띄우지 않는다)
+local hatchGui = Instance.new("ScreenGui")
+hatchGui.Name = "HatchFxGui"
+hatchGui.ResetOnSpawn = false
+hatchGui.IgnoreGuiInset = true
+hatchGui.AutoLocalize = false
+hatchGui.DisplayOrder = 50 -- 펫 창(Window 층) 위에 덮는다
+hatchGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+local hatchFx = HatchFx.create({ parent = hatchGui })
+channels.petResult.OnClientEvent:Connect(function(payload: any)
+	if type(payload) == "table" and payload.ok == true and (payload.action == "hatch" or payload.action == "hatch3")
+		and type(payload.pets) == "table" and #payload.pets > 0 then
+		hatchFx.show(payload.pets)
+	end
+end)
 
 channels.economyEvent.OnClientEvent:Connect(function(payload: any)
 	if type(payload) ~= "table" then

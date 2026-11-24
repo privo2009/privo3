@@ -49,6 +49,18 @@ function ShopEffectsLogic.rebirth(view: View, economyV2: boolean?): number
 	return ShopConfig.passMult("rebirth2x", view.owns)
 end
 
+-- 새 경제 패스 효과가 켜져 있는가(#35 — 큰 가방 · 즉시 제작 · 트리플 제작 · 즉시 부화 · 새 경제의 Triple Hatch).
+-- 보유 · 새 경제(전용 상품) · 제한 지역(RESTRICTED_RANDOM_PASSES면 제한 유저는 끔)을 함께 본다. economyV2 = nil이면 플래그
+function ShopEffectsLogic.v2PassActive(view: View, key: string, economyV2: boolean?): boolean
+	if EconomyV2Logic.isRemovedProduct(key, economyV2) then
+		return false
+	end
+	if view.restricted and EconomyV2Logic.isRestrictedRandom(key, economyV2) then
+		return false
+	end
+	return view.owns(key)
+end
+
 -- computeLuck 옵션: 행운 패스(그 뽑기 것) · 행운 포션. 둘 다 로벅스 행운 상품이라 제한 유저면 1(S13).
 function ShopEffectsLogic.luckOptions(view: View, roll: string): { luckPassMult: number, boostMult: number }
 	return {

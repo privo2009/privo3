@@ -26,6 +26,9 @@ export type Values = {
 	-- 장비(#34 — EquipmentService 신호)
 	equipment: { [string]: { count: number, stars: number, enh: number } },
 	equipped: string,
+	-- 자동 부화(#35 — PetAutoHatchService 신호)
+	autoHatchOn: boolean,
+	autoHatchCount: number,
 }
 export type State = {
 	get: () -> Values,
@@ -79,6 +82,8 @@ function EconomyV2State.new(): State
 		autoCount = 0,
 		equipment = {},
 		equipped = "",
+		autoHatchOn = false,
+		autoHatchCount = 0,
 	}
 	local listeners: { (Values) -> () } = {}
 	local self = {} :: State
@@ -132,6 +137,13 @@ function EconomyV2State.new(): State
 			values.autoCount = tonumber(payload.autoCount) or values.autoCount
 			changed = true
 		end
+		if payload.kind == "auto_hatch_state" then
+			values.autoHatchOn, values.autoHatchCount = payload.on == true, tonumber(payload.count) or 0
+			changed = true
+		elseif payload.kind == "auto_hatch_result" then
+			values.autoHatchCount = tonumber(payload.count) or values.autoHatchCount
+			changed = true
+		end
 		if payload.kind == "equipment_state" and type(payload.equipment) == "table" then
 			local eq = {}
 			for id, o in pairs(payload.equipment) do
@@ -156,6 +168,15 @@ function EconomyV2State.new(): State
 	end
 
 	return self
+end
+
+-- 클라에서 하나만 쓰는 상태(#35 — EconomyV2Boot가 채우고 펫 창(WindowBoot 쪽)이 코인 · 자동 부화를 읽는다). 테스트는 new()를 쓴다
+local sharedState: State? = nil
+function EconomyV2State.shared(): State
+	if sharedState == nil then
+		sharedState = EconomyV2State.new()
+	end
+	return sharedState :: State
 end
 
 return EconomyV2State

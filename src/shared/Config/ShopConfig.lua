@@ -153,6 +153,35 @@ ShopConfig.GAMEPASS_ORDER = {
 	"petSlots3", "petStorage100", "hatch3x", "petLuck2x", "auraLuck10x", "titleLuck10x",
 }
 
+-- ===== 새 경제 게임패스 4개 (지시서 #35 — DESIGN 16장 · docs/DASHBOARD_PRODUCTS.md 4절) ======================================
+-- ID는 사람이 대시보드에 등록하기 전까지 nil이다. **nil이면 상품 표(Products)에 넣지 않는다** — 상점 줄 · 구매 · 소유 조회 · 효과가 전부 없다.
+-- ID가 들어오면 여기서 보통 게임패스로 등록되고(GAMEPASS_IDS · GAMEPASS_ORDER 끝) 효과 코드(EconomyV2Config *_PASS_ID → 서비스)가 바로 돈다.
+-- 새 경제 전용이다 — 플래그가 꺼져 있으면 등록돼 있어도 안 보이고 효과도 없다(EconomyV2Logic.isRemovedProduct). 제한 지역에서는 숨긴다
+-- (랜덤의 재료 · 횟수를 로벅스로 늘린다 — EconomyV2Config.RESTRICTED_RANDOM_PASSES). 이름 · 설명은 Strings "shop.<키>.name" · ".desc"
+ShopConfig.V2_GAMEPASS_IDS = {
+	bigBag = nil :: number?, -- Big Bag · 99 R$ (사람 등록 대기)
+	instantCraft = nil :: number?, -- Instant Craft · 79 R$ (사람 등록 대기)
+	tripleCraft = nil :: number?, -- Triple Craft · 99 R$ (사람 등록 대기)
+	instantHatch = nil :: number?, -- Instant Hatch · 49 R$ (사람 등록 대기)
+}
+ShopConfig.V2_PASS_ORDER = { "bigBag", "instantCraft", "tripleCraft", "instantHatch" }
+-- 가격 · 효과(등록 여부와 상관없이 읽을 수 있다 — 문서 · 테스트)
+ShopConfig.V2_PASSES = {
+	bigBag = { priceRobux = 99, effect = { type = "bigBag", mult = 2 } },
+	instantCraft = { priceRobux = 79, effect = { type = "instantCraft" } },
+	tripleCraft = { priceRobux = 99, effect = { type = "tripleCraft", count = 3 } },
+	instantHatch = { priceRobux = 49, effect = { type = "instantHatch" } },
+} :: { [string]: { priceRobux: number, effect: { [string]: any } } }
+for _, key in ipairs(ShopConfig.V2_PASS_ORDER) do
+	local id = ShopConfig.V2_GAMEPASS_IDS[key]
+	if id ~= nil then
+		ShopConfig.GAMEPASS_IDS[key] = id
+		local v = ShopConfig.V2_PASSES[key]
+		pass(key, v.priceRobux, v.effect)
+		table.insert(ShopConfig.GAMEPASS_ORDER, key)
+	end
+end
+
 -- Roblox Plus 구독 프롬프트(S16 — 지시서 #17). 세션에 한 번, 환생 직후 또는 상점을 열 때 · 이미 구독자면 안 띄운다(PlusPromptService).
 -- ⚠️ 꺼 둔다(false). Studio에서 이 프롬프트가 어떻게 동작하는지 공식 문서에 없고(2026-10-30 확인 — 확인 못 함), 실제 구독(결제)
 -- 프롬프트라 MCP로 잴 수 없다. 켜는 시점은 사람이 정한다(docs/PENDING.md "Phase 8 — #17"). 커밋 값 false는 ConfigTests가 잰다.

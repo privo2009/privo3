@@ -25,6 +25,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
+local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
+local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
+local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
+local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local Panel = require(script.Parent.Parent.Parent.Components.Panel)
 local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
@@ -75,6 +80,11 @@ export type Deps = {
 	onClose: () -> (),
 	now: (() -> number)?,
 	fx: Fx.Driver?, -- 테스트 전용 따로 노는 Fx 구동기(Fx.newDriver). 없으면 전역(#28 단계 0)
+	-- 새 경제(#35 — 플래그 뒤): 코인 부화 · 연출 + 스킵 간격 · 자동 부화 토글. economyV2가 nil이면 플래그.
+	-- econ = 코인 · 자동 부화 상태(get · subscribe — 생략하면 EconomyV2State.shared()) · sendAuto = 자동 부화 요청(생략하면 PetAutoRequest)
+	economyV2: boolean?,
+	econ: any?,
+	sendAuto: ((payload: any) -> ())?,
 }
 
 type CellParts = { frame: Frame, name: TextLabel, level: TextLabel, stroke: UIStroke, hit: TextButton }
@@ -350,6 +360,31 @@ function PetWindow.create(deps: Deps): Handle
 
 	local pending = TitleWindowLogic.newPending()
 	local hatchCooldownUntil = -math.huge
+	-- 새 경제(#35)
+	local v2 = if deps.economyV2 ~= nil then deps.economyV2 else EconomyV2Logic.isOn()
+	local econ: any = if v2 then (deps.econ or require(script.Parent.Parent.Parent.Parent.Economy.EconomyV2State).shared()) else nil
+	local function coins(): any
+		return if econ ~= nil then econ.get().coins else nil
+	end
+	-- 부화 간격: 새 경제면 연출 + 스킵(무료 HATCH_SKIP_SEC · 즉시 부화 최소 간격). 아니면 지금 그대로(남용 방지)
+	local function hatchInterval(): number
+		if not v2 then
+			return PetConfig.HATCH_INTERVAL_SEC
+		end
+		local skip = ShopEffectsLogic.v2PassActive(ShopEffectsLogic.fromSummary(source.get("shop")), "instantHatch", true)
+		return (EconomyV2Logic.hatchStep(skip, false))
+	end
+	local autoButton: Button.ButtonHandle? = nil
+	local autoLabel: TextLabel? = nil
+	local autoHit: TextButton? = nil
+	if v2 then
+		-- 자동 부화 토글: 잠긴 이유 칸 위 절반에(아래 절반은 이유 글자 · 새 경제에서만)
+		autoButton, autoLabel, autoHit = makeButton("AutoHatchButton", "gray", HATCH_FOOT_X, HATCH_Y, HATCH_FOOT_W, HATCH_H * 0.5, body,
+			Locale.t("pet.auto.off"))
+		hatchFoot.Position = UDim2.fromScale(HATCH_FOOT_X, HATCH_Y + HATCH_H * 0.5)
+		hatchFoot.Size = UDim2.fromScale(HATCH_FOOT_W, HATCH_H * 0.5)
+		WindowParts.raiseButtons({ (autoButton :: Button.ButtonHandle).root })
+	end
 	local cellView: { PetWindowLogic.Cell } = {}
 	local tabView: { PetWindowLogic.EggTab } = {}
 	local shownEgg: number? = nil -- 세션 안 선택(저장하지 않는다 — 스키마를 늘리지 않는다)
@@ -372,7 +407,10 @@ function PetWindow.create(deps: Deps): Handle
 			if tab ~= nil then
 				parts.label.Text = tab.label
 				if tab.eggId == eggId then
-					info.Text = tab.infoText
+					-- 새 경제(#35): 열린 알은 코인 가격(해금 조건 문구는 그대로 — 누적 블럭스)
+					local coinCost = if v2 and tab.unlocked then EconomyV2Logic.eggCoinCost(tab.eggId) else nil
+					info.Text = if coinCost ~= nil then Locale.t("pet.egg.infoCoins", { egg = Names.egg(tab.eggId), cost = Formatter.format(coinCost) })
+						else tab.infoText
 				end
 			end
 		end
@@ -394,12 +432,17 @@ function PetWindow.create(deps: Deps): Handle
 				label.TextColor3 = UiTheme.rarityColor(o.rarityTier)
 			end
 		end
-		local hatch = PetWindowLogic.hatchState(summary, source.get("lifetimeBlox"), source.get("blox"), eggId)
+		local hatch = PetWindowLogic.hatchState(summary, source.get("lifetimeBlox"), source.get("blox"), eggId, coins())
 		hatchLabel.Text = hatch.buttonText
 		hatchButton.setDisabled(not hatch.canHatch or pending.isPending("hatch", t) or t < hatchCooldownUntil)
 		hatchFoot.Text = hatch.footText
-		local hatch3 = PetWindowLogic.hatch3State(summary, source.get("lifetimeBlox"), source.get("blox"), eggId, source.get("shop"))
+		local hatch3 = PetWindowLogic.hatch3State(summary, source.get("lifetimeBlox"), source.get("blox"), eggId, source.get("shop"), coins())
 		hatch3Label.Text = hatch3.buttonText
+		if autoButton ~= nil and autoLabel ~= nil and econ ~= nil then
+			local ev = econ.get()
+			autoLabel.Text = if ev.autoHatchOn then Locale.t("pet.auto.on", { count = tostring(ev.autoHatchCount) }) else Locale.t("pet.auto.off")
+			autoButton.setPressed(ev.autoHatchOn)
+		end
 		hatch3Button.setDisabled(not hatch3.canHatch or pending.isPending("hatch3", t) or pending.isPending("hatch", t) or t < hatchCooldownUntil)
 		-- 로벅스 탭(지시서 #17)
 		robux.render(RobuxShopLogic.windowRows("pet", source.get("shop"), { upgrades = source.get("upgrades"), pets = summary,
@@ -481,7 +524,7 @@ function PetWindow.create(deps: Deps): Handle
 	local function pressHatch()
 		render()
 		local eggId = egg()
-		if not PetWindowLogic.hatchState(source.get("pets"), source.get("lifetimeBlox"), source.get("blox"), eggId).canHatch or now() < hatchCooldownUntil then
+		if not PetWindowLogic.hatchState(source.get("pets"), source.get("lifetimeBlox"), source.get("blox"), eggId, coins()).canHatch or now() < hatchCooldownUntil then
 			return
 		end
 		send("hatch", { action = "hatch", egg = eggId })
@@ -490,7 +533,7 @@ function PetWindow.create(deps: Deps): Handle
 	local function pressHatch3()
 		render()
 		local eggId = egg()
-		if not PetWindowLogic.hatch3State(source.get("pets"), source.get("lifetimeBlox"), source.get("blox"), eggId, source.get("shop")).canHatch
+		if not PetWindowLogic.hatch3State(source.get("pets"), source.get("lifetimeBlox"), source.get("blox"), eggId, source.get("shop"), coins()).canHatch
 			or now() < hatchCooldownUntil then
 			return
 		end
@@ -690,8 +733,9 @@ function PetWindow.create(deps: Deps): Handle
 		end
 		pending.finish(key)
 		if key == "hatch" or key == "hatch3" then
-			hatchCooldownUntil = now() + PetConfig.HATCH_INTERVAL_SEC
-			task.delay(PetConfig.HATCH_INTERVAL_SEC + 0.05, render)
+			local interval = hatchInterval()
+			hatchCooldownUntil = now() + interval
+			task.delay(interval + 0.05, render)
 		end
 		if payload.ok and (key == "hatch" or key == "hatch3" or key == "craft") and type(payload.uid) == "string" and payload.uid ~= "" then
 			selected = payload.uid -- 새로 생긴 펫을 고른다(PlayerState가 곧 그 펫을 실어 온다)
@@ -742,6 +786,17 @@ function PetWindow.create(deps: Deps): Handle
 	end
 	hatchHit.Activated:Connect(pressHatch)
 	hatch3Hit.Activated:Connect(pressHatch3)
+	if autoHit ~= nil and econ ~= nil then
+		local sendAuto = deps.sendAuto or function(payload: any)
+			require(ReplicatedStorage.Shared.Remotes).getClient().petAutoRequest:FireServer(payload)
+		end
+		autoHit.Activated:Connect(function()
+			sendAuto({ on = not econ.get().autoHatchOn, egg = egg() })
+		end)
+		econ.subscribe(function()
+			render()
+		end)
+	end
 	robuxTabHit.Activated:Connect(pressRobuxTab)
 	purchase.onResult(function(payload)
 		if robuxShown then

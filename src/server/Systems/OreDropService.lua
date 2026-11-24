@@ -193,9 +193,9 @@ local function liveDeps(): Deps
 		ownsAutoAdvance = function(player)
 			return GamepassService.owns(player, "autoAdvance")
 		end,
-		ownsBigBag = function(_player)
-			-- 큰 가방 패스 자리(#32). ID가 nil이면 효과 없음. ID가 생기면 #35 상품 코드에서 ShopConfig 키로 잇는다
-			return false
+		ownsBigBag = function(player)
+			-- 큰 가방(#35 — ShopConfig 키 bigBag · 제한 지역이면 끔). ID가 nil이면 상품 표에 없어 보유 없음
+			return require(script.Parent.ShopEffects).v2PassActive(player, "bigBag")
 		end,
 		rootPosition = function(player)
 			return (Proximity.rootPosition(player))

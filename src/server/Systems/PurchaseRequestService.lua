@@ -116,7 +116,8 @@ local function createHandler(deps: Deps)
 		if def.effect.type == "gymUnlock" and deps.gymUnlocked ~= nil and deps.gymUnlocked(player, def.effect.gymIndex) then
 			return PurchaseRequestService.REASON_ALREADY_UNLOCKED, def
 		end
-		if def.paidRandom and deps.isRestricted(player) then
+		-- 행운 상품(S13) · 새 경제가 숨기는 상품(#35 — 큰 가방 · 즉시 제작 · 트리플 제작 · 즉시 부화 · Triple Hatch)
+		if (def.paidRandom or EconomyV2Logic.isRestrictedRandom(def.key, deps.economyV2)) and deps.isRestricted(player) then
 			return PurchaseRequestService.REASON_RESTRICTED, def
 		end
 		if def.id == 0 then

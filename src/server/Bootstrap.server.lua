@@ -166,6 +166,8 @@ if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() then
 	-- 장비(장착 · 강화 · 별) · 손에 든 곡괭이(지시서 #34). 채굴 데미지는 AttackService.punchDamageFactor가 플래그를 보고 곡괭이 배수를 쓴다
 	require(script.Parent.Systems.EquipmentService).init()
 	require(script.Parent.Systems.HeldPickaxeService).init()
+	-- 자동 부화(지시서 #35 — 펫 부화는 PetService가 플래그를 보고 코인 · 연출 + 스킵 간격으로)
+	require(script.Parent.Systems.PetAutoHatchService).init()
 end
 
 -- 환생을 연다 (4-2-d).
