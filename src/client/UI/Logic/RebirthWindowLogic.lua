@@ -13,6 +13,7 @@ local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
+local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local ConfirmFlow = require(script.Parent.ConfirmFlow)
 
@@ -28,11 +29,31 @@ export type View = {
 	lockReason: string?, -- 잠긴 이유 코드 (canRebirth=false일 때)
 	multiplierNow: BigNumber,
 	multiplierAfter: BigNumber,
+	-- 새 경제(지시서 #30 — 플래그 뒤): 다음 환생 비용을 보여 주고 블럭스가 모자라면 잠근다. 버려지는 양은 없다(비용만 뺀다).
+	v2: boolean,
+	cost: BigNumber?, -- 다음 환생 비용(v2만)
 }
 
 -- shop = Store "shop"(지시서 #16 S6). 2배 환생을 가졌으면 얻는 배수가 2배다 — 서버 RebirthService와 같은 함수 · 같은 배수 인자.
 -- 환생할 수 있는가 · 버려지는 양은 배수와 상관없다.
-function RebirthWindowLogic.compute(blox: BigNumber, rebirths: BigNumber, shop: any?): View
+function RebirthWindowLogic.compute(blox: BigNumber, rebirths: BigNumber, shop: any?, economyV2: boolean?): View
+	-- 새 경제: 값은 서버 RebirthService(runRebirthV2)와 같은 EconomyV2Logic 함수에서 나온다. economyV2 nil = 플래그를 따른다.
+	local v2 = if economyV2 ~= nil then economyV2 else EconomyV2Logic.isOn()
+	if v2 then
+		local cost = EconomyV2Logic.rebirthCost(rebirths)
+		local canV2 = EconomyV2Logic.canRebirth(blox, rebirths)
+		return {
+			blox = blox,
+			gained = BigNum.new(1, 0),
+			wasted = BigNum.new(0, 0),
+			canRebirth = canV2,
+			lockReason = if canV2 then nil else "not_enough_blox",
+			multiplierNow = StrengthMultiplier.compute({ rebirths = rebirths, economyV2 = true }),
+			multiplierAfter = StrengthMultiplier.compute({ rebirths = BigNum.add(rebirths, BigNum.new(1, 0)), economyV2 = true }),
+			v2 = true,
+			cost = cost,
+		}
+	end
 	local mult = if shop ~= nil then ShopEffectsLogic.rebirth(ShopEffectsLogic.fromSummary(shop)) else nil
 	local gained = RebirthConfig.getGainedRebirths(blox, mult)
 	-- 버려지는 양은 RebirthConfig.getLeftover가 원본이다(시뮬레이터의 S5 업그레이드 예산과 같은 함수 — 지시서 #7).
@@ -45,15 +66,19 @@ function RebirthWindowLogic.compute(blox: BigNumber, rebirths: BigNumber, shop: 
 		wasted = wasted,
 		canRebirth = can,
 		lockReason = if can then nil else "not_enough_blox",
-		multiplierNow = StrengthMultiplier.compute({ rebirths = rebirths }),
-		multiplierAfter = StrengthMultiplier.compute({ rebirths = BigNum.add(rebirths, gained) }),
+		multiplierNow = StrengthMultiplier.compute({ rebirths = rebirths, economyV2 = false }),
+		multiplierAfter = StrengthMultiplier.compute({ rebirths = BigNum.add(rebirths, gained), economyV2 = false }),
+		v2 = false,
+		cost = nil,
 	}
 end
 
 -- 사유 코드 → 화면 문구. 코드는 서버 RebirthService.REASON_* · RebirthRequestService.REASON_RATE_LIMITED
 -- 와 같은 문자열이다. 모르는 코드는 일반 문구.
-function RebirthWindowLogic.reasonText(code: string): string
-	if code == "not_enough_blox" then
+function RebirthWindowLogic.reasonText(code: string, v2Cost: BigNumber?): string
+	if code == "not_enough_blox" and v2Cost ~= nil then
+		return Locale.t("rebirth.v2.reason.not_enough_blox", { cost = Formatter.format(v2Cost) }) -- 새 경제: 다음 비용(회마다 오른다)
+	elseif code == "not_enough_blox" then
 		return Locale.t("rebirth.reason.not_enough_blox", { cost = Formatter.format(BigNum.fromNumber(RebirthConfig.BLOX_PER_REBIRTH)) })
 	elseif code == "no_profile" then
 		return Locale.t("common.reason.no_profile")
@@ -80,15 +105,20 @@ RebirthWindowLogic.RESETS = {
 }
 -- 상점 업그레이드: runRebirth의 deps에는 업그레이드를 바꾸는 통로가 없다 — 남는다(UpgradeServiceTests 5번이 확인한다, 지시서 #7).
 RebirthWindowLogic.KEEPS = Locale.t("rebirth.keeps")
+-- 새 경제(지시서 #30): 블럭스는 비용만 빠지고 나머지가 남는다(EconomyV2Config.REBIRTH_KEEP_REMAINDER) — 첫 줄만 다르다.
+RebirthWindowLogic.RESETS_V2 = table.clone(RebirthWindowLogic.RESETS)
+RebirthWindowLogic.RESETS_V2[1] = Locale.t("rebirth.v2.reset.blox")
+RebirthWindowLogic.KEEPS_V2 = Locale.t("rebirth.v2.keeps")
 
 -- 창에 그리는 줄. 초기화 목록을 두 개씩 한 줄로 묶는다(지시서 #8 — 한 줄에 하나씩 6줄이면 줄 높이가 낮아 글자가 거의 안 읽혔다).
 RebirthWindowLogic.RESET_PER_LINE = 2
-function RebirthWindowLogic.resetLines(): { string }
+function RebirthWindowLogic.resetLines(v2: boolean?): { string }
+	local list = if v2 then RebirthWindowLogic.RESETS_V2 else RebirthWindowLogic.RESETS
 	local lines = {}
-	for i = 1, #RebirthWindowLogic.RESETS, RebirthWindowLogic.RESET_PER_LINE do
+	for i = 1, #list, RebirthWindowLogic.RESET_PER_LINE do
 		local items = {}
-		for j = i, math.min(i + RebirthWindowLogic.RESET_PER_LINE - 1, #RebirthWindowLogic.RESETS) do
-			table.insert(items, RebirthWindowLogic.RESETS[j])
+		for j = i, math.min(i + RebirthWindowLogic.RESET_PER_LINE - 1, #list) do
+			table.insert(items, list[j])
 		end
 		table.insert(lines, "· " .. table.concat(items, "   · "))
 	end

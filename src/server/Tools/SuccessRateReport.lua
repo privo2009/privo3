@@ -218,6 +218,8 @@ local SIM = {
 	PET_SWEEP_ONLY = false,
 	-- true면 run()이 경제 후보 측정(Tools/EconomyCandidateReport — 지시서 #29)만 돈다. 커밋 값은 false.
 	ECONOMY_SWEEP_ONLY = false,
+	-- true면 run()이 새 경제 2차 측정(Tools/EconomyV2Report — 지시서 #30)만 돈다. 커밋 값은 false.
+	ECONOMY_V2_ONLY = false,
 }
 SuccessRateReport.SIM = SIM
 
@@ -232,8 +234,10 @@ SuccessRateReport.SIM = SIM
 --   onRunEnd(p, best, cashed)   런 끝 — 수령이면 가방 → 인벤토리, 실패면 가방을 잃는다
 --   onRunStart(p)               런 직전(스폰) — 제작 · 강화
 --   eager                       true면 "막혔을 때(REBIRTH_PATIENCE_RUNS)"를 기다리지 않고 살 수 있으면 바로 환생한다
+--   keepBlox                    true면 환생 뒤 남은 블럭스를 0으로 만들지 않는다(새 경제 — 비용만 뺀다 · 지시서 #30)
 export type EconHooks = {
 	eager: boolean?,
+	keepBlox: boolean?,
 	canRebirth: (p: any) -> boolean,
 	rebirthCost: (p: any) -> BigNumber,
 	applyRebirth: (p: any) -> (),
@@ -718,13 +722,18 @@ local function addClicks(p: Player, clicks: number, gymMultiplier: number?)
 	p.strength = BigNum.add(p.strength, gain)
 end
 
+-- 환생 수로 열린 기구 수(게임과 같은 GymConfig.getUnlockedCount). 새 경제 도구(Tools/EconomyV2Report — 지시서 #30)가 잠깐 갈아 끼운다.
+function SuccessRateReport.gymUnlockedCount(p: Player): number
+	return GymConfig.getUnlockedCount(p.rebirths)
+end
+
 -- 운동기구에서 sec초 클릭한다. 환생 수로 열린 기구 중 가장 좋은 것을 쓴다(공허를 샀으면 공허).
 -- 쓴 기구 번호(0 = 안 씀).
 function SuccessRateReport.trainAtGym(p: Player, sec: number): number
 	if sec <= 0 then
 		return 0
 	end
-	local index = GymConfig.getUnlockedCount(p.rebirths)
+	local index = SuccessRateReport.gymUnlockedCount(p)
 	if MODEL.OWNS_VOID_ZONE then
 		index = GymConfig.findByGamepass("voidTrainingZone") or index
 	end
@@ -970,7 +979,9 @@ local function rebirth(p: Player)
 	else
 		p.rebirths = BigNum.add(p.rebirths, RebirthConfig.getGainedRebirths(p.blox))
 	end
-	p.blox = BigNum.new(0, 0)
+	if not (econ ~= nil and econ.keepBlox == true) then
+		p.blox = BigNum.new(0, 0)
+	end
 	p.strength = copyBig(Schema.new().strength)
 	p.lifeBlox = BigNum.new(0, 0)
 	p.padIndex = 1
@@ -1016,14 +1027,17 @@ export type PlayerResult = {
 -- untilFinalClear가 없으면 루프는 예전과 같은 자리에서 끝난다(최고층 첫 진입). 둘 다 nil이면 예전 호출과 같다.
 --   observer(event, p, seen, reached)  event = "run_start"(런 직전) · "run_end"(런 직후, reached = 그 런 최고층) · "rebirth_before"(환생 직전)
 --   untilFinalClear  최고층 첫 진입에서 멈추지 않고 최고층을 처음 깰 때까지 돈다(프리셋 "25층 클리어 직후"용)
+--   untilFn  있으면 최고층 첫 진입에서 멈추지 않고 이 함수가 true를 돌려줄 때까지 돈다(새 경제 — "15종째 곡괭이"까지, 지시서 #30)
 export type SimOptions = {
 	observer: ((event: string, p: Player, seen: { [number]: boolean }, reached: number?) -> ())?,
 	untilFinalClear: boolean?,
+	untilFn: ((p: Player) -> boolean)?,
 }
 
 function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTry: { [number]: Tally }, titleRandom: (() -> number)?, auraRandom: (() -> number)?, petRandom: (() -> number)?, opts: SimOptions?): PlayerResult
 	local observer = if opts ~= nil then opts.observer else nil
 	local untilFinalClear = opts ~= nil and opts.untilFinalClear == true
+	local untilFn = if opts ~= nil then opts.untilFn else nil
 	local p = SuccessRateReport.newPlayer(rng)
 	p.titleRandom = titleRandom
 	p.auraRandom = auraRandom
@@ -1066,11 +1080,14 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 		if seen[maxStage] and finalFirstSec == nil then
 			finalFirstSec = before
 			finalRebirthsLog10 = if p.rebirths.m > 0 then math.log10(p.rebirths.m) + p.rebirths.e else nil
-			if not untilFinalClear then
+			if not untilFinalClear and untilFn == nil then
 				break
 			end
 		end
 		if untilFinalClear and reached >= maxStage then
+			break
+		end
+		if untilFn ~= nil and finalFirstSec ~= nil and untilFn(p) then
 			break
 		end
 
@@ -1897,6 +1914,10 @@ function SuccessRateReport.run()
 	if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
 	if SIM.ECONOMY_SWEEP_ONLY then
 		require(script.Parent.EconomyCandidateReport).run()
+		return
+	end
+	if SIM.ECONOMY_V2_ONLY then
+		require(script.Parent.EconomyV2Report).run()
 		return
 	end
 	print("[SUCCESSRATE] ===== 확률적 플레이어 성공률 (4-2-f) =====")

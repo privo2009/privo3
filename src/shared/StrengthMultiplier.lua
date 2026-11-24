@@ -39,6 +39,7 @@
 --    (DESIGN "배수 계통"). 힘 계통 안에서의 결합 방식과는 다른 질문이니 혼동하지 말 것.
 
 local BigNum = require(script.Parent.BigNum)
+local EconomyV2Logic = require(script.Parent.EconomyV2Logic)
 
 type BigNumber = BigNum.BigNumber
 
@@ -52,6 +53,8 @@ export type Sources = {
 	petMult: number?,
 	tierMult: number?,
 	potionMult: number?,
+	-- 새 경제(지시서 #30): nil이면 플래그(EconomyV2Config.ECONOMY_V2)를 따른다. 테스트만 true / false를 넣는다.
+	economyV2: boolean?,
 }
 
 -- ⚠️ 상수 테이블을 만들어 재사용하지 않는다. BigNum 값은 평범한 테이블이라 호출자가
@@ -91,9 +94,14 @@ function StrengthMultiplier.compute(sources: Sources?): BigNumber
 
 	local total = one()
 
-	-- 환생: 1 + rebirths (선형 가산).
+	-- 환생: 1 + rebirths (선형 가산). 새 경제(플래그 뒤 — 지시서 #30)는 b^n을 곱한다(EconomyV2Logic.rebirthFactor 한 곳).
 	if isBigNum(sources.rebirths) then
-		total = BigNum.add(total, sources.rebirths :: BigNumber)
+		local v2 = if sources.economyV2 ~= nil then sources.economyV2 else EconomyV2Logic.isOn()
+		if v2 then
+			total = BigNum.mul(total, EconomyV2Logic.rebirthFactor(sources.rebirths :: BigNumber))
+		else
+			total = BigNum.add(total, sources.rebirths :: BigNumber)
+		end
 	end
 
 	-- 칭호 · 아우라 · 펫: 곱한다(S3). 1 이하 · nan · inf · 숫자 아님은 "배수 없음" — 0이나 1 미만이 곱해지면 성장이 줄거나 멈춘다.

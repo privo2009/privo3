@@ -71,6 +71,7 @@ export type Deps = {
 	onClose: () -> (),
 	openShop: (() -> ())?, -- 상점 창을 연다(지시서 #7). 실물은 ScreenController.open("Shop")
 	now: (() -> number)?, -- 테스트용 시계
+	economyV2: boolean?, -- 새 경제 환생 창(지시서 #30). nil = 플래그(EconomyV2Config.ECONOMY_V2)를 따른다 — 테스트만 넣는다
 }
 
 export type Handle = {
@@ -158,15 +159,32 @@ function RebirthWindow.create(deps: Deps): Handle
 	WindowParts.raiseButtons({ button.root, cancelButton.root, shopButton.root, panel.closeButton.root })
 
 	local confirm = RebirthWindowLogic.newConfirm()
-	local view: RebirthWindowLogic.View = RebirthWindowLogic.compute(source.get("blox"), source.get("rebirths"), source.get("shop"))
+	local view: RebirthWindowLogic.View = RebirthWindowLogic.compute(source.get("blox"), source.get("rebirths"), source.get("shop"), deps.economyV2)
 	local resultText: string? = nil
+	if view.v2 then
+		-- 새 경제: 초기화 첫 줄(블럭스) · 남는 것 줄이 다르다. 플래그는 Play 중에 바뀌지 않으므로 만들 때 한 번 정한다
+		for i, text in ipairs(RebirthWindowLogic.resetLines(true)) do
+			labels["reset" .. i].Text = text
+		end
+		labels.keeps.Text = RebirthWindowLogic.KEEPS_V2
+	end
 
 	local function render()
 		labels.bloxValue.Text = Formatter.format(view.blox)
-		labels.gainValue.Text = Locale.t("rebirth.gainValue", { gained = Formatter.format(view.gained),
-			before = Formatter.format(view.multiplierNow), after = Formatter.format(view.multiplierAfter) })
-		labels.wastedValue.Text = Formatter.format(view.wasted)
-		labels.wastedValue.BackgroundTransparency = if RebirthWindowLogic.shouldWarnWasted(view.wasted) then 0 else 1
+		if view.v2 then
+			-- 새 경제(지시서 #30): 얻는 배수 줄 → 힘 배수 전후 · 버려지는 양 줄 → 다음 환생 비용(경고색 없음 — 잠김은 버튼 · 이유 문구가 알린다)
+			labels.gainName.Text = Locale.t("rebirth.v2.gain")
+			labels.gainValue.Text = Locale.t("rebirth.v2.gainValue", {
+				before = Formatter.format(view.multiplierNow), after = Formatter.format(view.multiplierAfter) })
+			labels.wastedName.Text = Locale.t("rebirth.v2.cost")
+			labels.wastedValue.Text = Formatter.format(view.cost :: BigNumber)
+			labels.wastedValue.BackgroundTransparency = 1
+		else
+			labels.gainValue.Text = Locale.t("rebirth.gainValue", { gained = Formatter.format(view.gained),
+				before = Formatter.format(view.multiplierNow), after = Formatter.format(view.multiplierAfter) })
+			labels.wastedValue.Text = Formatter.format(view.wasted)
+			labels.wastedValue.BackgroundTransparency = if RebirthWindowLogic.shouldWarnWasted(view.wasted) then 0 else 1
+		end
 
 		local armed = confirm.isArmed(now())
 		button.setDisabled(not view.canRebirth)
@@ -176,7 +194,7 @@ function RebirthWindow.create(deps: Deps): Handle
 		if resultText ~= nil then
 			labels.status.Text = resultText
 		elseif not view.canRebirth and view.lockReason ~= nil then
-			labels.status.Text = RebirthWindowLogic.reasonText(view.lockReason)
+			labels.status.Text = RebirthWindowLogic.reasonText(view.lockReason, view.cost)
 		elseif armed then
 			labels.status.Text = Locale.t("rebirth.confirmHint")
 		else
@@ -185,7 +203,7 @@ function RebirthWindow.create(deps: Deps): Handle
 	end
 
 	local function refresh()
-		view = RebirthWindowLogic.compute(source.get("blox"), source.get("rebirths"), source.get("shop"))
+		view = RebirthWindowLogic.compute(source.get("blox"), source.get("rebirths"), source.get("shop"), deps.economyV2)
 		render()
 	end
 
@@ -237,10 +255,12 @@ function RebirthWindow.create(deps: Deps): Handle
 			return
 		end
 		confirm.cancel()
-		if payload.ok then
+		if payload.ok and view.v2 then
+			resultText = Locale.t("rebirth.v2.success", { total = Formatter.format(payload.total) })
+		elseif payload.ok then
 			resultText = RebirthWindow.successText(payload.gained)
 		else
-			resultText = RebirthWindowLogic.reasonText(tostring(payload.reason))
+			resultText = RebirthWindowLogic.reasonText(tostring(payload.reason), view.cost)
 		end
 		refresh()
 	end
