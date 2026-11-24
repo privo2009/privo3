@@ -13,6 +13,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
+local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local Schema = require(script.Parent.Parent.Data.Schema)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 
@@ -223,6 +224,53 @@ local function applyExchange(data: any, kind: string, id: string, tokens: TokenC
 	return applyGrantEquipment(data, kind, id)
 end
 
+-- 강화 +1(#34): 가진 장비 · +10 미만 · 비용(등급 × 단계 — EconomyV2Logic.enhanceCost)을 가진 광석 전부에서 낮은 광석부터 낸다.
+-- 사유: "not_owned" · "max" · "not_enough_ore". 성공이면 (true, 낸 광석 {번호 = 개수})
+local function applyEnhance(data: any, kind: string, id: string): (boolean, any)
+	if equipmentDef(kind, id) == nil then
+		return false, "unknown"
+	end
+	local o = if type(data.equipment) == "table" and type(data.equipment[kind]) == "table" then data.equipment[kind][id] else nil
+	if o == nil then
+		return false, "not_owned"
+	end
+	local cost = EconomyV2Logic.enhanceCost(o.enh, id)
+	if cost == nil then
+		return false, "max"
+	end
+	local take = EconomyV2Logic.orePayment(data.ores, cost)
+	if take == nil then
+		return false, "not_enough_ore"
+	end
+	local ok, info = applyTakeOres(data, take)
+	if not ok then
+		return false, info
+	end
+	o.enh += 1
+	return true, take
+end
+
+-- 별 +1(#34): 여벌(보유 − 1)에서 STAR_CONSUME[지금 별 + 1]개를 쓴다 — 보유 1개는 언제나 남긴다. 사유: "not_owned" · "max" · "not_enough_copies"
+local function applyStarUp(data: any, kind: string, id: string): (boolean, string?)
+	if equipmentDef(kind, id) == nil then
+		return false, "unknown"
+	end
+	local o = if type(data.equipment) == "table" and type(data.equipment[kind]) == "table" then data.equipment[kind][id] else nil
+	if o == nil then
+		return false, "not_owned"
+	end
+	local need = EconomyV2Logic.starCost(o.stars)
+	if need == nil then
+		return false, "max"
+	end
+	if EconomyV2Logic.spareOf(o.count) < need then
+		return false, "not_enough_copies"
+	end
+	o.count -= need
+	o.stars += 1
+	return true, nil
+end
+
 -- 사본에 적용하고 Schema.validateEconomy로 다시 본 뒤에만 원본에 넣는다(CurrencyService.applyUpdatesWithRollback과 같은 뜻).
 local ECON_FIELDS = { "ores", "equipment", "equipped", "tokens", "forgeOpen" }
 local function applyChecked(data: any, fn: (any) -> (boolean, string?)): (boolean, string?)
@@ -257,6 +305,8 @@ InventoryService._pure = {
 	applyOpenForge = applyOpenForge,
 	applyCraft = applyCraft,
 	applyExchange = applyExchange,
+	applyEnhance = applyEnhance,
+	applyStarUp = applyStarUp,
 	applyChecked = applyChecked,
 }
 
@@ -348,6 +398,21 @@ function InventoryService.exchange(player: Player, kind: string, id: string, tok
 	end)
 end
 
+-- 강화 +1(#34 — EquipmentService만 부른다). 성공이면 true
+function InventoryService.enhance(player: Player, kind: string, id: string, reason: string): boolean
+	return run("enhance", player, reason, function(d)
+		local ok, info = applyEnhance(d, kind, id)
+		return ok, if ok then nil else info
+	end)
+end
+
+-- 별 +1(#34 — EquipmentService만 부른다)
+function InventoryService.starUp(player: Player, kind: string, id: string, reason: string): boolean
+	return run("starUp", player, reason, function(d)
+		return applyStarUp(d, kind, id)
+	end)
+end
+
 function InventoryService.openForge(player: Player, reason: string): boolean
 	return run("openForge", player, reason, applyOpenForge)
 end
@@ -371,6 +436,15 @@ function InventoryService.getEquipped(player: Player, kind: string): string?
 	end
 	local id = data.equipped[kind]
 	return if type(id) == "string" then id else nil
+end
+
+-- 종류별 가진 장비 전체(사본 — {id = {count, stars, enh}} · 장비 화면 · 데미지 배수 · #34)
+function InventoryService.getEquipment(player: Player, kind: string): { [string]: any }?
+	local data = InventoryService._deps.getData(player)
+	if data == nil or type(data.equipment) ~= "table" or type(data.equipment[kind]) ~= "table" then
+		return nil
+	end
+	return deepCopy(data.equipment[kind])
 end
 
 -- 종류별 가진 장비 id → 개수(사본 — 교환소 "보유" 표시 · #33)

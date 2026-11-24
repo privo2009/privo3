@@ -441,28 +441,48 @@ function EconomyV2Logic.enhanceBloxCost(level: number): BigNumber?
 	return BigNum.mul(base, BigNum.pow(BigNum.fromNumber(Config.ENHANCE_BLOX_COST_GROWTH), level))
 end
 
--- 광석 점수 points만큼 낸다 — 낮은 광석부터(maxOre 이하만 — nil이면 전부). 모자라면 아무것도 안 빼고 false.
--- 광석은 쪼갤 수 없어 마지막 하나는 넘칠 수 있다(넘친 점수는 돌려주지 않는다).
-function EconomyV2Logic.payOrePoints(inv: { number }, points: number, maxOre: number?): boolean
+-- 광석 점수 points를 낼 때 실제로 쓰일 광석(낮은 광석부터 — maxOre 이하만, nil이면 전부). {광석 번호 = 개수} · 모자라면 nil.
+-- 광석은 쪼갤 수 없어 마지막 하나는 넘칠 수 있다(넘친 점수는 돌려주지 않는다). 장비 화면 미리보기 · 서버 차감이 같은 함수를 쓴다(#34)
+function EconomyV2Logic.orePayment(inv: { number }, points: number, maxOre: number?): { [number]: number }?
 	local top = maxOre or Config.ORE_COUNT
 	local have = 0
 	for k = 1, top do
 		have += (inv[k] or 0) * Config.ORE_POINTS[k]
 	end
 	if have < points then
-		return false
+		return nil
 	end
+	local take: { [number]: number } = {}
 	local left = points
 	for k = 1, top do
-		while left > 0 and (inv[k] or 0) > 0 do
-			inv[k] -= 1
+		local n = inv[k] or 0
+		while left > 0 and n > 0 do
+			n -= 1
+			take[k] = (take[k] or 0) + 1
 			left -= Config.ORE_POINTS[k]
 		end
 		if left <= 0 then
 			break
 		end
 	end
+	return take
+end
+
+-- 광석 점수 points만큼 낸다(orePayment대로 뺀다). 모자라면 아무것도 안 빼고 false.
+function EconomyV2Logic.payOrePoints(inv: { number }, points: number, maxOre: number?): boolean
+	local take = EconomyV2Logic.orePayment(inv, points, maxOre)
+	if take == nil then
+		return false
+	end
+	for k, n in pairs(take) do
+		inv[k] -= n
+	end
 	return true
+end
+
+-- 별 재료로 쓸 수 있는 여벌 = 보유 개수 − 1(보유 1개는 언제나 남긴다 — #34 DESIGN 16장)
+function EconomyV2Logic.spareOf(count: number): number
+	return math.max(0, count - 1)
 end
 
 -- 장착 곡괭이(또는 id)를 +1 강화한다. 사유: "not_owned" · "max" · "not_enough_ore"
@@ -532,6 +552,28 @@ function EconomyV2Logic.equippedMult(picks: Picks): number
 	return EconomyV2Logic.ownedMult(picks, picks.equipped)
 end
 
+-- 저장 꼴(v10 equipment.pickaxe{id = {count, stars, enh}} · equipped.pickaxe)에서 최종 채굴 데미지 배수(#34 — 게임 데미지 경로).
+-- 시뮬레이터(equippedMult)와 같은 pickaxeMult를 부른다 — 같은 곡괭이 · 강화 · 별이면 같은 값(EquipmentServiceTests가 대조). 없으면 1
+function EconomyV2Logic.multFromSave(equipment: any, equippedId: any): number
+	if type(equipment) ~= "table" or type(equippedId) ~= "string" or byId[equippedId] == nil then
+		return 1
+	end
+	local o = equipment[equippedId]
+	if type(o) ~= "table" then
+		return 1
+	end
+	return EconomyV2Logic.pickaxeMult(equippedId, tonumber(o.enh) or 0, tonumber(o.stars) or 0)
+end
+
+-- 저장 꼴 → 시뮬레이터 꼴(Picks — copies = 보유 − 1). 일치 테스트가 쓴다
+function EconomyV2Logic.picksFromSave(equipment: any, equippedId: string): Picks
+	local owned: { [string]: Owned } = {}
+	for id, o in pairs(equipment or {}) do
+		owned[id] = { copies = EconomyV2Logic.spareOf(o.count), stars = o.stars, enh = o.enh }
+	end
+	return { owned = owned, tokens = {}, equipped = equippedId }
+end
+
 -- 가진 것 중 배수가 가장 큰 곡괭이(같으면 rank가 높은 것)
 function EconomyV2Logic.bestOwned(picks: Picks): string
 	local best, bestM, bestRank = picks.equipped, -1, -1
@@ -557,6 +599,10 @@ function EconomyV2Logic.addToBag(bag: { number }, cap: number, k: number, count:
 	local used = 0
 	for i = 1, Config.ORE_COUNT do
 		used += bag[i] or 0
+	end
+	-- #34: 장착을 바꿔 용량이 줄어 넘친 가방 — 든 광석은 두고 새로 줍기(바꿔 줍기 포함)만 막는다
+	if used > cap then
+		return 0
 	end
 	local added = 0
 	for _ = 1, count do
@@ -640,6 +686,12 @@ end
 function EconomyV2Logic.isRemovedProduct(key: string, economyV2: boolean?): boolean
 	local v2 = if economyV2 ~= nil then economyV2 else EconomyV2Logic.isOn()
 	return v2 and Config.REMOVED_PRODUCTS[key] == true
+end
+
+-- 새 경제에서 빠진 상점 업그레이드인가(#34 — 펀치 데미지). economyV2 = nil이면 플래그
+function EconomyV2Logic.isRemovedUpgrade(key: string, economyV2: boolean?): boolean
+	local v2 = if economyV2 ~= nil then economyV2 else EconomyV2Logic.isOn()
+	return v2 and Config.REMOVED_UPGRADES[key] == true
 end
 
 -- 이름 Strings 키(⚠️ 임시 이름 — 지시서 #31). 화면은 Locale.t(키)로 꺼낸다(Shared/Localization/Names).

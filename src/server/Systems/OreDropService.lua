@@ -238,6 +238,12 @@ local function bagPayload(player: Player, state: RunEcon?, kind: string): any
 	return { kind = kind, bag = bag, used = bagUsed(bag), cap = capOf(player) }
 end
 
+-- 장착을 바꿔 가방 용량이 바뀌었다(#34 — EquipmentService가 부른다). 바뀐 용량을 바로 보낸다. 줄어 넘치면 든 광석은 그대로 두고
+-- 새로 줍기만 막힌다(EconomyV2Logic.addToBag — 넘친 동안 0개)
+function OreDropService.refreshBag(player: Player)
+	deps().send(player, bagPayload(player, states[player], "bag"))
+end
+
 -- 지금 상태 한 번에(접속 · 동기화). 클라 HUD가 이것으로 시작한다
 function OreDropService.sendSnapshot(player: Player)
 	local d = deps()

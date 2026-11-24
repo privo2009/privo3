@@ -58,7 +58,7 @@ local LIST_H = 0.79 -- 보이는 목록 높이(본문 기준)
 local STATUS_Y = LIST_Y + LIST_H + 0.01
 local STATUS_H = 1 - STATUS_Y
 local SCROLLBAR_PX = 6 -- ScrollBarThickness는 픽셀 정수 속성이라 Scale로 줄 수 없다(docs/UI.md "지시서 #12")
-local UPGRADE_ROWS = #UpgradeConfig.SHOP_ORDER
+local UPGRADE_ROWS = #UpgradeShopLogic.order() -- 새 경제면 펀치 데미지가 빠진다(#34)
 -- 계단 한 줄 + 포션 묶음(포션 종류 + 번들 — 지시서 #17) + 게임패스(제한 유저는 이보다 적다 — 남는 줄은 숨긴다)
 local ROBUX_MAX_ROWS = 1 + #ShopConfig.BOOST_ORDER + 1 + #ShopConfig.GAMEPASS_ORDER
 local function canvasK(rows: number): number
@@ -201,7 +201,7 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 	-- 업그레이드 탭 목록
 	local list = makeList("List", body, UPGRADE_ROWS)
 	local rows: { [string]: RowParts } = {}
-	for i, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+	for i, name in ipairs(UpgradeShopLogic.order()) do
 		rows[name] = makeRow("Row_" .. name, list, i, CANVAS_K, "blue", UpgradeShopLogic.BUY_TEXT, raise)
 	end
 

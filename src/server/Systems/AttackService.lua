@@ -64,6 +64,7 @@ local CurrencyService = require(script.Parent.CurrencyService)
 local ChallengeService = require(script.Parent.ChallengeService)
 -- 펀치 데미지 · 펀치 속도 업그레이드 효과(지시서 #7). 효과 식은 UpgradeConfig, 레벨은 UpgradeService가 안다.
 local UpgradeService = require(script.Parent.UpgradeService)
+local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 -- 장착 아우라 m (지시서 #11 A10). AuraService는 이 파일을 require하지 않는다(순환 없음).
 local AuraService = require(script.Parent.AuraService)
 -- 로벅스 효과(지시서 #16 S5): 2배 데미지 게임패스 · 데미지 포션.
@@ -313,13 +314,25 @@ local REAL: Deps = {
 	getDamageMultiplier = function(player: Player)
 		local passMult, potionMult = ShopEffects.damage(player)
 		return combineDamageMultiplier({
-			punchDamage = UpgradeService.getEffect(player, "punchDamage"),
+			punchDamage = AttackService.punchDamageFactor(player),
 			auraMult = AuraService.getMult(player),
 			passMult = passMult,
 			potionMult = potionMult,
 		})
 	end,
 }
+
+-- 펀치 데미지 항(#34). 새 경제(economyV2 — nil이면 플래그)면 장착 곡괭이 최종 배수(곡괭이 × 강화 × 별 — EconomyV2Logic.multFromSave,
+-- 시뮬레이터 equippedMult와 같은 pickaxeMult)가 상점 펀치 데미지 업그레이드 자리에 들어간다(업그레이드는 빠진다 — REMOVED_UPGRADES).
+-- 꺼져 있으면 지금처럼 상점 업그레이드 효과. 블록 데미지 경로는 근접 자동 공격 하나다(클릭은 힘 트랙 전용 — CLAUDE.md 금지 사항)
+function AttackService.punchDamageFactor(player: Player, economyV2: boolean?): number
+	local v2 = if economyV2 ~= nil then economyV2 else EconomyV2Logic.isOn()
+	if not v2 then
+		return UpgradeService.getEffect(player, "punchDamage")
+	end
+	local InventoryService = require(script.Parent.InventoryService)
+	return EconomyV2Logic.multFromSave(InventoryService.getEquipment(player, "pickaxe"), InventoryService.getEquipped(player, "pickaxe"))
+end
 
 -- ===== 관측 =========================================================================
 --

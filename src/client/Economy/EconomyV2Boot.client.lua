@@ -19,6 +19,7 @@ local DropRenderer = require(script.Parent.DropRenderer)
 local CoinFx = require(script.Parent.CoinFx)
 local EconomyHud = require(script.Parent.Parent.UI.Screens.Hud.EconomyHud)
 local ForgeWindow = require(script.Parent.Parent.UI.Screens.Window.ForgeWindow)
+local EquipmentWindow = require(script.Parent.Parent.UI.Screens.Window.EquipmentWindow)
 local ForgeSite = require(script.Parent.ForgeSite)
 local ScreenController = require(script.Parent.Parent.UI.ScreenController)
 
@@ -48,7 +49,22 @@ local forgeWindow = ForgeWindow.create({
 	onClose = function()
 		ScreenController.close("Forge")
 	end,
+	openEquipment = function()
+		ScreenController.open("Equipment")
+	end,
 })
+-- 장비 창(#34) — 대장간이 열린 뒤에만 연다(HUD 장비 버튼 · 대장간 창 링크)
+local equipmentWindow = EquipmentWindow.create({
+	send = function(payload: any)
+		channels.equipmentRequest:FireServer(payload)
+	end,
+	onClose = function()
+		ScreenController.close("Equipment")
+	end,
+})
+ScreenController.register("Equipment", "Window", function()
+	return equipmentWindow.root
+end)
 ScreenController.register("Forge", "Window", function()
 	return forgeWindow.root
 end)
@@ -59,11 +75,18 @@ local function openForge()
 end
 local site = ForgeSite.create({ onOpen = openForge })
 hud.forgeHit.Activated:Connect(openForge)
+hud.equipHit.Activated:Connect(function()
+	if state.get().forgeOpen then
+		ScreenController.open("Equipment")
+	end
+end)
 state.subscribe(function(values)
 	site.setOpen(values.forgeOpen)
 	forgeWindow.set(values)
+	equipmentWindow.set(values)
 end)
 channels.forgeRequest:FireServer({ action = "sync" })
+channels.equipmentRequest:FireServer({ action = "sync" })
 
 channels.economyEvent.OnClientEvent:Connect(function(payload: any)
 	if type(payload) ~= "table" then
@@ -86,4 +109,5 @@ channels.economyEvent.OnClientEvent:Connect(function(payload: any)
 	end
 	state.apply(payload)
 	forgeWindow.onEvent(payload)
+	equipmentWindow.onEvent(payload)
 end)

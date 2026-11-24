@@ -39,6 +39,7 @@ export type Deps = {
 	send: (Player, any) -> (),
 	rand: () -> number,
 	now: () -> number,
+	afterGrant: ((Player) -> ())?, -- 곡괭이를 얻은 뒤(#34 — 장비 화면 상태 다시 보내기). 없으면 안 부른다
 }
 
 -- ===== 순수 로직 (Player · 프로필 없음 — ForgeServiceTests가 _pure로 부른다) ===============================
@@ -158,6 +159,9 @@ local function liveDeps(): Deps
 			return rng:NextNumber()
 		end,
 		now = os.clock,
+		afterGrant = function(player)
+			require(script.Parent.EquipmentService).sendState(player)
+		end,
 	}
 end
 
@@ -250,6 +254,9 @@ function ForgeService.craft(player: Player, combo: any, fill: boolean, auto: boo
 		tokensTotal = d.getTokens(player) or {},
 		owned = d.getOwned(player) or {},
 	})
+	if d.afterGrant ~= nil then
+		d.afterGrant(player)
+	end
 	return true, nil
 end
 
@@ -302,6 +309,9 @@ function ForgeService.exchange(player: Player, id: any): (boolean, string?)
 		return false, "grant_failed"
 	end
 	d.send(player, { kind = "exchange_result", ok = true, id = def.id, tokensTotal = d.getTokens(player) or {}, owned = d.getOwned(player) or {} })
+	if d.afterGrant ~= nil then
+		d.afterGrant(player)
+	end
 	return true, nil
 end
 

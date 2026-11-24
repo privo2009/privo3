@@ -32,6 +32,7 @@ export type Handle = {
 	bagValue: TextLabel,
 	forgeRow: Frame,
 	forgeHit: TextButton,
+	equipHit: TextButton,
 	autoStatus: TextLabel,
 	coinTarget: () -> Vector2, -- 코인 이펙트가 날아갈 화면 픽셀 위치(아이콘 가운데)
 	refreshInset: () -> (), -- 기본 UI 인셋을 다시 읽어 자리를 맞춘다(접속 직후에는 0으로 읽힐 수 있다 — Play 실측 #32)
@@ -115,14 +116,21 @@ function EconomyHud.create(parent: Instance?): Handle
 
 	local forgeRow = row("Forge", 3, root)
 	forgeRow.Visible = false
-	local forgeButton = Button.create({ size = "Small", color = "gray", widthScale = 0.45, heightScale = 0.8 })
+	local forgeButton = Button.create({ size = "Small", color = "gray", widthScale = 0.3, heightScale = 0.8 })
 	forgeButton.root.Name = "ForgeButton"
 	forgeButton.root.LayoutOrder = 1
 	forgeButton.root.Parent = forgeRow
 	local forgeLabel, forgeHit = WindowParts.decorateButton(forgeButton, Locale.t("forge.title"))
 	forgeLabel.AutoLocalize = false
-	local autoStatus = textLabel("AutoStatus", "", 2, forgeRow)
-	autoStatus.Size = UDim2.fromScale(0.5, 1)
+	-- 장비 버튼(#34 — 대장간이 열린 뒤에만 · 같은 줄)
+	local equipButton = Button.create({ size = "Small", color = "gray", widthScale = 0.3, heightScale = 0.8 })
+	equipButton.root.Name = "EquipButton"
+	equipButton.root.LayoutOrder = 2
+	equipButton.root.Parent = forgeRow
+	local equipLabel, equipHit = WindowParts.decorateButton(equipButton, Locale.t("equip.open"))
+	equipLabel.AutoLocalize = false
+	local autoStatus = textLabel("AutoStatus", "", 3, forgeRow)
+	autoStatus.Size = UDim2.fromScale(0.34, 1)
 
 	root.Parent = parent
 
@@ -134,6 +142,7 @@ function EconomyHud.create(parent: Instance?): Handle
 	self.bagValue = bagValue
 	self.forgeRow = forgeRow
 	self.forgeHit = forgeHit
+	self.equipHit = equipHit
 	self.autoStatus = autoStatus
 
 	function self.coinTarget(): Vector2

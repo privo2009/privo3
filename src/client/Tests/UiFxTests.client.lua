@@ -186,7 +186,8 @@ do
 	local root, hit = freeButton()
 	task.wait()
 	local pos0, anchor0, c0, size0 = root.Position, root.AnchorPoint, center(root), root.AbsoluteSize
-	local h = ButtonFx.attach(hit) :: ButtonFx.Handle
+	-- #34: 실제 커서 위치에 흔들리지 않게 실제 입력을 끊고 _debug.fire로만 넣는다(커서가 이 버튼 자리에 있으면 "누름"이 실패했다)
+	local h = ButtonFx.attach(hit, { realInput = false }) :: ButtonFx.Handle
 	check("붙이기: UIScale 하나(이름 ButtonFxScale) · Size · Position 그대로 · 쉬는 동안 1", h ~= nil and h.scale.Name == ButtonFx.SCALE_NAME
 		and h.scale.Scale == 1 and root.Position == pos0 and root.Size == UDim2.fromScale(0.2, 0.1))
 	h._debug.fire("enter", false, true)
@@ -275,7 +276,7 @@ do
 	local label = Instance.new("TextLabel")
 	label.Name = "Label"
 	label.Parent = root
-	local h = ButtonFx.attach(hit) :: ButtonFx.Handle
+	local h = ButtonFx.attach(hit, { realInput = false }) :: ButtonFx.Handle
 	local body = root:FindFirstChild(ButtonFx.BODY_NAME)
 	check("다른 UIScale: 덮지 않고(0.8 그대로) 안쪽 래퍼에 우리 UIScale · 글자는 래퍼로 · HitArea는 그대로", h.mode() == "wrapper"
 		and checkClose(foreign.Scale, 0.8) and body ~= nil and label.Parent == body and hit.Parent == root and h.scale.Parent == body,

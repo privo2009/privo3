@@ -15,6 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
+local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local UpgradeService = require(script.Parent.UpgradeService)
 
 local UpgradeRequestService = {}
@@ -55,6 +56,10 @@ local function createHandler(deps: Deps)
 		elseif name == nil then
 			lastAt[player] = now
 			result = { ok = false, reason = UpgradeConfig.REASON_INVALID_UPGRADE, name = "", level = 0, cost = BigNum.new(0, 0) }
+		elseif EconomyV2Logic.isRemovedUpgrade(name) then
+			-- 새 경제에서 빠진 업그레이드(#34 — 펀치 데미지 → 곡괭이). 플래그가 꺼져 있으면 이 줄을 타지 않는다
+			lastAt[player] = now
+			result = { ok = false, reason = UpgradeConfig.REASON_INVALID_UPGRADE, name = name, level = 0, cost = BigNum.new(0, 0) }
 		else
 			lastAt[player] = now
 			local ok, value = deps.buy(player, name)

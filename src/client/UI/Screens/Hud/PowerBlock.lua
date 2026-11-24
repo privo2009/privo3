@@ -132,6 +132,7 @@ export type PowerBlockHandle = {
 		multiplierLabel: TextLabel,
 		levelLabel: TextLabel,
 		pops: () -> { level: number, rebirth: number }, -- 연출을 건 횟수(지시서 #25)
+		fit: () -> (), -- 폰 맞춤을 지금 다시 계산(#34 — 테스트가 크기 신호 타이밍을 기다리지 않게)
 	},
 }
 
@@ -443,6 +444,7 @@ function PowerBlock.create(store: Store.StoreInstance?, options: Options?): Powe
 			pops = function()
 				return { level = levelPops, rebirth = rebirthPops }
 			end,
+			fit = fitMultiplier,
 		},
 	}
 end

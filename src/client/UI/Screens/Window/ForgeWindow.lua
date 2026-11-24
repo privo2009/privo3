@@ -34,6 +34,7 @@ export type Deps = {
 	clock: (() -> number)?,
 	autoStep: boolean?, -- false면 연출 시간을 step(now)로 직접 굴린다(테스트)
 	notify: ((text: string, rarity: string) -> ())?, -- 신화 이상 크게 알리기(토스트) — 없으면 안 알림
+	openEquipment: (() -> ())?, -- 장비 창으로(#34) — 없으면 버튼을 만들지 않는다
 }
 
 export type Handle = {
@@ -115,6 +116,12 @@ function ForgeWindow.create(deps: Deps): Handle
 	-- ===== 탭 ==========================================================================================
 	local craftTabB, _, craftTabHit = button("CraftTab", body, "blue", 0, 0, 0.18, 0.08, Locale.t("forge.tab.craft"))
 	local exTabB, _, exTabHit = button("ExchangeTab", body, "blue", 0.2, 0, 0.18, 0.08, Locale.t("forge.tab.exchange"))
+	if deps.openEquipment ~= nil then
+		local _, _, equipHit = button("EquipmentLink", body, "gray", 0.4, 0, 0.18, 0.08, Locale.t("equip.open"))
+		equipHit.Activated:Connect(function()
+			(deps.openEquipment :: () -> ())()
+		end)
+	end
 	local craftFrame = frame("Craft", body, 0, 0.1, 1, 0.9)
 	local exFrame = frame("Exchange", body, 0, 0.1, 1, 0.9)
 

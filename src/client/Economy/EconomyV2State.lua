@@ -23,6 +23,9 @@ export type Values = {
 	owned: { [string]: number },
 	autoOn: boolean,
 	autoCount: number,
+	-- 장비(#34 — EquipmentService 신호)
+	equipment: { [string]: { count: number, stars: number, enh: number } },
+	equipped: string,
 }
 export type State = {
 	get: () -> Values,
@@ -74,6 +77,8 @@ function EconomyV2State.new(): State
 		owned = {},
 		autoOn = false,
 		autoCount = 0,
+		equipment = {},
+		equipped = "",
 	}
 	local listeners: { (Values) -> () } = {}
 	local self = {} :: State
@@ -125,6 +130,17 @@ function EconomyV2State.new(): State
 			changed = true
 		elseif payload.kind == "craft_result" and payload.ok == true and payload.auto == true then
 			values.autoCount = tonumber(payload.autoCount) or values.autoCount
+			changed = true
+		end
+		if payload.kind == "equipment_state" and type(payload.equipment) == "table" then
+			local eq = {}
+			for id, o in pairs(payload.equipment) do
+				if type(id) == "string" and type(o) == "table" then
+					eq[id] = { count = tonumber(o.count) or 0, stars = tonumber(o.stars) or 0, enh = tonumber(o.enh) or 0 }
+				end
+			end
+			values.equipment = eq
+			values.equipped = if type(payload.equipped) == "string" then payload.equipped else values.equipped
 			changed = true
 		end
 		if changed then

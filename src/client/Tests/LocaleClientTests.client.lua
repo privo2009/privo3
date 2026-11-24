@@ -319,9 +319,21 @@ do
 	gui.Parent = playerGui
 	local block = PowerBlock.create(Store.new())
 	block.root.Parent = phone
-	task.wait()
-	task.wait()
+	-- #34 흔들림 근본 수정: 크기 신호(AbsoluteSize — 지연 신호)가 몇 프레임 뒤에 오는지에 기대지 않는다. 폰 틀 크기가 잡힐 때까지 기다리고
+	-- (상한 2초 — 넘으면 아래 검사가 실패로 센다) 맞춤을 직접 한 번 부른 뒤 배치가 두 프레임 연속 같을 때 잰다
 	local caption = block.root:FindFirstChild("Caption", true) :: TextLabel
+	local deadline = os.clock() + 2
+	while phone.AbsoluteSize ~= Vector2.new(705, 338) and os.clock() < deadline do
+		task.wait()
+	end
+	local lastSize: Vector2? = nil
+	repeat
+		block._debug.fit()
+		task.wait()
+		local now = caption.AbsoluteSize
+		local stable = lastSize == now
+		lastSize = now
+	until stable or os.clock() > deadline
 	local value = block._debug.multiplierLabel
 	local oneLine = caption.TextBounds.Y <= TextScale.MIN_TEXT_PX * 1.8
 	check(string.format("F2: 폰 환생 배수 라벨 한 줄 · 넘침 0 · %.1fpx ≥ 11 (%s)", caption.AbsoluteSize.Y, caption.Text),

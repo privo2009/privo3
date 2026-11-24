@@ -38,6 +38,9 @@ export type Options = {
 	target: GuiObject?, -- 커질 그림. 생략하면 hit.Parent
 	isDisabled: (() -> boolean)?,
 	prefs: FxPrefs.Prefs?, -- 테스트 전용: 따로 노는 설정(FxPrefs.new()). 없으면 전역 설정(#28 단계 0 — 전역을 바꾸면 남의 버튼까지 1로 돌아간다)
+	-- 테스트 전용(#34 — 흔들림 근본 수정): false면 실제 마우스 · 터치 입력(MouseEnter · Leave · InputBegan · InputEnded)을 듣지 않는다 —
+	-- 테스트가 _debug.fire로만 상태를 넣는다(실제 커서가 시험 버튼 위에 있으면 상태가 바뀌어 "누름"이 흔들렸다). 생략 = 듣는다(게임)
+	realInput: boolean?,
 }
 
 export type Handle = {
@@ -252,29 +255,34 @@ function ButtonFx.attach(hit: GuiButton, options: Options?): Handle?
 		goTo(ButtonFxLogic.transition(state, event, { inside = inside, touch = touch == true, disabled = isDisabled() }))
 	end
 
-	table.insert(connections, hit.MouseEnter:Connect(function()
-		fire("enter", false, true)
-	end))
-	table.insert(connections, hit.MouseLeave:Connect(function()
-		fire("leave", false, false)
-	end))
+	local listen = o.realInput ~= false
+	if listen then
+		table.insert(connections, hit.MouseEnter:Connect(function()
+			fire("enter", false, true)
+		end))
+		table.insert(connections, hit.MouseLeave:Connect(function()
+			fire("leave", false, false)
+		end))
+	end
 	-- 누른 순간에 켜져 있었나(효과음) — 창이 Activated에서 먼저 버튼을 잠그는 경우가 있어(결과 대기) Activated 때 다시 보면 늦다
 	local pressEnabled = false
-	table.insert(connections, hit.InputBegan:Connect(function(input: InputObject)
-		local kind = input.UserInputType
-		if kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch then
-			touchPress = kind == Enum.UserInputType.Touch
-			pressEnabled = not isDisabled()
-			fire("down", touchPress, true)
-		end
-	end))
-	-- 뗌은 버튼 밖에서 일어날 수도 있다 — 전체 입력에서 받는다(누르고 있을 때만 의미가 있다)
-	table.insert(connections, UserInputService.InputEnded:Connect(function(input: InputObject)
-		local kind = input.UserInputType
-		if state == "pressed" and (kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch) then
-			fire("up", touchPress, nil)
-		end
-	end))
+	if listen then
+		table.insert(connections, hit.InputBegan:Connect(function(input: InputObject)
+			local kind = input.UserInputType
+			if kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch then
+				touchPress = kind == Enum.UserInputType.Touch
+				pressEnabled = not isDisabled()
+				fire("down", touchPress, true)
+			end
+		end))
+		-- 뗌은 버튼 밖에서 일어날 수도 있다 — 전체 입력에서 받는다(누르고 있을 때만 의미가 있다)
+		table.insert(connections, UserInputService.InputEnded:Connect(function(input: InputObject)
+			local kind = input.UserInputType
+			if state == "pressed" and (kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch) then
+				fire("up", touchPress, nil)
+			end
+		end))
+	end
 	-- 비활성이 되면 바로 쉰다
 	table.insert(connections, hit:GetPropertyChangedSignal("Active"):Connect(function()
 		if isDisabled() then

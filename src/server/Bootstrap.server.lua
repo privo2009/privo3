@@ -163,6 +163,9 @@ if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() then
 	}
 	-- 대장간(제작 · 자동 제작 · 토큰 교환 — 지시서 #33). 같은 플래그 뒤
 	require(script.Parent.Systems.ForgeService).init()
+	-- 장비(장착 · 강화 · 별) · 손에 든 곡괭이(지시서 #34). 채굴 데미지는 AttackService.punchDamageFactor가 플래그를 보고 곡괭이 배수를 쓴다
+	require(script.Parent.Systems.EquipmentService).init()
+	require(script.Parent.Systems.HeldPickaxeService).init()
 end
 
 -- 환생을 연다 (4-2-d).
@@ -334,7 +337,8 @@ do
 		local dPass, dPotion = ShopEffects.damage(player)
 		table.insert(parts, string.format("tier=%s strPotion=%s strengthMult=%s", tier, potion, BigNum.tostring(ClickService.strengthMultiplierOf(player))))
 		table.insert(parts, string.format("damageMult=%s", AttackService.combineDamageMultiplier({
-			punchDamage = UpgradeService.getEffect(player, "punchDamage"), auraMult = AuraServiceV.getMult(player), passMult = dPass, potionMult = dPotion })))
+			-- 펀치 데미지 항 = AttackService와 같은 함수(#34 — 새 경제면 곡괭이 배수 · 끄면 상점 업그레이드 그대로)
+			punchDamage = AttackService.punchDamageFactor(player), auraMult = AuraServiceV.getMult(player), passMult = dPass, potionMult = dPotion })))
 		table.insert(parts, string.format("bloxMult=%s", ChallengeServiceV.combineBloxMultiplier({
 			bloxGain = UpgradeService.getEffect(player, "bloxGain"), titleMult = TitleServiceV.getMult(player), passMult = ShopEffects.blox(player) })))
 		table.insert(parts, "autoRate=" .. ShopEffects.autoClickRate(player))

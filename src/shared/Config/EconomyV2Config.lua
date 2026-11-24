@@ -251,6 +251,14 @@ EconomyV2Config.REBIRTH_KEEP_REMAINDER = true
 -- 새 경제에서 빠지는 로벅스 상품(ShopConfig 키 — 지시서 #31 G14). 플래그가 켜지면 상점에 안 보이고 효과도 없다 · 구매 요청은 not_available.
 -- 플래그가 꺼진 경로는 그대로다. 코드에서 완전히 지우는 일은 플래그를 켜는 단계에서 한다(대시보드 판매 중지는 사람 — ROADMAP 출시 체크리스트 30).
 EconomyV2Config.REMOVED_PRODUCTS = { rebirth2x = true } :: { [string]: boolean }
+-- 새 경제에서 빠지는 상점 업그레이드(UpgradeConfig 키 — #34). 곡괭이가 그 역할을 맡는다(DESIGN 16장 "곡괭이"). 플래그가 켜지면 상점에 안 보이고
+-- 효과도 없다(AttackService가 곡괭이 배수를 대신 곱한다) · 구매 요청은 invalid_upgrade. 꺼지면 그대로다
+EconomyV2Config.REMOVED_UPGRADES = { punchDamage = true } :: { [string]: boolean }
+
+-- 손에 든 곡괭이(#34 — 에셋 자리). 곡괭이 id → { modelId, swingAnimId } — 둘 다 nil이면 임시 도형(자루 + 머리 · 등급 색) · 휘두르기 없음.
+-- 표에 없는 id도 임시 도형이다. 크기(스터드)는 임시 도형 값
+EconomyV2Config.PICKAXE_VISUALS = {} :: { [string]: { modelId: number?, swingAnimId: number? } }
+EconomyV2Config.HELD_PICKAXE_SIZE = { handle = Vector3.new(0.3, 3, 0.3), head = Vector3.new(2.2, 0.45, 0.45) }
 
 -- 운동기구 해금 환생 수(새 경제 TEMP — GymConfig 기구 순서. 로벅스 전용 기구는 GymConfig 그대로).
 -- 지금 값(1 · 3 · 5 · 10 · 50 · 500 · 1e4 · 1e6)은 환생이 1000 블럭스마다 +1일 때 값이라 새 경제(25층까지 10 ~ 20회)에서는 뒤 기구가 안 열린다.
