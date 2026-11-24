@@ -1718,22 +1718,25 @@ Phase 8에 남은 것(코드 아님): 보상형 광고는 출시 후 · Roblox P
 
 ---
 
-## 경제 재설계 (출시 전) — 지시서 #29 조사 완료 · 착수 전 사람 결정 대기
+## 경제 재설계 (출시 전) — #29 조사 완료 · #30 결정 기록 · 플래그 `ECONOMY_V2` 뒤에서 만든다
 
 방향: 블록 → 광석(바닥 드롭 · 걸어서 줍기 · 런 가방) → 곡괭이 제작 · 강화(펀치 데미지 업그레이드 자리) · 환생 1번 +1 · 비용 점증 · 25층까지 10 ~ 20회.
 조사 결과(바뀌는 곳 · 후보 8 · 비교 줄 20 · 결정 G 16 · S 7 · H 6) → `docs/PENDING.md` "경제 재설계 착수 전 결정". 에셋 규격 초안 → `docs/UI_ASSET_SPEC.md` "6".
 측정 도구: `Tools/EconomyCandidateReport`(Studio 전용 · 채택 안 함 D2).
 
-예상 지시서 순서(사람 결정 뒤 — 번호는 예상):
+결정(2026-11-24 사람 결정 — 지시서 #30) → `DESIGN.md` "16. 경제 재설계". 해소 · 남음 · 새 미결 → `docs/PENDING.md` "4. 지시서 #30 결정 반영".
+큰 경제 변경은 전부 플래그 `Shared/Config/EconomyV2Config.ECONOMY_V2`(커밋 값 false) 뒤에서 만들고, 다 붙인 뒤 한 번에 켠다.
+
+단계(이 순서 — 사람 결정):
 ```
-1  결정 반영 문서        DESIGN 3장(환생) · 새 장(광석 · 드롭 · 가방 · 곡괭이) · 데이터 스키마 · TUNING — 코드 없음
-2  스키마 · 인벤토리      schemaVersion 올림 · inventory · pickaxe · upgrades.punchDamage 처리 · InventoryService(단일 통로) · Migrations
-3  환생 규칙 · 배수       RebirthConfig · RebirthService · StrengthMultiplier 환생 항 · x2 Rebirths +2 · 운동기구 해금 · 환생 창 · 분석 이벤트
-4  드롭 · 줍기 · 가방      DropService(서버 판정 · Proximity) · 런 가방 · 수령 → 인벤토리 · 실패 · 사망 · 로그아웃 → 잃음 · 클라 드롭 렌더러(풀링)
-5  곡괭이 제작 · 강화      PickaxeConfig · PickaxeService · 곡괭이 창 · 펀치 데미지 업그레이드 없앰 · 가방 업그레이드 · 1펀치 결합 함수
-6  자동 진행 · 안내        자동 진행 줍기 모드 · 첫 접속 안내 단계 · 경제 분석 이벤트 · 수령 발판 안내
-7  에셋(사람 업로드)       곡괭이 · 광석 · 채굴 애니메이션 · 이펙트(AI 가능 — UI_ASSET_SPEC 6) · Tool 배선
-8  튜닝 · 시뮬레이터       결정 모델 교체(SuccessRateReport · StandardPathReport · BalanceSummary) · HP 곡선 · 프리셋 다시 뽑기 · 목표 성공률 대조
+1  #30  플래그 · 환생 v2 · 2차 측정      EconomyV2Config(광석 · 곡괭이 · 제작 · 교환 · 별 · 강화 · 코인 · 환생 비용 — TEMP) · 순수 로직 ·
+                                        환생 v2(비용 · 배수 · 환생 창) · Tools/EconomyV2Report(후보 묶음 2 ~ 3)
+2       재료 · 드롭 · 줍기 서버          광석 드롭(서버 판정 · 반경 약 12 자동) · 런 가방 · 바꿔 줍기 · 수령 → 인벤토리 · 실패 → 잃음 · 스키마
+3       곡괭이 · 대장간                  확률 제작 · 토큰 · 토큰 교환소 · 별 · 강화 · 자동 제작 · 펀치 데미지 업그레이드 자리 교체
+4       이펙트                          드롭 · 줍기 · 코인 · 제작 연출(UI_ASSET_SPEC 6 — AI 가능 · 업로드는 사람)
+5       펫 코인 전환                     코인 획득(블록) · 펫 뽑기 코인 가격 · 빠른 / 트리플 부화
+6       밸런스 확정                      후보 묶음 선택(사람) · TEMP 값 확정 · 결정 모델 교체 · 프리셋
+7       플래그 켜기                      기존 환생 수 처리(출시 초기화 — PENDING N4) · 켠 상태 테스트 기준선
 ```
 
 ---

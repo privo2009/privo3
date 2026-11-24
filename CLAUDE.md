@@ -1,6 +1,6 @@
 # privo3 — Roblox 방치형 블록 파괴 게임
 
-문서 갱신: 2026-11-24
+문서 갱신: 2026-11-24 (지시서 #30)
 
 ## 개요
 힘을 키워 거대 블록을 부수고, 20초 챌린지로 블럭스를 획득하는
@@ -273,7 +273,7 @@ Rojo 플러그인 창의 Connect 상태는 MCP로 읽을 수 없고,
 - ❌ 수령·진행을 화면 UI 버튼으로 구현 (3D 발판·벽 방식)
 - ❌ UI 크기·위치에 Offset 사용 (Scale만. Offset은 폰에서 깨짐)
 - ❌ 화면 문장을 코드에 직접 쓰는 것 (`Shared/Localization/Strings` 키로만 — `Locale.t(키)`. `docs/LOCALIZATION.md`)
-- ❌ 블럭스를 로벅스로 파는 상품 (뽑기 3종이 유료 랜덤 아이템이 된다 — DESIGN 9장)
+- ❌ 블럭스 · 코인 · 광석 · 토큰을 로벅스로 파는 상품 (뽑기 3종 · 곡괭이 제작이 유료 랜덤 아이템이 된다 — DESIGN 9장 · 16장)
 - ❌ 디자인 담당 PC의 `C:\privo\privo3-assets`에 Rojo 연결
      (PNG 보관 폴더이며 프로젝트가 아니다. 연결하면 Team Create 스크립트 전멸)
 
@@ -287,3 +287,5 @@ Rojo 플러그인 창의 Connect 상태는 MCP로 읽을 수 없고,
 - 확신 없으면 추측하지 말고 질문
 - 밸런싱 수치는 전부 `Shared/Config/`로 분리. 하드코딩 금지
 - 새 테스트(*Tests) · 리포트(*Report) 파일을 만들면 첫 실행 줄에 TestGate 게이트를 두고 `python -I tools/check_test_gate.py`를 돌린다(위반 0 — 지시서 #27 T2)
+- 새 경제 플래그 `Shared/Config/EconomyV2Config.ECONOMY_V2`는 **켜는 날까지 false로 커밋한다**(지시서 #30 — 큰 경제 변경은 전부 그 뒤에서 만들고 한 번에 켠다 ·
+  Play 확인은 로컬에서만 잠깐 true · `python -I tools/check_test_gate.py`가 커밋 값을 본다). 플래그가 꺼져 있을 때 기존 테스트 · 동작은 하나도 바뀌지 않아야 한다
