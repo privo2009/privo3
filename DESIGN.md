@@ -2329,7 +2329,8 @@ lastClaimDay == 오늘 − 1 이고 streak < 7  → 받을 칸 = streak + 1   (�
 
 ```lua
 {
-  schemaVersion = 9,     -- 실 코드 Schema.VERSION 과 일치시킬 것
+  schemaVersion = 10,    -- 실 코드 Schema.VERSION 과 일치시킬 것
+                         --   v10(2026-11-24 지시서 #32): 새 경제 저장 필드 6개(coins · ores · equipment · equipped · tokens · forgeOpen) — 16장
                          --   v9(2026-11-12 지시서 #25 V9): cosmetics.reduceMotion(false) · cosmetics.sfxEnabled(true) 추가 —
                          --   Migrations[8], 멱등. 이미 있는 boolean 값은 그대로 둔다(설정 창 "연출 줄이기" · "효과음")
                          --   v8(2026-11-01 지시서 #20 R2): daily를 {streak, lastClaimDay}로(freePotionDay 삭제) · redeemedCodes ·
@@ -2401,6 +2402,14 @@ lastClaimDay == 오늘 − 1 이고 streak < 7  → 받을 칸 = streak + 1   (�
     step = 1,            -- 첫 접속 안내 지금 단계 1 ~ 5 (9장 "첫 접속 안내"). v8
     done = false,        -- 끝남(다 마침 · 건너뜀 · 기존 프로필)
   },
+
+  -- 새 경제(v10 — 16장 · 플래그 ECONOMY_V2가 꺼져 있으면 아무도 읽거나 쓰지 않는다)
+  coins = {m=0, e=0},    -- 코인(BigNum — CurrencyService "coins"만 바꾼다)
+  ores = {0, …, 0},      -- 광석 1 ~ 10 개수(정수 — InventoryService만)
+  equipment = { pickaxe = { pick_c1 = {count = 1, stars = 0, enh = 0} } },  -- 장비 종류별 보유(개수 · 별 0 ~ 5 · 강화 0 ~ 10)
+  equipped = { pickaxe = "pick_c1" },   -- 종류별 장착(보유한 것만)
+  tokens = { rare = 0, epic = 0, mythic = 0, legendary = 0, next = 0 },
+  forgeOpen = false,     -- 대장간 열림(8층 첫 도달 — 영구 · 환생해도 유지)
 
   stats = {
     totalRuns = 0,

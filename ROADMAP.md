@@ -26,8 +26,8 @@
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Tests/WarpConfigTests.server.lua` | 31 | 워프 비용 곡선(지수·단조)·순수성·거부 사유 3종 |
 | `Tests/AttackConfigTests.server.lua` | 29 | 펀치 속도·판정 반경 파생·경계(이하) |
-| `Data/SchemaTests.server.lua` | 62 | 프로필 스키마 검증 · v5(지운 4필드 · 장착/보유 상한 = 게임패스 최대 · selectedPack 범위 · LIMITS = Config) · v6(upgrades.moveSpeed 없음 · 7키 — #13) · v7(purchases · potions · rollCredits · gymUnlocks · boosts remainingSec — #16) · v8(daily {streak, lastClaimDay} · redeemedCodes · onboarding — 템플릿 · 통과 · 거부 — #20) · v9(cosmetics.reduceMotion · sfxEnabled — 템플릿 · 통과 · 거부 — #25) |
-| `Data/MigrationsTests.server.lua` | 68 | schemaVersion 마이그레이션·멱등성·v4 lifeBlox · v5 삭제 4필드(값 보존 · 방어 · 멱등) · v5 → v6 moveSpeed 삭제(값 보존 · 방어 · 멱등 — #13) · v6 → v7(boosts expiresAt → remainingSec · 새 표 · 멱등 — #16) · v7 → v8(freePotionDay 삭제 · v7 값 그대로 · 플레이한 프로필 끝남 · 범위 밖 0 · 덮지 않음 · 멱등 — #20) · v8 → v9(reduceMotion false · sfxEnabled true · 기존 설정 · v8 값 그대로 · 덮지 않음 · bool 아님 기본값 · cosmetics 없음 무해 · 멱등 · v9 검증 통과 — #25) |
+| `Data/SchemaTests.server.lua` | 62 | 프로필 스키마 검증 · v5(지운 4필드 · 장착/보유 상한 = 게임패스 최대 · selectedPack 범위 · LIMITS = Config) · v6(upgrades.moveSpeed 없음 · 7키 — #13) · v7(purchases · potions · rollCredits · gymUnlocks · boosts remainingSec — #16) · v8(daily {streak, lastClaimDay} · redeemedCodes · onboarding — 템플릿 · 통과 · 거부 — #20) · v9(cosmetics.reduceMotion · sfxEnabled — 템플릿 · 통과 · 거부 — #25) · v10 버전 줄(#32 — 개수 그대로) |
+| `Data/MigrationsTests.server.lua` | 68 | schemaVersion 마이그레이션·멱등성·v4 lifeBlox · v5 삭제 4필드(값 보존 · 방어 · 멱등) · v5 → v6 moveSpeed 삭제(값 보존 · 방어 · 멱등 — #13) · v6 → v7(boosts expiresAt → remainingSec · 새 표 · 멱등 — #16) · v7 → v8(freePotionDay 삭제 · v7 값 그대로 · 플레이한 프로필 끝남 · 범위 밖 0 · 덮지 않음 · 멱등 — #20) · v8 → v9(reduceMotion false · sfxEnabled true · 기존 설정 · v8 값 그대로 · 덮지 않음 · bool 아님 기본값 · cosmetics 없음 무해 · 멱등 · v9 검증 통과 — #25) · CURRENT 10 · v8→v9 결과가 최신까지(#32 — 버전 줄 4개 고침 · 개수 그대로) |
 | `Systems/CurrencyServiceTests.server.lua` | 59 | 재화 단일 게이트·롤백·rebirths·lifeBlox(이번 생애 누적) |
 | `Systems/BlockServiceTests.server.lua` | 51 | 배치·데미지 오버플로우·클리어 |
 | `Systems/ChallengeServiceTests.server.lua` | 85 | 타이머·보상 갱신·진입점 거부·source 식별·블럭스 획득 배수 한 함수(payableReward)·view nextReward · 앞 항이 없어도 뒤 항이 곱해진다(#12) |
@@ -62,6 +62,8 @@
 | `Tests/EconomyCandidateReportTests.server.lua` | 9 | 경제 재설계 후보 도구(#29 — Studio 전용) — 빈 고리 · 단독 모드 false · S5' 그대로 · 환생 비용 1000 × g^n · 배수 1 + a·n / b^n · 곡괭이 N^(t−1) × 강화 · 광석 = HP 구간 · 가방 남김 / 바꿔 줍기 / 무한 · 제작 규칙 2 · 줍기 거리 |
 | `Tests/EconomyV2Tests.server.lua` | 54 | 새 경제(#30 — 플래그 ECONOMY_V2 뒤) — 플래그 커밋 값 false · validate · 곡괭이 15종 · 교환 비용 · 별 · 강화 · 광석 구간 · 정수 게이지 · 확률표 합 100 · 칸 단조 · 전설 상한 · ??? 5칸만 · 최고 칸 조합 · 제작 · 교환 · 별 · 강화 · 배수 곱 · 가방 바꿔 줍기 · 환생 v2 비용 · b^n · 나머지 · 운동기구 해금 · RebirthService v2 경로(가짜 deps) |
 | `Tests/EconomyV2DecisionTests.server.lua` | 25 | 새 경제 #31 결정(economyV2 인자 · deps) — 제작 · 부화 연출 + 스킵(무료 · 연출 생략 · 트리플 · 자동 회수) · 대장간 여는 조건(층 · 환생 수 — Claude 제안) · 상위 광석 드롭 기대값 · 확률 드롭 평균 · 강화 블럭스 변형 nil · 임시 이름 25(en · ko · 뒤 Pickaxe / 곡괭이 · 겹침 없음) · x2 Rebirths(빠진 상품 · 효과 1 · 구매 not_available · 끄면 그대로) · 분석 rebirth v2 · 환생 v2 결과 비용 |
+| `Tests/EconomyV2SaveTests.server.lua` | 28 | 새 경제 저장 v10(#32) — Schema 상한 = Config · 기본값(시작 곡괭이 보유 · 장착) · v9 → v10 이주(기본 · 기존 값 · 멱등 · 꼴 틀림만 기본) · 검증 거부 · InventoryService 관문(광석 · 토큰 · 장비 종류별 · 장착 · 대장간 — 실패면 그대로 · 사유 · 사본 읽기) · 코인 = CurrencyService 재화 |
+| `Tests/OreDropServiceTests.server.lua` | 26 | 새 경제 드롭 · 줍기(#32 — 가짜 deps) — 반경(수평) · 가방 자리 · 바꿔 줍기 · 바닥에 남기 · 자동 진행 전부 · 높은 광석부터 · 층 이동 시 드롭 사라짐 · 수령 → 인벤토리 · 실패 · 이탈 → 비움 · 코인 유지 · 대장간 8층 영구(환생 뒤) · 첫 광석 안내 한 번 · ChallengeService 고리(순서 · 던져도 런 그대로) |
 | `Systems/GymServiceTests.server.lua` | 46 | 운동기구 조건·배수·가격 순증가·해금 경계·공허 훈련 구역(로벅스 전용·맨 끝·가장 비쌈·가장 셈·ShopConfig 가격)·스폰 구역 안·게이트 앞·패드와 안 겹침·발판 판정·배수 결정 · getShopKey · 선해금 가격 = ShopConfig(#16) |
 | `Tests/CashoutPadViewTests.server.lua` | 23 | 런 상태 → 발판 켜짐(클리어 + 같은 층)·꺼짐(미클리어·다른 층·런 없음)·켜진 발판 1개·역할 키 |
 | `Tests/AdvanceWallViewTests.server.lua` | 97 | 런 상태 → 벽 모습(숨김·닫힘·열림)·크기 파생·층별 위치·잘못된 stage·LevelConfig 깊이 소스 등록 |
@@ -76,6 +78,7 @@
 | `Tests/RebirthWindowTests.client.lua` | 53 | 표시 값(서버와 같은 함수) · 사유 문구 · 확인 단계 없이는 요청 안 나감 · 잠김 · 창 규격 · 버튼 그림 ZIndex · 남는 것에 업그레이드 · 상점 안내 · 상점으로 · 자동이 꺼지면 auto_active 문구 지움(#18) |
 | `Tests/RebirthV2WindowTests.client.lua` | 17 | 새 경제 환생 창(#30 — economyV2 인자) — 다음 비용 · 잠김 · ×b^n 전후 · 사유 문구 · 초기화 첫 줄 · 새 키 7 · 확인 두 번 · 성공 문구 · 끔이면 지금 창 |
 | `Tests/EconomyV2ShopTests.client.lua` | 6 | 새 경제 상점(#31 G14 — 문맥 economyV2) — 켜면 x2 Rebirths 줄 빠짐(가져도) · 나머지 줄 그대로 · 끄면 지금 목록 · 문맥 없음 = 커밋 플래그 · 클라 임시 이름 25 |
+| `Tests/EconomyV2ClientTests.client.lua` | 16 | 새 경제 클라 표시(#32) — 상태(kind별) · 드롭 표시(풀링 · 물리 없음 · 재질 색 · 줍기 날아감 · 층 이동 지움) · 코인 이펙트(상한 · 풀 · Scale만) · HUD(Strings · AutoLocalize false · UiTheme.FONT · 자리) · 새 키 5 |
 | `Tests/TouchSafeLayoutTests.client.lua` | 13 | 폰 실측 사각형으로 겹침 판정(구좌 · 자동 도구 겹침, 힘 블록 안 겹침) · 점프 버튼 위로 올림 양(간격 포함) · 올릴 필요 없으면 0 · Scale 환산 |
 | `Systems/WarpRequestServiceTests.server.lua` | 12 | 워프 요청 payload 위생(invalid_stage) · 서버 거부 사유 그대로(W1 · 블럭스 부족) · 성공 결과 형태 · 빈도 상한 · 결과 매번 송신 |
 | `Tests/WarpWindowTests.client.lua` | 41 | 표시 값(WarpConfig.cost 원본) · 잠김(블럭스 부족 · W1 런 중) · 사유 문구 · 확인 단계 · 쪽 넘김 · 창 규격 · 행 색 3단계 · 자동 중 auto_active 잠김이 먼저(런 사이 · 런 중 — #18 AA9) |
@@ -132,7 +135,7 @@
 | `Tests/AnalyticsTests.server.lua` | 55 | 분석 래퍼(#23 A1 ~ A5) — 흐름표 11종 · 엔진 Enum 이름 · 흐름별 호출 1회 · 모아 보내기(합 · 마지막 잔액) · tick · 나갈 때 · 1e15 넘으면 blox_flow_large(log10 · 필드 · 10^2000) · 경계 · inf · NaN · 음수 거부 · 상한(창 · 플레이어별 · 버림 로그) · pcall 실패 무해 · Player 아님 건너뜀 · 도우미 4종 · 퍼널 · 처음 깬 층 중복 없음(firstClear) |
 | `Tests/FxTests.client.lua` | 78 | 화면 연출(#25 U1 ~ U7) — 구간 표본 · 사양 = Config · log10 보간(0 · 같은 값 · 줄어듦 · 10^2000 · 지수 경계) · 계획 · 스로틀 · 가운데 기준 · 크래프팅 순서(결과 · PlayerState 어느 쪽 먼저 · 거부 · 시간 초과) · 구동기(가짜 시계 · 끝값 · onDone · 교체 · finish · cancel · 연출 줄이기 · 멈춤값 · 정리) · UIScale 하나 규칙 · 튀기 가운데 기준 · 창 열기 · 닫기(닫는 중 다른 창 · 같은 창 다시 · 알림 순서 · 연출 없는 인스턴스) · 결과 모달(보통 · 영웅 이상 · 빛 띠 1회) · 빛 띠 1회 모드 · 연출 줄이기(버튼 · 빛 띠) · 블럭스 올라가기 · 레벨 · 환생 배수 튀기 · 크래프팅 연결 · UiFxTests 요약 줄을 본 뒤 시작(상한 30초 — 넘으면 실패 1, #26 +1) |
 | `Tests/SfxTests.client.lua` | 19 | 효과음(#25 S1 ~ S3) — 키 12개 · 커밋 값 id 전부 nil · 판정(id 없음 · 끔 · 스로틀 · 모르는 키) · 희귀도 → 키(칭호 · 아우라 · 펫) · 런 상태 · 환생 · 구매 · 일일 보상 · 시도 기록 · 끔이면 시도 0 · 풀 |
-| **합계** | **4543** | 서버 74행 3080 · 클라 40행 1463 — 2026-11-24 #31 마무리 Play 2번 실측(플래그 전부 끔 · ECONOMY_V2 false · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
+| **합계** | **4613** | 서버 76행 3134 · 클라 41행 1479 — 2026-11-24 #32 마무리 Play 2번 실측(플래그 전부 끔 · ECONOMY_V2 false · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -160,7 +163,20 @@
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-11-24 Studio Play 런타임 실측 (전량, 지시서 #31 — 제작 연출 모델 · x2 Rebirths 빠짐 · 임시 이름 · 3차 측정 · 플래그 전부 끈 Play 2번).**
+최근 갱신: **2026-11-24 Studio Play 런타임 실측 (전량, 지시서 #32 — 저장 v10 · 인벤토리 관문 · 드롭 · 줍기 · 가방 · 코인 · 4차 측정 · 플래그 전부 끈 Play 2번).**
+117개 행 전부가 두 Play 모두에 같은 개수로 찍혔다. **4613 passed / 0 failed** — 서버 3134(76행) + 클라 1479(41행). 끝 표시 `server 76/76 files · 3134` ·
+`client 41/41 files · 1479`. 단계 1 기준선(#31 뒤)은 서버 74행 3080 · 클라 40행 1463으로 같았다.
+
+```
+신설   EconomyV2SaveTests        28    저장 v10 · 이주 · InventoryService · 코인 (7626e06)
+신설   OreDropServiceTests       26    드롭 · 줍기 · 가방 · 코인 · 대장간 · 고리 (7626e06)
+신설   EconomyV2ClientTests      16    클라 표시 · HUD (7626e06)
+고침   SchemaTests 62 · MigrationsTests 68   버전 줄만(VERSION · CURRENT 10 · 최신까지) — 개수 그대로(지시서 #32 허용 예외)
+유지   나머지 112행 그대로
+대조   시작 4543(서버 3080 + 클라 1463) + 신설 70 = 4613 (서버 +54 · 클라 +16)
+```
+
+그 전 갱신: **2026-11-24 Studio Play 런타임 실측 (전량, 지시서 #31 — 제작 연출 모델 · x2 Rebirths 빠짐 · 임시 이름 · 3차 측정 · 플래그 전부 끈 Play 2번).**
 114개 행 전부가 두 Play 모두에 같은 개수로 찍혔다. **4543 passed / 0 failed** — 서버 3080(74행) + 클라 1463(40행). 끝 표시 `server 74/74 files · 3080` ·
 `client 40/40 files · 1463`. 단계 1 기준선(#30 뒤)은 서버 73행 3055 · 클라 39행 1457로 같았다.
 
@@ -1759,7 +1775,8 @@ Phase 8에 남은 것(코드 아님): 보상형 광고는 출시 후 · Roblox P
 1   #30  플래그 · 환생 v2 · 2차 측정 ✅   → 773e84d · 794be32 · 1aa4dfe — 묶음 A · B · C(docs/TUNING.md 7)
 1b  #31  제작 연출 모델 · x2 Rebirths 삭제 · 임시 이름 · 3차 측정 ✅   → b0b3bc6 · f1423a3 · 3e1c0ad — R1 · R2 · R3(TUNING 8)
 2   #32  결정 반영 · 저장 v10(광석 · 장비 종류별 · 토큰 · 코인 · 대장간 열림) · InventoryService · 광석 드롭 · 줍기 · 가방 ·
-         코인 획득 · 대장간 열림(8층) · 임시 도형 · HUD 코인 · 가방 칸 · 4차 측정(곡괭이 얻는 시점 3시간에 퍼뜨리기)
+         코인 획득 · 대장간 열림(8층) · 임시 도형 · HUD 코인 · 가방 칸 · 4차 측정(곡괭이 얻는 시점 3시간에 퍼뜨리기) ✅
+         → ef1f97d docs · 7626e06 코드 · db1a8b3 4차 도구 — 추천 S2(TUNING 9) · TEMP는 R1(PENDING N12)
 3   #33  대장간: 제작 · 확률 공개 창 · 토큰 교환소 · 자동 제작(연출 + 스킵)
 4   #34  곡괭이 장착 · 목록 · 강화 · 별 · 펀치 데미지 업그레이드 대체
 5   #35  펫 코인 전환 · 연출 생략(제작 · 부화) · 새 상품 코드(큰 가방 · 제작 연출 생략 · 트리플 제작 · 부화 연출 생략)
