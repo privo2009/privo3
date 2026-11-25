@@ -43,6 +43,9 @@ CurrencyService.CURRENCIES = CURRENCIES
 
 -- 성공 로그를 찍지 않는 재화(검증 · 롤백 · 거부 warn은 그대로다)
 local QUIET: { [string]: boolean } = { coins = true }
+-- 성공 로그를 찍지 않는 reason 접두어(#38 성능 — 클릭 힘은 클릭 묶음마다(자동 클리커 초당 수 회) 늘어 12명이면 초당 수십 줄이 된다.
+-- 출력 창 print가 로직보다 비싸고 LogService 보관량을 밀어낸다). 거부 · 롤백 warn은 그대로
+local QUIET_REASON_PREFIX: { string } = { "click_" }
 
 -- amount 자체의 형태/부호 검증. add에 음수를 넣어 subtract를 흉내내는 것을 막는다.
 local function validateAmount(amount: any): (boolean, string?)
@@ -203,6 +206,11 @@ CurrencyService._pure = {
 local function logChange(opName: string, player: Player, currency: string, amount: BigNumber, newValue: BigNumber, reason: string)
 	if QUIET[currency] then
 		return
+	end
+	for _, prefix in ipairs(QUIET_REASON_PREFIX) do
+		if string.sub(reason, 1, #prefix) == prefix then
+			return
+		end
 	end
 	print(string.format(
 		"[CurrencyService] %s: %s(%d) %s amount=%s result=%s (reason=%s)",

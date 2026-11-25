@@ -373,7 +373,8 @@ local function endRun(player: Player, run: RunState, reason: string)
 end
 
 local function failRun(player: Player, run: RunState)
-	warn(string.format("[ChallengeService] %s(%d) 챌린지 실패(시간 초과) - stage=%d, reward=%s 소멸", player.Name, player.UserId, run.stage, BigNum.tostring(run.currentReward)))
+	-- 시간 초과는 정상 게임 흐름이다 — print(출력 창 경고 0 · #38)
+	print(string.format("[ChallengeService] %s(%d) 챌린지 실패(시간 초과) - stage=%d, reward=%s 소멸", player.Name, player.UserId, run.stage, BigNum.tostring(run.currentReward)))
 	endRun(player, run, "timeout")
 end
 

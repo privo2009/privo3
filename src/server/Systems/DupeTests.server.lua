@@ -38,6 +38,20 @@ end
 local function noop() end
 local P = ({ Name = "DupeTestPlayer", UserId = -3800 } :: any) :: Player
 
+-- 경제 고리(가방)는 Bootstrap이 테스트와 같은 때 걸고, OreDropServiceTests는 잠깐 가짜 고리로 바꿔 끼운다 —
+-- **실물 고리**(OreDropService 함수)가 걸려 있을 때까지 기다린다(상한 20초 · 넘으면 아래 가방 줄이 실패한다).
+-- 그 뒤로 이 파일은 끝까지 yield하지 않는다 — 다른 테스트가 고리 · _deps를 바꿔 끼우는 틈이 없다
+do
+	local deadline = os.clock() + 20
+	local function realHooks(): boolean
+		local h = (ChallengeService :: any).economyHooks
+		return type(h) == "table" and h.onRunEnded == OreDropService.onRunEnded and h.onStageEnter == OreDropService.onStageEnter
+	end
+	while not realHooks() and os.clock() < deadline do
+		task.wait(0.2)
+	end
+end
+
 local data = Schema.new()
 local attached = ProfileManager._attachTestProfile(P, data)
 check("준비: 가짜 프로필이 붙었다(Studio · 가짜 플레이어 표)", attached)
