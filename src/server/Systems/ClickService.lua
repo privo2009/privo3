@@ -23,6 +23,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 local CurrencyService = require(script.Parent.CurrencyService)
 local PadService = require(script.Parent.PadService)
@@ -355,7 +356,7 @@ function ClickService.init()
 	end
 	initialized = true
 
-	channels.clickInput.OnServerEvent:Connect(function(player: Player, payload: any)
+	RemoteGuard.connect(channels.clickInput, function(player: Player, payload: any)
 		-- payload는 클라가 만든 값이다. 테이블이 아닐 수도, 필드가 없을 수도 있다.
 		local raw = if type(payload) == "table" then payload.count else nil
 		local count = sanitizeCount(raw)

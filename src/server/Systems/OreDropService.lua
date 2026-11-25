@@ -26,6 +26,7 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
 local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 
 type BigNumber = BigNum.BigNumber
 
@@ -421,7 +422,7 @@ function OreDropService.init()
 	ProfileManager.onLoaded(function(player: Player)
 		OreDropService.sendSnapshot(player)
 	end)
-	Remotes.getServer().syncRequest.OnServerEvent:Connect(function(player: Player)
+	RemoteGuard.connect(Remotes.getServer().syncRequest, function(player: Player)
 		task.delay(0.6, function()
 			if player.Parent ~= nil and ProfileManager.get(player) ~= nil then
 				OreDropService.sendSnapshot(player)

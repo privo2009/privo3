@@ -132,7 +132,7 @@ do
 		and y1 <= Layout.TOP_HEIGHT and not Layout.overlapsCenterForbidden(x0, y0, x1, y1))
 	local keysOk = true
 	for _, key in ipairs({ "econ.coins.label", "econ.bag.label", "econ.bag.value", "econ.forge.open", "econ.forge.hint" }) do
-		keysOk = keysOk and Locale.tFor("en", key) ~= key and Locale.tFor("ko", key) ~= key
+		keysOk = keysOk and Locale.template("en", key) ~= nil and Locale.template("ko", key) ~= nil -- 원문만 본다(자리 표시 WARN 없이 — #38)
 	end
 	check("문구: 새 키 5개 en · ko", keysOk)
 	gui:Destroy()

@@ -21,6 +21,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local CodesConfig = require(ReplicatedStorage.Shared.Config.CodesConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 
 local CodeService = {}
 
@@ -161,7 +162,7 @@ function CodeService.init(services: InitDeps)
 			channels.codeResult:FireClient(player, payload)
 		end,
 	})
-	channels.codeRequest.OnServerEvent:Connect(function(player: Player, payload: any)
+	RemoteGuard.connect(channels.codeRequest, function(player: Player, payload: any)
 		local out, code = live.onRequest(player, payload, os.clock())
 		-- 입력 원문은 찍지 않는다(C4) — 맞은 Config 키만
 		print(string.format("[CodeService] %s(%d) 코드 → ok=%s reason=%s code=%s", player.Name, player.UserId, tostring(out.ok), out.reason,

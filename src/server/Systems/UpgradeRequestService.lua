@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local UpgradeService = require(script.Parent.UpgradeService)
 
@@ -101,7 +102,7 @@ function UpgradeRequestService.init()
 		end,
 	})
 
-	channels.upgradeRequest.OnServerEvent:Connect(function(player: Player, payload: any)
+	RemoteGuard.connect(channels.upgradeRequest, function(player: Player, payload: any)
 		local result = handler.onRequest(player, payload, os.clock())
 		if not result.ok then
 			print(string.format(

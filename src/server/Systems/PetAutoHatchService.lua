@@ -11,7 +11,9 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
+local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 
 local PetAutoHatchService = {}
 
@@ -81,7 +83,7 @@ end
 function PetAutoHatchService.setAuto(player: Player, on: boolean, egg: any)
 	local s = stateOf(player)
 	if on then
-		if type(egg) ~= "number" or egg % 1 ~= 0 then
+		if type(egg) ~= "number" or egg % 1 ~= 0 or egg < 1 or egg > #PetConfig.Eggs then -- 있는 알 번호만(#38)
 			s.on = false
 			deps().send(player, { kind = "auto_hatch_state", on = false, count = s.count, reason = "invalid_request" })
 			return
@@ -161,7 +163,7 @@ function PetAutoHatchService.init()
 		return
 	end
 	initialized = true
-	Remotes.getServer().petAutoRequest.OnServerEvent:Connect(function(player: Player, payload: any)
+	RemoteGuard.connect(Remotes.getServer().petAutoRequest, function(player: Player, payload: any)
 		local ok, err = pcall(PetAutoHatchService.handleRequest, player, payload)
 		if not ok then
 			warn("[PetAutoHatchService] 요청 오류: " .. tostring(err))

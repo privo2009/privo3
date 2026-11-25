@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 
 local EquipmentService = {}
 
@@ -181,7 +182,7 @@ function EquipmentService.init()
 		return
 	end
 	initialized = true
-	Remotes.getServer().equipmentRequest.OnServerEvent:Connect(function(player: Player, payload: any)
+	RemoteGuard.connect(Remotes.getServer().equipmentRequest, function(player: Player, payload: any)
 		local ok, err = pcall(EquipmentService.handleRequest, player, payload)
 		if not ok then
 			warn("[EquipmentService] 요청 오류: " .. tostring(err))

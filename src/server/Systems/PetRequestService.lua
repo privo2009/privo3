@@ -10,6 +10,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 local RollService = require(script.Parent.RollService)
 local PetService = require(script.Parent.PetService)
 
@@ -204,7 +205,7 @@ function PetRequestService.init()
 			channels.petResult:FireClient(player, payload)
 		end,
 	})
-	channels.petRequest.OnServerEvent:Connect(function(player: Player, payload: any)
+	RemoteGuard.connect(channels.petRequest, function(player: Player, payload: any)
 		local out = handler.onRequest(player, payload, os.clock())
 		if not out.ok then
 			print(string.format("[PetRequestService] %s(%d) 요청 action=%s → 거부 reason=%s", player.Name, player.UserId, out.action, out.reason))

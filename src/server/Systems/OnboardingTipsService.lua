@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local OnboardingConfig = require(ReplicatedStorage.Shared.Config.OnboardingConfig)
 local OnboardingTipsLogic = require(ReplicatedStorage.Shared.OnboardingTipsLogic)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 
 local OnboardingTipsService = {}
 
@@ -144,7 +145,7 @@ function OnboardingTipsService.init()
 		end
 		loaded[player] = true
 	end)
-	Remotes.getServer().onboardingTipRequest.OnServerEvent:Connect(function(player: Player, payload: any)
+	RemoteGuard.connect(Remotes.getServer().onboardingTipRequest, function(player: Player, payload: any)
 		OnboardingTipsService.handleRequest(player, payload, os.clock())
 	end)
 	Players.PlayerRemoving:Connect(function(player: Player)

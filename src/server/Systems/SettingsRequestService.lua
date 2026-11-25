@@ -10,6 +10,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 
 local SettingsRequestService = {}
@@ -96,7 +97,7 @@ function SettingsRequestService.init()
 			channels.settingsResult:FireClient(player, payload)
 		end,
 	})
-	channels.settingsRequest.OnServerEvent:Connect(function(player: Player, payload: any)
+	RemoteGuard.connect(channels.settingsRequest, function(player: Player, payload: any)
 		local r = handler.onRequest(player, payload, os.clock())
 		print(string.format("[SettingsRequestService] %s(%d) %s = %s → %s", player.Name, player.UserId, r.key, tostring(r.value), if r.ok then "저장" else ("거부 " .. r.reason)))
 	end)

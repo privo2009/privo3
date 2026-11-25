@@ -17,6 +17,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 
 local PotionRequestService = {}
 
@@ -126,7 +127,7 @@ function PotionRequestService.init(services: InitDeps)
 			channels.potionResult:FireClient(player, payload)
 		end,
 	})
-	channels.potionRequest.OnServerEvent:Connect(function(player: Player, payload: any)
+	RemoteGuard.connect(channels.potionRequest, function(player: Player, payload: any)
 		local out = handler.onRequest(player, payload, os.clock())
 		print(string.format("[PotionRequestService] %s(%d) 포션 켜기 %s → ok=%s reason=%s", player.Name, player.UserId, out.boost,
 			tostring(out.ok), out.reason))

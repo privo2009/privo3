@@ -44,7 +44,7 @@ do
 	local keysOk = true
 	for _, key in ipairs({ "rebirth.v2.cost", "rebirth.v2.gain", "rebirth.v2.gainValue", "rebirth.v2.success", "rebirth.v2.reason.not_enough_blox",
 		"rebirth.v2.reset.blox", "rebirth.v2.keeps" }) do
-		keysOk = keysOk and Locale.tFor("en", key) ~= key and Locale.tFor("ko", key) ~= key
+		keysOk = keysOk and Locale.template("en", key) ~= nil and Locale.template("ko", key) ~= nil -- 원문만 본다(자리 표시 WARN 없이 — #38)
 	end
 	check("문구: 새 키 7개 en · ko 둘 다 있다", keysOk)
 end

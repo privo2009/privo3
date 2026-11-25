@@ -26,6 +26,7 @@ local DayClock = require(ReplicatedStorage.Shared.DayClock)
 local DailyLogic = require(ReplicatedStorage.Shared.DailyLogic)
 local DailyRewardConfig = require(ReplicatedStorage.Shared.Config.DailyRewardConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 
 local DailyService = {}
@@ -206,7 +207,7 @@ function DailyService.init(services: InitDeps)
 			channels.dailyResult:FireClient(player, payload)
 		end,
 	})
-	channels.dailyRequest.OnServerEvent:Connect(function(player: Player, payload: any)
+	RemoteGuard.connect(channels.dailyRequest, function(player: Player, payload: any)
 		local out = live.onRequest(player, payload, os.clock())
 		local s = live.summary(player)
 		print(string.format("[DailyService] %s(%d) 받기 → ok=%s reason=%s day=%d · 연속 %d · 오늘 %d", player.Name, player.UserId, tostring(out.ok),

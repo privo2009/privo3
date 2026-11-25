@@ -251,7 +251,12 @@ function GamepassService.init(testPasses: { string }?)
 			end
 		end,
 		log = function(line: string)
-			warn(line)
+			-- Studio 안내 한 줄은 문제가 아니라 알림이다 — print(출력 창 경고 0 · #38). 가짜 소유(TEST_GAMEPASSES)는 계속 warn
+			if line == GamepassService.STUDIO_IGNORE_LINE then
+				print(line)
+			else
+				warn(line)
+			end
 		end,
 	})
 	gateway.onGamePassPurchaseFinished(function(player: Player, passId: number, wasPurchased: boolean)

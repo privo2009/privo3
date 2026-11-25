@@ -27,6 +27,7 @@ local RunService = game:GetService("RunService")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 local ProfileManager = require(script.Parent.Parent.Data.ProfileManager)
 local Schema = require(script.Parent.Parent.Data.Schema)
 local PadService = require(script.Parent.PadService)
@@ -545,7 +546,7 @@ function PlayerStateService.init()
 	end)
 
 	-- payload는 비어 있다(규약 2). 타입도 보지 않는다 — 요청 자체가 신호다. 빈도는 runtime이 자른다.
-	channels.syncRequest.OnServerEvent:Connect(function(player: Player)
+	RemoteGuard.connect(channels.syncRequest, function(player: Player)
 		runtime.onSyncRequest(player, os.clock())
 	end)
 

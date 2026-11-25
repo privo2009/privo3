@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 local WarpService = require(script.Parent.WarpService)
 local AutoAdvanceService = require(script.Parent.AutoAdvanceService)
 
@@ -27,7 +28,7 @@ local function readStage(payload: any): number?
 		return nil
 	end
 	local stage = payload.stage
-	if type(stage) ~= "number" or stage ~= stage or stage == math.huge or stage == -math.huge then
+	if type(stage) ~= "number" or stage ~= stage or stage % 1 ~= 0 or stage < 1 or stage > 2 ^ 31 then -- 정수 1 이상만(#38 — 소수 · 음수 · 아주 큰 수는 WarpService까지 안 간다)
 		return nil
 	end
 	return stage
@@ -104,7 +105,7 @@ function WarpRequestService.init()
 		isAutoActive = AutoAdvanceService.isActive,
 	})
 
-	channels.warpRequest.OnServerEvent:Connect(function(player: Player, payload: any)
+	RemoteGuard.connect(channels.warpRequest, function(player: Player, payload: any)
 		local result = handler.onRequest(player, payload, os.clock())
 		print(string.format(
 			"[WarpRequestService] %s(%d) 워프 요청 stage=%s → ok=%s reason=%s cost=%s",

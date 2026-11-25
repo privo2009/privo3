@@ -32,6 +32,7 @@ local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local DataConfig = require(ReplicatedStorage.Shared.Config.DataConfig)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 local MarketplaceGateway = require(script.Parent.MarketplaceGateway)
 local GamepassService = require(script.Parent.GamepassService)
 local PolicyGate = require(script.Parent.PolicyGate)
@@ -211,7 +212,7 @@ function PurchaseRequestService.init()
 		end,
 	})
 
-	channels.purchaseRequest.OnServerEvent:Connect(function(player: Player, payload: any)
+	RemoteGuard.connect(channels.purchaseRequest, function(player: Player, payload: any)
 		local out = handler.onRequest(player, payload, os.clock())
 		print(string.format("[PurchaseRequestService] %s(%d) 구매 요청 key=%s → ok=%s reason=%s", player.Name, player.UserId,
 			out.key, tostring(out.ok), out.reason))

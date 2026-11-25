@@ -86,6 +86,27 @@ function ProfileManager.save(player: Player): boolean
 	return true
 end
 
+-- 테스트 전용(Studio · 가짜 플레이어 표만): 가짜 프로필을 끼운다(지시서 #38 복제 점검 — DupeTests).
+-- 실제 Player(Instance)에는 붙지 않고 저장소에도 닿지 않는다. Save는 아무것도 안 한다. 끝나면 _detachTestProfile.
+function ProfileManager._attachTestProfile(player: any, data: any): boolean
+	if not RunService:IsStudio() or typeof(player) == "Instance" or profiles[player] ~= nil then
+		return false
+	end
+	profiles[player] = ({
+		Data = data,
+		IsActive = function()
+			return true
+		end,
+		Save = function() end,
+	} :: any)
+	return true
+end
+function ProfileManager._detachTestProfile(player: any)
+	if typeof(player) ~= "Instance" then
+		profiles[player] = nil
+	end
+end
+
 function ProfileManager.waitFor(player: Player, timeoutSec: number?): Profile?
 	local deadline = os.clock() + (timeoutSec or 30)
 

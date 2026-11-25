@@ -40,6 +40,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 local SpeedService = require(script.Parent.SpeedService)
 
 local SpeedRequestService = {}
@@ -275,7 +276,7 @@ function SpeedRequestService.init()
 	end
 	initialized = true
 
-	channels.speedRequest.OnServerEvent:Connect(function(player: Player, payload: any)
+	RemoteGuard.connect(channels.speedRequest, function(player: Player, payload: any)
 		-- payload는 클라가 만든 값이다. 테이블이 아닐 수도, 필드가 없을 수도 있다.
 		-- 꺼낸 값의 검사는 SpeedService가 한다 — 여기서 미리 거르지 말 것.
 		local raw = if type(payload) == "table" then payload.speed else nil

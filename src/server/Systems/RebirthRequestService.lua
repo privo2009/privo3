@@ -15,6 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 local RebirthService = require(script.Parent.RebirthService)
 local AutoAdvanceService = require(script.Parent.AutoAdvanceService)
 
@@ -94,7 +95,7 @@ function RebirthRequestService.init()
 	})
 
 	-- payload는 비어 있다(규약 2). 보지 않는다 — 요청 자체가 신호다.
-	channels.rebirthRequest.OnServerEvent:Connect(function(player: Player)
+	RemoteGuard.connect(channels.rebirthRequest, function(player: Player)
 		local result = handler.onRequest(player, os.clock())
 		print(string.format(
 			"[RebirthRequestService] %s(%d) 환생 요청 → ok=%s reason=%s gained=%s",

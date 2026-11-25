@@ -21,6 +21,7 @@ local RunService = game:GetService("RunService")
 local AutoAdvanceConfig = require(ReplicatedStorage.Shared.Config.AutoAdvanceConfig)
 local AutoAdvanceLogic = require(ReplicatedStorage.Shared.AutoAdvanceLogic)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 local Analytics = require(script.Parent.Analytics)
 
 local AutoAdvanceService = {}
@@ -277,7 +278,7 @@ function AutoAdvanceService.init(services: InitDeps)
 		end,
 		log = print,
 	})
-	channels.autoAdvanceRequest.OnServerEvent:Connect(function(player: Player, payload: any)
+	RemoteGuard.connect(channels.autoAdvanceRequest, function(player: Player, payload: any)
 		local out = live.onRequest(player, payload, os.clock())
 		print(string.format("[AutoAdvance] %s(%d) 요청 %s → ok=%s reason=%s 목표 %d · 안전 %d", player.Name, player.UserId, out.action,
 			tostring(out.ok), out.reason, out.target, out.safeFloor))

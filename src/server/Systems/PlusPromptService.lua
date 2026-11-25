@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 local MarketplaceGateway = require(script.Parent.MarketplaceGateway)
 
 local PlusPromptService = {}
@@ -75,7 +76,7 @@ function PlusPromptService.init(onRebirthed: ((Player) -> ()) -> ())
 		log = print,
 	})
 	local channels = Remotes.getServer()
-	channels.plusPromptRequest.OnServerEvent:Connect(function(player: Player, payload: any)
+	RemoteGuard.connect(channels.plusPromptRequest, function(player: Player, payload: any)
 		runtime.request(player, if type(payload) == "table" then payload.reason else nil)
 	end)
 	onRebirthed(function(player: Player)

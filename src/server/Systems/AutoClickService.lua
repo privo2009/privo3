@@ -16,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local RemoteGuard = require(script.Parent.RemoteGuard) -- 입구 공통 문(모양 · 연타 · 오류 격리 — #38)
 local ClickService = require(script.Parent.ClickService)
 local ShopEffects = require(script.Parent.ShopEffects)
 
@@ -154,7 +155,7 @@ function AutoClickService.init()
 	ClickService.setManualBlocked(function(player: Player): boolean
 		return runtime.isActive(player)
 	end)
-	channels.autoClickRequest.OnServerEvent:Connect(function(player: Player, payload: any)
+	RemoteGuard.connect(channels.autoClickRequest, function(player: Player, payload: any)
 		local out = runtime.onRequest(player, payload, os.clock())
 		print(string.format("[AutoClickService] %s(%d) 토글 요청 → ok=%s reason=%s on=%s 초당=%d", player.Name, player.UserId,
 			tostring(out.ok), out.reason, tostring(out.on), out.rate))
