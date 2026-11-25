@@ -2,17 +2,15 @@
 -- 환생 창의 표시 값 · 확인 단계 · 사유 문구 (Phase 6 지시서 #5). 순수 모듈 — 화면은
 -- Screens/Window/RebirthWindow. docs/UI.md "1. 화면 목록 > 환생 창 — 반드시 보여야 하는 것".
 --
--- 값은 서버와 같은 함수에서 나온다: 얻는 배수 = RebirthConfig.getGainedRebirths(블럭스)
--- (서버 RebirthService.runRebirth가 부르는 그 함수), 배수 = StrengthMultiplier.compute.
+-- 값은 서버와 같은 함수에서 나온다: 다음 비용 · 가능 = EconomyV2Logic.rebirthCost · canRebirth
+-- (서버 RebirthService.runRebirth가 부르는 그 함수), 배수 = StrengthMultiplier.compute(환생 항 1.25^n).
 -- 화면 값은 안내일 뿐이고, 실제 환생 여부는 서버가 요청을 받은 순간 다시 판정한다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
-local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
-local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local ConfirmFlow = require(script.Parent.ConfirmFlow)
@@ -23,53 +21,26 @@ local RebirthWindowLogic = {}
 
 export type View = {
 	blox: BigNumber,
-	gained: BigNumber, -- 얻는 배수
-	wasted: BigNumber, -- 버려지는 양 (1000 미만 나머지 — 환생은 전액 소모라 이만큼은 아무것도 안 된다)
+	gained: BigNumber, -- 얻는 환생 수(언제나 1)
 	canRebirth: boolean,
 	lockReason: string?, -- 잠긴 이유 코드 (canRebirth=false일 때)
 	multiplierNow: BigNumber,
 	multiplierAfter: BigNumber,
-	-- 새 경제(지시서 #30 — 플래그 뒤): 다음 환생 비용을 보여 주고 블럭스가 모자라면 잠근다. 버려지는 양은 없다(비용만 뺀다).
-	v2: boolean,
-	cost: BigNumber?, -- 다음 환생 비용(v2만)
+	cost: BigNumber, -- 다음 환생 비용(1000 × 4^n)
 }
 
--- shop = Store "shop"(지시서 #16 S6). 2배 환생을 가졌으면 얻는 배수가 2배다 — 서버 RebirthService와 같은 함수 · 같은 배수 인자.
--- 환생할 수 있는가 · 버려지는 양은 배수와 상관없다.
-function RebirthWindowLogic.compute(blox: BigNumber, rebirths: BigNumber, shop: any?, economyV2: boolean?): View
-	-- 새 경제: 값은 서버 RebirthService(runRebirthV2)와 같은 EconomyV2Logic 함수에서 나온다. economyV2 nil = 플래그를 따른다.
-	local v2 = if economyV2 ~= nil then economyV2 else EconomyV2Logic.isOn()
-	if v2 then
-		local cost = EconomyV2Logic.rebirthCost(rebirths)
-		local canV2 = EconomyV2Logic.canRebirth(blox, rebirths)
-		return {
-			blox = blox,
-			gained = BigNum.new(1, 0),
-			wasted = BigNum.new(0, 0),
-			canRebirth = canV2,
-			lockReason = if canV2 then nil else "not_enough_blox",
-			multiplierNow = StrengthMultiplier.compute({ rebirths = rebirths, economyV2 = true }),
-			multiplierAfter = StrengthMultiplier.compute({ rebirths = BigNum.add(rebirths, BigNum.new(1, 0)), economyV2 = true }),
-			v2 = true,
-			cost = cost,
-		}
-	end
-	local mult = if shop ~= nil then ShopEffectsLogic.rebirth(ShopEffectsLogic.fromSummary(shop)) else nil
-	local gained = RebirthConfig.getGainedRebirths(blox, mult)
-	-- 버려지는 양은 RebirthConfig.getLeftover가 원본이다(시뮬레이터의 S5 업그레이드 예산과 같은 함수 — 지시서 #7).
-	-- 블럭스가 아주 크면 나머지가 표현되지 않아 0이다(음수 잡음도 0으로 접는다).
-	local wasted = RebirthConfig.getLeftover(blox)
-	local can = RebirthConfig.canRebirth(blox)
+-- 값은 서버 RebirthService.runRebirth와 같은 EconomyV2Logic 함수에서 나온다(DESIGN 16장 "환생").
+function RebirthWindowLogic.compute(blox: BigNumber, rebirths: BigNumber): View
+	local cost = EconomyV2Logic.rebirthCost(rebirths)
+	local can = EconomyV2Logic.canRebirth(blox, rebirths)
 	return {
 		blox = blox,
-		gained = gained,
-		wasted = wasted,
+		gained = BigNum.new(1, 0),
 		canRebirth = can,
 		lockReason = if can then nil else "not_enough_blox",
-		multiplierNow = StrengthMultiplier.compute({ rebirths = rebirths, economyV2 = false }),
-		multiplierAfter = StrengthMultiplier.compute({ rebirths = BigNum.add(rebirths, gained), economyV2 = false }),
-		v2 = false,
-		cost = nil,
+		multiplierNow = StrengthMultiplier.compute({ rebirths = rebirths }),
+		multiplierAfter = StrengthMultiplier.compute({ rebirths = BigNum.add(rebirths, BigNum.new(1, 0)) }),
+		cost = cost,
 	}
 end
 
@@ -77,9 +48,7 @@ end
 -- 와 같은 문자열이다. 모르는 코드는 일반 문구.
 function RebirthWindowLogic.reasonText(code: string, v2Cost: BigNumber?): string
 	if code == "not_enough_blox" and v2Cost ~= nil then
-		return Locale.t("rebirth.v2.reason.not_enough_blox", { cost = Formatter.format(v2Cost) }) -- 새 경제: 다음 비용(회마다 오른다)
-	elseif code == "not_enough_blox" then
-		return Locale.t("rebirth.reason.not_enough_blox", { cost = Formatter.format(BigNum.fromNumber(RebirthConfig.BLOX_PER_REBIRTH)) })
+		return Locale.t("rebirth.v2.reason.not_enough_blox", { cost = Formatter.format(v2Cost) }) -- 다음 비용(회마다 오른다)
 	elseif code == "no_profile" then
 		return Locale.t("common.reason.no_profile")
 	elseif code == "rate_limited" then
@@ -96,7 +65,7 @@ end
 -- 환생하면 바뀌는 것 / 남는 것. 문서가 아니라 RebirthService.runRebirth가 실제로 하는 일을 읽어 맞췄다
 -- (괄호 안은 그 함수의 단계 번호). 그쪽 단계가 바뀌면 여기도 바꾼다.
 RebirthWindowLogic.RESETS = {
-	Locale.t("rebirth.reset.blox"), -- 4
+	Locale.t("rebirth.v2.reset.blox"), -- 4(비용만 빠지고 나머지는 남는다 — REBIRTH_KEEP_REMAINDER)
 	Locale.t("rebirth.reset.power"), -- 6
 	Locale.t("rebirth.reset.floor"), -- 7 · 8
 	Locale.t("rebirth.reset.pad"), -- 11 (lifeBlox 0, 선택 패드 1)
@@ -104,16 +73,12 @@ RebirthWindowLogic.RESETS = {
 	Locale.t("rebirth.reset.run"), -- 3
 }
 -- 상점 업그레이드: runRebirth의 deps에는 업그레이드를 바꾸는 통로가 없다 — 남는다(UpgradeServiceTests 5번이 확인한다, 지시서 #7).
-RebirthWindowLogic.KEEPS = Locale.t("rebirth.keeps")
--- 새 경제(지시서 #30): 블럭스는 비용만 빠지고 나머지가 남는다(EconomyV2Config.REBIRTH_KEEP_REMAINDER) — 첫 줄만 다르다.
-RebirthWindowLogic.RESETS_V2 = table.clone(RebirthWindowLogic.RESETS)
-RebirthWindowLogic.RESETS_V2[1] = Locale.t("rebirth.v2.reset.blox")
-RebirthWindowLogic.KEEPS_V2 = Locale.t("rebirth.v2.keeps")
+RebirthWindowLogic.KEEPS = Locale.t("rebirth.v2.keeps")
 
 -- 창에 그리는 줄. 초기화 목록을 두 개씩 한 줄로 묶는다(지시서 #8 — 한 줄에 하나씩 6줄이면 줄 높이가 낮아 글자가 거의 안 읽혔다).
 RebirthWindowLogic.RESET_PER_LINE = 2
-function RebirthWindowLogic.resetLines(v2: boolean?): { string }
-	local list = if v2 then RebirthWindowLogic.RESETS_V2 else RebirthWindowLogic.RESETS
+function RebirthWindowLogic.resetLines(): { string }
+	local list = RebirthWindowLogic.RESETS
 	local lines = {}
 	for i = 1, #list, RebirthWindowLogic.RESET_PER_LINE do
 		local items = {}
@@ -123,11 +88,6 @@ function RebirthWindowLogic.resetLines(v2: boolean?): { string }
 		table.insert(lines, "· " .. table.concat(items, "   · "))
 	end
 	return lines
-end
-
--- 버려지는 양 강조(빨강)를 켤까. 0이면 끈다 — 버릴 것이 없는데 경고색이 뜨면 잘못 읽힌다(지시서 #8).
-function RebirthWindowLogic.shouldWarnWasted(wasted: BigNumber): boolean
-	return wasted.m > 0
 end
 
 -- 버려지는 양 옆 안내 + 상점 창으로 가는 버튼(지시서 #7 6단계). 버려질 나머지를 업그레이드에 먼저 쓰라는 안내다

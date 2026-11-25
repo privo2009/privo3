@@ -17,7 +17,7 @@ if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun()
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
-local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
+local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local Schema = require(script.Parent.Parent.Data.Schema)
 local RebirthService = require(script.Parent.RebirthService)
 
@@ -37,7 +37,8 @@ end
 
 local fakePlayer = { Name = "TestPlayer", UserId = 1 } :: any
 
-local COST = RebirthConfig.BLOX_PER_REBIRTH
+-- #37: 환생은 새 경제 규칙만(다음 비용 1000 × 4^n · 비용만 뺀다 · 환생 수 +1). 환생 수 0이면 비용 = 1000
+local COST = EconomyV2Logic.rebirthCost(0).m * 10 ^ EconomyV2Logic.rebirthCost(0).e
 local TEMPLATE_STRENGTH = Schema.new().strength
 local TEMPLATE_MAX_STAGE = Schema.new().progress.maxStage
 
@@ -89,6 +90,18 @@ local function depsFor(w: World)
 		getBlox = function(_p: any)
 			record("getBlox")
 			return w.blox
+		end,
+		getRebirths = function(_p: any)
+			record("getRebirths")
+			return w.rebirths
+		end,
+		subtractBlox = function(_p: any, amount: BigNum.BigNumber, _reason: string)
+			record("subtractBlox")
+			if w.failAt == "subtractBlox" then
+				return false
+			end
+			w.blox = BigNum.sub(w.blox :: any, amount)
+			return true
 		end,
 		abandonRun = function(_p: any)
 			record("abandonRun")
@@ -208,8 +221,8 @@ local function checkUntouched(label: string, w: World, expectedBlox: BigNum.BigN
 	check(label .. ": maxStage 그대로", w.maxStage == 17, tostring(w.maxStage))
 	check(label .. ": currentWorld 그대로", w.currentWorld == 2, tostring(w.currentWorld))
 	check(
-		label .. ": getBlox 말고는 아무것도 부르지 않았다",
-		#w.calls == 1 and w.calls[1] == "getBlox",
+		label .. ": 읽기(getBlox · getRebirths) 말고는 아무것도 부르지 않았다(#37 다 — 환생 수도 읽는다)",
+		#w.calls == 2 and w.calls[1] == "getBlox" and w.calls[2] == "getRebirths",
 		table.concat(w.calls, ",")
 	)
 end
@@ -239,14 +252,14 @@ end
 -- ===== 3. 성공 =========================================================================
 
 do
-	-- 비용의 2배 직전. 나머지는 버려지고 배수는 1이어야 한다.
+	-- 비용의 2배 직전. 비용만 빠지고 나머지(비용 − 1)는 남는다(#37 다 — 예전 전액 소모) · 환생 수 +1
 	local w = newWorld(BigNum.fromNumber(COST * 2 - 1))
 	local ok, result = pure.runRebirth(depsFor(w) :: any, fakePlayer, "test")
 
 	check("성공하면 true", ok == true)
-	check("gained == 1 (나머지는 버림)", ok and BigNum.eq(result.gained, BigNum.fromNumber(1)), ok and BigNum.tostring(result.gained) or tostring(result))
+	check("gained == 1 (언제나 +1)", ok and BigNum.eq(result.gained, BigNum.fromNumber(1)), ok and BigNum.tostring(result.gained) or tostring(result))
 	check("total == 1 (0에서 시작)", ok and BigNum.eq(result.total, BigNum.fromNumber(1)))
-	check("blox가 0이 됐다", BigNum.eq(w.blox :: any, BigNum.new(0, 0)), BigNum.tostring(w.blox :: any))
+	check("blox는 비용만 빠졌다 — 나머지가 남는다(#37 다)", BigNum.eq(w.blox :: any, BigNum.fromNumber(COST - 1)), BigNum.tostring(w.blox :: any))
 	check("strength가 템플릿 값으로 돌아갔다", BigNum.eq(w.strength, TEMPLATE_STRENGTH), BigNum.tostring(w.strength))
 	check("rebirths가 1이 됐다", BigNum.eq(w.rebirths, BigNum.fromNumber(1)))
 	check("maxStage가 템플릿 값으로 돌아갔다", w.maxStage == TEMPLATE_MAX_STAGE, tostring(w.maxStage))
@@ -270,17 +283,18 @@ end
 -- ===== 4. 누적 (덮어쓰기가 아니다) =====================================================
 
 do
+	-- #37 다: 한 번에 +1 · 다음 비용은 회마다 오른다(1000 → 4000)
 	local w = newWorld(BigNum.fromNumber(COST * 3))
 	local ok1, r1 = pure.runRebirth(depsFor(w) :: any, fakePlayer, "test")
-	check("1회차: gained 3", ok1 and BigNum.eq(r1.gained, BigNum.fromNumber(3)))
-	check("1회차: total 3", ok1 and BigNum.eq(r1.total, BigNum.fromNumber(3)))
+	check("1회차: gained 1", ok1 and BigNum.eq(r1.gained, BigNum.fromNumber(1)))
+	check("1회차: total 1", ok1 and BigNum.eq(r1.total, BigNum.fromNumber(1)))
 
-	-- 다시 벌었다고 치고 2회차.
-	w.blox = BigNum.fromNumber(COST * 2)
+	-- 다시 벌었다고 치고 2회차(비용 = rebirthCost(1)).
+	w.blox = EconomyV2Logic.rebirthCost(1)
 	local ok2, r2 = pure.runRebirth(depsFor(w) :: any, fakePlayer, "test")
-	check("2회차: gained 2 (이번 회차분만)", ok2 and BigNum.eq(r2.gained, BigNum.fromNumber(2)))
-	check("2회차: total 5 (3 + 2, 가산이다)", ok2 and BigNum.eq(r2.total, BigNum.fromNumber(5)), ok2 and BigNum.tostring(r2.total) or "")
-	check("2회차 후 rebirths == 5 (덮어쓰기였다면 2)", BigNum.eq(w.rebirths, BigNum.fromNumber(5)), BigNum.tostring(w.rebirths))
+	check("2회차: gained 1 (이번 회차분만)", ok2 and BigNum.eq(r2.gained, BigNum.fromNumber(1)))
+	check("2회차: total 2 (1 + 1, 가산이다)", ok2 and BigNum.eq(r2.total, BigNum.fromNumber(2)), ok2 and BigNum.tostring(r2.total) or "")
+	check("2회차 후 rebirths == 2 (덮어쓰기였다면 1)", BigNum.eq(w.rebirths, BigNum.fromNumber(2)), BigNum.tostring(w.rebirths))
 end
 
 -- ===== 5. 순서 ========================================================================
@@ -296,9 +310,9 @@ do
 	local iSpeed = indexOf(w.calls, "onRebirth")
 	local order = table.concat(w.calls, " -> ")
 
-	-- 10개다. 순서 목록의 2번(판정)은 순수 계산이라 바깥 세계를 부르지 않고,
-	-- 9번(1층 재시작)은 없앴다 — 환생은 런을 세우지 않는다. 11번(패드)이 둘을 부른다.
-	check("바깥 세계 호출이 10개 전부 났다", #w.calls == 10, order)
+	-- 11개다(#37 다 — 환생 수 읽기 getRebirths가 더해졌다). 순서 목록의 2번(판정)은 순수 계산이라 바깥 세계를 부르지 않고,
+	-- 9번(1층 재시작)은 없앴다 — 환생은 런을 세우지 않는다. 11번(패드)이 둘을 부른다. 비용 딱이면 나머지 0 → setBlox(0)
+	check("바깥 세계 호출이 11개 전부 났다", #w.calls == 11, order)
 	check("런 소멸이 재화 조작보다 먼저다", iAbandon > 0 and iAbandon < iSetBlox, order)
 	check("blox 소모가 배수 가산보다 먼저다", iSetBlox < iAddReb, order)
 	check("속도 재적용 뒤에는 패드 되돌리기만 온다 (런을 세우지 않는다)",

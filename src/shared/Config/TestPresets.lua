@@ -11,8 +11,8 @@
 -- 칭호 20261024 / 아우라 20261025 / 펫 20261026)을 돌려, 시점마다 **그 시각의 중앙값 플레이어** 한 사람의 상태를 통째로 옮겼다
 -- (Server/Tools/TestPresetExport — 시점 정의 · 고르는 규칙은 그 파일 상단). 2026-10-25 지시서 #13 3단계 출력 →
 -- 2026-11-09 지시서 #24 다시 뽑음(1번 패드 클릭 파워 1 — P1).
--- 다시 뽑기: Bootstrap의 TEST_PRESET_EXPORT_ENABLED = true로 Play → [PRESET] 줄을 이 표에 그대로 옮긴다 → 플래그를 끈다.
--- ⚠️ 게임 수치(HP · 뽑기 · 업그레이드)를 바꾸면 이 값은 옛 모델의 것이 된다. 바꾼 뒤에는 다시 뽑는다.
+-- ⚠️ #37: 뽑던 도구(TestPresetExport — 옛 경제 결정 모델)는 지웠다. 값은 Mock 시작 상태로만 쓴다(새 경제 필드는 템플릿 기본값).
+--    upgrades.punchDamage(옛 펀치 데미지 — 읽지 않음)는 #37에서 표에서 뺐다.
 --
 -- 칭호 자동 롤은 꺼서 시작한다. 보유 칭호 · 아우라는 장착 중인 것 하나다(시뮬레이터는 가장 높은 것만 기억한다).
 -- 펫은 실효 증가분 큰 순이고 equipped는 그 배열의 번호(앞에서 슬롯 수만큼 — 게임의 "최고 장착"과 같다).
@@ -40,7 +40,7 @@ export type Preset = {
 
 local TestPresets = {}
 
--- Bootstrap TEST_PRESET에 적는 이름(시점 순서). TestPresetExport.entries와 같은 순서다(테스트가 대조한다).
+-- Bootstrap TEST_PRESET에 적는 이름(시점 순서).
 TestPresets.NAMES = { "fresh", "before_first_rebirth", "floor9", "floor17", "floor25", "floor25_cleared" }
 
 TestPresets.Presets = {
@@ -53,7 +53,7 @@ TestPresets.Presets = {
 		lifetimeBlox = { m = 0, e = 0 },
 		rebirths = { m = 0, e = 0 },
 		padIndex = 1, maxStage = 1,
-		upgrades = { auraLuck = 0, bloxGain = 0, petLuck = 0, petSlots = 0, punchDamage = 0, punchSpeed = 0, titleLuck = 0 },
+		upgrades = { auraLuck = 0, bloxGain = 0, petLuck = 0, petSlots = 0, punchSpeed = 0, titleLuck = 0 },
 		title = false, aura = false,
 		pets = {},
 		equipped = {},
@@ -67,7 +67,7 @@ TestPresets.Presets = {
 		lifetimeBlox = { m = 2.342416536, e = 3 },
 		rebirths = { m = 0, e = 0 },
 		padIndex = 6, maxStage = 7,
-		upgrades = { auraLuck = 0, bloxGain = 0, petLuck = 0, petSlots = 0, punchDamage = 0, punchSpeed = 0, titleLuck = 0 },
+		upgrades = { auraLuck = 0, bloxGain = 0, petLuck = 0, petSlots = 0, punchSpeed = 0, titleLuck = 0 },
 		title = false, aura = false,
 		pets = {},
 		equipped = {},
@@ -81,7 +81,7 @@ TestPresets.Presets = {
 		lifetimeBlox = { m = 5.05057202856, e = 3 },
 		rebirths = { m = 1, e = 0 },
 		padIndex = 6, maxStage = 8,
-		upgrades = { auraLuck = 0, bloxGain = 2, petLuck = 0, petSlots = 0, punchDamage = 3, punchSpeed = 2, titleLuck = 0 },
+		upgrades = { auraLuck = 0, bloxGain = 2, petLuck = 0, petSlots = 0, punchSpeed = 2, titleLuck = 0 },
 		title = false, aura = false,
 		pets = {
 			{ petId = "egg1_rare", tier = 2 },
@@ -97,7 +97,7 @@ TestPresets.Presets = {
 		lifetimeBlox = { m = 7.39029084398, e = 6 },
 		rebirths = { m = 4.153, e = 3 },
 		padIndex = 12, maxStage = 15,
-		upgrades = { auraLuck = 0, bloxGain = 4, petLuck = 0, petSlots = 1, punchDamage = 4, punchSpeed = 3, titleLuck = 0 },
+		upgrades = { auraLuck = 0, bloxGain = 4, petLuck = 0, petSlots = 1, punchSpeed = 3, titleLuck = 0 },
 		title = "champion", aura = "pack2_rare",
 		pets = {
 			{ petId = "egg2_common", tier = 2 }, { petId = "egg2_epic", tier = 1 }, { petId = "egg2_rare", tier = 1 },
@@ -116,7 +116,7 @@ TestPresets.Presets = {
 		lifetimeBlox = { m = 3.81743422408, e = 10 },
 		rebirths = { m = 1.7589282, e = 7 },
 		padIndex = 20, maxStage = 24,
-		upgrades = { auraLuck = 0, bloxGain = 7, petLuck = 0, petSlots = 1, punchDamage = 7, punchSpeed = 6, titleLuck = 0 },
+		upgrades = { auraLuck = 0, bloxGain = 7, petLuck = 0, petSlots = 1, punchSpeed = 6, titleLuck = 0 },
 		title = "champion", aura = "pack3_rare",
 		pets = {
 			{ petId = "egg3_common", tier = 3 }, { petId = "egg3_common", tier = 3 }, { petId = "egg3_rare", tier = 2 },
@@ -136,7 +136,7 @@ TestPresets.Presets = {
 		lifetimeBlox = { m = 6.70972717805, e = 10 },
 		rebirths = { m = 3.27117, e = 5 },
 		padIndex = 21, maxStage = 25,
-		upgrades = { auraLuck = 0, bloxGain = 3, petLuck = 0, petSlots = 1, punchDamage = 4, punchSpeed = 3, titleLuck = 0 },
+		upgrades = { auraLuck = 0, bloxGain = 3, petLuck = 0, petSlots = 1, punchSpeed = 3, titleLuck = 0 },
 		title = "champion", aura = "pack2_epic",
 		pets = {
 			{ petId = "egg1_epic", tier = 2 }, { petId = "egg1_common", tier = 3 }, { petId = "egg1_rare", tier = 2 },

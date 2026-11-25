@@ -113,8 +113,8 @@ ScreenController.open("BoostTimers") -- 열어 두고, 활성 부스트가 있�
 ScreenController.open("DailyIcon")
 
 -- 새 경제(#36 — DESIGN 16장 "해금 순서"): 블럭스 칸 · 레일 환생 · 펫 칸은 그 안내를 지났을 때 나타난다(한 번 보이면 계속).
--- 안내 강조 자리도 여기서 붙인다. 플래그가 꺼져 있으면 아무것도 하지 않는다 — 지금 HUD 그대로
-if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() then
+-- 안내 강조 자리도 여기서 붙인다
+do
 	local OnboardingTipsLogic = require(ReplicatedStorage.Shared.OnboardingTipsLogic)
 	local econ = require(script.Parent.Parent.Economy.EconomyV2State).shared()
 	local tips = require(script.Parent.Parent.Economy.OnboardingTipsClient).shared()

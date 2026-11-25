@@ -1,5 +1,5 @@
 --!strict
--- 새 경제 안내 · HUD 칸 · 에셋 자리 클라 검증(지시서 #36 — 플래그 ECONOMY_V2 뒤에서만 쓰는 경로). 전역 플래그는 건드리지 않는다 — 인자 · 가짜 deps로 켠다.
+-- 새 경제 안내 · HUD 칸 · 에셋 자리 클라 검증(지시서 #36).
 --   안내 줄(OnboardingTipsClient — silent 건너뜀 · 차례 · 한 번 · 보인 시간만 셈 · 강조 붙이기) · 안내 띠(기존 안내 뒤에 같은 띠 · "알겠어요") ·
 --   4단계 새 경제 문장 · 상태(tips · tip) · HUD 코인 · 가방 칸 · 레일 칸 숨김(자리 그대로) · 그림 자리 · 드롭 · 대장간 모델 틀 · 부화 연출 그림
 
@@ -102,9 +102,8 @@ do
 	local plain = OnboardingBand.create({ store = s2, send = function() end })
 	check("띠(꺼짐 — tips 없음): 끝났으면 숨김 · 지금 그대로", not plain._debug.panel.Visible)
 	plain.root:Destroy()
-	check("4단계 문장: 새 경제면 진행 · 수령 차이(v2) · 꺼짐이면 지금 문장",
-		OnboardingLogic.view({ step = 4, done = false }, false, true).text == Locale.t("onboarding.step.4.v2")
-			and OnboardingLogic.view({ step = 4, done = false }, false, false).text == Locale.t("onboarding.step.4"))
+	check("4단계 문장: 진행 · 수령 차이(v2 — #37 다: 꺼짐 문장은 지웠다)",
+		OnboardingLogic.view({ step = 4, done = false }, false).text == Locale.t("onboarding.step.4.v2"))
 end
 
 -- 3. 상태 · HUD 칸 ------------------------------------------------------------------------------------------------

@@ -33,7 +33,7 @@ local function samplePayload(): any
 		maxWalkSpeed = 36,
 		maxStage = 6,
 		padIndex = 3,
-		upgrades = { punchDamage = 2, punchSpeed = 1, bloxGain = 0, auraLuck = 0, titleLuck = 0, petLuck = 0, petSlots = 0 },
+		upgrades = { titleLuck = 2, punchSpeed = 1, bloxGain = 0, auraLuck = 0, petLuck = 0, petSlots = 0 },
 		titles = { owned = { "novice", "breaker" }, equipped = "breaker", autoRoll = true },
 		auras = { owned = { "pack1_rare" }, equipped = "pack1_rare", selectedPack = 2, hideOtherAuras = true, world = 1 },
 		pets = { owned = { { uid = "1", petId = "egg1_rare", level = 1 }, { uid = "4", petId = "egg1_epic", level = 2 } }, equipped = { "4" },
@@ -115,11 +115,11 @@ do
 
 	payload.blox.m = 9
 	check("반영: payload를 고쳐도 Store 값은 안 바뀐다 (복사)", BigNum.eq(store.get("blox"), BigNum.new(1.5, 3)))
-	check("반영: 업그레이드 레벨", store.get("upgrades").punchDamage == 2 and store.get("upgrades").punchSpeed == 1)
-	payload.upgrades.punchDamage = 7
+	check("반영: 업그레이드 레벨", store.get("upgrades").titleLuck == 2 and store.get("upgrades").punchSpeed == 1)
+	payload.upgrades.titleLuck = 7
 	local got = store.get("upgrades")
 	got.punchSpeed = 99
-	check("반영: 업그레이드 표도 복사 (payload · get 반환값을 고쳐도 안 바뀐다)", store.get("upgrades").punchDamage == 2 and store.get("upgrades").punchSpeed == 1)
+	check("반영: 업그레이드 표도 복사 (payload · get 반환값을 고쳐도 안 바뀐다)", store.get("upgrades").titleLuck == 2 and store.get("upgrades").punchSpeed == 1)
 
 	local titles = store.get("titles")
 	check("반영: 칭호 요약", titles.equipped == "breaker" and titles.autoRoll == true and #titles.owned == 2 and titles.owned[2] == "breaker")

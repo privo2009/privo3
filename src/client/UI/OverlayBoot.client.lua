@@ -270,8 +270,8 @@ channels.petResult.OnClientEvent:Connect(function(payload: Remotes.PetResultPayl
 	if not PetWindowLogic.shouldModal(payload) then
 		return -- 중복 하위 등급 · 크래프팅 · 장착 · 거부는 창 안 상태 문구로만
 	end
-	if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() and not runActive then
-		return -- 새 경제(#35): 부화 결과는 부화 연출(EconomyV2Boot HatchFx — 스킵 5초)이 보여 준다
+	if not runActive then
+		return -- 부화 결과는 부화 연출(EconomyV2Boot HatchFx — 스킵 5초)이 보여 준다(#35)
 	end
 	if runActive then
 		local toast = PetWindowLogic.toastFor(payload)
@@ -291,9 +291,9 @@ local OnboardingBand = require(script.Parent.Screens.Overlay.OnboardingBand)
 local OnboardingLogic = require(script.Parent.Logic.OnboardingLogic)
 -- 띠가 보이는 동안 토스트는 띠 아래 칸으로 내려간다(지시서 #26 — 같은 칸을 써서 안내 중 토스트가 띠를 덮었다).
 -- 그 칸은 오류 칸과 같은 자리라 오류(로딩 시간 초과)가 열려 있으면 내리지 않는다(드문 경우 — 예전처럼 띠 위에 그려진다).
--- 새 경제(#36): 기존 안내가 끝난 뒤 같은 띠에 새 경제 안내를 하나씩(OnboardingTipsClient). 꺼져 있으면 nil — 지금 그대로
+-- 새 경제 안내(#36): 기존 안내가 끝난 뒤 같은 띠에 하나씩(OnboardingTipsClient)
 local tipSource: any = nil
-if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() then
+do
 	local OnboardingTipsClient = require(script.Parent.Parent.Economy.OnboardingTipsClient)
 	local tips = OnboardingTipsClient.shared()
 	tipSource = {
@@ -354,8 +354,8 @@ AutoAdvanceClient.get().onResult(function(payload: Remotes.AutoAdvanceResultPayl
 	end
 end)
 
--- 새 경제 대장간 알림 · 안내 토스트(지시서 #32 — 플래그 ECONOMY_V2 뒤. 꺼져 있으면 연결하지 않는다)
-if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() then
+-- 대장간 알림 · 안내 토스트(지시서 #32)
+do
 	local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 	channels.economyEvent.OnClientEvent:Connect(function(payload: any)
 		if type(payload) ~= "table" then

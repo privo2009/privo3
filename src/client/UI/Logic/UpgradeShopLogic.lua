@@ -106,19 +106,12 @@ function UpgradeShopLogic.row(name: string, level: number, blox: BigNumber): Row
 	}
 end
 
--- 상점에 보이는 항목 순서(#34): UpgradeConfig.SHOP_ORDER에서 새 경제가 빼는 것(펀치 데미지 — EconomyV2Logic.isRemovedUpgrade)을 뺀다.
--- economyV2 = nil이면 플래그. 꺼져 있으면 SHOP_ORDER 그대로
-function UpgradeShopLogic.order(economyV2: boolean?): { string }
-	local out = {}
-	for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
-		if not EconomyV2Logic.isRemovedUpgrade(name, economyV2) then
-			table.insert(out, name)
-		end
-	end
-	return out
+-- 상점에 보이는 항목 순서 = UpgradeConfig.SHOP_ORDER(#37 — 펀치 데미지는 지웠다)
+function UpgradeShopLogic.order(): { string }
+	return table.clone(UpgradeConfig.SHOP_ORDER)
 end
 
--- 상점 줄. 순서는 UpgradeShopLogic.order()(노출 항목 — 지시서 #13 L3 뒤 7종 · 새 경제면 펀치 데미지 빠짐).
+-- 상점 줄. 순서는 UpgradeShopLogic.order()(노출 항목 6종 — #37 펀치 데미지 빠짐).
 function UpgradeShopLogic.rows(levels: any, blox: BigNumber): { Row }
 	local out = {}
 	for _, name in ipairs(UpgradeShopLogic.order()) do

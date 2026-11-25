@@ -80,9 +80,8 @@ export type Deps = {
 	onClose: () -> (),
 	now: (() -> number)?,
 	fx: Fx.Driver?, -- 테스트 전용 따로 노는 Fx 구동기(Fx.newDriver). 없으면 전역(#28 단계 0)
-	-- 새 경제(#35 — 플래그 뒤): 코인 부화 · 연출 + 스킵 간격 · 자동 부화 토글. economyV2가 nil이면 플래그.
+	-- 코인 부화 · 연출 + 스킵 간격 · 자동 부화 토글(#35).
 	-- econ = 코인 · 자동 부화 상태(get · subscribe — 생략하면 EconomyV2State.shared()) · sendAuto = 자동 부화 요청(생략하면 PetAutoRequest)
-	economyV2: boolean?,
 	econ: any?,
 	sendAuto: ((payload: any) -> ())?,
 }
@@ -360,25 +359,21 @@ function PetWindow.create(deps: Deps): Handle
 
 	local pending = TitleWindowLogic.newPending()
 	local hatchCooldownUntil = -math.huge
-	-- 새 경제(#35)
-	local v2 = if deps.economyV2 ~= nil then deps.economyV2 else EconomyV2Logic.isOn()
-	local econ: any = if v2 then (deps.econ or require(script.Parent.Parent.Parent.Parent.Economy.EconomyV2State).shared()) else nil
+	-- 코인 · 자동 부화 상태(#35)
+	local econ: any = deps.econ or require(script.Parent.Parent.Parent.Parent.Economy.EconomyV2State).shared()
 	local function coins(): any
-		return if econ ~= nil then econ.get().coins else nil
+		return econ.get().coins
 	end
-	-- 부화 간격: 새 경제면 연출 + 스킵(무료 HATCH_SKIP_SEC · 즉시 부화 최소 간격). 아니면 지금 그대로(남용 방지)
+	-- 부화 간격: 연출 + 스킵(무료 HATCH_SKIP_SEC · 즉시 부화 최소 간격)
 	local function hatchInterval(): number
-		if not v2 then
-			return PetConfig.HATCH_INTERVAL_SEC
-		end
-		local skip = ShopEffectsLogic.v2PassActive(ShopEffectsLogic.fromSummary(source.get("shop")), "instantHatch", true)
+		local skip = ShopEffectsLogic.v2PassActive(ShopEffectsLogic.fromSummary(source.get("shop")), "instantHatch")
 		return (EconomyV2Logic.hatchStep(skip, false))
 	end
 	local autoButton: Button.ButtonHandle? = nil
 	local autoLabel: TextLabel? = nil
 	local autoHit: TextButton? = nil
-	if v2 then
-		-- 자동 부화 토글: 잠긴 이유 칸 위 절반에(아래 절반은 이유 글자 · 새 경제에서만)
+	do
+		-- 자동 부화 토글: 잠긴 이유 칸 위 절반에(아래 절반은 이유 글자)
 		autoButton, autoLabel, autoHit = makeButton("AutoHatchButton", "gray", HATCH_FOOT_X, HATCH_Y, HATCH_FOOT_W, HATCH_H * 0.5, body,
 			Locale.t("pet.auto.off"))
 		hatchFoot.Position = UDim2.fromScale(HATCH_FOOT_X, HATCH_Y + HATCH_H * 0.5)
@@ -407,8 +402,8 @@ function PetWindow.create(deps: Deps): Handle
 			if tab ~= nil then
 				parts.label.Text = tab.label
 				if tab.eggId == eggId then
-					-- 새 경제(#35): 열린 알은 코인 가격(해금 조건 문구는 그대로 — 누적 블럭스)
-					local coinCost = if v2 and tab.unlocked then EconomyV2Logic.eggCoinCost(tab.eggId) else nil
+					-- 열린 알은 코인 가격(#35 — 해금 조건 문구는 그대로 · 누적 블럭스)
+					local coinCost = if tab.unlocked then EconomyV2Logic.eggCoinCost(tab.eggId) else nil
 					info.Text = if coinCost ~= nil then Locale.t("pet.egg.infoCoins", { egg = Names.egg(tab.eggId), cost = Formatter.format(coinCost) })
 						else tab.infoText
 				end
@@ -432,11 +427,11 @@ function PetWindow.create(deps: Deps): Handle
 				label.TextColor3 = UiTheme.rarityColor(o.rarityTier)
 			end
 		end
-		local hatch = PetWindowLogic.hatchState(summary, source.get("lifetimeBlox"), source.get("blox"), eggId, coins())
+		local hatch = PetWindowLogic.hatchState(summary, source.get("lifetimeBlox"), coins(), eggId)
 		hatchLabel.Text = hatch.buttonText
 		hatchButton.setDisabled(not hatch.canHatch or pending.isPending("hatch", t) or t < hatchCooldownUntil)
 		hatchFoot.Text = hatch.footText
-		local hatch3 = PetWindowLogic.hatch3State(summary, source.get("lifetimeBlox"), source.get("blox"), eggId, source.get("shop"), coins())
+		local hatch3 = PetWindowLogic.hatch3State(summary, source.get("lifetimeBlox"), coins(), eggId, source.get("shop"))
 		hatch3Label.Text = hatch3.buttonText
 		if autoButton ~= nil and autoLabel ~= nil and econ ~= nil then
 			local ev = econ.get()
@@ -524,7 +519,7 @@ function PetWindow.create(deps: Deps): Handle
 	local function pressHatch()
 		render()
 		local eggId = egg()
-		if not PetWindowLogic.hatchState(source.get("pets"), source.get("lifetimeBlox"), source.get("blox"), eggId, coins()).canHatch or now() < hatchCooldownUntil then
+		if not PetWindowLogic.hatchState(source.get("pets"), source.get("lifetimeBlox"), coins(), eggId).canHatch or now() < hatchCooldownUntil then
 			return
 		end
 		send("hatch", { action = "hatch", egg = eggId })
@@ -533,7 +528,7 @@ function PetWindow.create(deps: Deps): Handle
 	local function pressHatch3()
 		render()
 		local eggId = egg()
-		if not PetWindowLogic.hatch3State(source.get("pets"), source.get("lifetimeBlox"), source.get("blox"), eggId, source.get("shop"), coins()).canHatch
+		if not PetWindowLogic.hatch3State(source.get("pets"), source.get("lifetimeBlox"), coins(), eggId, source.get("shop")).canHatch
 			or now() < hatchCooldownUntil then
 			return
 		end

@@ -31,11 +31,11 @@ end
 -- 1. 표시 값 — UpgradeConfig 원본 ------------------------------------------------------------------
 do
 	local rich = BigNum.new(1, 30)
-	local r = UpgradeShopLogic.row("punchDamage", 3, rich)
-	check("값: 비용 = getCostAtLevel(지금 레벨)", r.cost ~= nil and BigNum.eq(r.cost :: any, UpgradeConfig.getCostAtLevel("punchDamage", 3)))
-	check("값: 효과 문구 = getEffect(지금) → getEffect(다음)", r.effectText == UpgradeShopLogic.formatEffect("punchDamage", UpgradeConfig.getEffect("punchDamage", 3))
-		.. " → " .. UpgradeShopLogic.formatEffect("punchDamage", UpgradeConfig.getEffect("punchDamage", 4)), r.effectText)
-	check("값: 비용 문구에 Formatter 값", string.find(r.footText, Formatter.format(UpgradeConfig.getCostAtLevel("punchDamage", 3)), 1, true) ~= nil, r.footText)
+	local r = UpgradeShopLogic.row("bloxGain", 3, rich)
+	check("값: 비용 = getCostAtLevel(지금 레벨)", r.cost ~= nil and BigNum.eq(r.cost :: any, UpgradeConfig.getCostAtLevel("bloxGain", 3)))
+	check("값: 효과 문구 = getEffect(지금) → getEffect(다음)", r.effectText == UpgradeShopLogic.formatEffect("bloxGain", UpgradeConfig.getEffect("bloxGain", 3))
+		.. " → " .. UpgradeShopLogic.formatEffect("bloxGain", UpgradeConfig.getEffect("bloxGain", 4)), r.effectText)
+	check("값: 비용 문구에 Formatter 값", string.find(r.footText, Formatter.format(UpgradeConfig.getCostAtLevel("bloxGain", 3)), 1, true) ~= nil, r.footText)
 	check("값: 무한 항목은 Lv N", string.find(r.title, Locale.t("upgrade.level", { n = 3 }), 1, true) ~= nil and string.find(r.title, "/", 1, true) == nil, r.title)
 	local s = UpgradeShopLogic.row("punchSpeed", 2, rich)
 	check("값: 상한 항목은 Lv N/최대", string.find(s.title, Locale.t("upgrade.levelMax", { n = 2, max = UpgradeConfig.Upgrades.punchSpeed.maxLevel :: number }), 1, true) ~= nil, s.title)
@@ -46,7 +46,7 @@ do
 	for _, row in ipairs(rows) do
 		table.insert(order, row.name)
 	end
-	check("값: 7줄(L3) · SHOP_ORDER 순서", table.concat(order, ",") == table.concat(UpgradeConfig.SHOP_ORDER, ",") and #order == 7, table.concat(order, ","))
+	check("값: 6줄(#37 다 — 펀치 데미지 빠짐) · SHOP_ORDER 순서", table.concat(order, ",") == table.concat(UpgradeConfig.SHOP_ORDER, ",") and #order == 6, table.concat(order, ","))
 	check("값: 레벨 표가 비면 0레벨로 본다", UpgradeShopLogic.levelOf({}, "bloxGain") == 0 and UpgradeShopLogic.levelOf(nil, "bloxGain") == 0)
 	local luckRow = UpgradeShopLogic.row("titleLuck", 2, rich)
 	local expectLuck = Locale.t("upgrade.effect.luck", { value = string.format("%.2f", UpgradeConfig.getEffect("titleLuck", 2)) }) .. string.format(" → ×%.2f", UpgradeConfig.getEffect("titleLuck", 3))
@@ -122,8 +122,8 @@ local function makeWindow(bloxValue: BigNum.BigNumber, levels: { [string]: numbe
 end
 
 do
-	local zeros = { punchDamage = 0, punchSpeed = UpgradeConfig.Upgrades.punchSpeed.maxLevel :: number, bloxGain = 0, auraLuck = 0, titleLuck = 0, petLuck = 0, petSlots = 0 }
-	local blox = UpgradeConfig.getCostAtLevel("punchDamage", 0) -- 0레벨 하나는 딱 살 수 있다
+	local zeros = { punchSpeed = UpgradeConfig.Upgrades.punchSpeed.maxLevel :: number, bloxGain = 0, auraLuck = 0, titleLuck = 0, petLuck = 0, petSlots = 0 }
+	local blox = UpgradeConfig.getCostAtLevel("bloxGain", 0) -- 0레벨 하나는 딱 살 수 있다
 	local handle, w, advance = makeWindow(blox, zeros)
 
 	check("창: 작은 창 60% × 70%", math.abs(handle.root.Size.X.Scale - 0.6) < 1e-6 and math.abs(handle.root.Size.Y.Scale - 0.7) < 1e-6)
@@ -131,17 +131,17 @@ do
 	for _ in pairs(handle._debug.rows) do
 		n += 1
 	end
-	check("창: 줄 수 = SHOP_ORDER (지시서 #13 L3 뒤 7 — 펫 슬롯 · 펫 행운 포함)", n == #UpgradeConfig.SHOP_ORDER and n == 7)
+	check("창: 줄 수 = SHOP_ORDER (#37 다 — 6줄 · 펫 슬롯 · 펫 행운 포함)", n == #UpgradeConfig.SHOP_ORDER and n == 6)
 	local L = UpgradeShopWindow.Layout
 	check("창: 7줄도 스크롤 목록 — 줄은 목록 안 · 캔버스 > 보이는 높이", handle._debug.rows.petLuck.frame.Parent == handle._debug.list
 		and handle._debug.list.CanvasSize.Y.Scale > 1 and math.abs(handle._debug.list.CanvasSize.Y.Scale - L.CANVAS_K) < 1e-5) -- UDim Scale은 float32
-	check("창: 줄 높이는 #11 값 그대로(본문 기준 0.15 — 폰 줄 안 두 칸 11px)", math.abs(handle._debug.rows.punchDamage.frame.Size.Y.Scale * L.LIST_H * L.CANVAS_K - L.ROW_H) < 1e-5
-		and handle._debug.rows.punchDamage.frame.Size.Y.Offset == 0)
+	check("창: 줄 높이는 #11 값 그대로(본문 기준 0.15 — 폰 줄 안 두 칸 11px)", math.abs(handle._debug.rows.bloxGain.frame.Size.Y.Scale * L.LIST_H * L.CANVAS_K - L.ROW_H) < 1e-5
+		and handle._debug.rows.bloxGain.frame.Size.Y.Offset == 0)
 	check("창: 펫 슬롯 줄 = '슬롯 +0 → 슬롯 +1'", handle._debug.rows.petSlots.effect.Text == Locale.t("upgrade.effect.slots", { n = 0 }) .. " → " .. Locale.t("upgrade.effect.slots", { n = 1 }), handle._debug.rows.petSlots.effect.Text)
 	check("창: 펫 행운 줄 = '행운 ×현재 → ×다음'(P3)", string.find(handle._debug.rows.petLuck.effect.Text, Locale.t("upgrade.effect.luck", { value = "" }), 1, true) == 1
 		and string.find(handle._debug.rows.petLuck.effect.Text, "→ ×", 1, true) ~= nil)
-	local dmg = handle._debug.rows.punchDamage
-	check("창: 줄 문구 = 로직 값", dmg.title.Text == UpgradeShopLogic.row("punchDamage", 0, blox).title and dmg.effect.Text == UpgradeShopLogic.row("punchDamage", 0, blox).effectText)
+	local dmg = handle._debug.rows.bloxGain
+	check("창: 줄 문구 = 로직 값", dmg.title.Text == UpgradeShopLogic.row("bloxGain", 0, blox).title and dmg.effect.Text == UpgradeShopLogic.row("bloxGain", 0, blox).effectText)
 	check("창: 살 수 있는 줄은 버튼 켜짐", not dmg.button.isDisabled())
 	check("창: 최대 레벨 줄은 MAX · 회색", handle._debug.rows.punchSpeed.buttonLabel.Text == UpgradeShopLogic.MAX_TEXT and handle._debug.rows.punchSpeed.button.isDisabled())
 	local noSlot = true
@@ -155,26 +155,26 @@ do
 		and not handle._debug.robuxList.Visible)
 
 	-- 한 번 누르면 한 번 나간다(확인 단계 없음 — S8)
-	handle._debug.press("punchDamage")
-	check("구매: 한 번 누름에 요청 1회 · 항목 이름", #w.sends == 1 and w.sends[1] == "punchDamage")
+	handle._debug.press("bloxGain")
+	check("구매: 한 번 누름에 요청 1회 · 항목 이름", #w.sends == 1 and w.sends[1] == "bloxGain")
 	check("구매: 결과 대기 중에는 버튼 잠김", dmg.button.isDisabled())
-	handle._debug.press("punchDamage")
+	handle._debug.press("bloxGain")
 	advance(0.5)
-	handle._debug.press("punchDamage")
+	handle._debug.press("bloxGain")
 	check("구매: 결과 대기 중 연타는 더 안 나간다", #w.sends == 1, tostring(#w.sends))
 
 	-- 결과가 오면 다시 받는다
-	handle.onResult({ ok = true, reason = "", name = "punchDamage", level = 1, cost = blox })
-	check("결과: 성공 문구", handle._debug.status.Text == UpgradeShopWindow.successText("punchDamage", 1, blox), handle._debug.status.Text)
+	handle.onResult({ ok = true, reason = "", name = "bloxGain", level = 1, cost = blox })
+	check("결과: 성공 문구", handle._debug.status.Text == UpgradeShopWindow.successText("bloxGain", 1, blox), handle._debug.status.Text)
 	check("결과: 대기 풀림 → 다시 누를 수 있다", not dmg.button.isDisabled())
-	handle._debug.press("punchDamage")
+	handle._debug.press("bloxGain")
 	check("결과 뒤 다시 누르면 다시 나간다", #w.sends == 2)
 
 	-- 결과가 안 오면 시간이 지난 뒤 다시 받는다
 	advance(UpgradeShopLogic.PENDING_TIMEOUT_SEC + 0.1)
-	handle._debug.press("punchDamage")
+	handle._debug.press("bloxGain")
 	check("대기 시간이 지나면 다시 나간다", #w.sends == 3)
-	handle.onResult({ ok = false, reason = UpgradeConfig.REASON_INSUFFICIENT_BLOX, name = "punchDamage", level = 0, cost = { m = 0, e = 0 } })
+	handle.onResult({ ok = false, reason = UpgradeConfig.REASON_INSUFFICIENT_BLOX, name = "bloxGain", level = 0, cost = { m = 0, e = 0 } })
 	check("결과: 거부 사유 문구", handle._debug.status.Text == UpgradeShopLogic.reasonText(UpgradeConfig.REASON_INSUFFICIENT_BLOX))
 
 	-- 잠긴 줄은 눌러도 안 나간다

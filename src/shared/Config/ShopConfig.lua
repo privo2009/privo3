@@ -57,7 +57,7 @@ ShopConfig.GAMEPASS_IDS = {
 	strength1024x    = 2052390076, -- x1024 Power · 699 R$
 	autoClicker      = 2052132045, -- Auto Clicker · 49 R$
 	autoClickerOP    = 2053242108, -- OP Auto Clicker · 89 R$
-	rebirth2x        = 2054058093, -- x2 Rebirths · 99 R$
+	-- rebirth2x(2054058093 · x2 Rebirths · 99 R$)는 #37에서 지웠다 — 새 경제에 없다. 대시보드 판매 중지는 사람(ROADMAP 출시 체크리스트)
 	damage2x         = 2052696040, -- x2 Damage · 149 R$
 	blox2x           = 2054262102, -- x2 Blox · 199 R$
 	hatch3x          = 2052474059, -- Triple Hatch · 99 R$
@@ -108,7 +108,6 @@ end
 -- ===== 게임패스 ==================================================================================
 pass("autoClicker", 49, { type = "autoClick", clicksPerSec = 15 })
 pass("autoClickerOP", 89, { type = "autoClick", clicksPerSec = 30 })
-pass("rebirth2x", 99, { type = "rebirthMult", mult = 2 })
 pass("hatch3x", 99, { type = "hatchMulti", count = 3 })
 pass("petLuck2x", 99, { type = "luckPass", roll = "pet", mult = 2 }, true)
 pass("petStorage100", 49, { type = "petStorage" }) -- 보너스 수는 PetConfig.GamepassStorageBonus
@@ -149,14 +148,14 @@ end
 
 -- 상점 창 로벅스 탭 순서(게임패스). 힘 배수 계단은 이 목록 앞에 한 줄로 따로 그린다.
 ShopConfig.GAMEPASS_ORDER = {
-	"autoClicker", "autoClickerOP", "damage2x", "blox2x", "rebirth2x", "voidTrainingZone", "autoAdvance",
+	"autoClicker", "autoClickerOP", "damage2x", "blox2x", "voidTrainingZone", "autoAdvance",
 	"petSlots3", "petStorage100", "hatch3x", "petLuck2x", "auraLuck10x", "titleLuck10x",
 }
 
 -- ===== 새 경제 게임패스 4개 (지시서 #35 — DESIGN 16장 · docs/DASHBOARD_PRODUCTS.md 4절) ======================================
 -- ID는 사람이 대시보드에 등록하기 전까지 nil이다. **nil이면 상품 표(Products)에 넣지 않는다** — 상점 줄 · 구매 · 소유 조회 · 효과가 전부 없다.
 -- ID가 들어오면 여기서 보통 게임패스로 등록되고(GAMEPASS_IDS · GAMEPASS_ORDER 끝) 효과 코드(EconomyV2Config *_PASS_ID → 서비스)가 바로 돈다.
--- 새 경제 전용이다 — 플래그가 꺼져 있으면 등록돼 있어도 안 보이고 효과도 없다(EconomyV2Logic.isRemovedProduct). 제한 지역에서는 숨긴다
+-- 제한 지역에서는 숨긴다
 -- (랜덤의 재료 · 횟수를 로벅스로 늘린다 — EconomyV2Config.RESTRICTED_RANDOM_PASSES). 이름 · 설명은 Strings "shop.<키>.name" · ".desc"
 ShopConfig.V2_GAMEPASS_IDS = {
 	bigBag = nil :: number?, -- Big Bag · 99 R$ (사람 등록 대기)
@@ -311,7 +310,7 @@ function ShopConfig.luckPassMult(roll: string, owns: (string) -> boolean): numbe
 	return m
 end
 
--- 키가 주는 효과 배수(type이 맞으면 mult, 아니면 1). damage2x · blox2x · rebirth2x가 쓴다.
+-- 키가 주는 효과 배수(type이 맞으면 mult, 아니면 1). damage2x · blox2x가 쓴다.
 function ShopConfig.passMult(key: string, owns: (string) -> boolean): number
 	local def = Products[key]
 	if def == nil or not owns(key) then

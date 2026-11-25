@@ -16,7 +16,6 @@
 
 local BigNum = require(script.Parent.Parent.BigNum)
 local ShopConfig = require(script.Parent.ShopConfig)
-local EconomyV2Logic = require(script.Parent.Parent.EconomyV2Logic)
 
 type BigNumber = BigNum.BigNumber
 
@@ -77,14 +76,16 @@ export type Tier = {
 --   구매자 비교는 SuccessRateReport "공허 훈련 구역 구매자 (비교)" 줄. 성공률 목표는 무과금 기준이라
 --   구매자는 목표 밖이다.
 local TIERS: { Tier } = {
+	-- 해금 환생 수(#37 — 새 경제 TEMP 1 · 2 · 3 · 5 · 7 · 9 · 12 · 15만 남김. 옛 값 1 · 3 · 5 · 10 · 50 · 500 · 1e4 · 1e6은 환생 1000 블럭스마다 +1일 때 값).
+	-- 운동기구 개편 자체는 사람 결정(docs/PENDING.md N3)
 	{ unlockRebirths = BigNum.new(1, 0), multiplier = 1.2, productKey = "gymUnlock1" },
-	{ unlockRebirths = BigNum.new(3, 0), multiplier = 1.5, productKey = "gymUnlock2" },
-	{ unlockRebirths = BigNum.new(5, 0), multiplier = 2, productKey = "gymUnlock3" },
-	{ unlockRebirths = BigNum.new(1, 1), multiplier = 2.5, productKey = "gymUnlock4" },
-	{ unlockRebirths = BigNum.new(5, 1), multiplier = 3, productKey = "gymUnlock5" },
-	{ unlockRebirths = BigNum.new(5, 2), multiplier = 4, productKey = "gymUnlock6" },
-	{ unlockRebirths = BigNum.new(1, 4), multiplier = 5, productKey = "gymUnlock7" },
-	{ unlockRebirths = BigNum.new(1, 6), multiplier = 8, productKey = "gymUnlock8" },
+	{ unlockRebirths = BigNum.new(2, 0), multiplier = 1.5, productKey = "gymUnlock2" },
+	{ unlockRebirths = BigNum.new(3, 0), multiplier = 2, productKey = "gymUnlock3" },
+	{ unlockRebirths = BigNum.new(5, 0), multiplier = 2.5, productKey = "gymUnlock4" },
+	{ unlockRebirths = BigNum.new(7, 0), multiplier = 3, productKey = "gymUnlock5" },
+	{ unlockRebirths = BigNum.new(9, 0), multiplier = 4, productKey = "gymUnlock6" },
+	{ unlockRebirths = BigNum.new(1.2, 1), multiplier = 5, productKey = "gymUnlock7" },
+	{ unlockRebirths = BigNum.new(1.5, 1), multiplier = 8, productKey = "gymUnlock8" },
 	{
 		unlockRebirths = nil,
 		multiplier = 100,
@@ -134,15 +135,10 @@ end
 
 -- ⚠️ 새 BigNum을 돌려준다. 호출자가 고쳐도 TIERS가 오염되지 않는다.
 -- 로벅스 전용 기구는 조건이 없으므로 에러다 — 먼저 isRobuxOnly로 거를 것.
-function GymConfig.getUnlockRebirths(index: number, economyV2: boolean?): BigNumber
+function GymConfig.getUnlockRebirths(index: number): BigNumber
 	assertIndex(index)
 	local v = TIERS[index].unlockRebirths
 	assert(v ~= nil, string.format("GymConfig: 기구 %d은 로벅스 전용이라 환생 조건이 없음", index))
-	local v2 = if economyV2 ~= nil then economyV2 else EconomyV2Logic.isOn()
-	local needV2 = if v2 then EconomyV2Logic.gymUnlockRebirths(index) else nil
-	if needV2 ~= nil then
-		return BigNum.fromNumber(needV2) -- 새 경제 TEMP(지시서 #30 — isUnlockedByRebirths와 같은 값)
-	end
 	return BigNum.new(v.m, v.e)
 end
 
@@ -168,30 +164,21 @@ end
 -- 환생 수로 열렸는가. 로벅스 선해금(Phase 8)은 여기서 보지 않는다 — 소유 확인은 서버가
 -- 매 세션 MarketplaceService로 하고(CLAUDE.md 절대 규칙 5) 그 결과를 호출자가 합친다.
 -- 로벅스 전용 기구는 환생 수가 얼마든 false다.
-function GymConfig.isUnlockedByRebirths(index: number, rebirths: BigNumber, economyV2: boolean?): boolean
+function GymConfig.isUnlockedByRebirths(index: number, rebirths: BigNumber): boolean
 	assertIndex(index)
 	local need = TIERS[index].unlockRebirths
 	if need == nil then
 		return false
-	end
-	-- 새 경제(플래그 뒤 — 지시서 #30): 해금 환생 수만 EconomyV2Config.GYM_UNLOCK_REBIRTHS(TEMP)로 갈아 끼운다. 기구 개편은 사람 결정(PENDING N3).
-	-- economyV2 nil = 플래그를 따른다(테스트만 true / false를 넣는다).
-	local v2 = if economyV2 ~= nil then economyV2 else EconomyV2Logic.isOn()
-	if v2 then
-		local needV2 = EconomyV2Logic.gymUnlockRebirths(index)
-		if needV2 ~= nil then
-			return BigNum.gte(rebirths, BigNum.fromNumber(needV2))
-		end
 	end
 	return BigNum.gte(rebirths, need)
 end
 
 -- 환생 수로 열린 기구 수(0 = 하나도 없음). 조건이 순증가하는 것은 validate가 보장한다.
 -- 로벅스 전용 기구는 세지 않는다 — 최대값은 getRebirthTierCount()다.
-function GymConfig.getUnlockedCount(rebirths: BigNumber, economyV2: boolean?): number
+function GymConfig.getUnlockedCount(rebirths: BigNumber): number
 	local unlocked = 0
 	for index = 1, GymConfig.getRebirthTierCount() do
-		if not GymConfig.isUnlockedByRebirths(index, rebirths, economyV2) then
+		if not GymConfig.isUnlockedByRebirths(index, rebirths) then
 			break
 		end
 		unlocked = index

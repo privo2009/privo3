@@ -11,7 +11,7 @@
 --
 -- ===== 지금 인식하는 필드 =============================================================
 --
---   sources.rebirths   환생 배수 (BigNum). 1 + rebirths
+--   sources.rebirths   환생 수 (BigNum). 환생 항 = REBIRTH_MULT_BASE^n(1.25^n — EconomyV2Logic.rebirthFactor 한 곳 · 지시서 #30)
 --   sources.titleMult  장착 칭호 힘 배수 (number, TitleConfig.multOf). 장착 없음 = 1  (지시서 #10)
 --   sources.auraMult   장착 아우라 m (number, AuraConfig.multOf). 장착 없음 = 1  (지시서 #11 A10)
 --                      m은 1펀치 데미지(AttackService.combineDamageMultiplier)에도 한 번 들어간다 — DPS에는 m²(A1, 의도)
@@ -21,7 +21,7 @@
 --                      ⚠️ 단계끼리 곱하지 않는다(CLAUDE.md 금지 사항). 최고 하나를 고르는 일은 ShopConfig가 한다
 --   sources.potionMult 힘 포션(BoostService — 접속 중에만 흐른다). 없음 = 1  (지시서 #16 S5 · S7)
 --
---   결과 = (1 + rebirths) × titleMult × auraMult × petMult × tierMult × potionMult
+--   결과 = 1.25^rebirths × titleMult × auraMult × petMult × tierMult × potionMult
 --   공허 훈련 구역 · 운동기구 배수는 여기 없다(클릭 1회 값 — ClickService). 계단과는 다른 자리라 곱해진다(S4)
 --
 -- ===== 결합 규칙 (S3, 2026-10-24 사람 결정 — DESIGN.md "3. 화폐와 배수 > 배수 계통") =================
@@ -53,8 +53,6 @@ export type Sources = {
 	petMult: number?,
 	tierMult: number?,
 	potionMult: number?,
-	-- 새 경제(지시서 #30): nil이면 플래그(EconomyV2Config.ECONOMY_V2)를 따른다. 테스트만 true / false를 넣는다.
-	economyV2: boolean?,
 }
 
 -- ⚠️ 상수 테이블을 만들어 재사용하지 않는다. BigNum 값은 평범한 테이블이라 호출자가
@@ -94,14 +92,9 @@ function StrengthMultiplier.compute(sources: Sources?): BigNumber
 
 	local total = one()
 
-	-- 환생: 1 + rebirths (선형 가산). 새 경제(플래그 뒤 — 지시서 #30)는 b^n을 곱한다(EconomyV2Logic.rebirthFactor 한 곳).
+	-- 환생: b^n을 곱한다(EconomyV2Logic.rebirthFactor 한 곳 — 지시서 #30 · #37에서 옛 1 + n은 지웠다).
 	if isBigNum(sources.rebirths) then
-		local v2 = if sources.economyV2 ~= nil then sources.economyV2 else EconomyV2Logic.isOn()
-		if v2 then
-			total = BigNum.mul(total, EconomyV2Logic.rebirthFactor(sources.rebirths :: BigNumber))
-		else
-			total = BigNum.add(total, sources.rebirths :: BigNumber)
-		end
+		total = BigNum.mul(total, EconomyV2Logic.rebirthFactor(sources.rebirths :: BigNumber))
 	end
 
 	-- 칭호 · 아우라 · 펫: 곱한다(S3). 1 이하 · nan · inf · 숫자 아님은 "배수 없음" — 0이나 1 미만이 곱해지면 성장이 줄거나 멈춘다.

@@ -1,5 +1,5 @@
 --!strict
--- 자동 부화(지시서 #35 — DESIGN 16장 "펫"). ⚠️ 플래그 ECONOMY_V2 뒤 — 꺼져 있으면 Bootstrap이 init하지 않는다(지금 펫 그대로).
+-- 자동 부화(지시서 #35 — DESIGN 16장 "펫").
 --
 -- 무료 토글. 고른 알을 서버 단일 루프가 부화 간격마다 되풀이한다(간격 판정은 PetService — 무료 HATCH_SKIP_SEC · 즉시 부화 최소 간격).
 -- 트리플 부화(Triple Hatch)를 가졌으면(제한 지역이면 끔) 한 번에 3마리 · 코인 3배(PetService.hatchMulti).

@@ -1,5 +1,5 @@
 --!strict
--- 대장간 서버 검증(지시서 #33 — 플래그 ECONOMY_V2 뒤). 전역 플래그는 건드리지 않는다.
+-- 대장간 서버 검증(지시서 #33).
 -- ForgeService._deps를 기록용 가짜로 바꿔 끼우고(끝나면 되돌린다), 지급은 InventoryService 순수 함수를 Schema.new() 데이터에 그대로 태운다 —
 -- 프로필 · RemoteEvent를 쓰지 않는다.
 --   점수 표 → 칸 · 자동 채우기 · 제작 검증(닫힘 · 광석 부족 · 개수 · 모양) · 토큰 지급 · 난수 주입 결과 · 간격 강제(무료 · 생략 · 트리플) ·
@@ -335,7 +335,6 @@ Config.CRAFT_SKIP_PASS_ID, Config.TRIPLE_CRAFT_PASS_ID = savedSkip, savedTriple
 check("가짜 세계: 오류 없이 끝남", okRun, tostring(errRun))
 
 -- 10. 플래그 꺼짐 = 지금과 같다 -----------------------------------------------------------------------------
-check("플래그 꺼짐: ForgeService init 없음(Bootstrap이 부르지 않는다) · 켜져 있으면 init됨", ForgeService._initialized() == L.isOn())
 
 print(string.format("[ForgeServiceTests] %d passed, %d failed", passed, failed))
 if failed > 0 then

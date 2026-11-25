@@ -322,14 +322,10 @@ local REAL: Deps = {
 	end,
 }
 
--- 펀치 데미지 항(#34). 새 경제(economyV2 — nil이면 플래그)면 장착 곡괭이 최종 배수(곡괭이 × 강화 × 별 — EconomyV2Logic.multFromSave,
--- 시뮬레이터 equippedMult와 같은 pickaxeMult)가 상점 펀치 데미지 업그레이드 자리에 들어간다(업그레이드는 빠진다 — REMOVED_UPGRADES).
--- 꺼져 있으면 지금처럼 상점 업그레이드 효과. 블록 데미지 경로는 근접 자동 공격 하나다(클릭은 힘 트랙 전용 — CLAUDE.md 금지 사항)
-function AttackService.punchDamageFactor(player: Player, economyV2: boolean?): number
-	local v2 = if economyV2 ~= nil then economyV2 else EconomyV2Logic.isOn()
-	if not v2 then
-		return UpgradeService.getEffect(player, "punchDamage")
-	end
+-- 채굴 배수 항(#34). 장착 곡괭이 최종 배수(곡괭이 × 강화 × 별 — EconomyV2Logic.multFromSave, 시뮬레이터 equippedMult와 같은 pickaxeMult)가
+-- combineDamageMultiplier의 punchDamage 자리에 들어간다(#37 — 상점 펀치 데미지 업그레이드는 지웠다).
+-- 블록 데미지 경로는 근접 자동 공격 하나다(클릭은 힘 트랙 전용 — CLAUDE.md 금지 사항)
+function AttackService.punchDamageFactor(player: Player): number
 	local InventoryService = require(script.Parent.InventoryService)
 	return EconomyV2Logic.multFromSave(InventoryService.getEquipment(player, "pickaxe"), InventoryService.getEquipped(player, "pickaxe"))
 end

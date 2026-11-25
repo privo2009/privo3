@@ -8,7 +8,6 @@
 --   공개 API는 프로필을 찾고 · 검증하고 · 사본에 적용한 뒤 Schema.validateEconomy로 다시 보고 · 통과할 때만 바꾼다(실패면 그대로)
 --   reason은 필수 문자열이다(로그 · 추적 — 어디서 바뀌었나)
 -- ⚠️ yield하지 않는다(환생 · 수령 사이에 끼어들지 않게 — CurrencyService와 같은 이유).
--- ⚠️ 플래그 ECONOMY_V2가 꺼져 있으면 아무도 부르지 않는다(OreDropService · 대장간이 플래그 뒤에서만 부른다).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 

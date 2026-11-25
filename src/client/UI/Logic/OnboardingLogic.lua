@@ -13,7 +13,6 @@ local PadLayout = require(ReplicatedStorage.Shared.PadLayout)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Names = require(ReplicatedStorage.Shared.Localization.Names)
 local ConfirmFlow = require(script.Parent.ConfirmFlow)
-local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 
 local OnboardingLogic = {}
 
@@ -38,14 +37,13 @@ local function readStep(onboarding: any): (number, boolean)
 end
 
 -- 띠 표시 값. 끝났으면 숨긴다. skipArmed = 건너뛰기를 한 번 눌러 확인을 기다리는 중.
--- economyV2(#36 — 없으면 커밋 플래그): 4단계 문장만 새 경제용(진행과 수령의 차이 — 실패하면 못 받는다)
-function OnboardingLogic.view(onboarding: any, skipArmed: boolean, economyV2: boolean?): View
+-- 4단계 문장은 진행과 수령의 차이(실패하면 못 받는다 — #36 "onboarding.step.4.v2")
+function OnboardingLogic.view(onboarding: any, skipArmed: boolean): View
 	local step, done = readStep(onboarding)
-	local v2 = if economyV2 == nil then EconomyV2Logic.isOn() else economyV2
 	return {
 		visible = not done,
 		step = step,
-		text = Locale.t(if v2 and step == 4 then "onboarding.step.4.v2" else "onboarding.step." .. tostring(step)),
+		text = Locale.t(if step == 4 then "onboarding.step.4.v2" else "onboarding.step." .. tostring(step)),
 		progress = Locale.t("onboarding.progress", { n = step, total = OnboardingConfig.STEP_COUNT }),
 		showFinish = step >= OnboardingConfig.STEP_COUNT,
 		finishText = Locale.t("onboarding.finish"),

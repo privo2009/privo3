@@ -71,8 +71,8 @@ do
 	w.runtime.onJoin(playerA, 0)
 	check("조회 성공: 가진 패스는 소유 · 확정", w.runtime.owns(playerA, "damage2x") and w.runtime.isResolved(playerA, "damage2x"))
 	check("조회 성공: 안 가진 패스는 미보유 · 확정", not w.runtime.owns(playerA, "blox2x") and w.runtime.isResolved(playerA, "blox2x"))
-	check("ID 0(미등록) 패스는 조회하지 않고 미보유 · 확정(등록 4개만 조회)", w.gateway.ownsCalls == 4 and not w.runtime.owns(playerA, "rebirth2x")
-		and w.runtime.isResolved(playerA, "rebirth2x"), tostring(w.gateway.ownsCalls))
+	check("ID 0(미등록) 패스는 조회하지 않고 미보유 · 확정(등록 4개만 조회)", w.gateway.ownsCalls == 4 and not w.runtime.owns(playerA, "autoClickerOP")
+		and w.runtime.isResolved(playerA, "autoClickerOP"), tostring(w.gateway.ownsCalls))
 	check("조회 끝에 한 번 통지", w.notified == 1)
 	local keys = w.runtime.ownedKeys(playerA)
 	check("ownedKeys: 보유만 · 이름순", #keys == 1 and keys[1] == "damage2x")
@@ -116,15 +116,15 @@ end
 
 -- 5. 가짜 소유: Studio에서만 ------------------------------------------------------------------------
 do
-	local w = newWorld({ testPasses = { "rebirth2x", "damage2x" }, isStudio = true })
+	local w = newWorld({ testPasses = { "autoClickerOP", "damage2x" }, isStudio = true })
 	w.runtime.onJoin(playerA, 0)
-	check("가짜 소유(Studio): 미등록(ID 0) 패스도 소유 · 확정", w.runtime.owns(playerA, "rebirth2x") and w.runtime.isResolved(playerA, "rebirth2x"))
+	check("가짜 소유(Studio): 미등록(ID 0) 패스도 소유 · 확정", w.runtime.owns(playerA, "autoClickerOP") and w.runtime.isResolved(playerA, "autoClickerOP"))
 	check("가짜 소유(Studio): 켠 패스는 소유 · Studio라 실제 조회 0번(G-OWN)", w.runtime.owns(playerA, "damage2x") and w.gateway.ownsCalls == 0,
 		tostring(w.gateway.ownsCalls))
 	check("가짜 소유(Studio): 로그 두 줄(실제 소유 무시 · 가짜 소유 안내)", #w.logs == 2)
-	local outside = newWorld({ testPasses = { "rebirth2x", "damage2x" }, isStudio = false })
+	local outside = newWorld({ testPasses = { "autoClickerOP", "damage2x" }, isStudio = false })
 	outside.runtime.onJoin(playerA, 0)
-	check("가짜 소유가 Studio 밖에서 무시됨: 소유 없음 · ERROR 로그", not outside.runtime.owns(playerA, "rebirth2x")
+	check("가짜 소유가 Studio 밖에서 무시됨: 소유 없음 · ERROR 로그", not outside.runtime.owns(playerA, "autoClickerOP")
 		and not outside.runtime.owns(playerA, "damage2x") and #outside.logs == 1 and string.find(outside.logs[1], "ERROR", 1, true) ~= nil)
 end
 
@@ -145,10 +145,10 @@ do
 	real.runtime.onJoin(playerA, 0)
 	check("G-OWN 실서버: 실제 조회 그대로(가진 패스 보유) · 시작 로그 없음", real.runtime.owns(playerA, "damage2x") and real.gateway.ownsCalls == 4
 		and table.find(real.logs, "[Gamepass] Studio — 실제 소유 무시") == nil)
-	local fake = newWorld({ testPasses = { "rebirth2x" }, isStudio = true })
+	local fake = newWorld({ testPasses = { "autoClickerOP" }, isStudio = true })
 	fake.gateway.owned[playerA.UserId] = { [IDS.damage2x] = true }
 	fake.runtime.onJoin(playerA, 0)
-	check("G-OWN + TEST_GAMEPASSES: 가짜로 켠 패스만 보유(실제 소유는 무시) · 조회 0번", fake.runtime.owns(playerA, "rebirth2x")
+	check("G-OWN + TEST_GAMEPASSES: 가짜로 켠 패스만 보유(실제 소유는 무시) · 조회 0번", fake.runtime.owns(playerA, "autoClickerOP")
 		and not fake.runtime.owns(playerA, "damage2x") and fake.gateway.ownsCalls == 0)
 end
 

@@ -1,6 +1,6 @@
 --!strict
--- 새 경제 펫 · 새 게임패스 · 제한 지역 검증(지시서 #35 — 플래그 ECONOMY_V2 뒤). 전역 플래그는 건드리지 않는다.
--- PetService 런타임(가짜 deps — isV2를 켜고 끈다) · PetAutoHatchService(가짜 deps) · ShopConfig 새 패스 자리 · ShopEffectsLogic.v2PassActive ·
+-- 새 경제 펫 · 새 게임패스 · 제한 지역 검증(지시서 #35).
+-- PetService 런타임(가짜 deps — #37부터 코인 부화만) · PetAutoHatchService(가짜 deps) · ShopConfig 새 패스 자리 · ShopEffectsLogic.v2PassActive ·
 -- 가짜 소유(GamepassService resolveTestPasses) · 제한 지역 판정 · 손 모델 R6 · 플래그 꺼짐.
 -- 숫자는 Config에서 읽는다.
 
@@ -34,7 +34,7 @@ local function check(name: string, ok: boolean, detail: string?)
 end
 
 -- 가짜 세계: 프로필(Schema.new) · 블럭스 · 코인 · 시계 · 롤(언제나 첫 종)
-local function newWorld(v2: boolean)
+local function newWorld()
 	local data = Schema.new()
 	data.lifetimeBlox = BigNum.new(1, 30) -- 알 전부 해금
 	local w = { data = data, blox = BigNum.new(1, 30), coins = BigNum.new(0, 0), now = 100, saves = 0, triple = false, skip = false,
@@ -45,14 +45,6 @@ local function newWorld(v2: boolean)
 		end,
 		getData = function()
 			return w.data
-		end,
-		getBlox = function()
-			return w.blox
-		end,
-		subtractBlox = function(_p, amount, _r)
-			w.bloxCalls += 1
-			w.blox = BigNum.sub(w.blox, amount)
-			return true
 		end,
 		roll = function(tiers, _luck)
 			return tiers[1], 1
@@ -69,9 +61,6 @@ local function newWorld(v2: boolean)
 		end,
 		hasHatchPass = function()
 			return w.triple
-		end,
-		isV2 = function()
-			return v2
 		end,
 		getCoins = function()
 			return w.coins
@@ -93,7 +82,7 @@ local unit = L.eggCoinCost(1) :: any
 
 -- 1. 코인 부화: 부족 · 차감 · 지급 --------------------------------------------------------------------
 do
-	local w, rt = newWorld(true)
+	local w, rt = newWorld()
 	w.coins = BigNum.sub(unit, BigNum.new(1, 0))
 	local a, why = rt.hatch(P, 1, "test")
 	check("코인 부화: 모자라면 insufficient_coins · 코인 · 펫 그대로", not a and why == PetService.REASON_INSUFFICIENT_COINS and w.coinCalls == 0
@@ -106,7 +95,7 @@ end
 
 -- 2. 간격 강제: 무료 · 즉시 부화 -----------------------------------------------------------------------
 do
-	local w, rt = newWorld(true)
+	local w, rt = newWorld()
 	w.coins = BigNum.mul(unit, BigNum.fromNumber(10))
 	rt.hatch(P, 1, "test")
 	w.now += Config.HATCH_SKIP_SEC - 0.1
@@ -122,23 +111,13 @@ end
 
 -- 3. 트리플: 코인 3배 · 3마리 -------------------------------------------------------------------------
 do
-	local w, rt = newWorld(true)
+	local w, rt = newWorld()
 	w.coins = BigNum.mul(unit, BigNum.fromNumber(3))
 	local a, why = rt.hatchMany(P, 1, 3, "test")
 	check("트리플: Triple Hatch가 없으면 거부", not a and why == PetService.REASON_HATCH_PASS_REQUIRED)
 	w.triple = true
 	local b, list = rt.hatchMany(P, 1, 3, "test")
 	check("트리플: 코인 3배 한 번에 · 3마리", b and #list == 3 and BigNum.eq(w.coins, BigNum.new(0, 0)) and w.coinCalls == 1)
-end
-
--- 4. 플래그 꺼짐 = 지금과 같다(블럭스 · 남용 방지 간격) ------------------------------------------------------
-do
-	local w, rt = newWorld(false)
-	w.coins = BigNum.new(0, 0)
-	local a = rt.hatch(P, 1, "test")
-	w.now += PetConfig.HATCH_INTERVAL_SEC
-	local b = rt.hatch(P, 1, "test")
-	check("플래그 꺼짐: 블럭스로 부화 · 코인은 안 씀 · 간격은 남용 방지 값", a and b and w.bloxCalls == 2 and w.coinCalls == 0)
 end
 
 -- 5. 자동 부화: 반복 · 멈춤 · 크게 알림 · 트리플 ---------------------------------------------------------------
@@ -230,21 +209,20 @@ do
 	end, restricted = false, boostOf = function()
 		return 1
 	end }
-	local active = ShopEffectsLogic.v2PassActive(view :: any, "bigBag", true)
+	local active = ShopEffectsLogic.v2PassActive(view :: any, "bigBag")
 	local cap1 = L.bagCapacity(Config.START_PICKAXE)
 	local cap2 = L.bagCapacity(Config.START_PICKAXE, if active then Config.BIG_BAG_MULT else nil)
 	check("새 패스: 가짜 소유(TEST_GAMEPASSES)면 큰 가방 효과(용량 ×2)", active and cap2 == cap1 * 2)
-	check("새 패스: 새 경제가 꺼져 있으면 가져도 효과 없음", not ShopEffectsLogic.v2PassActive(view :: any, "bigBag", false))
 end
 
 -- 7. 제한 지역: 숨김 목록 · 켜고 끔 ------------------------------------------------------------------------------
 do
 	local listOk = true
 	for _, key in ipairs({ "bigBag", "instantCraft", "tripleCraft", "instantHatch", "hatch3x" }) do
-		listOk = listOk and L.isRestrictedRandom(key, true) and not L.isRestrictedRandom(key, false)
+		listOk = listOk and L.isRestrictedRandom(key)
 	end
-	check("제한 지역: 새 패스 4개 · Triple Hatch는 새 경제에서 숨김 목록 · 꺼져 있으면 아님", listOk and not L.isRestrictedRandom("damage2x", true)
-		and not L.isRestrictedRandom("autoAdvance", true))
+	check("제한 지역: 새 패스 4개 · Triple Hatch는 숨김 목록(#37 배선 — 꺼짐 줄은 지웠다)", listOk and not L.isRestrictedRandom("damage2x")
+		and not L.isRestrictedRandom("autoAdvance"))
 	local function view(restricted: boolean)
 		return { owns = function()
 			return true
@@ -253,10 +231,7 @@ do
 		end } :: any
 	end
 	check("제한 지역: 제한 유저는 Triple Hatch 효과 끔(새 경제) · 제한 아니면 켬",
-		not ShopEffectsLogic.v2PassActive(view(true), "hatch3x", true) and ShopEffectsLogic.v2PassActive(view(false), "hatch3x", true))
-	check("제한 지역: 새 경제가 꺼져 있으면 Triple Hatch는 지금처럼(제한이어도 켬)", ShopEffectsLogic.v2PassActive(view(true), "hatch3x", false))
-	check("제한 지역: 새 패스는 새 경제가 꺼져 있으면 '빠진 상품'(줄 · 구매 · 효과 없음)", L.isRemovedProduct("bigBag", false)
-		and not L.isRemovedProduct("bigBag", true) and L.isRemovedProduct("rebirth2x", true) and not L.isRemovedProduct("rebirth2x", false))
+		not ShopEffectsLogic.v2PassActive(view(true), "hatch3x") and ShopEffectsLogic.v2PassActive(view(false), "hatch3x"))
 end
 
 -- 8. 손 모델 R6 -----------------------------------------------------------------------------------------------
@@ -271,9 +246,6 @@ do
 	check("손 모델: R6(RightHand 없음)이면 Right Arm에 붙인다", m ~= nil and weld ~= nil and weld.Part0 == arm)
 	character:Destroy()
 end
-
--- 9. 플래그 꺼짐 = 지금과 같다 ----------------------------------------------------------------------------------
-check("플래그 꺼짐: 자동 부화 서비스 init 없음(켜져 있으면 init됨)", PetAutoHatchService._initialized() == L.isOn())
 
 print(string.format("[PetV2Tests] %d passed, %d failed", passed, failed))
 if failed > 0 then

@@ -110,7 +110,7 @@ do
 
 	local noProfile = newWorld(RICH)
 	noProfile.hasProfile = false
-	local ok1, r1 = pure.runBuy(depsFor(noProfile) :: any, fakePlayer, "punchDamage")
+	local ok1, r1 = pure.runBuy(depsFor(noProfile) :: any, fakePlayer, "bloxGain") -- #37 배선: 펀치 데미지 → 같은 꼴 블럭스 획득
 	check("거부: 프로필 없음 → no_profile · 부작용 0", not ok1 and r1 == UpgradeService.REASON_NO_PROFILE and sideEffects(noProfile) == 0)
 
 	local maxed = newWorld(RICH)
@@ -126,16 +126,16 @@ end
 -- 2. 성공 — 차감 → 레벨 + 1 → 통지 ----------------------------------------------------------------
 do
 	local w = newWorld(RICH)
-	w.levels.punchDamage = 3
-	local cost = UpgradeConfig.getCostAtLevel("punchDamage", 3)
-	local ok, result = pure.runBuy(depsFor(w) :: any, fakePlayer, "punchDamage")
-	check("성공: true + 레벨 4 + 비용", ok and result.level == 4 and BigNum.eq(result.cost, cost) and result.name == "punchDamage")
+	w.levels.bloxGain = 3 -- #37 배선: 펀치 데미지 → 같은 꼴(최대 없음 · 비용 100 × 1.15^레벨) 블럭스 획득
+	local cost = UpgradeConfig.getCostAtLevel("bloxGain", 3)
+	local ok, result = pure.runBuy(depsFor(w) :: any, fakePlayer, "bloxGain")
+	check("성공: true + 레벨 4 + 비용", ok and result.level == 4 and BigNum.eq(result.cost, cost) and result.name == "bloxGain")
 	check("성공: 차감은 getCostAtLevel(지금 레벨) 그대로 한 번", #w.subtracted == 1 and BigNum.eq(w.subtracted[1].amount, cost))
-	check("성공: 차감 사유에 항목 이름(재화 로그 추적)", #w.subtracted == 1 and w.subtracted[1].reason == "upgrade_punchDamage")
-	check("성공: 레벨이 정확히 1 올랐다", w.levels.punchDamage == 4)
+	check("성공: 차감 사유에 항목 이름(재화 로그 추적)", #w.subtracted == 1 and w.subtracted[1].reason == "upgrade_bloxGain")
+	check("성공: 레벨이 정확히 1 올랐다", w.levels.bloxGain == 4)
 	local order = table.concat(w.calls, ",")
 	check("성공: 순서 = 읽기 → 차감 → 레벨 → 통지", order == "getLevel,getBlox,subtract,setLevel,notify", order)
-	check("성공: 통지에 새 레벨", #w.notified == 1 and w.notified[1].name == "punchDamage" and w.notified[1].level == 4)
+	check("성공: 통지에 새 레벨", #w.notified == 1 and w.notified[1].name == "bloxGain" and w.notified[1].level == 4)
 
 	-- 딱 맞는 잔액이면 산다(경계는 이상)
 	local exact = newWorld(UpgradeConfig.getCostAtLevel("bloxGain", 0))
@@ -163,15 +163,15 @@ end
 do
 	local w = newWorld(RICH)
 	w.failAt = "subtract"
-	local ok, reason = pure.runBuy(depsFor(w) :: any, fakePlayer, "punchDamage")
+	local ok, reason = pure.runBuy(depsFor(w) :: any, fakePlayer, "bloxGain")
 	check("차감 거부: insufficient_blox · 레벨 그대로 · 통지 없음", not ok and reason == UpgradeConfig.REASON_INSUFFICIENT_BLOX
-		and w.levels.punchDamage == nil and #w.notified == 0)
+		and w.levels.bloxGain == nil and #w.notified == 0)
 
 	-- 잔액은 작게 — RICH(1e50)에서 10을 빼면 BigNum 정밀도 계약(지수 차 13 이상은 0 소실)대로 1e50 그대로다
 	local v = newWorld(BigNum.fromNumber(1000))
 	v.failAt = "setLevel"
 	local before = v.blox
-	local ok2, reason2 = pure.runBuy(depsFor(v) :: any, fakePlayer, "punchDamage")
+	local ok2, reason2 = pure.runBuy(depsFor(v) :: any, fakePlayer, "bloxGain")
 	check("레벨 저장 실패: partial_failure (차감은 일어났다 — 공짜 레벨 없음)", not ok2 and reason2 == UpgradeService.REASON_PARTIAL_FAILURE
 		and #v.subtracted == 1 and BigNum.lt(v.blox, before))
 	check("레벨 저장 실패: 통지 없음", #v.notified == 0)
@@ -194,12 +194,12 @@ do
 			n = -100
 		end
 	end
-	check("readLevels: 새 프로필은 7키 전부 0 (L3 — moveSpeed 없음)", n == 7, tostring(n))
+	check("readLevels: 새 프로필은 6키 전부 0 (L3 · #37 다 — 펀치 데미지 빠짐)", n == 6, tostring(n))
 
 	-- 프로필 없는 플레이어: 레벨 0 · 효과 = 0레벨 효과
 	check("getLevel: 프로필 없음 → 0", UpgradeService.getLevel(fakePlayer, "punchSpeed") == 0)
 	check("getEffect: 프로필 없음 → 기본 펀치 속도", UpgradeService.getEffect(fakePlayer, "punchSpeed") == AttackConfig.PUNCH_SPEED_BASE)
-	check("getEffect: 프로필 없음 → 데미지 · 블럭스 배수 1", UpgradeService.getEffect(fakePlayer, "punchDamage") == 1 and UpgradeService.getEffect(fakePlayer, "bloxGain") == 1)
+	check("getEffect: 프로필 없음 → 블럭스 배수 1(#37 다 — 펀치 데미지 빠짐)", UpgradeService.getEffect(fakePlayer, "bloxGain") == 1)
 end
 
 -- 5. 환생 경로는 업그레이드를 건드리지 않는다 (S5 — 확인만. RebirthService는 바꾸지 않았다) ---------------
@@ -213,6 +213,10 @@ do
 			if key == "getBlox" then
 				return function()
 					return BigNum.fromNumber(2500)
+				end
+			elseif key == "getRebirths" then
+				return function()
+					return BigNum.new(0, 0)
 				end
 			elseif key == "addRebirths" then
 				return function()
@@ -232,10 +236,7 @@ do
 	local upgradeTouched = false
 	local names = {}
 	for key in pairs(touched) do
-		-- getRebirthMult는 2배 환생 배수를 읽기만 한다(지시서 #16 S6) — 초기화 대상이 아니라 따로 센다
-		if key ~= "getRebirthMult" then
-			table.insert(names, key)
-		end
+		table.insert(names, key)
 		if string.find(string.lower(key), "upgrade", 1, true) then
 			upgradeTouched = true
 		end
@@ -243,8 +244,8 @@ do
 	table.sort(names)
 	check("환생: 성공 경로를 끝까지 탔다", ok == true)
 	check("환생: 업그레이드를 바꾸는 통로를 하나도 부르지 않는다(유지)", not upgradeTouched, table.concat(names, ","))
-	check("환생 화면 문구와 맞출 원본: 초기화 대상 deps가 10개 그대로", #names == 10, table.concat(names, ","))
-	check("환생: 2배 환생 배수를 읽는다(읽기만 — 지시서 #16 S6)", touched.getRebirthMult == true)
+	-- #37 다: 환생 수 읽기(getRebirths) · 비용만 빼기(subtractBlox — setBlox 대신) — 11개
+	check("환생 화면 문구와 맞출 원본: 환생 deps가 11개 그대로", #names == 11, table.concat(names, ","))
 end
 
 print(string.format("[UpgradeServiceTests] %d passed, %d failed", passed, failed))

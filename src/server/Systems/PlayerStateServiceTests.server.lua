@@ -103,21 +103,21 @@ end
 -- 3b. 업그레이드 레벨 (지시서 #7) ----------------------------------------------------------
 do
 	local data = sampleData()
-	data.upgrades.punchDamage = 4
+	data.upgrades.titleLuck = 4 -- #37 배선: 펀치 데미지 → 칭호 행운
 	data.upgrades.bloxGain = 1
 	local snap = pure.buildSnapshot(data, 20, 36, 3)
 	local count = 0
 	for _ in pairs(snap.upgrades) do
 		count += 1
 	end
-	check("업그레이드: Config 7키 전부 실린다(L3 — moveSpeed 없음)", count == 7 and snap.upgrades.moveSpeed == nil, tostring(count))
-	check("업그레이드: 레벨 값", snap.upgrades.punchDamage == 4 and snap.upgrades.bloxGain == 1 and snap.upgrades.punchSpeed == 0)
-	data.upgrades.punchDamage = 9
-	check("업그레이드: 표는 복사본 (프로필을 고쳐도 안 바뀐다)", snap.upgrades.punchDamage == 4)
+	check("업그레이드: Config 6키 전부 실린다(L3 · #37 다 — 펀치 데미지 빠짐)", count == 6 and snap.upgrades.moveSpeed == nil and snap.upgrades.punchDamage == nil, tostring(count))
+	check("업그레이드: 레벨 값", snap.upgrades.titleLuck == 4 and snap.upgrades.bloxGain == 1 and snap.upgrades.punchSpeed == 0)
+	data.upgrades.titleLuck = 9
+	check("업그레이드: 표는 복사본 (프로필을 고쳐도 안 바뀐다)", snap.upgrades.titleLuck == 4)
 	local broken = Schema.new()
 	broken.upgrades = nil
 	local b = pure.buildSnapshot(broken, 16, 16, 1)
-	check("업그레이드: 표가 없으면 전부 0", b.upgrades.punchDamage == 0 and b.upgrades.petSlots == 0)
+	check("업그레이드: 표가 없으면 전부 0", b.upgrades.titleLuck == 0 and b.upgrades.petSlots == 0)
 	local ok, encoded = pcall(HttpService.JSONEncode, HttpService, snap)
 	check("업그레이드: JSON 왕복 뒤에도 같다", ok and pure.snapshotsEqual(snap, HttpService:JSONDecode(encoded)))
 end

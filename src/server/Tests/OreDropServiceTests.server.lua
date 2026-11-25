@@ -1,5 +1,5 @@
 --!strict
--- 새 경제 드롭 · 줍기 · 가방 · 코인 · 대장간 열림 검증(지시서 #32 — 플래그 ECONOMY_V2 뒤). 전역 플래그는 건드리지 않는다.
+-- 드롭 · 줍기 · 가방 · 코인 · 대장간 열림 검증(지시서 #32).
 -- OreDropService._deps를 기록용 가짜로 바꿔 끼우고(끝나면 되돌린다) 가짜 플레이어 표로 굴린다 — 프로필 · RemoteEvent를 쓰지 않는다.
 --   줍기 판정(반경 · 가방 자리 · 바꿔 줍기 · 바닥에 남기) · 층 이동 시 드롭 사라짐(가방 그대로) · 수령 때 옮기기 · 실패 · 이탈 때 비우기 ·
 --   자동 진행 줍기(거리 무관 · 상한 그대로) · 코인(블록마다 · 실패해도 유지) · 대장간(그 층에서 열림 · 한 번 · 환생 뒤 1층에서도 유지) ·
@@ -247,7 +247,6 @@ OreDropService._deps = savedDeps
 
 -- 4. ChallengeService 고리 ---------------------------------------------------------------------------
 do
-	check("고리: 커밋 상태(플래그 꺼짐)에서는 걸려 있지 않다", ChallengeService.economyHooks == nil or Config.ECONOMY_V2)
 	local savedHooks = ChallengeService.economyHooks
 	local savedReturn = ChallengeService._deps.returnToSpawn
 	ChallengeService._deps.returnToSpawn = function() end

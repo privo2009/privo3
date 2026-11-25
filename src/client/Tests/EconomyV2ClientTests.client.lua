@@ -1,5 +1,5 @@
 --!strict
--- 새 경제 클라 표시 검증(지시서 #32 — 플래그 ECONOMY_V2 뒤에서만 쓰는 모듈). 전역 플래그는 건드리지 않는다 — 모듈을 직접 만들어 굴린다.
+-- 새 경제 클라 표시 검증(지시서 #32). 모듈을 직접 만들어 굴린다.
 --   상태(EconomyV2State — 서버 신호 kind별 반영) · 드롭 표시(DropRenderer — 풀링 · 물리 없음 · 줍기 날아감 · 층 이동 지움) ·
 --   코인 이펙트(CoinFx — 한 번 상한 · 풀링 · Scale만) · HUD(EconomyHud — Strings 키 · AutoLocalize false · UiTheme.FONT · 자리)
 

@@ -42,7 +42,7 @@
 -- S5': 구매 대상은 1차 3종(S5_TARGETS — #13 L3으로 이동 속도가 빠졌다)으로 고정한다. 행운 업그레이드는 표준 플레이어가 사지 않는다 — 상점에 열릴 때마다
 -- 예산을 나눠 가져 펀치 데미지 레벨이 줄어드는 착시가 쌓인다(#10 "칭호 없음" 비교 17~25층 60.8 → 57.2%).
 --
--- 환생 직전, 어차피 버려질 나머지(RebirthConfig.getLeftover — BLOX_PER_REBIRTH 미만)로 가장 싼 업그레이드부터
+-- 환생 직전, 어차피 버려질 나머지(LegacyEconomyModel.getLeftover — BLOX_PER_REBIRTH 미만)로 가장 싼 업그레이드부터
 -- 살 수 있는 만큼 산다(buyCheapestFirst). 업그레이드는 환생해도 남는다. 결정 모델 = MODEL.UPGRADE_POLICY "s5".
 -- "none"은 비교 줄(업그레이드 0 — 지시서 #7 이전의 모든 측정이 이 가정이었다).
 --
@@ -91,7 +91,8 @@ local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local ClickPadConfig = require(ReplicatedStorage.Shared.Config.ClickPadConfig)
 local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
-local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
+-- 옛 경제 결정 모델(기준선 — #37: 게임에서 지운 옛 환생 · 힘 배수 1 + n · 운동기구 해금 · 펀치 데미지는 여기서만)
+local Legacy = require(script.Parent.LegacyEconomyModel)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local WarpConfig = require(ReplicatedStorage.Shared.Config.WarpConfig)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
@@ -216,20 +217,18 @@ local SIM = {
 	PET_SEED = 20261026,
 	-- true면 run()이 결정 모델 · 펫 없음(B2) · 펫 m · CRAFT_FACTOR 후보만 돈다(지시서 #12 5단계). 커밋 값은 false.
 	PET_SWEEP_ONLY = false,
-	-- true면 run()이 경제 후보 측정(Tools/EconomyCandidateReport — 지시서 #29)만 돈다. 커밋 값은 false.
-	ECONOMY_SWEEP_ONLY = false,
-	-- true면 run()이 새 경제 2차 측정(Tools/EconomyV2Report — 지시서 #30)만 돈다. 커밋 값은 false.
-	ECONOMY_V2_ONLY = false,
+	-- true면 run()이 경제 측정(Tools/EconomyReport — 지시서 #30 ~ #33 · #37 이름 바꿈)만 돈다. 커밋 값은 false.
+	ECONOMY_ONLY = false,
 }
 SuccessRateReport.SIM = SIM
 
--- ===== 경제 후보 고리 (지시서 #29 — Tools/EconomyCandidateReport만 채운다) ==================================
+-- ===== 경제 고리 (지시서 #29 — Tools/EconomyReport가 채운다) ==================================
 --
 -- nil이면 이 파일은 예전과 똑같이 돈다(SuccessRateReportTests · 결정 모델 숫자 그대로). 후보 도구가 측정하는 동안만 잠깐 넣고 되돌린다.
 -- 게임 코드 · Config를 바꾸지 않는다 — 환생 규칙 · 드롭 · 줍기 · 가방 · 곡괭이는 아직 게임에 없는 후보 모델이다(D2: 고르는 것은 사람).
---   canRebirth(p)               환생할 수 있는가(RebirthConfig.canRebirth 자리)
+--   canRebirth(p)               환생할 수 있는가(LegacyEconomyModel.canRebirth 자리)
 --   rebirthCost(p)              이번 환생 비용 — 아우라 · 펫 · 업그레이드에 쓰기 전에 따로 둔다(나머지만 "버려질 양")
---   applyRebirth(p)             환생 수를 더한다(RebirthConfig.getGainedRebirths 자리). 초기화(블럭스 · 힘 · 패드)는 여기 그대로
+--   applyRebirth(p)             환생 수를 더한다(LegacyEconomyModel.getGainedRebirths 자리). 초기화(블럭스 · 힘 · 패드)는 여기 그대로
 --   onStageClear(p, stage)      층을 깬 직후 — 드롭 · 줍기. 걸린 초를 돌려준다(그동안 런 중 클릭 속도로 클릭한다)
 --   onRunEnd(p, best, cashed)   런 끝 — 수령이면 가방 → 인벤토리, 실패면 가방을 잃는다
 --   onRunStart(p)               런 직전(스폰) — 제작 · 강화
@@ -334,10 +333,28 @@ end
 -- 표준 플레이어는 안 산다(petSlots는 E11이 펫 예산으로 따로 산다).
 SuccessRateReport.S5_TARGETS = { "punchDamage", "punchSpeed", "bloxGain" }
 
+-- 업그레이드 줄 순서(#37 — 옛 펀치 데미지를 앞에 다시 붙여 결정 모델 · 출력 순서를 그대로 둔다)
+local function upgradeNames(): { string }
+	local out = { "punchDamage" }
+	for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+		table.insert(out, name)
+	end
+	return out
+end
+
+-- 업그레이드 판정 · 효과(#37 — 펀치 데미지는 옛 모델 LegacyEconomyModel, 나머지는 게임과 같은 UpgradeConfig)
+local function upgradeCanBuy(name: string, level: number, budget: BigNumber): (boolean, string?, BigNumber?)
+	if Legacy.UPGRADES[name] ~= nil then
+		return Legacy.upgradeCanBuy(name, level, budget)
+	end
+	return UpgradeConfig.canBuy(name, level, budget)
+end
+SuccessRateReport.upgradeCanBuy = upgradeCanBuy -- 테스트 · 도구가 같은 판정을 쓴다(#37)
+
 -- 노출 항목 레벨 0(행운 줄 포함 — 레벨은 0으로 남는다).
 function SuccessRateReport.newUpgradeLevels(): { [string]: number }
 	local levels: { [string]: number } = {}
-	for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+	for _, name in ipairs(upgradeNames()) do
 		levels[name] = 0
 	end
 	return levels
@@ -354,7 +371,7 @@ function SuccessRateReport.buyCheapestFirst(levels: { [string]: number }, budget
 		local bestName: string? = nil
 		local bestCost: BigNumber? = nil
 		for _, name in ipairs(SuccessRateReport.S5_TARGETS) do
-			local ok, _reason, cost = UpgradeConfig.canBuy(name, levels[name] or 0, remaining)
+			local ok, _reason, cost = upgradeCanBuy(name, levels[name] or 0, remaining)
 			if ok and cost ~= nil and (bestCost == nil or BigNum.lt(cost, bestCost :: BigNumber)) then
 				bestName, bestCost = name, cost
 			end
@@ -372,6 +389,9 @@ end
 
 -- 업그레이드 효과. 식은 UpgradeConfig.getEffect 하나(게임 · 상점 창과 같은 함수).
 function SuccessRateReport.effect(levels: { [string]: number }, name: string): number
+	if Legacy.UPGRADES[name] ~= nil then
+		return Legacy.upgradeEffect(name, levels[name] or 0)
+	end
 	return UpgradeConfig.getEffect(name, levels[name] or 0)
 end
 
@@ -684,14 +704,14 @@ end
 
 -- ===== 배수 세 자리 (StandardPathReport도 이 함수들을 부른다 — 지시서 #13 4단계) =====================
 
--- 클릭 힘 배수: StrengthMultiplier.compute(환생 · 칭호 · 아우라 · 펫) — ClickService와 같은 함수.
+-- 클릭 힘 배수: StrengthMultiplier.compute(칭호 · 아우라 · 펫) × 옛 환생 항(1 + n — #37 LegacyEconomyModel).
+-- 새 경제 측정(EconomyReport)은 이 함수를 갈아 끼워 게임과 같은 StrengthMultiplier(1.25^n)를 쓴다.
 function SuccessRateReport.clickMultiplier(p: Player): BigNumber
-	return StrengthMultiplier.compute({
-		rebirths = p.rebirths,
+	return BigNum.mul(StrengthMultiplier.compute({
 		titleMult = SuccessRateReport.titleMult(p),
 		auraMult = SuccessRateReport.auraMult(p),
 		petMult = SuccessRateReport.petMult(p), -- E3 — 클릭 힘 한 자리(데미지 항 없음)
-	})
+	}), Legacy.rebirthTerm(p.rebirths))
 end
 
 -- 1펀치 데미지 배수: AttackService.combineDamageMultiplier(펀치 데미지 업그레이드 × 아우라 m — A10).
@@ -724,9 +744,9 @@ local function addClicks(p: Player, clicks: number, gymMultiplier: number?)
 	p.strength = BigNum.add(p.strength, gain)
 end
 
--- 환생 수로 열린 기구 수(게임과 같은 GymConfig.getUnlockedCount). 새 경제 도구(Tools/EconomyV2Report — 지시서 #30)가 잠깐 갈아 끼운다.
+-- 환생 수로 열린 기구 수(옛 모델 해금 수 — #37 LegacyEconomyModel). 새 경제 측정(EconomyReport)은 게임과 같은 GymConfig로 갈아 끼운다.
 function SuccessRateReport.gymUnlockedCount(p: Player): number
-	return GymConfig.getUnlockedCount(p.rebirths)
+	return Legacy.gymUnlockedCount(p.rebirths)
 end
 
 -- 운동기구에서 sec초 클릭한다. 환생 수로 열린 기구 중 가장 좋은 것을 쓴다(공허를 샀으면 공허).
@@ -975,13 +995,13 @@ local function rebirth(p: Player)
 	SuccessRateReport.spendPetBeforeRebirth(p)
 	-- S5: 환생 직전 버려질 나머지로 업그레이드(나머지만 쓰므로 얻는 배수는 그대로다).
 	if MODEL.UPGRADE_POLICY == "s5" then
-		local spent = SuccessRateReport.buyCheapestFirst(p.upgrades, if econ ~= nil then p.blox else RebirthConfig.getLeftover(p.blox))
+		local spent = SuccessRateReport.buyCheapestFirst(p.upgrades, if econ ~= nil then p.blox else Legacy.getLeftover(p.blox))
 		p.upgradeSpent = BigNum.add(p.upgradeSpent, spent)
 	end
 	if econ ~= nil then
 		econ.applyRebirth(p)
 	else
-		p.rebirths = BigNum.add(p.rebirths, RebirthConfig.getGainedRebirths(p.blox))
+		p.rebirths = BigNum.add(p.rebirths, Legacy.getGainedRebirths(p.blox))
 	end
 	if not (econ ~= nil and econ.keepBlox == true) then
 		p.blox = BigNum.new(0, 0)
@@ -1105,7 +1125,7 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 			checkLevelCap(bestThisLife)
 		end
 		local econ = SuccessRateReport.ECON
-		local canRebirth = if econ ~= nil then econ.canRebirth(p) else RebirthConfig.canRebirth(p.blox)
+		local canRebirth = if econ ~= nil then econ.canRebirth(p) else Legacy.canRebirth(p.blox)
 		local eager = econ ~= nil and econ.eager == true
 		if (stale >= SIM.REBIRTH_PATIENCE_RUNS or eager) and canRebirth then
 			if observer ~= nil then
@@ -1446,7 +1466,7 @@ local function runModel(label: string, full: boolean, compact: boolean?)
 	))
 	if MODEL.UPGRADE_POLICY ~= "none" then
 		local parts = {}
-		for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
+		for _, name in ipairs(upgradeNames()) do
 			local xs = {}
 			for _, r in ipairs(results) do
 				table.insert(xs, r.upgrades[name] or 0)
@@ -1892,7 +1912,7 @@ SuccessRateReport.UPGRADE_VARIANTS = {
 function SuccessRateReport.withUpgradeOverride(override: UpgradeOverride, fn: () -> ())
 	local saved: { [string]: { [string]: any } } = {}
 	for name, fields in pairs(override) do
-		local def = (UpgradeConfig.Upgrades :: any)[name]
+		local def = (UpgradeConfig.Upgrades :: any)[name] or Legacy.UPGRADES[name]
 		saved[name] = {}
 		for key, value in pairs(fields) do
 			saved[name][key] = { value = def[key] }
@@ -1904,7 +1924,7 @@ function SuccessRateReport.withUpgradeOverride(override: UpgradeOverride, fn: ()
 		fn()
 	end)
 	for name, fields in pairs(saved) do
-		local def = (UpgradeConfig.Upgrades :: any)[name]
+		local def = (UpgradeConfig.Upgrades :: any)[name] or Legacy.UPGRADES[name]
 		for key, box in pairs(fields) do
 			def[key] = box.value
 		end
@@ -1916,12 +1936,8 @@ end
 
 function SuccessRateReport.run()
 	if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
-	if SIM.ECONOMY_SWEEP_ONLY then
-		require(script.Parent.EconomyCandidateReport).run()
-		return
-	end
-	if SIM.ECONOMY_V2_ONLY then
-		require(script.Parent.EconomyV2Report).run()
+	if SIM.ECONOMY_ONLY then
+		require(script.Parent.EconomyReport).run()
 		return
 	end
 	print("[SUCCESSRATE] ===== 확률적 플레이어 성공률 (4-2-f) =====")

@@ -1,6 +1,6 @@
 --!strict
--- 환생. 보유 블럭스 전액을 소모하고 영구 힘 배수를 얻는다.
--- 규칙과 근거는 DESIGN.md "3. 화폐와 배수 > 환생"이 원본이다 — 여기로 복사하지 말 것.
+-- 환생(새 경제 — 지시서 #30 · #37에서 유일한 환생). 다음 비용(1000 × 4^n)을 내고 환생 수 +1 · 힘 배수의 환생 항은 1.25^n.
+-- 규칙과 근거는 DESIGN.md 16장 "환생"이 원본이다 — 여기로 복사하지 말 것.
 --
 -- 이 프로젝트에서 **4개 서비스를 한 흐름 안에서 건드리는 첫 모듈**이다:
 --   CurrencyService   blox / rebirths / strength
@@ -11,7 +11,7 @@
 --
 -- ===== 왜 yield가 하나도 없어야 하는가 (⚠️ 가장 중요) =================================
 --
--- 환생은 "지금 보유한 블럭스 전액"을 소모한다. 즉 읽고 → 계산하고 → 0으로 만든다.
+-- 환생은 "지금 보유한 블럭스"를 읽고 → 판정하고 → 비용을 뺀다.
 -- Luau는 단일 스레드라 **yield하지 않는 한** 그 사이에 다른 핸들러가 끼어들 수 없고,
 -- 그래서 "읽은 값"과 "실제로 사라진 값"이 같다는 보장이 성립한다.
 --
@@ -39,15 +39,12 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
-local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
 local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local Schema = require(script.Parent.Parent.Data.Schema)
 local CurrencyService = require(script.Parent.CurrencyService)
 local ChallengeService = require(script.Parent.ChallengeService)
 local SpeedService = require(script.Parent.SpeedService)
 local PadService = require(script.Parent.PadService)
--- 2배 환생(지시서 #16 S6). 소유는 세션 값 — ShopEffects.
-local ShopEffects = require(script.Parent.ShopEffects)
 local Analytics = require(script.Parent.Analytics)
 
 type BigNumber = BigNum.BigNumber
@@ -119,7 +116,7 @@ end
 export type RebirthResult = {
 	gained: BigNumber,
 	total: BigNumber,
-	cost: BigNumber?, -- 새 경제에서 낸 비용(지시서 #31 — 분석 이벤트 rebirth v2 값). 지금 경제는 nil
+	cost: BigNumber, -- 낸 비용(지시서 #31 — 분석 이벤트 rebirth 값)
 }
 
 -- 이 흐름이 바깥 세계에 하는 일 전부. 실제 서비스 대신 기록용 테이블을 넣으면
@@ -140,37 +137,45 @@ export type Deps = {
 	onRebirth: (Player) -> number,
 	resetLifeBlox: (Player, string) -> boolean,
 	resetPad: (Player) -> boolean,
-	-- 얻는 환생 수 배수(2배 환생). 없으면 1 — 테스트 deps는 생략할 수 있다
-	getRebirthMult: ((Player) -> number)?,
-	-- 새 경제(지시서 #30 — 플래그 뒤)에서만 부른다. 새 경제인지는 deps가 아니라 runRebirth의 넷째 인자가 정한다
-	-- (deps 키로 두면 아무 키에나 함수를 돌려주는 가짜 deps — UpgradeServiceTests 5 — 가 새 경제로 빠진다).
-	getRebirths: ((Player) -> BigNumber?)?,
-	subtractBlox: ((Player, BigNumber, string) -> boolean)?,
+	getRebirths: (Player) -> BigNumber?,
+	subtractBlox: (Player, BigNumber, string) -> boolean,
 }
 
 -- 환생 한 번. 순서는 아래 주석의 번호가 곧 계약이다.
 --
 -- ⚠️ 이 함수 안에서 yield하지 말 것 (파일 상단 참고). deps로 들어오는 함수들도 마찬가지다.
--- 새 경제 환생(지시서 #30 — DESIGN 16장 "환생 (새 경제)"). 플래그가 켜졌을 때만 탄다.
+-- 환생(DESIGN 16장 "환생"):
 --   조건  블럭스 ≥ 다음 비용(EconomyV2Logic.rebirthCost — 환생 수 n에 따라)
---   블럭스  비용만 뺀다(CurrencyService.subtract — REBIRTH_KEEP_REMAINDER) · false면 0(지금과 같다)
---   환생 수 +1(x2 Rebirths는 새 경제에 없다 — 지시서 #31 G14. 보유해도 getRebirthMult를 읽지 않는다)
---   나머지 초기화(런 · 힘 · maxStage · 월드 · 속도 · lifeBlox · 패드)는 지금 환생과 같은 단계 · 같은 deps
---   곡괭이 · 광석 · 토큰 · 코인은 건드리지 않는다(EconomyV2Logic.REBIRTH_KEEPS — 저장 필드가 아직 없다. deps에 그 통로가 없다)
-local function runRebirthV2(deps: Deps, player: Player, blox: BigNumber, sourceTag: string, reason: string): (boolean, any)
-	local rebirths = if deps.getRebirths ~= nil then deps.getRebirths(player) else nil
-	if rebirths == nil then
+--   블럭스  비용만 뺀다(CurrencyService.subtract — REBIRTH_KEEP_REMAINDER) · 나머지가 0이면 set(0)
+--   환생 수 +1 · 나머지 초기화(런 · 힘 · maxStage · 월드 · 속도 · lifeBlox · 패드)
+--   곡괭이 · 광석 · 토큰 · 코인은 건드리지 않는다(EconomyV2Logic.REBIRTH_KEEPS — deps에 그 통로가 없다)
+local function runRebirth(deps: Deps, player: Player, source: string?): (boolean, any)
+	local sourceTag = normalizeSource(source)
+	local reason = "rebirth_" .. sourceTag
+
+	-- 1. 프로필 확인. getBlox가 nil이면 로드 전이거나 이미 나간 플레이어다.
+	local blox = deps.getBlox(player)
+	local rebirths = deps.getRebirths(player)
+	if blox == nil or rebirths == nil then
 		return false, REASON_NO_PROFILE
 	end
+
+	-- 2. 가능 판정. ⚠️ 여기까지는 **부작용이 0이어야 한다**(거부가 런을 없애면 안 된다).
 	if not EconomyV2Logic.canRebirth(blox, rebirths) then
 		return false, REASON_NOT_ENOUGH_BLOX
 	end
 	local gained = BigNum.new(1, 0)
 	local cost = EconomyV2Logic.rebirthCost(rebirths)
+
+	-- ===== 여기부터 되돌릴 수 없다 =====================================================
+
+	-- 3. 진행 중인 런을 버린다(재화 조작보다 먼저 — 런이 살아 있으면 그 cashout이 방금 뺀 지갑에 다시 들어온다).
 	deps.abandonRun(player)
+
+	-- 4. 비용을 낸다. 나머지가 남으면 subtract, 아니면 set(0).
 	local remainder = EconomyV2Logic.rebirthRemainder(blox, rebirths)
 	local paid: boolean
-	if BigNum.gt(remainder, BigNum.new(0, 0)) and deps.subtractBlox ~= nil then
+	if BigNum.gt(remainder, BigNum.new(0, 0)) then
 		paid = deps.subtractBlox(player, cost, reason)
 	else
 		paid = deps.setBlox(player, BigNum.new(0, 0), reason)
@@ -178,110 +183,34 @@ local function runRebirthV2(deps: Deps, player: Player, blox: BigNumber, sourceT
 	if not paid then
 		return reportPartialFailure(player, 4, "payRebirthCost", gained, sourceTag, "런만 사라지고 블럭스는 남아 있다")
 	end
+
+	-- 5. 환생 수 가산(4번 뒤 — 실패하면 유저가 손해 보는 쪽이 무한 환생보다 낫다).
 	local addOk, total = deps.addRebirths(player, gained, reason)
 	if not addOk or total == nil then
 		return reportPartialFailure(player, 5, "addRebirths", gained, sourceTag, "비용을 냈는데 환생 수가 오르지 않았다")
 	end
+
+	-- 6. 힘을 시작 상태로(Schema.new — 템플릿 참조를 공유하지 않게).
 	if not deps.setStrength(player, Schema.new().strength, reason) then
 		return reportPartialFailure(player, 6, "setStrength", gained, sourceTag, "비용과 환생 수는 끝났으나 힘이 초기화되지 않았다")
 	end
+
+	-- 7~8. 진행도 되돌리기(ChallengeService 소유). unlockedWorlds는 영구 — 되돌리지 않는다.
 	deps.resetMaxStage(player)
 	deps.resetCurrentWorld(player)
+
+	-- 9. (없앴다) 환생은 런을 세우지 않는다 — 런은 입장 게이트가 세운다. 번호는 계약이라 비워 둔다.
+
+	-- 10. 최대 이동속도 재적용 — ⚠️ 반드시 6번 뒤(초기화된 힘을 다시 읽는다).
 	deps.onRebirth(player)
+
+	-- 11. 패드 되돌리기(lifeBlox 0 · 선택 패드 1). 운동기구는 환생 수 기준이라 건드리지 않는다.
 	if not deps.resetLifeBlox(player, reason) then
 		return reportPartialFailure(player, 11, "resetLifeBlox", gained, sourceTag, "환생은 끝났으나 패드 해금 기준(lifeBlox)이 0이 되지 않았다")
 	end
 	deps.resetPad(player)
+
 	local result: RebirthResult = { gained = gained, total = total, cost = cost }
-	return true, result
-end
-
--- economyV2: nil이면 플래그(EconomyV2Config.ECONOMY_V2)를 따른다. 테스트만 true / false를 넣는다.
-local function runRebirth(deps: Deps, player: Player, source: string?, economyV2: boolean?): (boolean, any)
-	local sourceTag = normalizeSource(source)
-	local reason = "rebirth_" .. sourceTag
-
-	-- 1. 프로필 확인. getBlox가 nil이면 로드 전이거나 이미 나간 플레이어다.
-	local blox = deps.getBlox(player)
-	if blox == nil then
-		return false, REASON_NO_PROFILE
-	end
-
-	-- 2. 얻을 배수 계산과 가능 판정.
-	-- ⚠️ 여기까지는 **부작용이 0이어야 한다.** 거부가 런을 없애거나 값을 건드리면,
-	-- "버튼을 잘못 눌렀는데 진행 중이던 런이 날아갔다"가 된다. 아래 3번부터가
-	-- 되돌릴 수 없는 구간이므로 판정을 전부 그 앞에서 끝낸다.
-	local v2 = if economyV2 ~= nil then economyV2 else EconomyV2Logic.isOn()
-	if v2 then
-		return runRebirthV2(deps, player, blox, sourceTag, reason)
-	end
-	if not RebirthConfig.canRebirth(blox) then
-		return false, REASON_NOT_ENOUGH_BLOX
-	end
-	local gained = RebirthConfig.getGainedRebirths(blox, if deps.getRebirthMult ~= nil then deps.getRebirthMult(player) else nil)
-
-	-- ===== 여기부터 되돌릴 수 없다 =====================================================
-
-	-- 3. 진행 중인 런을 버린다. 보상 0, 패널티 없음.
-	-- 왜 재화 조작보다 먼저인가: 런이 살아 있는 채로 블럭스를 0으로 만들면 그 런의
-	-- cashout이 방금 비운 지갑에 다시 들어온다. 순서가 뒤집히면 환생 직후 블럭스가 생긴다.
-	deps.abandonRun(player)
-
-	-- 4. 블럭스 전액 소모. 1000 미만 나머지도 함께 사라진다 (DESIGN: 버림).
-	-- subtract가 아니라 set인 이유: subtract는 "읽은 값과 같은 양"을 빼는 것이라
-	-- 값이 바뀌었으면 잔액이 남는다. set(0)은 얼마였든 0으로 만든다.
-	if not deps.setBlox(player, BigNum.new(0, 0), reason) then
-		return reportPartialFailure(player, 4, "setBlox", gained, sourceTag, "런만 사라지고 블럭스는 남아 있다")
-	end
-
-	-- 5. 배수 가산. ⚠️ set이 아니라 add다 — 환생할 때마다 쌓인다(DESIGN: 가산).
-	--
-	-- ⚠️ 4번(소모)보다 뒤인 것이 의도다. 여기서 실패하면 블럭스만 사라지고 배수는 안 오른다.
-	-- 반대로 두면(먼저 가산, 나중에 소모) 실패 시 배수는 올랐는데 블럭스가 남아 무한 환생이
-	-- 된다. 둘 다 정상 경로에서는 일어나지 않지만(4·5는 프로필이 손상된 경우에만 실패한다),
-	-- 굳이 골라야 한다면 **유저가 손해 보는 쪽이 게임이 망가지는 쪽보다 낫다.**
-	local addOk, total = deps.addRebirths(player, gained, reason)
-	if not addOk or total == nil then
-		return reportPartialFailure(player, 5, "addRebirths", gained, sourceTag, "블럭스가 소각됐는데 배수가 오르지 않았다")
-	end
-
-	-- 6. 힘을 시작 상태로. 초기값은 Schema에서 가져온다 — 하드코딩하면 템플릿을 바꿨을 때
-	-- 여기만 옛 값으로 남는다. ⚠️ 신규 프로필의 힘은 0이 아니라 1이다(Schema.lua).
-	-- ⚠️ getTemplate()이 아니라 new()를 쓴다. 전자는 단일 원본을 그대로 주므로 그 테이블을
-	--    프로필에 넣으면 템플릿과 참조를 공유하게 된다.
-	if not deps.setStrength(player, Schema.new().strength, reason) then
-		return reportPartialFailure(player, 6, "setStrength", gained, sourceTag, "블럭스 소각과 배수 가산은 끝났으나 힘이 초기화되지 않았다")
-	end
-
-	-- 7~8. 진행도 되돌리기. 둘 다 ChallengeService가 소유한다 (progress.* 대입은 그 파일뿐).
-	-- ⚠️ unlockedWorlds는 되돌리지 않는다. 영구 진행이다.
-	deps.resetMaxStage(player)
-	deps.resetCurrentWorld(player)
-
-	-- 9. (없앴다) 예전에는 여기서 1층 런을 세웠다. 환생은 **런을 세우지 않는다** —
-	-- 런은 입장 게이트를 지나는 순간 선다(EntranceGateService). 서버가 스폰에서 런을 세우면
-	-- 걷는 동안 20초가 흘러, 환생 직후(최대속도 최저)의 런이 반드시 시간 초과됐다.
-	-- 스폰 복귀는 3번(abandonRun → endRun)이 이미 했다. 번호는 계약이라 비워 둔다.
-
-	-- 10. 최대 이동속도 재적용.
-	-- ⚠️ 반드시 6번 뒤여야 한다. onRebirth는 힘을 **그 시점에 다시 읽어** 최대치를
-	-- 계산하므로, 먼저 부르면 옛 힘으로 계산해서 아무것도 안 바뀐다. 그러면 세션 값이
-	-- 새 최대치를 초과한 채 남고(레벨 40에서 환생하면 56 → 16이어야 할 구간을 56으로
-	-- 다닌다) 발판 깊이 관통이 열린다.
-	deps.onRebirth(player)
-
-	-- 11. 패드 되돌리기 (2026-10-21 사람 결정 — 패드는 환생하면 다시 잠긴다).
-	-- 이번 생애 누적 blox(lifeBlox)를 0으로, 선택 패드를 1로. 운동기구는 환생 수 기준이라
-	-- 여기서 건드리지 않는다(오히려 5번 가산으로 더 열린다).
-	-- ⚠️ 4번(setBlox) 뒤여야 한다는 제약은 없다 — set은 lifeBlox를 건드리지 않는다. 다만 되돌릴 수
-	--    없는 구간 안이라 실패는 부분 실패로 남긴다. resetPad는 프로필이 없을 때만 false라 무시한다
-	--    (resetMaxStage와 같은 취급).
-	if not deps.resetLifeBlox(player, reason) then
-		return reportPartialFailure(player, 11, "resetLifeBlox", gained, sourceTag, "환생은 끝났으나 패드 해금 기준(lifeBlox)이 0이 되지 않았다")
-	end
-	deps.resetPad(player)
-
-	local result: RebirthResult = { gained = gained, total = total }
 	return true, result
 end
 
@@ -326,9 +255,6 @@ local REAL: Deps = {
 	resetPad = function(player: Player)
 		return PadService.resetForRebirth(player)
 	end,
-	getRebirthMult = function(player: Player)
-		return ShopEffects.rebirth(player)
-	end,
 	getRebirths = function(player: Player)
 		return CurrencyService.get(player, "rebirths")
 	end,
@@ -357,11 +283,7 @@ end
 function RebirthService.rebirth(player: Player, source: string?): (boolean, any)
 	local ok, value = runRebirth(REAL, player, source)
 	if ok then
-		if value.cost ~= nil then
-			Analytics.rebirthV2(player, value.total, value.cost) -- 새 경제(지시서 #31 — 값 환생 뒤 환생 수 · 필드 비용 자릿수 log10)
-		else
-			Analytics.rebirth(player, value.gained) -- 분석 커스텀 이벤트(지시서 #23 A3 — 값 log10 얻은 환생 수)
-		end
+		Analytics.rebirth(player, value.total, value.cost) -- 분석 이벤트 rebirth(지시서 #31 — 값 환생 뒤 환생 수 · 필드 비용 자릿수 log10)
 		for _, cb in ipairs(rebirthedListeners) do
 			task.spawn(cb, player)
 		end
@@ -386,10 +308,7 @@ function RebirthService.init()
 	end
 	initialized = true
 
-	print(string.format(
-		"[RebirthService] 환생 준비 완료 (배수 1당 %d 블럭스, 진입점: 환생 창 → RebirthRequestService)",
-		RebirthConfig.BLOX_PER_REBIRTH
-	))
+	print("[RebirthService] 환생 준비 완료 (비용 1000 × 4^n · 진입점: 환생 창 → RebirthRequestService)")
 end
 
 -- 지금 환생하면 얻을 배수. 거부 여부만 보려면 canRebirth를 쓴다.
@@ -400,11 +319,8 @@ function RebirthService.previewGain(player: Player): BigNumber?
 	if blox == nil then
 		return nil
 	end
-	if EconomyV2Logic.isOn() then
-		local rebirths = CurrencyService.get(player, "rebirths")
-		return if rebirths ~= nil and EconomyV2Logic.canRebirth(blox, rebirths) then BigNum.new(1, 0) else BigNum.new(0, 0)
-	end
-	return RebirthConfig.getGainedRebirths(blox, ShopEffects.rebirth(player))
+	local rebirths = CurrencyService.get(player, "rebirths")
+	return if rebirths ~= nil and EconomyV2Logic.canRebirth(blox, rebirths) then BigNum.new(1, 0) else BigNum.new(0, 0)
 end
 
 return RebirthService

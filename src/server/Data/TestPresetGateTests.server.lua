@@ -18,7 +18,6 @@ local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local ProfileStore = require(ServerScriptService.ServerPackages.ProfileStore)
 local Schema = require(script.Parent.Schema)
 local TestPresetGate = require(script.Parent.TestPresetGate)
-local TestPresetExport = require(script.Parent.Parent.Tools.TestPresetExport)
 
 local passed = 0
 local failed = 0
@@ -45,15 +44,6 @@ do
 		end
 	end
 	check("NAMES = Presets 키 (6개)", allListed and n == 6, tostring(n))
-	local stages = TestPresetExport.milestoneStages()
-	local entries = TestPresetExport.entries(stages[#stages], stages)
-	local same = #entries == #TestPresets.NAMES
-	for i, entry in ipairs(entries) do
-		if TestPresets.NAMES[i] ~= entry.name or TestPresets.Presets[entry.name].label ~= entry.label then
-			same = false
-		end
-	end
-	check("이름 · 화면 이름 = 뽑기 도구(TestPresetExport)의 시점 목록과 같은 순서", same)
 end
 
 for _, name in ipairs(TestPresets.NAMES) do

@@ -1,5 +1,5 @@
 --!strict
--- 장비 서버 검증(지시서 #34 — 플래그 ECONOMY_V2 뒤). 전역 플래그는 건드리지 않는다.
+-- 장비 서버 검증(지시서 #34).
 -- InventoryService 순수 함수(Schema.new 데이터) · EquipmentService(가짜 deps) · 데미지 배수 일치(게임 = 시뮬) · 가방 넘침 · 손 모델 · 플래그 꺼짐.
 -- 숫자는 Config에서 읽는다.
 
@@ -18,6 +18,7 @@ local HeldPickaxeService = require(ServerScriptService.Server.Systems.HeldPickax
 local OreDropService = require(ServerScriptService.Server.Systems.OreDropService)
 local AttackService = require(ServerScriptService.Server.Systems.AttackService)
 local UpgradeService = require(ServerScriptService.Server.Systems.UpgradeService)
+local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 
 local passed = 0
 local failed = 0
@@ -205,14 +206,12 @@ do
 	InventoryService._deps.getData = function(pl: any)
 		return if pl == fake then data else savedGet(pl)
 	end
-	local okV2, v2 = pcall(AttackService.punchDamageFactor, fake, true)
-	local okV1, v1 = pcall(AttackService.punchDamageFactor, fake, false)
+	local okV2, v2 = pcall(AttackService.punchDamageFactor, fake)
 	InventoryService._deps.getData = savedGet
-	check("데미지 경로: 새 경제면 장착 곡괭이 배수(= 시뮬 equippedMult) · 끄면 상점 업그레이드 효과 그대로", okV2 and okV1
-		and math.abs(v2 - L.equippedMult(L.picksFromSave(data.equipment.pickaxe, id))) < 1e-9 and v2 > 1
-		and v1 == UpgradeService.getEffect(fake, "punchDamage"), tostring(v2) .. " / " .. tostring(v1))
-	check("상점: 펀치 데미지 업그레이드는 새 경제에서만 빠진다", L.isRemovedUpgrade("punchDamage", true) and not L.isRemovedUpgrade("punchDamage", false)
-		and not L.isRemovedUpgrade("punchSpeed", true) and not L.isRemovedUpgrade("bloxGain", true))
+	check("데미지 경로: 장착 곡괭이 배수(= 시뮬 equippedMult)", okV2
+		and math.abs(v2 - L.equippedMult(L.picksFromSave(data.equipment.pickaxe, id))) < 1e-9 and v2 > 1, tostring(v2))
+	check("상점: 펀치 데미지 업그레이드는 없다(#37 다 — 지웠다) · 펀치 속도 · 블럭스 획득은 있다", UpgradeConfig.Upgrades.punchDamage == nil
+		and UpgradeConfig.Upgrades.punchSpeed ~= nil and UpgradeConfig.Upgrades.bloxGain ~= nil)
 end
 
 -- 6. 가방: 장착을 바꾸면 용량 · 넘침 규칙 -------------------------------------------------------------------------
@@ -282,8 +281,6 @@ do
 end
 
 -- 8. 플래그 꺼짐 = 지금과 같다 ------------------------------------------------------------------------------
-check("플래그 꺼짐: 장비 · 손 모델 서비스 init 없음(켜져 있으면 init됨)", EquipmentService._initialized() == L.isOn()
-	and HeldPickaxeService._initialized() == L.isOn())
 
 print(string.format("[EquipmentServiceTests] %d passed, %d failed", passed, failed))
 if failed > 0 then

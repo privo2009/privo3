@@ -237,9 +237,10 @@ end
 -- 8. 도우미 — 환생 · 처음 깬 층 · 자동 진행 · 구매 · 퍼널 -------------------------------------------------------
 do
 	local w = newWorld()
-	check("환생: 값 = log10 얻은 환생 수", w.a.rebirth(P1, BigNum.new(1.4, 1)) and w.custom[1].name == E.rebirth
-		and math.abs(w.custom[1].value - math.log10(14)) < 1e-9)
-	check("환생: 0 · 형태 이상은 거부", not w.a.rebirth(P1, BigNum.new(0, 0)) and not w.a.rebirth(P1, nil) and #w.custom == 1)
+	-- #37 다: 환생 이벤트는 새 경제 값만(환생 뒤 환생 수 · 필드 1 = 비용 자릿수) — 예전 log10 얻은 환생 수
+	check("환생: 값 = 환생 뒤 환생 수 · 필드 = 비용 자릿수", w.a.rebirth(P1, BigNum.new(1.4, 1), BigNum.new(1.6, 4)) and w.custom[1].name == E.rebirth
+		and w.custom[1].value == 14 and w.custom[1].fields ~= nil and w.custom[1].fields[1] == "4")
+	check("환생: 0 · 형태 이상은 거부", not w.a.rebirth(P1, BigNum.new(0, 0), BigNum.new(1, 3)) and not w.a.rebirth(P1, nil, nil) and #w.custom == 1)
 	check("처음 깬 층: 값 = 층 번호", w.a.floorFirstClear(P1, 3) and w.custom[2].name == E.floorFirstClear and w.custom[2].value == 3)
 	check("자동 진행 시작: 값 = 목표 − 안전", w.a.autoAdvanceStart(P1, 2 - 8) and w.custom[3].name == E.autoAdvanceStart and w.custom[3].value == -6)
 	check("로벅스 구매: 값 1 · 필드 키 · 종류", w.a.robuxPurchase(P1, "strengthPotion", "product") and w.custom[4].name == E.robuxPurchase

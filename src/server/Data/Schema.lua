@@ -21,7 +21,6 @@ Schema.VERSION = 10 -- v3: progress.selectedPadIndex 추가 (클릭 파워 패�
 -- v10: 새 경제 저장 필드를 한 번에(2026-11-24 지시서 #32 — DESIGN 16장). coins(BigNum — CurrencyService) ·
 --      ores(광석 10종 개수) · equipment(장비 종류별 보유 {count, stars, enh}) · equipped(종류별 장착 id) ·
 --      tokens(희귀 · 에픽 · 신화 · 전설 · ???) · forgeOpen(대장간 열림). ores · equipment · tokens · forgeOpen은 InventoryService만 바꾼다.
---      플래그 ECONOMY_V2가 꺼져 있으면 아무도 읽거나 쓰지 않는다(필드만 있다)
 
 -- 구조적 상한값. DESIGN.md 6장 수치와 같지만 Schema는 Config를 몰라야 하므로 별도로 둔다.
 -- 중복이 어긋나면 SchemaTests가 잡는다(PetConfig · AuraConfig 값과 대조한다).
@@ -215,7 +214,7 @@ local function buildTemplate()
 			done = false,
 		},
 
-		-- 새 경제(v10 — 지시서 #32 · DESIGN 16장). 플래그 ECONOMY_V2가 꺼져 있으면 아무도 쓰지 않는다
+		-- 새 경제(v10 — 지시서 #32 · DESIGN 16장)
 		coins = newBigNum(0, 0), -- 코인(BigNum — CurrencyService "coins"만 바꾼다)
 		ores = newOres(), -- 광석 1 ~ ORE_COUNT 개수(정수 배열 — InventoryService만)
 		equipment = newEquipment(), -- {[종류] = {[id] = {count, stars, enh}}} — 시작 장비 1개 보유

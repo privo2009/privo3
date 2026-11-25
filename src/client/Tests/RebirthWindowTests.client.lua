@@ -8,8 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
-local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
-local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
+local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Store = require(script.Parent.Parent.UI.Store)
 local RebirthWindowLogic = require(script.Parent.Parent.UI.Logic.RebirthWindowLogic)
@@ -27,31 +26,13 @@ local function check(name: string, ok: boolean, detail: string?)
 	end
 end
 
-local COST = RebirthConfig.BLOX_PER_REBIRTH
-
--- 1. 표시 값 ---------------------------------------------------------------------------------
-do
-	local blox = BigNum.fromNumber(COST * 2 + 345)
-	local v = RebirthWindowLogic.compute(blox, BigNum.fromNumber(4))
-	check("값: 얻는 배수 = 서버 함수(getGainedRebirths)", BigNum.eq(v.gained, RebirthConfig.getGainedRebirths(blox)))
-	check("값: 얻는 배수 2", BigNum.eq(v.gained, BigNum.fromNumber(2)))
-	check("값: 버려지는 양 = 나머지", BigNum.eq(v.wasted, BigNum.fromNumber(345)), BigNum.tostring(v.wasted))
-	check("값: 가능", v.canRebirth and v.lockReason == nil)
-	check("값: 지금 배수 = StrengthMultiplier", BigNum.eq(v.multiplierNow, StrengthMultiplier.compute({ rebirths = BigNum.fromNumber(4) })))
-	check("값: 환생 후 배수 = 배수 + 얻는 배수", BigNum.eq(v.multiplierAfter, StrengthMultiplier.compute({ rebirths = BigNum.fromNumber(6) })))
-
-	local low = RebirthWindowLogic.compute(BigNum.fromNumber(COST - 1), BigNum.new(0, 0))
-	check("값: 1000 미만이면 잠김 + 사유 코드", not low.canRebirth and low.lockReason == "not_enough_blox")
-	check("값: 잠겨도 버려지는 양은 전액", BigNum.eq(low.wasted, BigNum.fromNumber(COST - 1)))
-
-	local huge = RebirthWindowLogic.compute(BigNum.new(7, 40), BigNum.new(0, 0))
-	check("값: 아주 큰 블럭스에서도 버려지는 양이 음수가 아니다", huge.wasted.m >= 0)
-end
+-- #37: 옛 환생(전액 소모 · 얻는 배수 · 버려지는 양)은 지웠다 — 값 검증은 RebirthV2WindowTests. 여기는 창 동작(확인 · 잠김 · 상점 · 배치)
+local COST = EconomyV2Logic.rebirthCost(2) -- 창의 환생 수 2일 때 다음 비용
 
 -- 2. 사유 문구 ---------------------------------------------------------------------------------
 do
 	local generic = RebirthWindowLogic.reasonText("???")
-	check("문구: 블럭스 부족은 비용을 Config에서", string.find(RebirthWindowLogic.reasonText("not_enough_blox"), Formatter.format(BigNum.fromNumber(COST)), 1, true) ~= nil)
+	check("문구: 블럭스 부족은 다음 비용을 보인다(#37 다)", string.find(RebirthWindowLogic.reasonText("not_enough_blox", COST), Formatter.format(COST), 1, true) ~= nil)
 	check("문구: 부분 실패는 일반 실패와 다르다", RebirthWindowLogic.reasonText("partial_failure") ~= generic)
 	check("문구: 빈도 상한 문구가 있다", RebirthWindowLogic.reasonText("rate_limited") ~= generic)
 	check("문구: 모르는 코드는 일반 문구", generic ~= "")
@@ -74,16 +55,14 @@ check("목록: 초기화 목록에 패드가 있다", table.find(RebirthWindowLo
 	and string.find(Locale.tFor("ko", "rebirth.reset.pad"), "패드", 1, true) ~= nil and string.find(Locale.tFor("en", "rebirth.reset.pad"), "Pad", 1, true) ~= nil)
 
 -- 4. 창 --------------------------------------------------------------------------------------
-check("목록: 남는 것에 상점 업그레이드가 있다(환생은 업그레이드를 건드리지 않는다 — 지시서 #7)", RebirthWindowLogic.KEEPS == Locale.t("rebirth.keeps") and string.find(Locale.tFor("ko", "rebirth.keeps"), "업그레이드", 1, true) ~= nil and string.find(Locale.tFor("en", "rebirth.keeps"), "Upgrade", 1, true) ~= nil)
-check("값: 버려지는 양 = RebirthConfig.getLeftover(시뮬레이터 S5 예산과 같은 원본)", BigNum.eq(RebirthWindowLogic.compute(BigNum.fromNumber(2345), BigNum.new(0, 0)).wasted,
-	RebirthConfig.getLeftover(BigNum.fromNumber(2345))))
+check("목록: 남는 것에 상점 업그레이드가 있다(환생은 업그레이드를 건드리지 않는다 — 지시서 #7 · #37 다: 새 경제 문장)", RebirthWindowLogic.KEEPS == Locale.t("rebirth.v2.keeps") and string.find(Locale.tFor("ko", "rebirth.v2.keeps"), "업그레이드", 1, true) ~= nil and string.find(Locale.tFor("en", "rebirth.v2.keeps"), "Upgrade", 1, true) ~= nil)
 
-local function makeWindow(bloxValue: number)
+local function makeWindow(bloxValue: BigNum.BigNumber)
 	local store = Store.new()
 	local set: (any, any) -> () = function() end
 	store.setSource(function(setter)
 		set = setter
-		setter("blox", BigNum.fromNumber(bloxValue))
+		setter("blox", bloxValue)
 		setter("rebirths", BigNum.fromNumber(2))
 	end)
 	local clock = 0
@@ -110,10 +89,10 @@ local function makeWindow(bloxValue: number)
 end
 
 do
-	local handle, w, advance, set = makeWindow(COST * 3 + 10)
+	local handle, w, advance, set = makeWindow(BigNum.add(COST, BigNum.fromNumber(10)))
 	check("창: 작은 창 60% × 70%", math.abs(handle.root.Size.X.Scale - 0.6) < 1e-6 and math.abs(handle.root.Size.Y.Scale - 0.7) < 1e-6)
-	check("창: 보유 블럭스 표시", handle._debug.labels.bloxValue.Text == Formatter.format(BigNum.fromNumber(COST * 3 + 10)))
-	check("창: 버려지는 양 표시", handle._debug.labels.wastedValue.Text == Formatter.format(BigNum.fromNumber(10)))
+	check("창: 보유 블럭스 표시", handle._debug.labels.bloxValue.Text == Formatter.format(BigNum.add(COST, BigNum.fromNumber(10))))
+	check("창: 둘째 줄 = 다음 환생 비용(#37 다 — 예전 버려지는 양)", handle._debug.labels.wastedValue.Text == Formatter.format(COST))
 	check("창: 버튼이 켜져 있다", not handle._debug.button.isDisabled())
 	-- 버튼 그림이 패널 배경층 밑에 깔리면 안 보인다(2026-10-22 Play에서 X 버튼이 사라졌다).
 	local function minZ(root: Instance): number
@@ -157,8 +136,8 @@ do
 	handle._debug.press()
 	check("창: 확인 시간이 지나면 다시 두 번 눌러야 한다", w.sends == 1)
 
-	handle.onResult({ ok = true, reason = "", gained = { m = 3, e = 0 } })
-	check("창: 성공 결과 문구", handle._debug.labels.status.Text == RebirthWindow.successText(BigNum.new(3, 0)))
+	handle.onResult({ ok = true, reason = "", gained = { m = 1, e = 0 }, total = { m = 3, e = 0 } })
+	check("창: 성공 결과 문구(#37 다 — 환생 뒤 환생 수)", handle._debug.labels.status.Text == Locale.t("rebirth.v2.success", { total = Formatter.format(BigNum.new(3, 0)) }))
 	handle.onResult({ ok = false, reason = "rate_limited", gained = { m = 0, e = 0 } })
 	check("창: 거부 결과는 사유 문구", handle._debug.labels.status.Text == RebirthWindowLogic.reasonText("rate_limited"))
 	-- 지시서 #18 AA9: "자동 진행 중" 거부 문구는 자동이 꺼지면 지워진다(다른 거부 문구는 그대로)
@@ -187,9 +166,9 @@ do
 end
 
 do
-	local handle, w, advance = makeWindow(COST - 1)
+	local handle, w, advance = makeWindow(BigNum.sub(COST, BigNum.new(1, 0)))
 	check("잠김: 버튼이 회색 잠김", handle._debug.button.isDisabled())
-	check("잠김: 이유 문구", handle._debug.labels.status.Text == RebirthWindowLogic.reasonText("not_enough_blox"))
+	check("잠김: 이유 문구(#37 다 — 다음 비용)", handle._debug.labels.status.Text == RebirthWindowLogic.reasonText("not_enough_blox", COST))
 	handle._debug.press()
 	advance(0.5)
 	handle._debug.press()
@@ -211,15 +190,10 @@ do
 		return true
 	end)())
 
-	local withWaste = makeWindow(COST * 3 + 10)
-	check("버려지는 양 > 0 이면 빨간 강조", withWaste._debug.labels.wastedValue.BackgroundTransparency == 0)
-	local line = withWaste._debug.labels.reset1
+	local win = makeWindow(COST)
+	local line = win._debug.labels.reset1
 	check("목록 줄 높이가 예전(본문의 4.5%)보다 크다", line ~= nil and line.Size.Y.Scale > 0.045, line and tostring(line.Size.Y.Scale) or "nil")
-	withWaste.root:Destroy()
-	local noWaste = makeWindow(COST * 3)
-	check("버려지는 양 0 이면 빨간 강조를 끈다", noWaste._debug.labels.wastedValue.BackgroundTransparency == 1
-		and noWaste._debug.labels.wastedValue.Text == Formatter.format(BigNum.new(0, 0)))
-	noWaste.root:Destroy()
+	win.root:Destroy()
 end
 
 print(string.format("[RebirthWindowTests] %d passed, %d failed", passed, failed))

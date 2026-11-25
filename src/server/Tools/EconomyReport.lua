@@ -4,16 +4,16 @@
 -- ⚠️ 개발 도구다. 게임 경로에 붙지 않는다. 프로필을 읽지도 쓰지도 않는다.
 --    새 경제의 식은 여기 다시 쓰지 않는다 — Shared/EconomyV2Logic(게이지 · 조합 · 제작 · 토큰 · 교환 · 별 · 강화 · 가방 · 코인 · 환생 v2)과
 --    Shared/Config/EconomyV2Config를 그대로 부르고, 묶음(후보)마다 Config 값을 메모리에서 잠깐 바꾸고 끝나면 되돌린다
---    (EconomyCandidateReport · HpCandidateReport와 같은 패턴). 플래그(ECONOMY_V2)는 건드리지 않는다 — 배수 · 운동기구는 economyV2 인자로 부른다.
+--    (#37 — 플래그 ECONOMY_V2는 지웠다. 이름도 EconomyV2Report → EconomyReport).
 --    엔진은 SuccessRateReport(HP 곡선 · 런 · 수령 · 실패 · 칭호 S7 · 아우라 A4 · 업그레이드 S5' · 운동기구)다. 고리 ECON으로 붙는다.
--- 켜는 곳: SuccessRateReport.SIM.ECONOMY_V2_ONLY + Bootstrap SUCCESS_RATE_REPORT_ENABLED(둘 다 커밋 값 false).
+-- 켜는 곳: SuccessRateReport.SIM.ECONOMY_ONLY + Bootstrap SUCCESS_RATE_REPORT_ENABLED(둘 다 커밋 값 false).
 --
 -- ===== 표준 무과금 플레이어(지시서 #30 6번 · #31 5번 — 괄호는 Claude 해석) ===============================================
 --   진행 · 클릭 · 진행 판단 · 칭호 · 아우라 · 운동기구   SuccessRateReport 결정 모델 그대로(수동 진행 · 클릭률 6 ~ 10)
 --   환생      살 수 있으면 바로(#29 결론 — eager). 비용 EconomyV2Logic.rebirthCost · 나머지는 아우라 A4 → 업그레이드 S5'(펀치 속도 · 블럭스 획득 ·
 --             펫 슬롯)에 쓰고, 남은 것은 남긴다(REBIRTH_KEEP_REMAINDER — 비교 줄 "0으로")
 --   광석      층을 깰 때마다 EconomyV2Logic.rollDrops(층 · 블록 수 — 상위 광석은 × UPPER_ORE_DROP_MULT · 소수는 seed 난수). 줍기 = #29 표준 모델(타이머 중 드롭은 공격하며 줍고, 클리어 뒤
---             마지막 블록 드롭만 걸어간다 — EconomyCandidateReport.pickDistance · 반경 PICKUP_RADIUS). 가방 = 장착 곡괭이 용량 · 가득 차면 바꿔 줍기
+--             마지막 블록 드롭만 걸어간다 — EconomyReport.pickDistance · 반경 PICKUP_RADIUS). 가방 = 장착 곡괭이 용량 · 가득 차면 바꿔 줍기
 --   코인      깬 층의 블록 수 × coinPerBlock(층)(실패한 층의 부서진 블록은 세지 않는다 — 과소). 펫: 런 직전 코인으로 해금된 가장 높은 알을 닿는 만큼
 --             부화(E11과 같은 "가장 높은 것만" · 크래프팅 · 놓아주기). 펫 슬롯은 S5'가 블럭스로 산다
 --   제작      자동 제작 켬 · 연출 + 스킵(#31 — EconomyV2Logic.craftStep: 무료는 CRAFT_SKIP_SEC마다 1회 · 쉬지 않고 — 광석이 떨어지면 그동안은
@@ -42,7 +42,7 @@ local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local WorldConfig = require(ReplicatedStorage.Shared.Config.WorldConfig)
 
 local SuccessRateReport = require(script.Parent.SuccessRateReport)
-local EconomyCandidateReport = require(script.Parent.EconomyCandidateReport)
+local BlockLayout = require(ReplicatedStorage.Shared.BlockLayout)
 local AttackService = require(script.Parent.Parent.Systems.AttackService)
 local AutoAdvanceLogic = require(ReplicatedStorage.Shared.AutoAdvanceLogic)
 local RollService = require(script.Parent.Parent.Systems.RollService)
@@ -50,17 +50,75 @@ local RollLogic = require(script.Parent.Parent.Systems.RollLogic)
 
 type BigNumber = BigNum.BigNumber
 
-local EconomyV2Report = {}
+local EconomyReport = {}
+
+-- 클리어 뒤 줍기 걷는 거리(#29 표준 모델 — #37에서 EconomyCandidateReport가 지워지며 여기로 옮겼다. 식 그대로)
+-- 블록 자리(층 중심 기준) 거리 목록
+local distCache: { [number]: { Vector3 } } = {}
+local function offsets(stage: number): { Vector3 }
+	local cached = distCache[stage]
+	if cached ~= nil then
+		return cached
+	end
+	local origin = BlockLayout.getStageOrigin(stage)
+	local out = {}
+	for i, pos in ipairs(BlockLayout.computeLayout(StageConfig.getBlockCount(stage), stage)) do
+		local d = pos - origin
+		out[i] = Vector3.new(d.X, 0, d.Z)
+	end
+	distCache[stage] = out
+	return out
+end
+
+-- 클리어 뒤 걷는 거리(스터드). "last" = 마지막 블록(평균 거리) 왕복, "all" = 가까운 순 순회 + 복귀. 반경 r 안은 걷지 않는다.
+function EconomyReport.pickDistance(stage: number, kind: string, r: number): number
+	local pts = offsets(stage)
+	if kind == "last" then
+		local sum = 0
+		for _, v in ipairs(pts) do
+			sum += v.Magnitude
+		end
+		return 2 * math.max(0, sum / #pts - r)
+	end
+	local pos = Vector3.zero
+	local left = table.clone(pts)
+	local total = 0
+	while #left > 0 do
+		-- r 안은 이미 끌려왔다
+		for i = #left, 1, -1 do
+			if (left[i] - pos).Magnitude <= r then
+				table.remove(left, i)
+			end
+		end
+		if #left == 0 then
+			break
+		end
+		local bi, bd = 1, math.huge
+		for i, v in ipairs(left) do
+			local d = (v - pos).Magnitude
+			if d < bd then
+				bi, bd = i, d
+			end
+		end
+		local target = left[bi]
+		local step = math.max(0, bd - r)
+		pos = pos + (target - pos).Unit * step
+		total += step
+		table.remove(left, bi) -- 부동소수 오차로 r 경계에서 남지 않게 직접 뺀다
+	end
+	return total + pos.Magnitude
+end
+
 
 -- 관측 해상도(게임 수치가 아니다)
-EconomyV2Report.PLAYERS = 100
-EconomyV2Report.TUNE_PLAYERS = 30
-EconomyV2Report.TUNE_STEPS = 6
-EconomyV2Report.CRAFT_SEED = 20261124
-EconomyV2Report.PET_COIN_SEED = 20261125
-EconomyV2Report.DROP_SEED = 20261126
+EconomyReport.PLAYERS = 100
+EconomyReport.TUNE_PLAYERS = 30
+EconomyReport.TUNE_STEPS = 6
+EconomyReport.CRAFT_SEED = 20261124
+EconomyReport.PET_COIN_SEED = 20261125
+EconomyReport.DROP_SEED = 20261126
 -- 합격 기준(지시서 #31 5번 — 게임 수치가 아니다). 초반은 1 ~ 7층만(8 · 9층은 빨라져도 된다 — N6 해소)
-EconomyV2Report.GOAL = {
+EconomyReport.GOAL = {
 	t25 = { 105, 135 }, -- 분
 	t15 = { 160, 200 },
 	rebirths = { 10, 20 },
@@ -79,7 +137,7 @@ EconomyV2Report.GOAL = {
 	horizonMin = 180,
 }
 -- run() 모드: "full"(재현 + 후보 묶음 + 정책 비교 + 참고 측정) · "explore"(재현 + EXPLORE 목록만)
-EconomyV2Report.MODE = "full"
+EconomyReport.MODE = "full"
 
 export type Policy = {
 	rebirthKeep: boolean?, -- nil = Config.REBIRTH_KEEP_REMAINDER
@@ -134,12 +192,12 @@ end
 
 local LEGEND_PCT: { [number]: number } = {}
 -- 묶음 set에서 "이 키를 nil로" 표시(표에 nil을 못 넣는다)
-EconomyV2Report.NONE = table.freeze({})
+EconomyReport.NONE = table.freeze({})
 
 -- 표준 플레이어의 조합(지시서 #31 — Claude 해석). 가진 광석으로 닿는 가장 높은 칸 s를 고르고, 그 칸을 광석 2s + 1 이하만으로 채울 수 있으면
 -- 그렇게 한다(높은 광석은 더 높은 칸에 아껴 둔다). 못 채우면 EconomyV2Logic.bestCombo 그대로.
 -- 이유: 5초 제작이면 제작이 공급보다 빨라 bestCombo만으로는 20층 이상 광석이 3칸 제작에 섞여 녹는다(4칸이 안 생긴다 — 3차 측정 첫 실행).
-function EconomyV2Report.standardCombo(inv: { number }): ({ number }?, number)
+function EconomyReport.standardCombo(inv: { number }): ({ number }?, number)
 	local combo, slots = EconomyV2Logic.bestCombo(inv)
 	if combo == nil then
 		return nil, 0
@@ -173,7 +231,7 @@ local function withBundle(b: Bundle, fn: () -> ())
 	for k, v in pairs(b.set or {}) do
 		saved[k] = (Config :: any)[k]
 		table.insert(touched, k)
-		;(Config :: any)[k] = if v == EconomyV2Report.NONE then nil else v
+		;(Config :: any)[k] = if v == EconomyReport.NONE then nil else v
 	end
 	-- HP 곡선 변형(⚠️ 희준 결정 영역 — 비교 줄에만 쓴다. 기본안 아님)
 	local world = WorldConfig.get(SuccessRateReport.SIM.WORLD_ID) :: any
@@ -244,9 +302,9 @@ local function measureV2(b: Bundle, players: number): any
 		end
 		local hatchSec, hatchPer = EconomyV2Logic.hatchStep(pol.hatchSkip, pol.tripleHatch)
 		local origBlox = SuccessRateReport.bloxMultiplier
-		local craftRandom = RollService.seededRandom(EconomyV2Report.CRAFT_SEED)
-		local petCoinRandom = RollService.seededRandom(EconomyV2Report.PET_COIN_SEED)
-		local dropRandom = RollService.seededRandom(EconomyV2Report.DROP_SEED)
+		local craftRandom = RollService.seededRandom(EconomyReport.CRAFT_SEED)
+		local petCoinRandom = RollService.seededRandom(EconomyReport.PET_COIN_SEED)
+		local dropRandom = RollService.seededRandom(EconomyReport.DROP_SEED)
 		local maxStage = lastStage()
 		local states: { [any]: any } = setmetatable({}, { __mode = "k" }) :: any
 		local function st(p: any): any
@@ -300,7 +358,7 @@ local function measureV2(b: Bundle, players: number): any
 			local done = 0
 			local ranOut = false
 			while done < budget do
-				local combo, slots = EconomyV2Report.standardCombo(s.inv)
+				local combo, slots = EconomyReport.standardCombo(s.inv)
 				if combo == nil then
 					ranOut = true
 					break
@@ -318,7 +376,7 @@ local function measureV2(b: Bundle, players: number): any
 						s.tokensEarned[rr] = (s.tokensEarned[rr] or 0) + c
 					end
 					local craftSec = s.craftClock + (if interval > 0 then math.ceil(done / perTick) * interval else 0)
-					if craftSec <= EconomyV2Report.GOAL.horizonMin * 60 then
+					if craftSec <= EconomyReport.GOAL.horizonMin * 60 then
 						s.expLegend += LEGEND_PCT[slots] / 100
 					end
 					local def = EconomyV2Logic.pickaxe(r.id) :: any
@@ -375,7 +433,7 @@ local function measureV2(b: Bundle, players: number): any
 			if enhanceRule ~= "none" then
 				local maxOre: number? = nil
 				if enhanceRule == "fodder" then
-					local combo = EconomyV2Report.standardCombo(s.inv)
+					local combo = EconomyReport.standardCombo(s.inv)
 					maxOre = if combo ~= nil then (combo :: { number })[1] - 1 else 0
 				end
 				if maxOre == nil or (maxOre :: number) > 0 then
@@ -482,7 +540,7 @@ local function measureV2(b: Bundle, players: number): any
 				if s.enh120 == nil and p.elapsedSec >= 7200 then
 					s.enh120 = s.picks.owned[s.picks.equipped].enh
 				end
-				if s.star180 == nil and p.elapsedSec >= EconomyV2Report.GOAL.horizonMin * 60 then
+				if s.star180 == nil and p.elapsedSec >= EconomyReport.GOAL.horizonMin * 60 then
 					local hist = { [0] = 0, 0, 0, 0, 0, 0 }
 					for _, o in pairs(s.picks.owned) do
 						hist[o.stars] += 1
@@ -510,7 +568,7 @@ local function measureV2(b: Bundle, players: number): any
 				s.coinsTotal = BigNum.add(s.coinsTotal, coins)
 				local sec = 0
 				if not auto then
-					sec = EconomyCandidateReport.pickDistance(stage, "last", Config.PICKUP_RADIUS) / LevelConfig.getMaxSpeed(p.strength)
+					sec = EconomyReport.pickDistance(stage, "last", Config.PICKUP_RADIUS) / LevelConfig.getMaxSpeed(p.strength)
 				end
 				local cap = bagCap(s)
 				local drops = EconomyV2Logic.rollDrops(stage, blocks, dropRandom) -- 소수 기대값은 블록마다 확률(게임과 같은 함수)
@@ -534,7 +592,7 @@ local function measureV2(b: Bundle, players: number): any
 				local s = st(p)
 				doCrafts(p, s)
 				-- 3시간 시점 별 분포: 런 시작에서 못 잡고 끝나는 플레이어(마지막 런이 3시간을 넘김)도 여기서 잡는다
-				if s.star180 == nil and p.elapsedSec >= EconomyV2Report.GOAL.horizonMin * 60 then
+				if s.star180 == nil and p.elapsedSec >= EconomyReport.GOAL.horizonMin * 60 then
 					local hist = { [0] = 0, 0, 0, 0, 0, 0 }
 					for _, o in pairs(s.picks.owned) do
 						hist[o.stars] += 1
@@ -572,7 +630,6 @@ local function measureV2(b: Bundle, players: number): any
 		SRR.clickMultiplier = function(p: any): BigNumber
 			return StrengthMultiplier.compute({
 				rebirths = p.rebirths,
-				economyV2 = true,
 				titleMult = SuccessRateReport.titleMult(p),
 				auraMult = SuccessRateReport.auraMult(p),
 				petMult = SuccessRateReport.petMult(p),
@@ -591,7 +648,7 @@ local function measureV2(b: Bundle, players: number): any
 			end
 		end
 		SRR.gymUnlockedCount = function(p: any): number
-			return GymConfig.getUnlockedCount(p.rebirths, true)
+			return GymConfig.getUnlockedCount(p.rebirths)
 		end
 		SRR.S5_TARGETS = { "punchSpeed", "bloxGain", "petSlots" }
 		MODEL.WARP_POLICY = pol.warp or "none"
@@ -605,9 +662,9 @@ local function measureV2(b: Bundle, players: number): any
 			local d = EconomyV2Logic.dropsPerBlock(EconomyV2Logic.oreOf(stage))
 			table.insert(vis, string.format("%d층 %.2f(%.0f개)", stage, d, d * StageConfig.getBlockCount(stage)))
 		end
-		out = EconomyV2Report.collect(players, maxStage, st, function(p: any)
+		out = EconomyReport.collect(players, maxStage, st, function(p: any)
 			-- #32: 15종을 다 모아도 3시간 시점까지 돈다(별 분포를 3시간 시점 전원으로 잰다 — #31 해석 4줄 다시 잼)
-			return ownedCount(st(p)) >= #Config.PICKAXES and p.elapsedSec >= EconomyV2Report.GOAL.horizonMin * 60
+			return ownedCount(st(p)) >= #Config.PICKAXES and p.elapsedSec >= EconomyReport.GOAL.horizonMin * 60
 		end)
 		out.catch = catch
 		out.visible = table.concat(vis, " · ")
@@ -616,7 +673,7 @@ local function measureV2(b: Bundle, players: number): any
 end
 
 -- 플레이어 players명을 돌려 층 첫 도달 · 지표를 모은다. st = nil이면 지금 경제(재현).
-function EconomyV2Report.collect(players: number, maxStage: number, st: ((any) -> any)?, untilFn: ((any) -> boolean)?): any
+function EconomyReport.collect(players: number, maxStage: number, st: ((any) -> any)?, untilFn: ((any) -> boolean)?): any
 	local SIM = SuccessRateReport.SIM
 	local rng = Random.new(SIM.SEED)
 	local titleRandom = RollService.seededRandom(SIM.TITLE_SEED)
@@ -718,9 +775,9 @@ local function at25Med(r: any, fn: (any) -> number?): number?
 end
 
 -- 지금 경제(플래그 끔) 재현 — #29 B4 25층 38.7분 · 층별 첫 도달 기준선
-EconomyV2Report.V1 = nil :: any
-function EconomyV2Report.reproduceV1(players: number): any
-	local r = EconomyV2Report.collect(players, lastStage(), nil, nil)
+EconomyReport.V1 = nil :: any
+function EconomyReport.reproduceV1(players: number): any
+	local r = EconomyReport.collect(players, lastStage(), nil, nil)
 	local m = r.metrics
 	local seg = m.segments
 	local early = {}
@@ -730,13 +787,13 @@ function EconomyV2Report.reproduceV1(players: number): any
 	print(string.format("[ECON2] v1 재현(ECON 없음 · %d명) · 25층 %d명 · 중앙 %s분(#29 B4 38.7) · 구간 %.1f / %.1f / %.1f · 환생(이벤트) 평균 %.1f",
 		players, m.reached, fmt(m.medianFinalMin), (seg[1].rate or 0) * 100, (seg[2].rate or 0) * 100, (seg[3].rate or 0) * 100, m.meanRebirths))
 	print("[ECON2]   v1 층 첫 도달(분) " .. table.concat(early, " ") .. string.format(" · 17:%s · 25:%s", fmt(firstMin(r, 17)), fmt(firstMin(r, 25))))
-	EconomyV2Report.V1 = r
+	EconomyReport.V1 = r
 	return r
 end
 
 -- 묶음 측정 결과 요약(표가 아니라 줄)
-function EconomyV2Report.summarize(r: any): any
-	local G = EconomyV2Report.GOAL
+function EconomyReport.summarize(r: any): any
+	local G = EconomyReport.GOAL
 	local t25 = firstMin(r, r.maxStage)
 	local k15 = endMed(r, function(e)
 		return if #e.kthAt >= #Config.PICKAXES then e.kthAt[#Config.PICKAXES] / 60 else nil
@@ -763,7 +820,7 @@ function EconomyV2Report.summarize(r: any): any
 		return xs
 	end)())
 	local worstEarly = 0
-	local v1 = EconomyV2Report.V1
+	local v1 = EconomyReport.V1
 	if v1 ~= nil then
 		-- v1 첫 도달이 1분 미만인 층(1 ~ 3층)은 분모가 작아 비율이 흔들린다 — 그 층은 빼고 잰다(보고에 층별 값을 따로 적는다)
 		for stage = 2, G.earlyTo do
@@ -815,9 +872,9 @@ function EconomyV2Report.summarize(r: any): any
 		k14 = k14, gap = gap, enhOut = enhOut, enhIdle = enhIdle, catchMax = catchMax, nSwitch = #outs }
 end
 
-function EconomyV2Report.report(b: Bundle, players: number): any
+function EconomyReport.report(b: Bundle, players: number): any
 	local r = measureV2(b, players)
-	local sm = EconomyV2Report.summarize(r)
+	local sm = EconomyReport.summarize(r)
 	local m = r.metrics
 	local seg = m.segments
 	local p = sm.pass
@@ -847,7 +904,7 @@ function EconomyV2Report.report(b: Bundle, players: number): any
 	end
 	local early = {}
 	for stage = 3, 9 do
-		local v1 = EconomyV2Report.V1
+		local v1 = EconomyReport.V1
 		local a, b = firstMin(r, stage), if v1 ~= nil then firstMin(v1, stage) else nil
 		table.insert(early, string.format("%d:%s(%s)", stage, fmt(a, "%.2f"), if a ~= nil and b ~= nil and b > 0 then string.format("%+.0f%%", (a / b - 1) * 100) else "-"))
 	end
@@ -1000,14 +1057,14 @@ return sm
 end
 
 -- 손잡이 하나를 setter(set, 값)로 넣으며 log 공간 이분 탐색한다(#32 — 광석별 드롭 표처럼 Config 이름 하나가 아닌 손잡이)
-function EconomyV2Report.tuneWith(b: any, setter: ({ [string]: any }, number) -> (), range: { number }, metric: string, target: number, faster: boolean): number
+function EconomyReport.tuneWith(b: any, setter: ({ [string]: any }, number) -> (), range: { number }, metric: string, target: number, faster: boolean): number
 	local lo, hi = math.log(range[1]), math.log(range[2])
-	for _ = 1, EconomyV2Report.TUNE_STEPS do
+	for _ = 1, EconomyReport.TUNE_STEPS do
 		local mid = (lo + hi) / 2
 		local set = table.clone(b.set or {})
 		setter(set, math.exp(mid))
-		local r = measureV2({ label = b.label, set = set, policy = b.policy }, EconomyV2Report.TUNE_PLAYERS)
-		local sm = EconomyV2Report.summarize(r)
+		local r = measureV2({ label = b.label, set = set, policy = b.policy }, EconomyReport.TUNE_PLAYERS)
+		local sm = EconomyReport.summarize(r)
 		local v = sm[metric]
 		local slow = v == nil or v > target
 		if slow == faster then
@@ -1020,14 +1077,14 @@ function EconomyV2Report.tuneWith(b: any, setter: ({ [string]: any }, number) ->
 end
 
 -- 손잡이 하나(key — Config 이름)를 log 공간 이분 탐색해 지표(metric: 요약 → 분)를 target에 맞춘다. 키우면 빨라지는 손잡이면 faster = true.
-function EconomyV2Report.tune(b: Bundle, key: string, range: { number }, metric: string, target: number, faster: boolean): number
+function EconomyReport.tune(b: Bundle, key: string, range: { number }, metric: string, target: number, faster: boolean): number
 	local lo, hi = math.log(range[1]), math.log(range[2])
-	for _ = 1, EconomyV2Report.TUNE_STEPS do
+	for _ = 1, EconomyReport.TUNE_STEPS do
 		local mid = (lo + hi) / 2
 		local set = table.clone(b.set or {})
 		set[key] = math.exp(mid)
-		local r = measureV2({ label = b.label, set = set, policy = b.policy }, EconomyV2Report.TUNE_PLAYERS)
-		local sm = EconomyV2Report.summarize(r)
+		local r = measureV2({ label = b.label, set = set, policy = b.policy }, EconomyReport.TUNE_PLAYERS)
+		local sm = EconomyReport.summarize(r)
 		local v = sm[metric]
 		local slow = v == nil or v > target
 		if slow == faster then
@@ -1044,7 +1101,7 @@ end
 -- 지시서 #31 3차 측정: 묶음 C(환생 1000 · ×4 · 1.25^n) 바탕. 25층 ≈ 2시간 = 곡괭이 배수(PICK_RATIO) · 15종 ≈ 3시간 = 상위 광석 공급(k15Key).
 -- 제작 간격은 손잡이가 아니다(연출 + 스킵 — 1회 5초 무료). run()이 묶음마다 손잡이 둘을 이분 탐색으로 맞춘다.
 -- 묶음마다 대장간 조건 두 키를 늘 적는다(표에 nil을 못 넣으므로 NONE — withBundle이 그 동안 nil로 둔다 = 조건 없음. 커밋 TEMP 값과 상관없이 같은 측정)
-local NONE = EconomyV2Report.NONE
+local NONE = EconomyReport.NONE
 local C_BASE = { ORE_PER_BLOCK = 1, REBIRTH_COST_BASE = BigNum.new(1, 3), REBIRTH_COST_GROWTH = 4, REBIRTH_MULT_BASE = 1.25, PICK_RATIO = 1.255,
 	UPPER_ORE_DROP_MULT = 1, FORGE_UNLOCK_REBIRTHS = NONE, FORGE_UNLOCK_STAGE = NONE }
 local function withSet(base: { [string]: any }, extra: { [string]: any }): { [string]: any }
@@ -1054,7 +1111,7 @@ local function withSet(base: { [string]: any }, extra: { [string]: any }): { [st
 	end
 	return t
 end
-EconomyV2Report.C_BASE = C_BASE
+EconomyReport.C_BASE = C_BASE
 
 -- #32 4차 결과(docs/TUNING.md 9절): 추천 S2 — #33 결정으로 모델이 바뀌어 다시 잰다(점수 표 · 모든 광석 드롭 0.5 이상 · 등급별 강화).
 -- #33 5차 측정: 점수 표(Config.ORE_POINTS) · 광석 1 ~ 7 드롭 넉넉하게(1 · 0.8) · 광석 8 x · 9 ~ 10 y(둘 다 ORE_DROP_MIN 이상 — N13) ·
@@ -1064,7 +1121,7 @@ local function oreDrops(x: number, y: number): { number }
 	local m = Config.ORE_DROP_MIN
 	return { 1, 1, 1, 1, 1, 0.8, 0.8, math.max(m, x), math.max(m, y), math.max(m, y) }
 end
-EconomyV2Report.oreDrops = oreDrops
+EconomyReport.oreDrops = oreDrops
 local ENH_COST = { common = 1, rare = 3, epic = 9, mythic = 27, legendary = 81 }
 local T_BASE = withSet(C_BASE, { FORGE_UNLOCK_STAGE = 8, PICK_RATIO = 1.23, ENHANCE_STEP = 0.02, ENHANCE_COST_BY_RARITY = ENH_COST,
 	ENHANCE_STEP_BY_RARITY = NONE, ORE_DROP_BY_ORE = oreDrops(0.6, 0.5) })
@@ -1073,13 +1130,13 @@ local ODDS33 = table.clone(Config.RARITY_ODDS)
 ODDS33[1] = { common = 70, rare = 26, epic = 3.9, mythic = 0.1, legendary = 0 }
 ODDS33[2] = { common = 45, rare = 40, epic = 14.7, mythic = 0.3, legendary = 0 }
 ODDS33[3] = { common = 30, rare = 40, epic = 28.5, mythic = 1.5, legendary = 0 }
-EconomyV2Report.ODDS33 = ODDS33
-EconomyV2Report.BUNDLES = {
+EconomyReport.ODDS33 = ODDS33
+EconomyReport.BUNDLES = {
 	{ label = "T1 점수 표 · 드롭 0.5 이상 · 강화 등급 비용 · 1~3칸 신화 낮춤", set = withSet(T_BASE, { RARITY_ODDS = ODDS33 }), x0 = 0.6, y0 = 0.5 },
 	{ label = "T2 T1 + 작은 가방(12 + 2/등급)", set = withSet(T_BASE, { RARITY_ODDS = ODDS33, BAG_BASE = 12, BAG_PER_RANK = 2 }), x0 = 0.6, y0 = 0.5 },
 } :: { any }
 
-EconomyV2Report.EXPLORE = {
+EconomyReport.EXPLORE = {
 	-- #33 5차: T1 맞춘 값을 깔끔한 값으로(0.5 · 2.2) 옮길 때 곡괭이 배수만 조금 낮춰 15종을 기준 안 가운데로(반올림 민감 — 같은 값도 ±5분)
 	{ label = "V0 TEMP(커밋 값 = V4)", set = {} },
 	{ label = "V1 드롭 0.5 · 강화 2.2 · PICK 1.25", set = { ORE_DROP_BY_ORE = oreDrops(0.5, 0.5), ENHANCE_COST_BASE = 2.2, PICK_RATIO = 1.25 } },
@@ -1092,7 +1149,7 @@ EconomyV2Report.EXPLORE = {
 } :: { any }
 
 -- 24 → 25층 막힘 줄이는 방법(run 끝에서 측정). hpSegments가 있는 줄은 ⚠️ HP 곡선 변형 — 희준 결정 영역, 기본안 아님
-EconomyV2Report.CLIFF = {
+EconomyReport.CLIFF = {
 	{ label = "M1 보상 17~25층 ×3.0(HP 그대로)", bloxSegments = { { from = 1, to = 16, growth = 2.7 }, { from = 17, to = 25, growth = 3.0 } } },
 	{ label = "M2 환생 비용 ×3.5", set = { REBIRTH_COST_GROWTH = 3.5 } },
 	{ label = "M3 ⚠️HP 변형(희준 결정 영역 · 기본안 아님) 24~25층 ×4.5",
@@ -1117,7 +1174,7 @@ local function setText(set: { [string]: any }): string
 		local txt
 		if type(v) == "number" then
 			txt = string.format("%.4g", v)
-		elseif v == EconomyV2Report.NONE then
+		elseif v == EconomyReport.NONE then
 			txt = "nil"
 		elseif type(v) == "table" and v.m ~= nil then
 			txt = string.format("%ge%d", v.m, v.e)
@@ -1130,10 +1187,10 @@ local function setText(set: { [string]: any }): string
 	return table.concat(keys, " ")
 end
 
-function EconomyV2Report.run()
+function EconomyReport.run()
 	if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
 	task.wait(5) -- 시작 직후 테스트들이 MODEL · Config를 잠깐 흔드는 동안 기다린다
-	local E = EconomyV2Report
+	local E = EconomyReport
 	local t0 = os.clock()
 	print(string.format("[ECON2] ===== 새 경제 5차 측정 (지시서 #33 — 점수 표 · 드롭 0.5 이상 · 등급별 강화 · 추천까지만) · 모드 %s =====", E.MODE))
 	E.reproduceV1(200)
@@ -1192,4 +1249,4 @@ function EconomyV2Report.run()
 	print(string.format("[ECON2] ===== 끝 · %.0f초 =====", os.clock() - t0))
 end
 
-return EconomyV2Report
+return EconomyReport

@@ -113,7 +113,7 @@ function TestPresetGate.buildData(name: string): any
 		data.cosmetics.ownedAuras[preset.aura] = true
 		data.cosmetics.equippedAura = preset.aura
 	end
-	data.rolling.autoRollTitle = false -- 켜 두면 시작부터 블럭스가 빠져 상태가 흘러간다(TestPresetExport 상단)
+	data.rolling.autoRollTitle = false -- 켜 두면 시작부터 블럭스가 빠져 상태가 흘러간다
 	for i, pet in ipairs(preset.pets) do
 		data.pets.owned[tostring(i)] = { petId = pet.petId, tier = pet.tier }
 	end

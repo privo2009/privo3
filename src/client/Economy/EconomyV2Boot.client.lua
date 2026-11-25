@@ -1,5 +1,5 @@
 --!strict
--- 새 경제 클라 진입점(지시서 #32). ⚠️ 플래그 ECONOMY_V2가 꺼져 있으면 첫 줄에서 끝난다 — 아무것도 만들지 않는다(지금 게임과 같다).
+-- 새 경제 클라 진입점(지시서 #32).
 -- 켜져 있으면: 서버 EconomyEvent를 받아 → 상태(EconomyV2State) · 드롭 표시(DropRenderer) · 코인 이펙트(CoinFx) · HUD(EconomyHud).
 -- 대장간 알림 · 안내 토스트는 OverlayBoot가 같은 채널을 듣고 띄운다(토스트 칸이 그쪽에 있다).
 -- #33: 대장간 창(ForgeWindow — ScreenController "Forge") · 로비 임시 대장간(ForgeSite — 근접 프롬프트) · HUD 대장간 버튼.
@@ -7,10 +7,6 @@
 -- 판정은 전부 서버다 — 여기는 받은 것을 그린다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-if not require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() then
-	return
-end
 
 local Players = game:GetService("Players")
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
@@ -30,6 +26,7 @@ gui.Name = "EconomyV2Gui"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true -- 코인 이펙트가 카메라 뷰포트 좌표를 그대로 쓴다(HudGui와 같은 설정)
 gui.DisplayOrder = 1
+gui.AutoLocalize = false -- 글자는 Strings 키(Locale.t) — 자동 번역을 끈다(K10 · #37 켜 보고 잡은 결함)
 gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
 local state = EconomyV2State.shared() -- 펫 창(#35)이 같은 상태를 읽는다

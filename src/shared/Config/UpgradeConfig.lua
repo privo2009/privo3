@@ -52,7 +52,7 @@ local Upgrades: { [string]: UpgradeDef } = {
 	-- ===== 1차 상점 (S0) =====
 	-- TEMP — 지시서 #7 4단계 조정값(U10). 첫 TEMP(기준 비용 10 · 데미지/블럭스 0.1)는 S5 시뮬레이션에서 17~25층 68.7%로
 	-- 목표(40~55%)를 넘었다 → 기준 비용 100 · 데미지/블럭스 0.05로 53.8%. 이력 표는 DESIGN.md "7. 업그레이드 상점".
-	punchDamage = { exposed = true, maxLevel = nil, baseCost = BigNum.new(1, 2), costGrowth = 1.15, effectBase = 1, effectPerLevel = 0.05 }, -- TEMP
+	-- punchDamage(펀치 데미지) 삭제됨: #37 — 장착 곡괭이가 그 역할을 맡는다(DESIGN 16장 "곡괭이"). 저장 필드 upgrades.punchDamage는 스키마에 남고 읽지 않는다
 	punchSpeed = { exposed = true, maxLevel = 20, baseCost = BigNum.new(1, 2), costGrowth = 1.2 }, -- TEMP(레벨·비용). 효과는 S2 유도
 	-- moveSpeed(이동 속도) 삭제됨: L3(2026-10-24 사람 결정) — 이동 속도는 레벨로만 오른다(DESIGN.md "레벨" · 7장 L3)
 	bloxGain = { exposed = true, maxLevel = nil, baseCost = BigNum.new(1, 2), costGrowth = 1.15, effectBase = 1, effectPerLevel = 0.05 }, -- TEMP
@@ -71,7 +71,7 @@ UpgradeConfig.Upgrades = Upgrades
 
 -- 상점 창의 줄 순서이자 노출 항목 목록(S0). validate가 Upgrades의 exposed와 같은지 본다.
 -- titleLuck은 지시서 #10, auraLuck은 #11, petSlots · petLuck은 #12에서 열었다(G13 · A11 · E7). moveSpeed는 #13에서 지웠다(L3) — 7줄.
-UpgradeConfig.SHOP_ORDER = { "punchDamage", "punchSpeed", "bloxGain", "titleLuck", "auraLuck", "petSlots", "petLuck" }
+UpgradeConfig.SHOP_ORDER = { "punchSpeed", "bloxGain", "titleLuck", "auraLuck", "petSlots", "petLuck" } -- #37: 펀치 데미지 빠짐 — 6줄
 
 -- 구매 거부 사유 코드. 문구는 UI가 매핑한다(UpgradeShopLogic.reasonText).
 UpgradeConfig.REASON_INVALID_UPGRADE = "invalid_upgrade" -- 없는 항목 · 비노출 항목

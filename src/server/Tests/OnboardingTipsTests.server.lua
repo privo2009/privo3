@@ -1,5 +1,5 @@
 --!strict
--- 새 경제 안내 · 해금 순서 · 에셋 자리 서버 검증(지시서 #36 — 플래그 ECONOMY_V2 뒤에서만 쓰는 경로). 전역 플래그는 건드리지 않는다.
+-- 새 경제 안내 · 해금 순서 · 에셋 자리 서버 검증(지시서 #36).
 -- OnboardingTipsLogic(조건 · 순서 · 한 번만 · 이미 지난 것) · OnboardingTipsService(가짜 deps — 한 틱에 하나 · 접속 backfill · 동기화) ·
 -- OnboardingService 건너뛰기 = 안내 끔(새 경제만) · Schema(기존 필드 안 tips · tipsOff · 버전 그대로) · AssetSlots · AssetLoader(가짜 불러오기) ·
 -- 손에 든 곡괭이 모델 틀(가짜 틀) · 휘두르기 자리 · 플래그 꺼짐.
@@ -173,34 +173,24 @@ do
 	OnboardingTipsService._deps = nil
 end
 
--- 4. 건너뛰기 = 새 경제 안내도 끔(새 경제만) ---------------------------------------------------------------------------
+-- 4. 건너뛰기 = 새 경제 안내도 끔 -------------------------------------------------------------------------------
 do
-	local function run(v2: boolean?): any
-		local d = fresh()
-		local deps: any = {
-			getData = function()
-				return d
-			end,
-			grant = function()
-				return true, nil
-			end,
-			notify = function() end,
-			logFunnel = function() end,
-			send = function() end,
-			log = function() end,
-		}
-		if v2 ~= nil then
-			deps.isV2 = function()
-				return v2
-			end
-		end
-		local rt = OnboardingService._pure.createRuntime(deps)
-		rt.onRequest({ Name = "Fake" } :: any, { action = "skip" }, 10)
-		return d.onboarding
-	end
-	local on, off, none = run(true), run(false), run(nil)
-	check("건너뛰기: 새 경제면 tipsOff · 꺼져 있으면(또는 deps 없음) 지금 그대로", on.done and on.tipsOff == true and off.done and off.tipsOff == nil
-		and none.done and none.tipsOff == nil)
+	local d = fresh()
+	local deps: any = {
+		getData = function()
+			return d
+		end,
+		grant = function()
+			return true, nil
+		end,
+		notify = function() end,
+		logFunnel = function() end,
+		send = function() end,
+		log = function() end,
+	}
+	local rt = OnboardingService._pure.createRuntime(deps)
+	rt.onRequest({ Name = "Fake" } :: any, { action = "skip" }, 10)
+	check("건너뛰기: 안내 끝 · tipsOff(#37 다 — 플래그 없이 언제나)", d.onboarding.done and d.onboarding.tipsOff == true)
 end
 
 -- 5. 저장(기존 필드 안 · 스키마 버전 그대로) ---------------------------------------------------------------------------
@@ -341,9 +331,6 @@ do
 	check("휘두르기 자리: ID가 있으면 그 애니메이션(rbxassetid) · 되돌림", withId == "rbxassetid://4242"
 		and HeldPickaxeService.swingAnimationId(Config.START_PICKAXE) == nil)
 end
-
--- 8. 플래그 꺼짐 = 지금과 같다 ---------------------------------------------------------------------------------------
-check("플래그 꺼짐: 안내 서비스 init 없음(켜져 있으면 init됨)", OnboardingTipsService._initialized() == L.isOn())
 
 print(string.format("[OnboardingTipsTests] %d passed, %d failed", passed, failed))
 if failed > 0 then

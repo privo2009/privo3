@@ -1,9 +1,5 @@
 --!strict
--- 새 경제(경제 재설계) 설정 — 플래그와 TEMP 숫자 (지시서 #30 — 원본 결정 DESIGN.md "16. 경제 재설계").
---
--- ⚠️ ECONOMY_V2는 **켜는 날까지 false로 커밋한다**(CLAUDE.md "작업 방식" · tools/check_test_gate.py가 커밋 값을 본다).
---    false면 게임은 지금과 똑같이 돈다 — 이 파일의 숫자를 읽는 게임 경로는 전부 이 플래그 뒤에 있다.
---    Play 확인은 로컬에서만 잠깐 true로 바꾸고 되돌린다.
+-- 경제 설정 — TEMP 숫자 (지시서 #30 — 원본 결정 DESIGN.md "16. 경제 재설계"). #37부터 유일한 경제다(플래그 ECONOMY_V2는 지웠다).
 --
 -- ⚠️ 숫자는 전부 TEMP다(최종 결정은 사람 — D2). 지금 값 = 지시서 #33 결정(광석 점수 표 · 모든 광석 드롭 0.5 이상 · 등급별 강화 비용) +
 --    #33 5차 측정 추천 1순위 T1을 깔끔한 값으로 옮긴 V4(docs/TUNING.md 10절 — 확인 측정 25층 125 · 15종 162): 곡괭이 1.245 ·
@@ -19,9 +15,6 @@ local ShopConfig = require(script.Parent.ShopConfig) -- 새 패스 ID 원본(#35
 type BigNumber = BigNum.BigNumber
 
 local EconomyV2Config = {}
-
--- 새 경제 플래그. ⚠️ 커밋 값 false.
-EconomyV2Config.ECONOMY_V2 = false
 
 -- ===== 광석 (DESIGN 16장 "광석과 드롭") ===================================================================
 
@@ -230,8 +223,6 @@ EconomyV2Config.TOKEN_VISUALS = {
 	legendary = { iconId = nil :: number? },
 	next = { iconId = nil :: number? },
 } :: { [string]: { iconId: number? } }
--- 새 경제 전용 상품(꺼져 있으면 안 보이고 효과 없음 — #35)
-EconomyV2Config.V2_ONLY_PRODUCTS = { bigBag = true, instantCraft = true, tripleCraft = true, instantHatch = true } :: { [string]: boolean }
 -- 제한 지역(ArePaidRandomItemsRestricted)에서 숨기는 새 경제 상품(DESIGN 16장 — 랜덤의 재료 · 횟수를 로벅스로 늘린다 · #35).
 -- 행운 상품(paidRandom)은 기존 경로가 따로 숨긴다. 새 경제가 켜졌을 때만 적용한다(꺼지면 Triple Hatch는 지금처럼 보인다)
 EconomyV2Config.RESTRICTED_RANDOM_PASSES = { bigBag = true, instantCraft = true, tripleCraft = true, instantHatch = true, hatch3x = true } :: { [string]: boolean }
@@ -276,12 +267,6 @@ EconomyV2Config.REBIRTH_MULT_BASE = 1.25
 -- true = 비용만 빼고 나머지 블럭스를 남긴다(기본 — 지시서 #30). false = #29 R4 측정처럼 0(지금 환생과 같다).
 EconomyV2Config.REBIRTH_KEEP_REMAINDER = true
 
--- 새 경제에서 빠지는 로벅스 상품(ShopConfig 키 — 지시서 #31 G14). 플래그가 켜지면 상점에 안 보이고 효과도 없다 · 구매 요청은 not_available.
--- 플래그가 꺼진 경로는 그대로다. 코드에서 완전히 지우는 일은 플래그를 켜는 단계에서 한다(대시보드 판매 중지는 사람 — ROADMAP 출시 체크리스트 30).
-EconomyV2Config.REMOVED_PRODUCTS = { rebirth2x = true } :: { [string]: boolean }
--- 새 경제에서 빠지는 상점 업그레이드(UpgradeConfig 키 — #34). 곡괭이가 그 역할을 맡는다(DESIGN 16장 "곡괭이"). 플래그가 켜지면 상점에 안 보이고
--- 효과도 없다(AttackService가 곡괭이 배수를 대신 곱한다) · 구매 요청은 invalid_upgrade. 꺼지면 그대로다
-EconomyV2Config.REMOVED_UPGRADES = { punchDamage = true } :: { [string]: boolean }
 
 -- 손에 든 곡괭이(#34 — 에셋 자리). 곡괭이 id → { modelId, swingAnimId, iconId } — nil이면 임시 도형(자루 + 머리 · 등급 색) · 휘두르기 없음 · 아이콘 없음.
 -- 표에 없는 id도 임시 도형이다. 크기(스터드)는 임시 도형 값. #36: modelId = Model 에셋 ID(안에 "Handle" 파트 — 손에 묶는 곳) ·
@@ -289,15 +274,10 @@ EconomyV2Config.REMOVED_UPGRADES = { punchDamage = true } :: { [string]: boolean
 EconomyV2Config.PICKAXE_VISUALS = {} :: { [string]: { modelId: number?, swingAnimId: number?, iconId: number? } }
 EconomyV2Config.HELD_PICKAXE_SIZE = { handle = Vector3.new(0.3, 3, 0.3), head = Vector3.new(2.2, 0.45, 0.45) }
 
--- 운동기구 해금 환생 수(새 경제 TEMP — GymConfig 기구 순서. 로벅스 전용 기구는 GymConfig 그대로).
--- 지금 값(1 · 3 · 5 · 10 · 50 · 500 · 1e4 · 1e6)은 환생이 1000 블럭스마다 +1일 때 값이라 새 경제(25층까지 10 ~ 20회)에서는 뒤 기구가 안 열린다.
--- 운동기구 개편 자체는 사람 결정이다(docs/PENDING.md N3) — 여기는 해금 수만 갈아 끼운다.
-EconomyV2Config.GYM_UNLOCK_REBIRTHS = { 1, 2, 3, 5, 7, 9, 12, 15 }
 
 -- ===== 검증 ==========================================================================================
 
 function EconomyV2Config.validate(): boolean
-	assert(type(EconomyV2Config.ECONOMY_V2) == "boolean", "EconomyV2Config: ECONOMY_V2는 boolean")
 	-- 광석 구간: 1층부터 빈틈 · 중복 없이 이어진다
 	local nextFrom = 1
 	assert(#EconomyV2Config.ORE_BANDS == EconomyV2Config.ORE_COUNT, "EconomyV2Config: ORE_BANDS 수 ≠ ORE_COUNT")
@@ -392,11 +372,6 @@ function EconomyV2Config.validate(): boolean
 	end
 	assert(#EconomyV2Config.STAR_CONSUME == 5, "EconomyV2Config: 별은 5성까지")
 	assert(EconomyV2Config.REBIRTH_COST_GROWTH > 1 and EconomyV2Config.REBIRTH_MULT_BASE > 1, "EconomyV2Config: 환생 비용 · 배수 성장 > 1")
-	local prevGym = 0
-	for _, need in ipairs(EconomyV2Config.GYM_UNLOCK_REBIRTHS) do
-		assert(need > prevGym and need % 1 == 0, "EconomyV2Config: 운동기구 해금 환생 수는 늘어나는 정수")
-		prevGym = need
-	end
 	return true
 end
 

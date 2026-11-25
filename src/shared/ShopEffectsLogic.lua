@@ -41,21 +41,10 @@ function ShopEffectsLogic.blox(view: View): number
 	return ShopConfig.passMult("blox2x", view.owns)
 end
 
--- 얻는 환생 수 배수(S6). 새 경제에는 x2 Rebirths가 없다 — 켜지면 보유해도 1(지시서 #31 G14). economyV2 = nil이면 플래그.
-function ShopEffectsLogic.rebirth(view: View, economyV2: boolean?): number
-	if EconomyV2Logic.isRemovedProduct("rebirth2x", economyV2) then
-		return 1
-	end
-	return ShopConfig.passMult("rebirth2x", view.owns)
-end
-
--- 새 경제 패스 효과가 켜져 있는가(#35 — 큰 가방 · 즉시 제작 · 트리플 제작 · 즉시 부화 · 새 경제의 Triple Hatch).
--- 보유 · 새 경제(전용 상품) · 제한 지역(RESTRICTED_RANDOM_PASSES면 제한 유저는 끔)을 함께 본다. economyV2 = nil이면 플래그
-function ShopEffectsLogic.v2PassActive(view: View, key: string, economyV2: boolean?): boolean
-	if EconomyV2Logic.isRemovedProduct(key, economyV2) then
-		return false
-	end
-	if view.restricted and EconomyV2Logic.isRestrictedRandom(key, economyV2) then
+-- 패스 효과가 켜져 있는가(#35 — 큰 가방 · 즉시 제작 · 트리플 제작 · 즉시 부화 · Triple Hatch).
+-- 보유 · 제한 지역(RESTRICTED_RANDOM_PASSES면 제한 유저는 끔)을 함께 본다. ID가 nil인 패스는 카탈로그에 없어 owns가 false다
+function ShopEffectsLogic.v2PassActive(view: View, key: string): boolean
+	if view.restricted and EconomyV2Logic.isRestrictedRandom(key) then
 		return false
 	end
 	return view.owns(key)

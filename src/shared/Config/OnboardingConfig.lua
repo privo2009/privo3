@@ -26,7 +26,7 @@ OnboardingConfig.CLICK_TARGET = 10 -- 1단계: 수동 클릭 10회(O2)
 OnboardingConfig.COMPLETE_REWARDS = { { type = "potion", kind = "strength", count = 1 } } :: { RewardLogic.Reward }
 OnboardingConfig.REQUEST_MIN_INTERVAL_SEC = 0.5 -- 다른 Request 서비스와 같은 꼴
 
--- ===== 새 경제 안내(지시서 #36 — DESIGN 16장 "해금 순서 · 첫 접속 안내") — 플래그 ECONOMY_V2 뒤 ===========================
+-- ===== 새 경제 안내(지시서 #36 — DESIGN 16장 "해금 순서 · 첫 접속 안내") ===========================
 -- 순서대로 처음 참이 되는 것 하나씩. key = 저장 키(onboarding.tips[key]) · 문장 Strings "onboarding.tip.<key>" · target = 강조할 화면 자리 이름
 -- (OnboardingTipsClient.register로 붙는다). hud = 이 안내를 지나야 나타나는 HUD 칸(없으면 nil). 판정 식은 Shared/OnboardingTipsLogic
 export type Tip = { key: string, target: string, hud: string? }

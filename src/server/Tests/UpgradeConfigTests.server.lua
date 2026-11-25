@@ -29,14 +29,14 @@ local function close(a: number, b: number): boolean
 end
 
 -- titleLuck #10 · auraLuck #11 · petSlots · petLuck #12 · moveSpeed는 #13에서 삭제(L3)
-local EXPOSED = { "punchDamage", "punchSpeed", "bloxGain", "titleLuck", "auraLuck", "petSlots", "petLuck" }
+local EXPOSED = { "punchSpeed", "bloxGain", "titleLuck", "auraLuck", "petSlots", "petLuck" } -- #37: 펀치 데미지 빠짐
 
 -- 1. validate · 노출 구분 ---------------------------------------------------------------------
 do
 	local ok, err = pcall(UpgradeConfig.validate)
 	check("validate 통과", ok, tostring(err))
-	check("SHOP_ORDER = 1차 3종 + 칭호 행운 + 아우라 행운 + 펫 슬롯 + 펫 행운 순서 (E7 · L3 — 7줄)", table.concat(UpgradeConfig.SHOP_ORDER, ",") == table.concat(EXPOSED, ",")
-		and #UpgradeConfig.SHOP_ORDER == 7)
+	check("SHOP_ORDER = 펀치 속도 · 블럭스 획득 + 칭호 행운 + 아우라 행운 + 펫 슬롯 + 펫 행운 순서 (#37 다 — 6줄)", table.concat(UpgradeConfig.SHOP_ORDER, ",") == table.concat(EXPOSED, ",")
+		and #UpgradeConfig.SHOP_ORDER == 6)
 	for _, name in ipairs(EXPOSED) do
 		check("노출: " .. name, UpgradeConfig.isExposed(name))
 	end
@@ -51,20 +51,21 @@ do
 		and close(UpgradeConfig.getEffect("petSlots", 1), 1))
 	check("없는 이름 · nil · 숫자는 노출 아님", not UpgradeConfig.isExposed("radius") and not UpgradeConfig.isExposed(nil) and not UpgradeConfig.isExposed(1))
 
-	-- 프로필 스키마의 upgrades 키가 Config 7키와 1:1이다(v6에서 moveSpeed를 함께 지웠다 — L3)
+	-- 프로필 스키마의 upgrades 키 = Config 6키 + 옛 펀치 데미지(#37 — 저장 필드는 스키마에 남고 읽지 않는다)
 	local template = Schema.new()
 	local schemaKeys, configKeys = 0, 0
 	local allIn = true
 	for name in pairs(template.upgrades) do
 		schemaKeys += 1
-		if UpgradeConfig.Upgrades[name] == nil then
+		if UpgradeConfig.Upgrades[name] == nil and name ~= "punchDamage" then
 			allIn = false
 		end
 	end
 	for _ in pairs(UpgradeConfig.Upgrades) do
 		configKeys += 1
 	end
-	check("스키마 upgrades 키 = Config 키 (7 — L3)", allIn and schemaKeys == configKeys and configKeys == 7, string.format("%d/%d", schemaKeys, configKeys))
+	check("스키마 upgrades 키 = Config 키 6 + 옛 펀치 데미지 1(#37 다)", allIn and schemaKeys == configKeys + 1 and configKeys == 6
+		and template.upgrades.punchDamage ~= nil, string.format("%d/%d", schemaKeys, configKeys))
 end
 
 -- 2. 효과는 레벨에 선형 (S1) -------------------------------------------------------------------
@@ -83,7 +84,7 @@ for _, name in ipairs(EXPOSED) do
 	check("S1 선형: " .. name .. " 레벨당 증가가 일정하다", linear)
 	check("S1: " .. name .. " 0레벨 효과 = 기본값", close(UpgradeConfig.getEffect(name, 0), UpgradeConfig.getEffectBase(name)))
 end
-check("펀치 데미지 · 블럭스 획득 0레벨은 ×1", close(UpgradeConfig.getEffect("punchDamage", 0), 1) and close(UpgradeConfig.getEffect("bloxGain", 0), 1))
+check("블럭스 획득 0레벨은 ×1(#37 다 — 펀치 데미지 빠짐)", close(UpgradeConfig.getEffect("bloxGain", 0), 1) and UpgradeConfig.Upgrades.punchDamage == nil)
 check("L3: 이동 속도 업그레이드 항목이 없다 (Config · 스키마 · 상점)", UpgradeConfig.Upgrades.moveSpeed == nil
 	and Schema.new().upgrades.moveSpeed == nil and table.find(UpgradeConfig.SHOP_ORDER, "moveSpeed") == nil)
 
@@ -145,10 +146,10 @@ do
 	local maxLevel = UpgradeConfig.Upgrades.punchSpeed.maxLevel :: number
 	local ok4, r4 = UpgradeConfig.canBuy("punchSpeed", maxLevel, rich)
 	check("canBuy: 최대 레벨 → max_level (블럭스가 많아도)", not ok4 and r4 == UpgradeConfig.REASON_MAX_LEVEL)
-	local cost = UpgradeConfig.getCostAtLevel("punchDamage", 3)
-	local ok5, r5, c5 = UpgradeConfig.canBuy("punchDamage", 3, BigNum.sub(cost, BigNum.fromNumber(1)))
+	local cost = UpgradeConfig.getCostAtLevel("bloxGain", 3)
+	local ok5, r5, c5 = UpgradeConfig.canBuy("bloxGain", 3, BigNum.sub(cost, BigNum.fromNumber(1)))
 	check("canBuy: 모자라면 insufficient_blox + 비용", not ok5 and r5 == UpgradeConfig.REASON_INSUFFICIENT_BLOX and c5 ~= nil and BigNum.eq(c5 :: any, cost))
-	local ok6, r6, c6 = UpgradeConfig.canBuy("punchDamage", 3, cost)
+	local ok6, r6, c6 = UpgradeConfig.canBuy("bloxGain", 3, cost)
 	check("canBuy: 딱 맞으면 가능 + 비용은 getCostAtLevel", ok6 and r6 == nil and c6 ~= nil and BigNum.eq(c6 :: any, cost))
 end
 
@@ -171,12 +172,12 @@ end
 
 do
 	local defs = UpgradeConfig.Upgrades
-	local g = defs.punchDamage.costGrowth
-	rejects("노출 항목 비용 증가율 1(단조 증가 아님)", function() defs.punchDamage.costGrowth = 1 end, function() defs.punchDamage.costGrowth = g end)
+	local g = defs.bloxGain.costGrowth
+	rejects("노출 항목 비용 증가율 1(단조 증가 아님)", function() defs.bloxGain.costGrowth = 1 end, function() defs.bloxGain.costGrowth = g end)
 	local m = defs.punchSpeed.maxLevel
 	rejects("펀치 속도 최대 레벨 없음(S2)", function() defs.punchSpeed.maxLevel = nil end, function() defs.punchSpeed.maxLevel = m end)
 	local order = UpgradeConfig.SHOP_ORDER
-	rejects("노출 항목이 SHOP_ORDER에 없음", function() UpgradeConfig.SHOP_ORDER = { "punchDamage", "punchSpeed" } end, function() UpgradeConfig.SHOP_ORDER = order end)
+	rejects("노출 항목이 SHOP_ORDER에 없음", function() UpgradeConfig.SHOP_ORDER = { "bloxGain", "punchSpeed" } end, function() UpgradeConfig.SHOP_ORDER = order end)
 	rejects("moveSpeed를 되살림(L3 — 사람 결정 없이)", function()
 		(defs :: any).moveSpeed = { exposed = false, maxLevel = 20, baseCost = BigNum.new(1, 2), costGrowth = 1.2, effectBase = 0, effectPerLevel = 1 }
 	end, function() (defs :: any).moveSpeed = nil end)

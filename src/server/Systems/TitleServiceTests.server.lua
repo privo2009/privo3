@@ -256,14 +256,18 @@ end
 do
 	local m = TITLES[#TITLES].mult
 	local rebirths = BigNum.fromNumber(2)
+	-- #37 다: 환생 항 1 + 2 = 3 → 1.25^2
+	local R = 1.25 ^ 2
+	local function num(v: any): number
+		return v.m * 10 ^ v.e
+	end
 	local withTitle = StrengthMultiplier.compute({ rebirths = rebirths, titleMult = m })
-	local expect = BigNum.mul(BigNum.fromNumber(3), BigNum.fromNumber(m))
-	check("힘: (1 + 환생) × 칭호 — 한 번만 (제곱 아님)", math.abs(BigNum.toRatio(withTitle, expect) - 1) < 1e-9)
-	check("힘: 칭호 없음 = 환생 배수 그대로", BigNum.eq(StrengthMultiplier.compute({ rebirths = rebirths }), BigNum.fromNumber(3)))
+	check("힘: 1.25^환생 × 칭호 — 한 번만 (제곱 아님)", math.abs(num(withTitle) / (R * m) - 1) < 1e-9)
+	check("힘: 칭호 없음 = 환생 배수 그대로", math.abs(num(StrengthMultiplier.compute({ rebirths = rebirths })) - R) < 1e-9)
 	check("힘: 깨진 칭호 배수(nan · 0.5 · inf)는 무시",
-		BigNum.eq(StrengthMultiplier.compute({ rebirths = rebirths, titleMult = 0 / 0 }), BigNum.fromNumber(3))
-			and BigNum.eq(StrengthMultiplier.compute({ rebirths = rebirths, titleMult = 0.5 }), BigNum.fromNumber(3))
-			and BigNum.eq(StrengthMultiplier.compute({ rebirths = rebirths, titleMult = math.huge }), BigNum.fromNumber(3)))
+		math.abs(num(StrengthMultiplier.compute({ rebirths = rebirths, titleMult = 0 / 0 })) - R) < 1e-9
+			and math.abs(num(StrengthMultiplier.compute({ rebirths = rebirths, titleMult = 0.5 })) - R) < 1e-9
+			and math.abs(num(StrengthMultiplier.compute({ rebirths = rebirths, titleMult = math.huge })) - R) < 1e-9)
 end
 
 -- 블럭스 계통 — ChallengeService 결합 한 곳에서 한 번만 곱한다 (S4)

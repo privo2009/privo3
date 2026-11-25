@@ -264,15 +264,20 @@ do
 	local m = P2.auras[4].mult
 	local t = TitleConfig.Titles[#TitleConfig.Titles].mult
 	local rebirths = BigNum.fromNumber(4)
+	-- #37 다: 환생 항 1 + 4 = 5 → 1.25^4
+	local R = 1.25 ^ 4
+	local function num(v: any): number
+		return v.m * 10 ^ v.e
+	end
 	local s = StrengthMultiplier.compute({ rebirths = rebirths, auraMult = m })
-	check("힘: (1 + 환생) × m — 한 번 (제곱 아님)", math.abs(BigNum.toRatio(s, BigNum.fromNumber(5 * m)) - 1) < 1e-9)
+	check("힘: 1.25^환생 × m — 한 번 (제곱 아님)", math.abs(num(s) / (R * m) - 1) < 1e-9)
 	local st = StrengthMultiplier.compute({ rebirths = rebirths, titleMult = t, auraMult = m })
-	check("힘: 칭호 × 아우라 — 출처끼리 곱한다(S3)", math.abs(BigNum.toRatio(st, BigNum.fromNumber(5 * t * m)) - 1) < 1e-9)
-	check("힘: 깨진 아우라 배수(0.5 · nan)는 무시", BigNum.eq(StrengthMultiplier.compute({ rebirths = rebirths, auraMult = 0.5 }), BigNum.fromNumber(5))
-		and BigNum.eq(StrengthMultiplier.compute({ rebirths = rebirths, auraMult = 0 / 0 }), BigNum.fromNumber(5)))
+	check("힘: 칭호 × 아우라 — 출처끼리 곱한다(S3)", math.abs(num(st) / (R * t * m) - 1) < 1e-9)
+	check("힘: 깨진 아우라 배수(0.5 · nan)는 무시", math.abs(num(StrengthMultiplier.compute({ rebirths = rebirths, auraMult = 0.5 })) - R) < 1e-9
+		and math.abs(num(StrengthMultiplier.compute({ rebirths = rebirths, auraMult = 0 / 0 })) - R) < 1e-9)
 
 	local combine = AttackService.combineDamageMultiplier
-	local g = UpgradeConfig.getEffect("punchDamage", 3)
+	local g = 1.15 -- 1펀치 데미지 항 예시(#37 배선 — 펀치 데미지 업그레이드가 빠져 곡괭이 배수 자리 값으로)
 	check("데미지: 펀치 데미지 업그레이드 × m — 한 번", math.abs(combine({ punchDamage = g, auraMult = m }) - g * m) < 1e-12)
 	check("데미지: 아우라 없음 = 업그레이드 그대로", combine({ punchDamage = g }) == g)
 	check("데미지: 깨진 값은 1", combine({ punchDamage = 0 / 0, auraMult = 0.3 }) == 1)

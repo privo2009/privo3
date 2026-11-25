@@ -211,8 +211,7 @@ ChallengeService._deps = {
 	returnToSpawn = ArenaService.returnToSpawn,
 }
 
--- 새 경제 고리(지시서 #32 — 플래그 ECONOMY_V2 뒤). nil이면 이 파일은 지금과 똑같이 돈다. Bootstrap이 플래그가 켜졌을 때만
--- OreDropService를 건다. 고리는 판정에 끼어들지 않는다(런 · 보상 · 타이머는 그대로) — 드롭 · 가방 · 코인 · 대장간 열림만 따라 한다.
+-- 경제 고리(지시서 #32). Bootstrap이 OreDropService를 건다(테스트 · 고리 없는 서버는 nil — 그대로 돈다). 고리는 판정에 끼어들지 않는다(런 · 보상 · 타이머는 그대로) — 드롭 · 가방 · 코인 · 대장간 열림만 따라 한다.
 -- 고리가 던져도 런은 그대로 간다(pcall · warn). ⚠️ 고리는 yield하지 않는다.
 export type EconomyHooks = {
 	onStageEnter: (Player, number, string) -> (), -- (플레이어, 층, "start" · "advance")
@@ -360,7 +359,7 @@ end
 local function endRun(player: Player, run: RunState, reason: string)
 	runs[player] = nil
 	notifyRunState(player, run, false, reason)
-	callHook("onRunEnded", player, reason) -- 새 경제(플래그 뒤): 수령이면 가방 → 인벤토리, 아니면 가방을 잃는다
+	callHook("onRunEnded", player, reason) -- 경제 고리: 수령이면 가방 → 인벤토리, 아니면 가방을 잃는다
 
 	-- ⚠️ pcall로 감싼다. ArenaService.returnToSpawn은 자기 안에서 이미 실패를 접지만,
 	-- 여기서 한 겹 더 두는 것은 그 함수를 믿기 위해서가 아니라 **이 지점의 계약**이기
@@ -443,7 +442,7 @@ function ChallengeService.applyDamage(player: Player, originPosition: Vector3, d
 	-- 도착하면 클라에서 순서가 뒤집혀 보인다.
 	notifyBlockDamaged(player, changes)
 
-	-- 새 경제(플래그 뒤): 이번 타격에 깨진 블록 자리 → 드롭 · 코인. 고리가 없으면 스냅샷도 읽지 않는다
+	-- 경제 고리: 이번 타격에 깨진 블록 자리 → 드롭 · 코인. 고리가 없으면 스냅샷도 읽지 않는다
 	if ChallengeService.economyHooks ~= nil then
 		local snapshot = BlockService.getSnapshot(player)
 		if snapshot ~= nil then

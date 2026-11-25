@@ -382,9 +382,9 @@ do
 	check("데미지 업그레이드: 펀치 속도는 여전히 안 곱해진다", not BigNum.eq(dealt, BigNum.mul(BigNum.mul(STRENGTH, BigNum.fromNumber(1.5)), BigNum.fromNumber(AttackConfig.PUNCH_SPEED_BASE))))
 
 	-- 배수 1(0레벨)이면 예전과 똑같다
-	check("데미지 업그레이드 0레벨: 배수 1 = 힘 그대로", BigNum.eq(pure.computePunchDamage(STRENGTH, UpgradeConfig.getEffect("punchDamage", 0)), STRENGTH))
+	check("데미지 업그레이드 0레벨: 배수 1 = 힘 그대로", BigNum.eq(pure.computePunchDamage(STRENGTH, 1), STRENGTH)) -- #37 배선: 펀치 데미지 항(이제 곡괭이 배수) 1
 	-- 레벨 3이면 1 + 3 × 증가량 (식은 UpgradeConfig 원본)
-	local l3 = UpgradeConfig.getEffect("punchDamage", 3)
+	local l3 = 1.15 -- #37 배선: 예전 펀치 데미지 3레벨 효과(1 + 3 × 0.05)와 같은 예시 값
 	check("데미지 업그레이드 레벨 3: 힘 × (1 + 3a)", BigNum.eq(pure.computePunchDamage(STRENGTH, l3), BigNum.mul(STRENGTH, BigNum.fromNumber(l3))))
 
 	-- 반경 밖이면 배수를 읽지도 않는다(호출 자체를 건너뛴다 — 위 반경 케이스와 같은 계약)

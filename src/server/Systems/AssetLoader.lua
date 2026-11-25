@@ -1,5 +1,5 @@
 --!strict
--- 모델 에셋 불러 두기(지시서 #36 — DESIGN 16장 "에셋 교체 방식"). ⚠️ 플래그 ECONOMY_V2 뒤 — 꺼져 있으면 Bootstrap이 init하지 않는다.
+-- 모델 에셋 불러 두기(지시서 #36 — DESIGN 16장 "에셋 교체 방식").
 --
 -- 설정의 model 자리(Shared/AssetSlots.list — kind "model")에 ID가 있으면 서버가 시작할 때 한 번 InsertService:LoadAsset(ID)으로 불러
 -- ReplicatedStorage.AssetTemplates.<키>에 둔다(이름 = 자리 키). 쓰는 곳(드롭 · 대장간 · 손에 든 곡괭이)은 AssetSlots.template(키)를 복제한다.

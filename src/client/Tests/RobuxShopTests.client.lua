@@ -139,7 +139,7 @@ do
 	local b2 = RollOdds.percentages(RollOdds.distribution(tiers, base * 2))
 	check("행운 줄: 행운 포션 활성 중이면 '지금' 확률에 포션이 들어 있다", string.find(withPotion.detail, b2[#tiers] .. " →", 1, true) ~= nil, withPotion.detail)
 	local restricted = RobuxShopLogic.rows(shop(nil, true), ctx)
-	check("제한 유저: 행운 상품 줄 3개 · 행운 포션 · 번들을 숨긴다", #restricted == 1 + (#ShopConfig.BOOST_ORDER - 1) + #ShopConfig.GAMEPASS_ORDER - 3 and rowByKey(restricted, "petLuck2x") == nil
+	check("제한 유저: 행운 상품 줄 3개 · Triple Hatch(#37 다 — 숨김 목록) · 행운 포션 · 번들을 숨긴다", #restricted == 1 + (#ShopConfig.BOOST_ORDER - 1) + #ShopConfig.GAMEPASS_ORDER - 4 and rowByKey(restricted, "petLuck2x") == nil and rowByKey(restricted, "hatch3x") == nil
 		and rowByKey(restricted, "auraLuck10x") == nil and rowByKey(restricted, "titleLuck10x") == nil and rowByKey(restricted, "damage2x") ~= nil)
 	check("첫 PlayerState 전(Store 기본값)은 제한으로 본다 — 행운 줄이 안 보인다", rowByKey(RobuxShopLogic.rows(Store.new().get("shop")), "auraLuck10x") == nil)
 end
@@ -244,7 +244,7 @@ do
 	end)
 	task.wait()
 	local nR = #handle._debug.robuxView()
-	check("제한 유저: 창 줄 수가 줄고 남는 줄은 숨는다", nR == 1 + (#ShopConfig.BOOST_ORDER - 1) + #ShopConfig.GAMEPASS_ORDER - 3
+	check("제한 유저: 창 줄 수가 줄고 남는 줄은 숨는다(#37 다 — Triple Hatch도 숨김)", nR == 1 + (#ShopConfig.BOOST_ORDER - 1) + #ShopConfig.GAMEPASS_ORDER - 4
 		and not handle._debug.robuxRows[nR + 1].frame.Visible)
 	-- 포션 묶음 켜기(지시서 #17): 보관 0이면 잠김 · 있으면 그 종류로 한 번만 요청
 	local function potionShop(n: number): any
@@ -400,13 +400,6 @@ do
 	local pbase = UpgradeConfig.getEffect("petLuck", 0)
 	check("펫 창: 펫 행운 패스 2 × 행운 포션 2 = 4", math.abs(PetWindowLogic.luckOf(levels,
 		shop({ "petLuck2x" }, false, { { type = "luck", mult = 2, remainingSec = 10, receivedAt = 0 } })) - pbase * 4) < 1e-9)
-	local RebirthWindowLogic = require(script.Parent.Parent.UI.Logic.RebirthWindowLogic)
-	local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
-	local blox = BigNum.fromNumber(RebirthConfig.BLOX_PER_REBIRTH * 3 + 10)
-	local v1 = RebirthWindowLogic.compute(blox, BigNum.new(0, 0), shop())
-	local v2 = RebirthWindowLogic.compute(blox, BigNum.new(0, 0), shop({ "rebirth2x" }))
-	check("환생 창: 2배 환생이면 얻는 배수 2배(3 → 6) · 버려지는 양은 같다(S6)", BigNum.eq(v1.gained, BigNum.fromNumber(3))
-		and BigNum.eq(v2.gained, BigNum.fromNumber(6)) and BigNum.eq(v1.wasted, v2.wasted))
 	local voidIndex = GymConfig.findByGamepass("voidTrainingZone") :: number
 	local zero = BigNum.new(0, 0)
 	withIds({ voidTrainingZone = 0 }, function()

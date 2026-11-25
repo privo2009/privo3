@@ -70,9 +70,11 @@ end
 
 -- 2. 부화 잠김 사유 --------------------------------------------------------------------------------
 do
-	local rich = BigNum.mul(E2.rollCost, BigNum.fromNumber(10))
+	-- #37: 셋째 인자는 코인(부화 재화) · 가격은 EGG_COIN_COST
+	local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
+	local rich = BigNum.mul(EconomyV2Logic.eggCoinCost(2) :: any, BigNum.fromNumber(10))
 	check("부화 가능: 열린 알 · 자리 있음 · 잔액 충분", PetWindowLogic.hatchState(summary(), E2.rollCost, rich, 1).canHatch)
-	check("부화 버튼 = 비용", PetWindowLogic.hatchState(summary(), E2.rollCost, rich, 2).buttonText == Locale.t("pet.hatchCost", { cost = Formatter.format(E2.rollCost) }))
+	check("부화 버튼 = 코인 가격(#37 다)", PetWindowLogic.hatchState(summary(), E2.rollCost, rich, 2).buttonText == Locale.t("pet.hatchCostCoins", { cost = Formatter.format(EconomyV2Logic.eggCoinCost(2) :: any) }))
 	local locked = PetWindowLogic.hatchState(summary(), E2.rollCost, rich, 3)
 	check("잠긴 알 → egg_locked 문구", not locked.canHatch and locked.footText == PetWindowLogic.reasonText("egg_locked"))
 	local full = {}
@@ -81,8 +83,8 @@ do
 	end
 	local st = PetWindowLogic.hatchState(summary(full, {}, 2, 3), E2.rollCost, rich, 1)
 	check("보관함 가득(파생 저장 공간) → storage_full 문구", not st.canHatch and st.footText == PetWindowLogic.reasonText("storage_full"))
-	local poor = PetWindowLogic.hatchState(summary(), E2.rollCost, BigNum.sub(E1.rollCost, BigNum.fromNumber(1)), 1)
-	check("잔액 부족 → insufficient_blox 문구", not poor.canHatch and poor.footText == PetWindowLogic.reasonText("insufficient_blox"))
+	local poor = PetWindowLogic.hatchState(summary(), E2.rollCost, BigNum.sub(EconomyV2Logic.eggCoinCost(1) :: any, BigNum.fromNumber(1)), 1)
+	check("잔액 부족 → insufficient_coins 문구(#37 다)", not poor.canHatch and poor.footText == PetWindowLogic.reasonText("insufficient_coins"))
 end
 
 -- 3. 격자 · 슬롯 · 상세 ------------------------------------------------------------------------------
@@ -162,6 +164,11 @@ do
 		now = function()
 			return clock
 		end,
+		econ = (function() -- #37 배선: 부화 재화는 코인(창이 econ에서 읽는다)
+			local e = require(script.Parent.Parent.Economy.EconomyV2State).new()
+			e.apply({ kind = "snapshot", bag = {}, used = 0, cap = 20, coins = BigNum.new(1, 9), ores = {}, forgeOpen = false, drops = {} })
+			return e
+		end)(),
 	})
 	task.wait()
 	h.refresh()
@@ -191,9 +198,9 @@ do
 	h.onResult({ action = "hatch", ok = true, reason = "", uid = "5", petId = E1.pets[1].id, eggId = 1, rarity = 1, level = 1, isNew = false, equipped = false })
 	h._debug.pressHatch()
 	check("부화: 결과 뒤에도 롤 시계 동안은 안 나간다", #sends == 1)
-	clock += PetConfig.HATCH_INTERVAL_SEC + 0.01
+	clock += (require(ReplicatedStorage.Shared.EconomyV2Logic).hatchStep(false, false)) + 0.01 -- #37 다: 부화 간격 = 연출 + 스킵(5초)
 	h._debug.pressHatch()
-	check("부화: 시계가 지나면 다시 나간다", #sends == 2)
+	check("부화: 시계(부화 간격 — #37 다)가 지나면 다시 나간다", #sends == 2)
 	h.onResult({ action = "hatch", ok = false, reason = "storage_full", uid = "", petId = "", eggId = 0, rarity = 0, level = 0, isNew = false, equipped = false })
 	check("부화 거부 → 상태 문구", h._debug.status.Text == PetWindowLogic.reasonText("storage_full"))
 

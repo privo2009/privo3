@@ -185,7 +185,7 @@ end
 
 -- v9 -> v10: 새 경제 저장 필드를 한 번에 (2026-11-24 지시서 #32 — DESIGN 16장 · 10장).
 --   coins(BigNum 0) · ores(광석 10종 0) · equipment(종류별 — 시작 장비 1개) · equipped(종류별 시작 장비) · tokens(5종 0) · forgeOpen(false)
--- 이미 그 꼴이면 그대로 둔다(멱등 — 두 번 불러도 같다). 꼴이 틀린 필드만 기본값으로(그 필드 값은 아무 코드도 쓴 적이 없다 — 플래그 뒤).
+-- 이미 그 꼴이면 그대로 둔다(멱등 — 두 번 불러도 같다). 꼴이 틀린 필드만 기본값으로(그 필드 값은 아무 코드도 쓴 적이 없다).
 -- 다른 필드는 손대지 않는다. 기본값은 Schema의 같은 함수에서 만든다(두 곳에 쓰지 않는다).
 Migrations[9] = function(data)
 	if not Schema.isBigNum(data.coins) then

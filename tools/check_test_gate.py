@@ -4,7 +4,7 @@ src/ 아래에서
   1. 스크립트 *Tests.server.lua · *Tests.client.lua · *Report.server.lua · *Report.client.lua · TestRunDone.*.lua
      → 머리 주석 · 빈 줄 · --!strict 다음 **첫 실행 문장**이 게이트 한 줄인가
   2. 도구 모듈(src/server/Tools · src/client/Tools)과 Shared/TestRunLogic의 `function X.run(` → 함수 **첫 줄**이 게이트인가
-를 본다(+ 새 경제 플래그 EconomyV2Config.ECONOMY_V2 커밋 값 false — 지시서 #30). 게이트 = `if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end`
+를 본다(#37: 새 경제 플래그 검사는 플래그와 함께 지웠다). 게이트 = `if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end`
 (뒤에 주석은 붙어도 된다). 게시된 서버 · 클라에서 테스트 · 리포트가 돌지 않게 하는 줄이다(Shared/TestGate 상단).
 
 새 테스트 · 리포트 파일을 만들면 이 도구를 돌린다(CLAUDE.md "작업 방식").
@@ -61,16 +61,8 @@ for path in modules:
             if body is None or not is_gate(body):
                 violations.append(f"{path.relative_to(ROOT)}:{i + 1}: run()의 첫 줄이 게이트가 아니다 — {(body or '').strip()[:80]}")
 
-# 새 경제 플래그 커밋 값(지시서 #30 — CLAUDE.md "작업 방식"): 켜는 날까지 false로 커밋한다
-ECON_FLAG = SRC / "shared" / "Config" / "EconomyV2Config.lua"
-ECON_LINE = re.compile(r"^EconomyV2Config\.ECONOMY_V2\s*=\s*(\w+)")
-if ECON_FLAG.exists():
-    values = [m.group(1) for m in (ECON_LINE.match(l) for l in ECON_FLAG.read_text(encoding="utf-8").splitlines()) if m]
-    if values != ["false"]:
-        violations.append(f"{ECON_FLAG.relative_to(ROOT)}: ECONOMY_V2 커밋 값이 false가 아니다 — {values}")
-
 if violations:
     print(f"check_test_gate: 위반 {len(violations)}건")
     print("\n".join(violations))
     sys.exit(1)
-print(f"check_test_gate: 위반 0건 (스크립트 {len(scripts)}개 · 도구 run() {runs}개 — 전부 첫 줄이 TestGate · ECONOMY_V2 = false)")
+print(f"check_test_gate: 위반 0건 (스크립트 {len(scripts)}개 · 도구 run() {runs}개 — 전부 첫 줄이 TestGate)")

@@ -10,12 +10,12 @@
 -- ===== 부화 순서 (E6 · 지시서 #12 3단계) ===================================================
 --
 --   1. 프로필 · 표 읽기                 없으면 no_profile. 알 번호가 정수가 아니면 invalid_request
---   2. 롤 시계                          PetConfig.HATCH_INTERVAL_SEC(남용 방지) 안 두 번째면 rate_limited
---   3. 해금                             그 월드에 없거나 잠긴 알(lifetimeBlox < 부화 비용)이면 egg_locked
+--   2. 부화 간격                         연출 + 스킵(EconomyV2Logic.hatchStep — 무료 5초 · 즉시 부화 최소 간격) 안이면 too_soon
+--   3. 해금                             그 월드에 없거나 잠긴 알(lifetimeBlox < 알의 해금 기준 rollCost)이면 egg_locked
 --   4. 저장 공간                        보유 수 ≥ 파생 저장 공간이면 storage_full
---   5. 잔액 미리 보기                    비용보다 적으면 insufficient_blox — 차감을 부르지 않는다
+--   5. 잔액 미리 보기                    코인(EGG_COIN_COST × 마리 수)보다 적으면 insufficient_coins — 차감을 부르지 않는다
 --   ----- 여기까지 부작용 0 -----
---   6. CurrencyService.subtract(부화 비용)  단일 게이트(절대 규칙 2). 거부면 insufficient_blox — 아직 부작용 0, 시계도 그대로
+--   6. CurrencyService.subtract("coins")  단일 게이트(절대 규칙 2). 거부면 insufficient_coins — 아직 부작용 0, 시계도 그대로
 --   7. 시계 기록 → 행운(RollService.computeLuck "pet") → 순차 판정(RollService.roll — 서버 RNG)
 --   8. uid = tostring(nextUid) 발급 · nextUid + 1 · 보유 추가(강화 단계 1). 빈 슬롯이 있으면 자동 장착(Claude 판단 — 아래)
 --      그 petId를 지금 하나도 갖고 있지 않았으면 "새 펫" → 저장 1회(Profile:Save, S11)
@@ -83,8 +83,6 @@ export type HatchResult = {
 export type Deps = {
 	now: () -> number,
 	getData: (Player) -> any?,
-	getBlox: (Player) -> BigNumber?,
-	subtractBlox: (Player, BigNumber, string) -> boolean,
 	roll: (tiers: { PetConfig.PetDef }, luck: number) -> (PetConfig.PetDef, number),
 	save: (Player) -> (),
 	setAttribute: (Player, string) -> (),
@@ -97,10 +95,9 @@ export type Deps = {
 	luckOptions: ((Player) -> RollService.LuckOptions)?,
 	-- 3배 부화 게임패스(S18). 없으면 미보유
 	hasHatchPass: ((Player) -> boolean)?,
-	-- 새 경제(#35 — 플래그 뒤). isV2가 nil이거나 false면 지금 경로 그대로(블럭스 · 남용 방지 간격)
-	isV2: (() -> boolean)?,
-	getCoins: ((Player) -> BigNumber?)?,
-	subtractCoins: ((Player, BigNumber, string) -> boolean)?,
+	-- 부화 재화는 코인(#35 · #37에서 유일)
+	getCoins: (Player) -> BigNumber?,
+	subtractCoins: (Player, BigNumber, string) -> boolean,
 	hasHatchSkipPass: ((Player) -> boolean)?, -- 즉시 부화(ID 자리 — nil이면 무료와 같다)
 }
 
@@ -223,17 +220,12 @@ local function createRuntime(deps: Deps)
 			return false, RollService.REASON_INVALID
 		end
 
-		-- 2. 롤 시계(새 경제면 연출 + 스킵 간격 — 무료 HATCH_SKIP_SEC · 즉시 부화 HATCH_MIN_INTERVAL_SEC · #35)
-		local v2 = deps.isV2 ~= nil and deps.isV2()
+		-- 2. 부화 간격 = 연출 + 스킵(무료 HATCH_SKIP_SEC · 즉시 부화 HATCH_MIN_INTERVAL_SEC — #35)
 		local now = deps.now()
 		local last = lastHatchAt[player]
-		if v2 then
-			local step = EconomyV2Logic.hatchStep(deps.hasHatchSkipPass ~= nil and deps.hasHatchSkipPass(player), false)
-			if last ~= nil and now - last < step - CLOCK_EPSILON_SEC then
-				return false, PetService.REASON_TOO_SOON
-			end
-		elseif last ~= nil and now - last < PetConfig.HATCH_INTERVAL_SEC - CLOCK_EPSILON_SEC then
-			return false, RollService.REASON_RATE_LIMITED
+		local step = EconomyV2Logic.hatchStep(deps.hasHatchSkipPass ~= nil and deps.hasHatchSkipPass(player), false)
+		if last ~= nil and now - last < step - CLOCK_EPSILON_SEC then
+			return false, PetService.REASON_TOO_SOON
 		end
 
 		-- 3. 해금(G8 — 월드에 있고 lifetimeBlox ≥ 부화 비용)
@@ -252,37 +244,24 @@ local function createRuntime(deps: Deps)
 			return false, PetService.REASON_STORAGE_FULL
 		end
 
-		-- 5. 잔액 미리 보기(새 경제면 코인 — 알 가격 EconomyV2Config.EGG_COIN_COST × 마리 수 · #35)
+		-- 5. 잔액 미리 보기(코인 — 알 가격 EconomyV2Config.EGG_COIN_COST × 마리 수 · #35)
 		local tag = if count == 1 then "" else string.format("_x%d", count)
 		local reasonTag = string.format("pet_hatch_egg%d%s_%s", eggId, tag, source)
-		if v2 then
-			local unit = EconomyV2Logic.eggCoinCost(eggId)
-			if unit == nil or deps.getCoins == nil or deps.subtractCoins == nil then
-				return false, PetService.REASON_EGG_LOCKED
-			end
-			local coinCost = if count == 1 then unit :: BigNumber else BigNum.mul(unit :: BigNumber, BigNum.fromNumber(count))
-			local coins = (deps.getCoins :: any)(player)
-			if coins == nil or BigNum.lt(coins, coinCost) then
-				return false, PetService.REASON_INSUFFICIENT_COINS
-			end
-			-- ===== 여기부터 부작용 =====
-			-- 6. 차감(한 번에 — CurrencyService "coins")
-			if not (deps.subtractCoins :: any)(player, coinCost, reasonTag) then
-				return false, PetService.REASON_INSUFFICIENT_COINS
-			end
-		else
-			local cost = if count == 1 then egg.rollCost else BigNum.mul(egg.rollCost, BigNum.fromNumber(count))
-			local blox = deps.getBlox(player)
-			if blox == nil or BigNum.lt(blox, cost) then
-				return false, RollService.REASON_INSUFFICIENT_BLOX
-			end
+		local unit = EconomyV2Logic.eggCoinCost(eggId)
+		if unit == nil then
+			return false, PetService.REASON_EGG_LOCKED
+		end
+		local coinCost = if count == 1 then unit :: BigNumber else BigNum.mul(unit :: BigNumber, BigNum.fromNumber(count))
+		local coins = deps.getCoins(player)
+		if coins == nil or BigNum.lt(coins, coinCost) then
+			return false, PetService.REASON_INSUFFICIENT_COINS
+		end
 
-			-- ===== 여기부터 부작용 =====
+		-- ===== 여기부터 부작용 =====
 
-			-- 6. 차감(한 번에)
-			if not deps.subtractBlox(player, cost, reasonTag) then
-				return false, RollService.REASON_INSUFFICIENT_BLOX
-			end
+		-- 6. 차감(한 번에 — CurrencyService "coins")
+		if not deps.subtractCoins(player, coinCost, reasonTag) then
+			return false, PetService.REASON_INSUFFICIENT_COINS
 		end
 
 		-- 7 · 8. 판정 · 반영 — count번. 같은 배치 안의 두 번째 같은 종은 중복이다
@@ -684,12 +663,6 @@ local REAL: Deps = {
 		local profile = ProfileManager.get(player)
 		return if profile ~= nil then profile.Data else nil
 	end,
-	getBlox = function(player: Player)
-		return CurrencyService.get(player, "blox")
-	end,
-	subtractBlox = function(player: Player, amount: BigNumber, reason: string)
-		return (CurrencyService.subtract(player, "blox", amount, reason))
-	end,
 	roll = function(tiers, luck)
 		return RollService.roll(tiers, luck)
 	end,
@@ -706,13 +679,9 @@ local REAL: Deps = {
 		return ShopEffects.luckOptions(player, "pet")
 	end,
 	hasHatchPass = function(player: Player)
-		-- 새 경제면 제한 지역에서 끈다(#35 — Triple Hatch는 숨김 목록). 꺼져 있으면 지금 그대로
-		if EconomyV2Logic.isOn() then
-			return ShopEffects.v2PassActive(player, "hatch3x")
-		end
-		return GamepassService.owns(player, "hatch3x")
+		-- 제한 지역에서 끈다(#35 — Triple Hatch는 숨김 목록)
+		return ShopEffects.v2PassActive(player, "hatch3x")
 	end,
-	isV2 = EconomyV2Logic.isOn,
 	getCoins = function(player: Player)
 		return CurrencyService.get(player, "coins")
 	end,

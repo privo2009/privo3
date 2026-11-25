@@ -54,6 +54,16 @@ end
 local SCREENS = { "BloxDisplay", "ChallengeInfo", "MenuRail", "PowerBlock", "ShopSlots", "AutoTools" } -- U3-5: PowerBlock, U3-6: ShopSlots/AutoTools 추가
 local STABILITY_FRAMES = 10 -- 프레임 수(시간이 아니다) — 근거는 파일 상단 참고
 
+-- #37 다: 블럭스 칸은 첫 수령 안내(blox)를 지나야 보인다(DESIGN 16장 "해금 순서") — 그 칸만 "보여야 할 때 보이는가"로 잰다
+local OnboardingTipsLogic = require(game:GetService("ReplicatedStorage").Shared.OnboardingTipsLogic)
+local EconomyV2State = require(script.Parent.Parent.Economy.EconomyV2State)
+local function shouldShow(name: string): boolean
+	if name == "BloxDisplay" then
+		return OnboardingTipsLogic.hudShown(EconomyV2State.shared().get().tipsSeen, "blox")
+	end
+	return true
+end
+
 task.defer(function()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
@@ -81,7 +91,7 @@ task.defer(function()
 
 	for _ = 1, STABILITY_FRAMES do
 		for name, root in pairs(roots) do
-			if not (root.Visible and root:IsDescendantOf(playerGui)) then
+			if not (root.Visible == shouldShow(name) and root:IsDescendantOf(playerGui)) then
 				stableVisible[name] = false
 			end
 		end
@@ -98,14 +108,14 @@ task.defer(function()
 			end
 		else
 			check(string.format("'%s' root가 PlayerGui 아래 붙어 있다", name), root:IsDescendantOf(playerGui))
-			check(string.format("'%s' root.Visible == true", name), root.Visible == true)
+			check(string.format("'%s' root.Visible == 보여야 할 때(블럭스 칸은 안내 뒤 — #37)", name), root.Visible == shouldShow(name))
 			check(
 				string.format("'%s' AbsoluteSize가 0이 아니다", name),
 				root.AbsoluteSize.X > 0 and root.AbsoluteSize.Y > 0,
 				tostring(root.AbsoluteSize)
 			)
 			check(
-				string.format("'%s'가 %d프레임 동안 계속 보였다(뒤늦게 닫히지 않는다)", name, STABILITY_FRAMES),
+				string.format("'%s'가 %d프레임 동안 보여야 할 상태 그대로(뒤늦게 닫히지 않는다)", name, STABILITY_FRAMES),
 				stableVisible[name] == true
 			)
 		end

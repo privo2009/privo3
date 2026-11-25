@@ -1,5 +1,5 @@
 --!strict
--- 새 경제(지시서 #30 — 플래그 ECONOMY_V2 뒤) 설정 · 순수 로직 · 환생 v2 검증.
+-- 경제(지시서 #30 — #37부터 유일한 경제) 설정 · 순수 로직 · 환생 검증.
 -- ⚠️ 설정 숫자를 하드코딩하지 않는다 — 기대값은 EconomyV2Config에서 읽는다(숫자는 TEMP라 바뀐다).
 -- 플래그 커밋 값 false도 여기서 잰다(로컬에서 잠깐 true로 켠 Play에서는 1번이 실패한다 — 그 Play는 세지 않는다).
 
@@ -13,7 +13,6 @@ local Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
 local L = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
-local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
 local RebirthService = require(ServerScriptService.Server.Systems.RebirthService)
 
 local passed = 0
@@ -40,7 +39,6 @@ local N = Config.CRAFT_INPUT
 local UNIT = Config.GAUGE_UNIT
 
 -- 1. 플래그 · 검증 -------------------------------------------------------------------------------
-check("플래그: ECONOMY_V2 커밋 값 false · isOn false", Config.ECONOMY_V2 == false and L.isOn() == false)
 check("설정: validate 통과", (pcall(Config.validate)))
 check("설정: 곡괭이 15종(일반 3 · 희귀 4 · 에픽 4 · 신화 3 · 전설 1)", (function()
 	local c: { [string]: number } = {}
@@ -61,7 +59,9 @@ check("설정: 교환 비용(희귀 3 · 4 · 5 · 7 / 에픽 2 · 3 · 5 · 9 /
 		and table.concat(got.legendary, ",") == "50"
 end)())
 check("설정: 별 소모 1 · 3 · 5 · 7 · 10(누적 26) · 강화 +10", table.concat(Config.STAR_CONSUME, ",") == "1,3,5,7,10" and Config.ENHANCE_MAX == 10)
-check("설정: 운동기구 해금 수 = 환생 기구 수", #Config.GYM_UNLOCK_REBIRTHS == GymConfig.getRebirthTierCount())
+-- 운동기구 해금 환생 수(TEMP — #37에서 EconomyV2Config.GYM_UNLOCK_REBIRTHS → GymConfig 기구 표로 옮김 · 값 그대로)
+local GYM_UNLOCK = { 1, 2, 3, 5, 7, 9, 12, 15 }
+check("설정: 운동기구 해금 수 = 환생 기구 수", #GYM_UNLOCK == GymConfig.getRebirthTierCount())
 
 -- 2. 광석 · 게이지(정수) --------------------------------------------------------------------------
 do
@@ -256,23 +256,18 @@ do
 	check("환생: 유지 목록(곡괭이 · 광석 · 토큰 · 코인)", table.concat(L.REBIRTH_KEEPS, ",") == "pickaxes,ores,tokens,coins")
 
 	local r = BigNum.fromNumber(4)
-	local v1 = StrengthMultiplier.compute({ rebirths = r, economyV2 = false })
-	local v2 = StrengthMultiplier.compute({ rebirths = r, economyV2 = true })
-	check("배수: 플래그 끔 = 1 + n(지금 그대로) · 기본(플래그) = 끔", BigNum.eq(v1, BigNum.fromNumber(5)) and BigNum.eq(StrengthMultiplier.compute({ rebirths = r }), v1))
+	local v2 = StrengthMultiplier.compute({ rebirths = r })
 	check("배수: 새 경제 = b^n(다른 출처는 그대로 곱)", BigNum.eq(v2, L.rebirthFactor(r))
-		and math.abs(BigNum.toRatio(StrengthMultiplier.compute({ rebirths = r, economyV2 = true, titleMult = 2 }), v2) - 2) < 1e-9)
+		and math.abs(BigNum.toRatio(StrengthMultiplier.compute({ rebirths = r, titleMult = 2 }), v2) - 2) < 1e-9)
 
 	local okGym = true
 	for i = 1, GymConfig.getRebirthTierCount() do
-		local need = Config.GYM_UNLOCK_REBIRTHS[i]
-		okGym = okGym and GymConfig.isUnlockedByRebirths(i, BigNum.fromNumber(need), true)
-			and not GymConfig.isUnlockedByRebirths(i, BigNum.fromNumber(need - 1), true)
-			and BigNum.eq(GymConfig.getUnlockRebirths(i, true), BigNum.fromNumber(need))
+		local need = GYM_UNLOCK[i]
+		okGym = okGym and GymConfig.isUnlockedByRebirths(i, BigNum.fromNumber(need))
+			and not GymConfig.isUnlockedByRebirths(i, BigNum.fromNumber(need - 1))
+			and BigNum.eq(GymConfig.getUnlockRebirths(i), BigNum.fromNumber(need))
 	end
 	check("운동기구: 새 경제 해금 = 설정 값(경계)", okGym)
-	check("운동기구: 플래그 끔 = 지금 값", BigNum.eq(GymConfig.getUnlockRebirths(1), GymConfig.getUnlockRebirths(1, false))
-		and GymConfig.getUnlockedCount(BigNum.fromNumber(Config.GYM_UNLOCK_REBIRTHS[#Config.GYM_UNLOCK_REBIRTHS])) == GymConfig.getUnlockedCount(
-			BigNum.fromNumber(Config.GYM_UNLOCK_REBIRTHS[#Config.GYM_UNLOCK_REBIRTHS]), false))
 end
 
 -- 8. RebirthService 새 경제 경로(가짜 deps — 프로필 없음) -----------------------------------------
@@ -337,11 +332,11 @@ do
 	local n = 2
 	local cost = L.rebirthCost(n)
 	local wLow, dLow = world(BigNum.sub(cost, BigNum.new(1, 0)), n)
-	local okLow, reasonLow = runRebirth(dLow, {} :: any, "test", true)
+	local okLow, reasonLow = runRebirth(dLow, {} :: any, "test")
 	check("환생 v2: 비용 미만이면 거부 · 아무것도 안 바뀜", not okLow and reasonLow == RebirthService.REASON_NOT_ENOUGH_BLOX and #wLow.calls == 0)
 	local have = BigNum.mul(cost, BigNum.fromNumber(1.25))
 	local w, d = world(have, n)
-	local ok, result = runRebirth(d, {} :: any, "test", true)
+	local ok, result = runRebirth(d, {} :: any, "test")
 	check("환생 v2: 비용만 CurrencyService 통로(subtract)로 뺀다 · 나머지 남음", ok and w.subtracted ~= nil and BigNum.eq(w.subtracted, cost)
 		and math.abs(BigNum.toRatio(w.blox, cost) - 0.25) < 1e-6 and table.find(w.calls, "setBlox") == nil)
 	check("환생 v2: 환생 수 +1(x2 패스여도) · 결과 gained 1 · total n+1", ok and BigNum.eq(result.gained, BigNum.new(1, 0))
@@ -349,12 +344,8 @@ do
 	check("환생 v2: 나머지 초기화는 지금과 같다(힘 · 패드)", ok and BigNum.eq(w.strength, require(ServerScriptService.Server.Data.Schema).new().strength)
 		and table.find(w.calls, "resetPad") ~= nil)
 	local wExact, dExact = world(cost, n)
-	local okExact = runRebirth(dExact, {} :: any, "test", true)
+	local okExact = runRebirth(dExact, {} :: any, "test")
 	check("환생 v2: 딱 비용이면 0으로(set) — 나머지 없음", okExact and wExact.set ~= nil and wExact.set.m == 0)
-	local wOff, dOff = world(BigNum.fromNumber(RebirthConfig.BLOX_PER_REBIRTH * 3 + 7), 0)
-	local okOff, resOff = runRebirth(dOff, {} :: any, "test", false)
-	check("환생: 플래그 끔(economyV2 false)이면 지금 규칙 그대로(전액 · 얻는 수 × 패스)", okOff and wOff.set ~= nil and wOff.set.m == 0
-		and BigNum.eq(resOff.gained, BigNum.fromNumber(6)) and wOff.subtracted == nil)
 end
 
 print(string.format("[EconomyV2Tests] %d passed, %d failed", passed, failed))

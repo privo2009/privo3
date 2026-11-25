@@ -1,5 +1,5 @@
 --!strict
--- 장비 클라 검증(지시서 #34 — 플래그 ECONOMY_V2 뒤에서만 쓰는 모듈). 전역 플래그는 건드리지 않는다 — 모듈을 직접 만들어 굴린다.
+-- 장비 클라 검증(지시서 #34). 모듈을 직접 만들어 굴린다.
 --   창 로직(15칸 등급순 · 배수 · 장착 · 실루엣 · 강화 미리보기 = 서버와 같은 낮은 광석부터 · 별 미리보기 = 여벌 · 1개 남김 · 상한) ·
 --   창(실루엣 · 등급 색 테두리 · 이름 · 버튼 상태 · 결과 글자 · AutoLocalize false · UiTheme.FONT) · 상태(equipment_state) ·
 --   HUD 장비 버튼(대장간이 열렸을 때만) · 상점 줄(새 경제면 펀치 데미지 빠짐 · 끄면 그대로)
@@ -114,9 +114,9 @@ do
 	hud.set({ coins = BigNum.new(0, 0), bagUsed = 0, bagCap = 20, forgeOpen = true })
 	check("HUD: 장비 버튼은 대장간이 열렸을 때만(대장간 줄)", closed and hud.forgeRow.Visible and hud.equipHit ~= nil and hud.equipHit:IsDescendantOf(hud.forgeRow))
 	gui:Destroy()
-	local on, off = UpgradeShopLogic.order(true), UpgradeShopLogic.order(false)
-	check("상점: 새 경제면 펀치 데미지 줄 없음 · 끄면 SHOP_ORDER 그대로", table.find(on, "punchDamage") == nil and #on == #UpgradeConfig.SHOP_ORDER - 1
-		and table.concat(off, ",") == table.concat(UpgradeConfig.SHOP_ORDER, ","))
+	local on = UpgradeShopLogic.order()
+	check("상점: 펀치 데미지 줄 없음 · SHOP_ORDER 그대로(#37 다 — 펀치 데미지를 지웠다)", table.find(on, "punchDamage") == nil
+		and table.concat(on, ",") == table.concat(UpgradeConfig.SHOP_ORDER, ","))
 end
 
 print(string.format("[EquipmentClientTests] %d passed, %d failed", passed, failed))

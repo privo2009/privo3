@@ -1,5 +1,5 @@
 --!strict
--- 대장간 서버(지시서 #33 — DESIGN 16장 "제작" · "대장간 화면"). ⚠️ 플래그 ECONOMY_V2 뒤 — 꺼져 있으면 Bootstrap이 init하지 않는다.
+-- 대장간 서버(지시서 #33 — DESIGN 16장 "제작" · "대장간 화면").
 --
 -- 서버 권위(CLAUDE.md 절대 규칙 3) — 클라 ForgeRequest는 "요청"일 뿐이다:
 --   제작      대장간이 열렸나(forgeOpen) · 조합 모양(광석 번호 × CRAFT_INPUT) · 그만큼 광석이 있나 · 칸 수는 서버가 다시 센다(slotsOf) ·

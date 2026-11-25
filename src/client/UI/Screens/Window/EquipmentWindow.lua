@@ -1,5 +1,5 @@
 --!strict
--- 장비 창 (큰 창, Window 층 — 지시서 #34 · DESIGN 16장 "장비 화면"). ⚠️ 새 경제 플래그 뒤에서만 만든다(EconomyV2Boot).
+-- 장비 창 (큰 창, Window 층 — 지시서 #34 · DESIGN 16장 "장비 화면"). 만드는 곳은 EconomyV2Boot.
 --
 -- 탭: 곡괭이 하나(칼은 EquipmentWindowLogic.KINDS에 종류가 늘면 탭이 늘 자리).
 --   왼쪽  15칸 등급순 — 칸마다 이름(등급 색) · 보유 × · 별 · 강화 · 배수 · 장착 표시 · 없는 곡괭이는 실루엣(???)

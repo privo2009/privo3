@@ -41,11 +41,11 @@
 --   CodeResult      서버→클라. 결과(받은 보상 · 거부 사유). 입력 글자를 되보내지 않는다(C4)
 --   OnboardingRequest 클라→서버. 첫 접속 안내 끝(5단계 확인) · 건너뛰기 (지시서 #20 O2 · O3). 단계 판정은 서버 신호로 한다
 --   OnboardingResult  서버→클라. 그 요청의 결과. 지금 단계는 PlayerState가 보낸다
---   EconomyEvent    서버→클라. 새 경제 신호(지시서 #32 — 플래그 ECONOMY_V2 뒤에서만 발화). kind로 갈린다 — EconomyEventPayload 주석
---   EquipmentRequest 클라→서버. 장비 요청(지시서 #34 — equip · enhance · star · sync). 결과는 EconomyEvent(equipment_*). 플래그 뒤에서만 듣는다
---   PetAutoRequest  클라→서버. 자동 부화 켜기 · 끄기(지시서 #35 — { on, egg }). 결과는 EconomyEvent(auto_hatch_*). 플래그 뒤에서만 듣는다
---   OnboardingTipRequest 클라→서버. 새 경제 안내 상태 다시 받기(지시서 #36 — { action = "sync" }). 결과는 EconomyEvent(tips). 플래그 뒤에서만 듣는다
---   ForgeRequest    클라→서버. 대장간 요청(지시서 #33 — craft · auto · exchange · sync). 결과는 EconomyEvent(forge_* kind). 플래그 뒤에서만 듣는다
+--   EconomyEvent    서버→클라. 새 경제 신호(지시서 #32에서만 발화). kind로 갈린다 — EconomyEventPayload 주석
+--   EquipmentRequest 클라→서버. 장비 요청(지시서 #34 — equip · enhance · star · sync). 결과는 EconomyEvent(equipment_*)
+--   PetAutoRequest  클라→서버. 자동 부화 켜기 · 끄기(지시서 #35 — { on, egg }). 결과는 EconomyEvent(auto_hatch_*)
+--   OnboardingTipRequest 클라→서버. 새 경제 안내 상태 다시 받기(지시서 #36 — { action = "sync" }). 결과는 EconomyEvent(tips)
+--   ForgeRequest    클라→서버. 대장간 요청(지시서 #33 — craft · auto · exchange · sync). 결과는 EconomyEvent(forge_* kind)
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --

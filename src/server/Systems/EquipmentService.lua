@@ -1,5 +1,5 @@
 --!strict
--- 장비 서버(지시서 #34 — DESIGN 16장 "곡괭이" · "별 · 강화 규칙" · "장비 화면"). ⚠️ 플래그 ECONOMY_V2 뒤 — 꺼져 있으면 Bootstrap이 init하지 않는다.
+-- 장비 서버(지시서 #34 — DESIGN 16장 "곡괭이" · "별 · 강화 규칙" · "장비 화면").
 --
 -- 서버 권위(CLAUDE.md 절대 규칙 3) — 클라 EquipmentRequest는 "요청"일 뿐이다:
 --   장착   가진 장비인가 · 이미 장착한 것이면 거부(already_equipped — 쓰지 않는다) → InventoryService.equip →

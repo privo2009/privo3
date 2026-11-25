@@ -107,7 +107,10 @@ do
 	local purchase, bought = fakePurchase()
 	local requests: { any } = {}
 	local store = world(shop(nil, false))
-	local w = PetWindow.create({ store = store, purchase = purchase, sendRequest = function(p)
+	-- #37 배선: 부화 재화는 코인 — 창에 코인 상태를 준다
+	local econ = require(script.Parent.Parent.Economy.EconomyV2State).new()
+	econ.apply({ kind = "snapshot", bag = {}, used = 0, cap = 20, coins = BigNum.new(1, 9), ores = {}, forgeOpen = false, drops = {} })
+	local w = PetWindow.create({ store = store, purchase = purchase, econ = econ, sendRequest = function(p)
 		table.insert(requests, p)
 	end, onClose = function() end })
 	task.wait()

@@ -152,8 +152,8 @@ local ATTACK_VERIFY_POLL_SEC = 0.5
 local AttackService = require(script.Parent.Systems.AttackService)
 AttackService.init()
 
--- 새 경제 드롭 · 줍기 · 가방 · 코인 · 대장간 열림(지시서 #32 — 플래그 ECONOMY_V2 뒤). 꺼져 있으면 init도 고리도 없다 — 게임은 지금과 같다.
-if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() then
+-- 경제(DESIGN 16장 — #37부터 유일한 경제): 드롭 · 줍기 · 가방 · 코인 · 대장간 열림(지시서 #32)
+do
 	local OreDropService = require(script.Parent.Systems.OreDropService)
 	OreDropService.init()
 	require(script.Parent.Systems.ChallengeService).economyHooks = {
@@ -161,12 +161,12 @@ if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() then
 		onBlocksDestroyed = OreDropService.onBlocksDestroyed,
 		onRunEnded = OreDropService.onRunEnded,
 	}
-	-- 대장간(제작 · 자동 제작 · 토큰 교환 — 지시서 #33). 같은 플래그 뒤
+	-- 대장간(제작 · 자동 제작 · 토큰 교환 — 지시서 #33)
 	require(script.Parent.Systems.ForgeService).init()
-	-- 장비(장착 · 강화 · 별) · 손에 든 곡괭이(지시서 #34). 채굴 데미지는 AttackService.punchDamageFactor가 플래그를 보고 곡괭이 배수를 쓴다
+	-- 장비(장착 · 강화 · 별) · 손에 든 곡괭이(지시서 #34). 채굴 데미지는 AttackService.punchDamageFactor가 곡괭이 배수를 쓴다
 	require(script.Parent.Systems.EquipmentService).init()
 	require(script.Parent.Systems.HeldPickaxeService).init()
-	-- 자동 부화(지시서 #35 — 펫 부화는 PetService가 플래그를 보고 코인 · 연출 + 스킵 간격으로)
+	-- 자동 부화(지시서 #35 — 펫 부화는 PetService가 코인 · 연출 + 스킵 간격으로)
 	require(script.Parent.Systems.PetAutoHatchService).init()
 	-- 새 경제 안내(지시서 #36 — 해금 순서 · HUD 칸) · 모델 에셋 불러 두기(ID가 있는 자리만 — 전부 nil이면 빈 폴더)
 	require(script.Parent.Systems.OnboardingTipsService).init()
@@ -855,35 +855,11 @@ end
 --  실물 워프는 창으로 워프한 Play의 [WarpRequestService] 줄 · 캐릭터 위치 · RunStateChanged로 본다.
 --  마지막 코드는 git 이력에 있다.)
 
--- ── 개발용 플래그: STANDARD_PATH_REPORT_ENABLED ───────────────────────────────
--- 표준 경로 시뮬레이터(4-2-f). 클릭률 6/8/10 세 벌의 표를 Play 로그로 찍는다.
--- 목적은 "17층 절벽이 표준 경로를 실제로 막는가"에 답할 숫자를 얻는 것이다.
---
--- ⚠️ 지운 WARP_VERIFY_ENABLED · REBIRTH_VERIFY_ENABLED와 **성격이 다르다.
---    같이 볼 때 같은 물건으로 취급하지 말 것.** 저것들은 켜면 blox와 lifetimeBlox가
---    되돌릴 수 없게 올라 접속한 계정이 오염되므로 켠 채로 커밋하면 안 된다.
---    이 리포트는 **Config만 읽고 순수 계산 후 print한다** — 프로필을 읽지도 쓰지도
---    않으므로 켠 채로 커밋해도 안전하다.
---
--- 끄는 이유는 오염이 아니라 소음이다. 4-2-f 동안 값을 바꿔가며 반복 실행할 물건이라,
--- 매 Play마다 표 세 벌이 찍히면 [ATTACK]·[Bootstrap] 관측 로그가 묻힌다.
---
--- 4-2-f 종료 후 이 블록 삭제 (docs/PENDING.md 잔재).
-local STANDARD_PATH_REPORT_ENABLED = false
-
-if STANDARD_PATH_REPORT_ENABLED then
-	-- task.spawn: 뽑기 3종 · 걷기가 들어가(지시서 #13) 계산이 길어졌다 — 서버 시작을 붙잡지 않는다(SUCCESS_RATE_REPORT와 같다).
-	task.spawn(function()
-		require(script.Parent.Tools.StandardPathReport).run()
-	end)
-end
-
-
 -- ── 개발용 플래그: SUCCESS_RATE_REPORT_ENABLED ────────────────────────────────
 -- 확률적 플레이어 성공률 시뮬레이터(4-2-f). 층별 "첫 도달 성공률"과 HP 구간 합산을 찍는다.
 -- 플레이어 모델(클릭 속도·반경 밖 시간·런 중 클릭·진행 문턱)은 사람 결정이다 — 파일 상단 MODEL.
 --
--- ⚠️ STANDARD_PATH_REPORT_ENABLED와 같은 성격이다 — Config만 읽고 순수 계산 후 print한다.
+-- ⚠️ Config만 읽고 순수 계산 후 print한다.
 --    프로필을 읽지도 쓰지도 않으므로 켠 채로 커밋해도 계정을 오염시키지 않는다.
 --    기본값 false인 이유는 소음과 계산 시간이다. task.spawn으로 돌려 서버 시작을 붙잡지 않는다.
 --
@@ -896,38 +872,4 @@ if SUCCESS_RATE_REPORT_ENABLED then
 	end)
 end
 
--- ── 개발용 플래그: BALANCE_SUMMARY_ENABLED (지시서 #13 6단계 — 사람용 튜닝 요약) ─────────────
--- Play 한 번에 핵심 지표를 30줄 안팎으로 찍는다([BALANCE] 줄 — Tools/BalanceSummary). 값을 바꾼 뒤 이것 하나만 켜고 읽는다.
--- 순서 · 읽는 법은 docs/TUNING.md. 프로필을 읽지도 쓰지도 않는다. 이 플래그를 켠 Play에서는 테스트 개수를 세지 않는다.
-local BALANCE_SUMMARY_ENABLED = false
-
-if BALANCE_SUMMARY_ENABLED then
-	task.spawn(function()
-		require(script.Parent.Tools.BalanceSummary).run()
-	end)
-end
-
--- ── 개발용 플래그: HP_CANDIDATE_REPORT_ENABLED (지시서 #13 5단계) ─────────────────────
--- HP 곡선 후보 측정(Tools/HpCandidateReport). 기준점 B4 · 넓게 훑기 · 후보 자세히([HPCAND] 줄). ⚠️ 채택하지 않는다(D2).
--- SUCCESS_RATE_REPORT_ENABLED와 같은 성격이다 — Config를 메모리에서 잠깐 갈아끼우고 되돌린다. 프로필을 읽지도 쓰지도 않는다.
--- 계산이 길다(수 분). 이 플래그를 켠 Play에서는 테스트 개수를 세지 않는다.
-local HP_CANDIDATE_REPORT_ENABLED = false
-
-if HP_CANDIDATE_REPORT_ENABLED then
-	task.spawn(function()
-		require(script.Parent.Tools.HpCandidateReport).run()
-	end)
-end
-
--- ── 개발용 플래그: TEST_PRESET_EXPORT_ENABLED (지시서 #13 3단계) ──────────────────────
--- 테스트 프리셋(Shared/Config/TestPresets) 값을 다시 뽑는다. SuccessRateReport 결정 모델과 같은 시뮬레이터 · 같은 seed로
--- 시점마다 중앙값 플레이어의 상태를 Lua 표 글자로 print한다([PRESET] 줄) — 그대로 TestPresets.lua에 옮긴다.
--- ⚠️ SUCCESS_RATE_REPORT_ENABLED와 같은 성격이다 — Config만 읽고 print한다. 프로필을 읽지도 쓰지도 않는다.
---    끄는 이유는 소음과 계산 시간이다. 이 플래그를 켠 Play에서는 테스트 개수를 세지 않는다(CLAUDE.md 절대 규칙 8).
-local TEST_PRESET_EXPORT_ENABLED = false
-
-if TEST_PRESET_EXPORT_ENABLED then
-	task.spawn(function()
-		require(script.Parent.Tools.TestPresetExport).run()
-	end)
-end
+-- (#37: 옛 경제만 재던 STANDARD_PATH · BALANCE_SUMMARY · HP_CANDIDATE · TEST_PRESET_EXPORT 블록은 도구와 함께 지웠다 — git 이력에 있다)

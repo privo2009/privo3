@@ -119,7 +119,6 @@ Strings.Entries = {
 	-- 월드 (WorldConfig 번호)
 	["world.name.1"] = { en = "Wood", ko = "나무" },
 	-- 업그레이드 (UpgradeConfig 키)
-	["upgrade.name.punchDamage"] = { en = "Punch Damage", ko = "펀치 데미지" },
 	["upgrade.name.punchSpeed"] = { en = "Punch Speed", ko = "펀치 속도" },
 	["upgrade.name.bloxGain"] = { en = "Blox Gain", ko = "블럭스 획득" },
 	["upgrade.name.titleLuck"] = { en = "Title Luck", ko = "칭호 행운" },
@@ -139,8 +138,6 @@ Strings.Entries = {
 	["shop.autoClicker.desc"] = { en = "Clicks 15 times per second while on", ko = "켜 두면 초당 15번 자동으로 클릭해요" },
 	["shop.autoClickerOP.name"] = { en = "OP Auto Clicker", ko = "OP 자동 클리커" },
 	["shop.autoClickerOP.desc"] = { en = "Clicks 30 times per second while on", ko = "켜 두면 초당 30번 자동으로 클릭해요" },
-	["shop.rebirth2x.name"] = { en = "x2 Rebirths", ko = "2배 환생" }, -- en = 대시보드 이름(지시서 #18 N1)
-	["shop.rebirth2x.desc"] = { en = "Get 2x Rebirths when you rebirth", ko = "환생할 때 얻는 환생 수가 2배예요" },
 	["shop.hatch3x.name"] = { en = "Triple Hatch", ko = "3배 부화" }, -- en = 대시보드 이름(#18 N1)
 	["shop.hatch3x.desc"] = { en = "Hatch 3 eggs at once (3x cost)", ko = "알을 한 번에 3개 부화해요(비용 3배)" },
 	["shop.petLuck2x.name"] = { en = "x2 Pet Luck", ko = "2배 펫 행운" },
@@ -275,7 +272,7 @@ Strings.Entries = {
 	["onboarding.step.3"] = { en = "Clear floor 1 - stay near the blocks to auto-attack", ko = "1층을 깨요 - 가까이 있으면 자동으로 공격해요" },
 	["onboarding.step.4"] = { en = "Claim on the yellow pad, or go through the purple wall", ko = "노랑 발판에서 받거나 보라 벽으로 진행해요" },
 	["onboarding.step.5"] = { en = "Unlock pads with Blox. At 1000 Blox you can Rebirth", ko = "블럭스로 패드를 열어요. 1000이면 환생할 수 있어요" },
-	["onboarding.step.4.v2"] = { en = "Yellow pad = claim Blox now · Purple wall = next floor (fail and you lose it)", ko = "노랑 발판 = 지금 블럭스 받기 · 보라 벽 = 다음 층(실패하면 못 받아요)" },
+	["onboarding.step.4.v2"] = { en = "Yellow pad = claim · Purple wall = go on (fail = lose it)", ko = "노랑 발판 = 받기 · 보라 벽 = 진행(실패하면 잃어요)" }, -- #37: 폰 띠 두 줄에 들어가게 줄임
 	["onboarding.tip.title"] = { en = "Tip", ko = "안내" },
 	["onboarding.tip.blox"] = { en = "Blox! You get it when you claim. Spend it on Rebirth and the Shop", ko = "블럭스! 수령하면 받아요. 환생 · 상점에 써요" },
 	["onboarding.tip.coins"] = { en = "Coins come in the moment a block breaks. You keep them even if you fail", ko = "블록을 깨면 코인이 바로 들어와요. 실패해도 남아요" },
@@ -311,7 +308,7 @@ Strings.Entries = {
 	["rebirth.sending"] = { en = "Rebirthing...", ko = "환생하는 중..." },
 	["rebirth.reason.not_enough_blox"] = { en = "You can rebirth from {cost} Blox", ko = "{cost} 블럭스부터 환생할 수 있어요" },
 	["rebirth.reason.failed"] = { en = "Couldn't rebirth", ko = "환생하지 못했어요" },
-	-- 새 경제 환생 창(지시서 #30 — 플래그 ECONOMY_V2 뒤)
+	-- 새 경제 환생 창(지시서 #30)
 	["rebirth.v2.cost"] = { en = "Next Rebirth Cost", ko = "다음 환생 비용" },
 	["rebirth.v2.gain"] = { en = "Power Multiplier", ko = "힘 배수" },
 	["rebirth.v2.gainValue"] = { en = "×{before} → ×{after}", ko = "×{before} → ×{after}" },
@@ -345,13 +342,13 @@ Strings.Entries = {
 	["pickaxe.name.pick_m2"] = { en = "Magma Pickaxe", ko = "용암 곡괭이" }, -- 임시 이름
 	["pickaxe.name.pick_m3"] = { en = "Frost Pickaxe", ko = "서리 곡괭이" }, -- 임시 이름
 	["pickaxe.name.pick_l1"] = { en = "Starforge Pickaxe", ko = "별대장간 곡괭이" }, -- 임시 이름
-	-- 새 경제 HUD · 알림(지시서 #32 — 플래그 ECONOMY_V2 뒤)
+	-- 새 경제 HUD · 알림(지시서 #32)
 	["econ.coins.label"] = { en = "Coins", ko = "코인" },
 	["econ.bag.label"] = { en = "Bag", ko = "가방" },
 	["econ.bag.value"] = { en = "{used}/{cap}", ko = "{used}/{cap}" },
 	["econ.forge.open"] = { en = "The Forge is open! Craft pickaxes from your ores", ko = "대장간이 열렸어요! 광석으로 곡괭이를 만들 수 있어요" },
 	["econ.forge.hint"] = { en = "Reach Floor {floor} to open the Forge", ko = "{floor}층에 가면 대장간이 열려요" },
-	-- 대장간(지시서 #33 — 새 경제 플래그 뒤 화면)
+	-- 대장간(지시서 #33)
 	["forge.title"] = { en = "Forge", ko = "대장간" },
 	["forge.tab.craft"] = { en = "Craft", ko = "제작" },
 	["forge.tab.exchange"] = { en = "Exchange", ko = "교환소" },
@@ -396,7 +393,7 @@ Strings.Entries = {
 	["token.mythic"] = { en = "Mythic Token", ko = "신화 토큰" },
 	["token.legendary"] = { en = "Legendary Token", ko = "전설 토큰" },
 	["token.next"] = { en = "??? Token", ko = "??? 토큰" },
-	-- 펫 코인 부화 · 자동 부화 · 새 게임패스(지시서 #35 — 새 경제 플래그 뒤)
+	-- 펫 코인 부화 · 자동 부화 · 새 게임패스(지시서 #35)
 	["pet.egg.infoCoins"] = { en = "{egg} · {cost} Coins per hatch", ko = "{egg} · 1회 {cost} 코인" },
 	["pet.hatchCostCoins"] = { en = "Hatch · {cost} Coins", ko = "부화 · {cost} 코인" },
 	["pet.hatch3Coins"] = { en = "Hatch ×{n} · {cost} Coins", ko = "{n}마리 부화 · {cost} 코인" },
@@ -415,7 +412,7 @@ Strings.Entries = {
 	["shop.tripleCraft.desc"] = { en = "Craft 3 at once (uses 15 ores)", ko = "한 번에 3회 제작(광석 15개)" },
 	["shop.instantHatch.name"] = { en = "Instant Hatch", ko = "즉시 부화" },
 	["shop.instantHatch.desc"] = { en = "Skip hatch animations — hatch every 1s", ko = "부화 연출 생략 · 1초마다 부화" },
-	-- 장비 화면(지시서 #34 — 새 경제 플래그 뒤)
+	-- 장비 화면(지시서 #34)
 	["equip.title"] = { en = "Equipment", ko = "장비" },
 	["equip.tab.pickaxe"] = { en = "Pickaxes", ko = "곡괭이" },
 	["equip.open"] = { en = "Equipment", ko = "장비" },

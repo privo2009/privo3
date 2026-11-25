@@ -1,5 +1,5 @@
 --!strict
--- 새 경제 #31 결정 검증(플래그 ECONOMY_V2 뒤 — 전역 플래그는 건드리지 않는다. economyV2 인자 · deps로 켠다).
+-- 경제 #31 결정 검증(#37부터 유일한 경제 — 플래그는 지웠다).
 --   제작 · 부화 시간 = 연출 + 스킵(무료 스킵 · 연출 생략 최소 간격 · 트리플) · 상위 광석 드롭 기대값 · 강화 블럭스 비용 변형(N5 — 기본 nil) ·
 --   임시 이름 Strings 25개(광석 10 · 곡괭이 15) · x2 Rebirths 새 경제에서 빠짐(효과 1 · 구매 not_available · 끔이면 그대로) ·
 --   분석 이벤트 rebirth v2 값(환생 수 · 비용 자릿수) · 환생 v2 결과에 낸 비용.
@@ -22,7 +22,6 @@ local MarketplaceGateway = require(ServerScriptService.Server.Systems.Marketplac
 local PurchaseRequestService = require(ServerScriptService.Server.Systems.PurchaseRequestService)
 local Analytics = require(ServerScriptService.Server.Systems.Analytics)
 local RebirthService = require(ServerScriptService.Server.Systems.RebirthService)
-local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
 
 local passed = 0
 local failed = 0
@@ -149,50 +148,32 @@ do
 	end)())
 end
 
--- 5. x2 Rebirths(새 경제에서 빠짐) ---------------------------------------------------------------
+-- 5. x2 Rebirths(#37에서 지웠다 — 상품 줄 · 효과 · 구매 처리) -------------------------------------------------
 do
-	local allKnown = true
-	for key in pairs(Config.REMOVED_PRODUCTS) do
-		allKnown = allKnown and ShopConfig.get(key) ~= nil
-	end
-	check("빠진 상품: ShopConfig에 있는 키 · rebirth2x 포함", allKnown and Config.REMOVED_PRODUCTS.rebirth2x == true)
-	check("빠진 상품: 켜면 빠짐 · 끄면 그대로 · nil = 커밋 플래그(false)", L.isRemovedProduct("rebirth2x", true) and not L.isRemovedProduct("rebirth2x", false)
-		and L.isRemovedProduct("rebirth2x", nil) == Config.ECONOMY_V2 and not L.isRemovedProduct("damage2x", true))
-	local view = ShopEffectsLogic.fromSummary({ gamepasses = { "rebirth2x" }, paidRandomRestricted = false, boosts = {} })
-	local mult = ShopConfig.passMult("rebirth2x", view.owns)
-	check("효과: 켜면 보유해도 1 · 끄면 패스 배수", ShopEffectsLogic.rebirth(view, true) == 1 and ShopEffectsLogic.rebirth(view, false) == mult and mult > 1)
-
-	local catalog = MarketplaceGateway.fakeCatalog({ rebirth2x = 9401, damage2x = 9402 })
-	local function handlerFor(v2: boolean)
-		local w: any = { gateway = MarketplaceGateway.fake(), sent = {} }
-		w.handler = PurchaseRequestService._pure.createHandler({
-			gateway = w.gateway,
-			owns = function()
-				return false
-			end,
-			isRestricted = function()
-				return false
-			end,
-			hasGrant = function()
-				return false
-			end,
-			send = function(_p, payload)
-				table.insert(w.sent, payload)
-			end,
-			catalog = catalog,
-			economyV2 = v2,
-		})
-		return w
-	end
+	check("빠진 상품: x2 Rebirths는 ShopConfig에 없다(#37 다)", ShopConfig.get("rebirth2x") == nil and table.find(ShopConfig.GAMEPASS_ORDER, "rebirth2x") == nil)
+	local catalog = MarketplaceGateway.fakeCatalog({ damage2x = 9402 })
+	local w: any = { gateway = MarketplaceGateway.fake(), sent = {} }
+	w.handler = PurchaseRequestService._pure.createHandler({
+		gateway = w.gateway,
+		owns = function()
+			return false
+		end,
+		isRestricted = function()
+			return false
+		end,
+		hasGrant = function()
+			return false
+		end,
+		send = function(_p, payload)
+			table.insert(w.sent, payload)
+		end,
+		catalog = catalog,
+	})
 	local player: any = { Name = "EconV2Purchase", UserId = 831 }
-	local on = handlerFor(true)
-	local rOn = on.handler.onRequest(player, { key = "rebirth2x" }, 10)
-	local rOther = on.handler.onRequest(player, { key = "damage2x" }, 20)
-	check("구매: 켜면 x2 Rebirths 요청 → not_available · 다른 패스는 그대로", not rOn.ok and rOn.reason == PurchaseRequestService.REASON_NOT_AVAILABLE
+	local rOn = w.handler.onRequest(player, { key = "rebirth2x" }, 10)
+	local rOther = w.handler.onRequest(player, { key = "damage2x" }, 20)
+	check("구매: x2 Rebirths 요청 → invalid_key(없는 상품 — #37 다) · 다른 패스는 그대로", not rOn.ok and rOn.reason == PurchaseRequestService.REASON_INVALID_KEY
 		and rOther.ok)
-	local off = handlerFor(false)
-	local rOff = off.handler.onRequest(player, { key = "rebirth2x" }, 10)
-	check("구매: 끄면 x2 Rebirths 요청 → 프롬프트(지금 그대로)", rOff.ok and rOff.reason == "")
 end
 
 -- 6. 분석 이벤트 rebirth v2 -----------------------------------------------------------------------
@@ -220,12 +201,12 @@ do
 	} :: any)
 	local player: any = { Name = "EconV2Analytics", UserId = 832 }
 	local cost = L.rebirthCost(5)
-	local ok = a.rebirthV2(player, BigNum.fromNumber(6), cost)
+	local ok = a.rebirth(player, BigNum.fromNumber(6), cost)
 	local c = custom[1]
 	local digits = math.floor(math.log10(cost.m) + cost.e + 1e-9)
 	check("분석: v2 값 = 환생 뒤 환생 수 · 필드 1 = 비용 자릿수", ok and c ~= nil and c.name == AnalyticsConfig.EVENTS.rebirth and c.value == 6
 		and c.fields ~= nil and c.fields[1] == tostring(digits))
-	local bad = a.rebirthV2(player, BigNum.new(0, 0), cost)
+	local bad = a.rebirth(player, BigNum.new(0, 0), cost)
 	check("분석: 환생 수 0 · 깨진 값은 거부", not bad and #custom == 1)
 end
 
@@ -268,10 +249,8 @@ do
 	end
 	local n = 3
 	local cost = L.rebirthCost(n)
-	local ok, res = runRebirth(deps(BigNum.mul(cost, BigNum.fromNumber(2)), n), {} :: any, "test", true)
+	local ok, res = runRebirth(deps(BigNum.mul(cost, BigNum.fromNumber(2)), n), {} :: any, "test")
 	check("환생 v2: 결과에 낸 비용(분석 값)", ok and res.cost ~= nil and BigNum.eq(res.cost, cost))
-	local okOff, resOff = runRebirth(deps(BigNum.fromNumber(RebirthConfig.BLOX_PER_REBIRTH * 2), 0), {} :: any, "test", false)
-	check("환생: 끔이면 결과에 비용 없음(지금 분석 값 그대로)", okOff and resOff.cost == nil)
 end
 
 print(string.format("[EconomyV2DecisionTests] %d passed, %d failed", passed, failed))

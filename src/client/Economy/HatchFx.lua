@@ -1,5 +1,5 @@
 --!strict
--- 부화 연출(지시서 #35 — 새 경제 플래그 뒤 · 제작 연출과 같은 모델). 임시 도형: 알 모양 칸이 흔들린 뒤 결과 이름(희귀도 색).
+-- 부화 연출(지시서 #35 — 제작 연출과 같은 모델). 임시 도형: 알 모양 칸이 흔들린 뒤 결과 이름(희귀도 색).
 -- 스킵 버튼은 HATCH_SKIP_SEC에 나타나고 HATCH_ANIM_SEC가 지나면 닫힌다(서버가 같은 간격을 강제한다 — PetService).
 -- 에셋 자리: EconomyV2Config.HATCH_FX_VISUAL(nil이면 임시 도형 — 런타임 교체 방식은 #36). 문장은 Strings 키 · AutoLocalize false · UiTheme.FONT · Scale만.
 

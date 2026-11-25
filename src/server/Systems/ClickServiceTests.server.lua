@@ -201,7 +201,7 @@ do
 		BigNum.eq(boosted, BigNum.mul(base, multiplier)),
 		string.format("%s (배수 %s)", BigNum.tostring(boosted), BigNum.tostring(multiplier))
 	)
-	check("rebirths 4의 배수는 5다 (1 + rebirths)", BigNum.eq(multiplier, BigNum.new(5, 0)), BigNum.tostring(multiplier))
+	check("rebirths 4의 배수는 1.25^4다(#37 다 — 예전 1 + rebirths = 5)", math.abs(multiplier.m * 10 ^ multiplier.e - 1.25 ^ 4) < 1e-9, BigNum.tostring(multiplier))
 	check("배수가 붙으면 실제로 더 커진다", BigNum.gt(boosted, base))
 
 	-- (3) 배수는 **획득량에만** 붙는다. 보유 힘에 붙지 않는다.

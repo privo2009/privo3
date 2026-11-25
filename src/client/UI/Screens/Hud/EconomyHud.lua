@@ -1,5 +1,5 @@
 --!strict
--- HUD: 코인 칸 · 가방 칸(지금 / 최대) (지시서 #32 — 플래그 ECONOMY_V2가 켜졌을 때만 만든다 · 꺼져 있으면 아무도 부르지 않는다).
+-- HUD: 코인 칸 · 가방 칸(지금 / 최대) (지시서 #32).
 -- 자리: 좌측 레일 바로 오른쪽 상단 띠(Layout.RAIL_WIDTH ~ ChallengeInfo 왼쪽 끝 0.35 사이) — 상단 띠는 중앙 금지 구역이 아니다.
 -- 기존 컴포넌트(ValuePanel — Formatter · UiTheme.FONT · 외곽선)를 쓴다. 문장은 Strings 키(econ.*) · Locale.t · AutoLocalize = false.
 -- 아이콘 자리: EconomyV2Config.COIN_VISUAL.iconId — nil이면 임시 도형(코인 색 정사각형).

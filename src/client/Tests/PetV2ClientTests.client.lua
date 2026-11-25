@@ -1,5 +1,5 @@
 --!strict
--- 새 경제 펫 · 상점 클라 검증(지시서 #35 — 플래그 ECONOMY_V2 뒤에서만 쓰는 경로). 전역 플래그는 건드리지 않는다 — 인자로 켜고 끈다.
+-- 새 경제 펫 · 상점 클라 검증(지시서 #35).
 --   펫 창 로직(코인 비용 · 잔액 · 사유 · 트리플 코인 3배 · 제한 지역 Triple Hatch 끔) · 펫 창(코인 버튼 문구 · 자동 부화 토글 요청) ·
 --   부화 연출(스킵 HATCH_SKIP_SEC · 닫힘 HATCH_ANIM_SEC) · 상태(자동 부화) · 로벅스 탭(제한 지역 켜고 끔 · 새 패스 ID nil이면 줄 없음)
 
@@ -38,20 +38,18 @@ local rich = BigNum.new(1, 30)
 
 -- 1. 펫 창 로직 ------------------------------------------------------------------------------------------
 do
-	local poor = PetWindowLogic.hatchState(summary, rich, rich, 1, BigNum.new(0, 0))
-	local ok = PetWindowLogic.hatchState(summary, rich, BigNum.new(0, 0), 1, BigNum.mul(unit, BigNum.fromNumber(2)))
+	local poor = PetWindowLogic.hatchState(summary, rich, BigNum.new(0, 0), 1) -- #37 배선: 셋째 인자가 코인
+	local ok = PetWindowLogic.hatchState(summary, rich, BigNum.mul(unit, BigNum.fromNumber(2)), 1)
 	check("부화(새 경제): 코인 가격 문구 · 코인이 모자라면 insufficient_coins(블럭스가 많아도)", not poor.canHatch
 		and poor.buttonText == Locale.t("pet.hatchCostCoins", { cost = Formatter.format(unit) })
 		and poor.footText == PetWindowLogic.reasonText("insufficient_coins"))
 	check("부화(새 경제): 코인이 있으면 된다(블럭스 0이어도)", ok.canHatch)
-	local off = PetWindowLogic.hatchState(summary, rich, rich, 1)
-	check("부화(꺼짐): 지금 그대로 — 블럭스 가격 문구", off.canHatch and string.find(off.buttonText, Locale.t("pet.hatchCostCoins", { cost = "" }), 1, true) == nil)
 	local shopOwn = { gamepasses = { "hatch3x" }, boosts = {}, paidRandomRestricted = false }
 	local shopRestricted = { gamepasses = { "hatch3x" }, boosts = {}, paidRandomRestricted = true }
 	local three = BigNum.mul(unit, BigNum.fromNumber(3))
-	local t1 = PetWindowLogic.hatch3State(summary, rich, BigNum.new(0, 0), 1, shopOwn, three)
-	local t2 = PetWindowLogic.hatch3State(summary, rich, BigNum.new(0, 0), 1, shopOwn, BigNum.sub(three, BigNum.new(1, 0)))
-	local t3 = PetWindowLogic.hatch3State(summary, rich, BigNum.new(0, 0), 1, shopRestricted, three)
+	local t1 = PetWindowLogic.hatch3State(summary, rich, three, 1, shopOwn)
+	local t2 = PetWindowLogic.hatch3State(summary, rich, BigNum.sub(three, BigNum.new(1, 0)), 1, shopOwn)
+	local t3 = PetWindowLogic.hatch3State(summary, rich, three, 1, shopRestricted)
 	check("트리플(새 경제): 코인 3배 · 모자라면 못 함 · 제한 지역이면 꺼짐", t1.canHatch and not t2.canHatch and not t3.canHatch
 		and t1.buttonText == Locale.t("pet.hatch3Coins", { n = 3, cost = Formatter.format(three) }))
 end
@@ -73,7 +71,6 @@ do
 		store = store,
 		sendRequest = function() end,
 		onClose = function() end,
-		economyV2 = true,
 		econ = econ,
 		sendAuto = function(p)
 			table.insert(sentAuto, p)
@@ -91,14 +88,6 @@ do
 	local label = if auto ~= nil then auto:FindFirstChild("Label", true) :: TextLabel? else nil
 	check("펫 창(새 경제): 자동 부화 상태(켜짐 · 마리 수)가 토글 글자에", label ~= nil and label.Text == Locale.t("pet.auto.on", { count = "4" }))
 	gui:Destroy()
-	local off = PetWindow.create({
-		store = store,
-		sendRequest = function() end,
-		onClose = function() end,
-		economyV2 = false,
-	})
-	check("펫 창(꺼짐): 자동 부화 토글 없음 · 지금 그대로", off.root:FindFirstChild("AutoHatchButton", true) == nil)
-	off.root:Destroy()
 end
 
 -- 3. 부화 연출(스킵 5초) -----------------------------------------------------------------------------------------
@@ -124,19 +113,17 @@ end
 
 -- 4. 로벅스 탭: 제한 지역 켜고 끔 · 새 패스 ----------------------------------------------------------------------
 do
-	local function keys(shop: any, v2: boolean): { [string]: boolean }
+	local function keys(shop: any): { [string]: boolean }
 		local out = {}
-		for _, r in ipairs(RobuxShopLogic.rows(shop, { economyV2 = v2 })) do
+		for _, r in ipairs(RobuxShopLogic.rows(shop, nil)) do
 			out[r.key] = true
 		end
 		return out
 	end
-	local unrestricted = keys({ gamepasses = {}, boosts = {}, paidRandomRestricted = false }, true)
-	local restricted = keys({ gamepasses = {}, boosts = {}, paidRandomRestricted = true }, true)
-	local restrictedOff = keys({ gamepasses = {}, boosts = {}, paidRandomRestricted = true }, false)
+	local unrestricted = keys({ gamepasses = {}, boosts = {}, paidRandomRestricted = false })
+	local restricted = keys({ gamepasses = {}, boosts = {}, paidRandomRestricted = true })
 	check("로벅스 탭(새 경제): 제한 아니면 Triple Hatch 보임 · 제한이면 Triple Hatch · 행운 패스 숨김",
 		unrestricted.hatch3x == true and restricted.hatch3x == nil and restricted.petLuck2x == nil and restricted.damage2x == true)
-	check("로벅스 탭(꺼짐): 제한이어도 Triple Hatch는 지금처럼 보임", restrictedOff.hatch3x == true)
 	local none = true
 	for _, key in ipairs(ShopConfig.V2_PASS_ORDER) do
 		none = none and unrestricted[key] == nil

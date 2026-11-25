@@ -1,5 +1,5 @@
 --!strict
--- 새 경제 안내(지시서 #36 — DESIGN 16장 "해금 순서 · 첫 접속 안내"). ⚠️ 플래그 ECONOMY_V2 뒤 — 꺼져 있으면 Bootstrap이 init하지 않는다(지금 안내 그대로).
+-- 새 경제 안내(지시서 #36 — DESIGN 16장 "해금 순서 · 첫 접속 안내").
 --
 -- 서버가 프로필 · 가방 상태를 TIP_POLL_SEC마다 읽어(OnboardingTipsLogic.facts) 처음 참이 되는 안내 하나를 적고(onboarding.tips[키] = true) 보낸다.
 --   한 틱에 하나 — 안내가 한 번에 하나씩 나온다. 보낼 때 적는다(한 번만). 지난 것 · 안내를 끈 유저(tipsOff)는 글 없이 적는다(칸만 나타난다)

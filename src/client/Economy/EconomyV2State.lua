@@ -1,5 +1,5 @@
 --!strict
--- 새 경제 클라 상태(지시서 #32 — 플래그 ECONOMY_V2 뒤). 서버 EconomyEvent를 받아 HUD가 읽을 값만 들고 있다.
+-- 새 경제 클라 상태(지시서 #32). 서버 EconomyEvent를 받아 HUD가 읽을 값만 들고 있다.
 -- 판정하지 않는다(서버 권위) — 받은 값을 그대로 둔다. 인스턴스마다 따로(테스트는 new()로 자기 것을 만든다).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

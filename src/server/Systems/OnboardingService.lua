@@ -38,7 +38,6 @@ export type Deps = {
 	logFunnel: (Player, number, string) -> (),
 	send: (Player, Remotes.OnboardingResultPayload) -> (),
 	log: (string) -> (),
-	isV2: (() -> boolean)?, -- 새 경제 켜짐(#36 — 없으면 끔)
 }
 
 local function stateOf(data: any): any?
@@ -113,10 +112,8 @@ local function createRuntime(deps: Deps)
 		end
 		if action == "skip" then
 			o.done = true
-			-- 새 경제(#36): 건너뛰기는 새 경제 안내도 끈다(칸은 때가 되면 그래도 나타난다 — OnboardingTipsService가 글 없이 적는다)
-			if deps.isV2 ~= nil and deps.isV2() then
-				o.tipsOff = true
-			end
+			-- 건너뛰기는 새 경제 안내도 끈다(#36 — 칸은 때가 되면 그래도 나타난다 · OnboardingTipsService가 글 없이 적는다)
+			o.tipsOff = true
 			clicks[player] = nil
 			deps.log(string.format("[Onboarding] %s 건너뜀(%d단계에서) — 보상 없음", player.Name, o.step))
 			deps.notify(player)
@@ -206,7 +203,6 @@ function OnboardingService.init(services: InitDeps)
 			channels.onboardingResult:FireClient(player, payload)
 		end,
 		log = print,
-		isV2 = require(ReplicatedStorage.Shared.EconomyV2Logic).isOn,
 	})
 	services.onRunEvent(function(player: Player, reason: string)
 		live.signal(player, reason)

@@ -13,7 +13,6 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local StrengthMultiplier = require(ReplicatedStorage.Shared.StrengthMultiplier)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local GymLayout = require(ReplicatedStorage.Shared.GymLayout)
-local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
 local ShopEffects = require(ServerScriptService.Server.Systems.ShopEffects)
@@ -63,13 +62,12 @@ do
 	local none = view()
 	local t, p = E.strength(none)
 	local d, dp = E.damage(none)
-	check("미보유: 계단 · 힘 포션 · 데미지 · 데미지 포션 · 블럭스 · 환생 전부 1", t == 1 and p == 1 and d == 1 and dp == 1 and E.blox(none) == 1
-		and E.rebirth(none) == 1)
+	check("미보유: 계단 · 힘 포션 · 데미지 · 데미지 포션 · 블럭스 전부 1(#37 다 — 환생 배수 효과는 x2 Rebirths와 함께 지웠다)", t == 1 and p == 1 and d == 1 and dp == 1 and E.blox(none) == 1
+		and (E :: any).rebirth == nil)
 	check("미보유: 자동 클리커 0", E.autoClickRate(none) == 0)
 	local d2 = E.damage(view({ "damage2x" }))
 	check("2배 데미지 = ShopConfig 배수", d2 == mult("damage2x") and d2 == 2)
 	check("2배 블럭스 = ShopConfig 배수", E.blox(view({ "blox2x" })) == mult("blox2x"))
-	check("2배 환생 = ShopConfig 배수", E.rebirth(view({ "rebirth2x" })) == mult("rebirth2x"))
 	local _t, sp = E.strength(view(nil, false, { strength = 2 }))
 	local _d, dmp = E.damage(view(nil, false, { damage = 2 }))
 	check("힘 포션 · 데미지 포션: 부스트 배수 그대로", sp == 2 and dmp == 2)
@@ -89,7 +87,7 @@ do
 	local m = StrengthMultiplier.compute({ tierMult = 8 })
 	check("StrengthMultiplier: 계단 8만 있으면 8(한 번만)", BigNum.eq(m, BigNum.fromNumber(8)), BigNum.tostring(m))
 	local m2 = StrengthMultiplier.compute({ rebirths = BigNum.fromNumber(3), tierMult = 8, potionMult = 2 })
-	check("StrengthMultiplier: (1 + 3) × 계단 8 × 힘 포션 2 = 64", BigNum.eq(m2, BigNum.fromNumber(64)), BigNum.tostring(m2))
+	check("StrengthMultiplier: 1.25^3 × 계단 8 × 힘 포션 2 = 31.25(#37 다 — 예전 (1 + 3) × 16 = 64)", math.abs(m2.m * 10 ^ m2.e - 31.25) < 1e-9, BigNum.tostring(m2))
 	local m3 = StrengthMultiplier.compute({ potionMult = 2 })
 	check("StrengthMultiplier: 앞 항이 없어도 힘 포션이 곱해진다", BigNum.eq(m3, BigNum.fromNumber(2)))
 	check("StrengthMultiplier: 깨진 계단 · 포션 값은 1", BigNum.eq(StrengthMultiplier.compute({ tierMult = 0 / 0, potionMult = 0.5 }), BigNum.fromNumber(1)))
@@ -142,16 +140,7 @@ do
 	check("블럭스 결합: 2배 블럭스만 → 2(한 번만)", ChallengeService.combineBloxMultiplier({ passMult = 2 }) == 2)
 end
 
--- 5. 2배 환생 얻는 수 ------------------------------------------------------------------------------------
-do
-	local blox = BigNum.fromNumber(RebirthConfig.BLOX_PER_REBIRTH * 5 + 500)
-	check("2배 환생: 5.5배분 블럭스 → 배수 없이 5 · 2배면 10", BigNum.eq(RebirthConfig.getGainedRebirths(blox), BigNum.fromNumber(5))
-		and BigNum.eq(RebirthConfig.getGainedRebirths(blox, E.rebirth(view({ "rebirth2x" }))), BigNum.fromNumber(10)))
-	check("2배 환생: 깨진 배수는 1", BigNum.eq(RebirthConfig.getGainedRebirths(blox, 0 / 0), BigNum.fromNumber(5)))
-	local below = BigNum.fromNumber(RebirthConfig.BLOX_PER_REBIRTH - 1)
-	check("2배 환생: 환생 가능 여부 · 버려지는 양은 배수와 상관없다", not RebirthConfig.canRebirth(below)
-		and BigNum.eq(RebirthConfig.getLeftover(blox), BigNum.fromNumber(500)))
-end
+-- 5. 2배 환생 얻는 수 — #37에서 x2 Rebirths와 옛 환생을 지웠다(가)
 
 -- 6. 행운: 패스 · 포션, 제한 유저면 1 ----------------------------------------------------------------------
 do

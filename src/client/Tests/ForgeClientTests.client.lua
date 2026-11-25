@@ -1,5 +1,5 @@
 --!strict
--- 대장간 클라 검증(지시서 #33 — 플래그 ECONOMY_V2 뒤에서만 쓰는 모듈). 전역 플래그는 건드리지 않는다 — 모듈을 직접 만들어 굴린다.
+-- 대장간 클라 검증(지시서 #33). 모듈을 직접 만들어 굴린다.
 --   창 로직(ForgeWindowLogic — 칸 넣기 · 빼기 · 가진 수 · 게이지 · 받을 토큰 · 자동 채우기 · 확률 줄 0% 금지 · 교환 줄 · ??? 잠김) ·
 --   창(ForgeWindow — 게이지 칸 · 확률표 · 결과 연출 스킵 5초 · 자동 제작 목록 · 교환소 탭 · AutoLocalize false · UiTheme.FONT · 등급 색) ·
 --   HUD 대장간 버튼(열렸을 때만) · 로비 임시 대장간(ForgeSite — 근접 프롬프트) · 플래그 꺼짐이면 아무것도 안 만든다
@@ -177,13 +177,6 @@ do
 	folder:Destroy()
 end
 
--- 5. 플래그 꺼짐 = 지금과 같다 ---------------------------------------------------------------------------
-do
-	local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
-	task.wait(2) -- EconomyV2Boot가 돌 시간(켜져 있으면 만든다)
-	local made = pg:FindFirstChild("EconomyV2Gui") ~= nil
-	check("플래그 꺼짐: 새 경제 화면 · 로비 대장간을 만들지 않는다(켜져 있으면 HUD는 있다)", made == L.isOn() and (L.isOn() or workspace:FindFirstChild("ForgeSite") == nil))
-end
 
 print(string.format("[ForgeClientTests] %d passed, %d failed", passed, failed))
 if failed > 0 then

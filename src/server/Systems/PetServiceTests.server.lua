@@ -34,7 +34,10 @@ end
 
 local E1 = PetConfig.Eggs[1]
 local E2 = PetConfig.Eggs[2]
-local INTERVAL = PetConfig.HATCH_INTERVAL_SEC
+-- #37: 부화 재화는 코인 · 간격은 연출 + 스킵(무료 HATCH_SKIP_SEC) — 옛 블럭스 · 남용 방지 간격은 지웠다
+local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
+local INTERVAL = (EconomyV2Logic.hatchStep(false, false))
+local COST1 = EconomyV2Logic.eggCoinCost(1) :: BigNum.BigNumber
 local BASE_SLOTS = PetConfig.getSlots(0, false)
 local STORAGE = PetConfig.getStorage(false)
 
@@ -66,10 +69,10 @@ local function world(opts: { blox: BigNum.BigNumber?, lifetime: BigNum.BigNumber
 		getData = function(_p)
 			return if w.present then w.data else nil
 		end,
-		getBlox = function(_p)
+		getCoins = function(_p) -- w.blox = 코인 잔액(#37 배선 — 이름은 그대로)
 			return w.blox
 		end,
-		subtractBlox = function(_p, amount, reason)
+		subtractCoins = function(_p, amount, reason)
 			table.insert(w.log, "subtract:" .. reason)
 			if w.subtractFails or BigNum.lt(w.blox, amount) then
 				return false
@@ -165,13 +168,13 @@ do
 	check("저장 공간 게임패스(세션 값)면 파생 저장 공간이 늘어 부화된다", (rt.hatch(P, 1, "manual")))
 end
 do
-	local w, rt = world({ blox = BigNum.sub(E1.rollCost, BigNum.fromNumber(1)) })
+	local w, rt = world({ blox = BigNum.sub(COST1, BigNum.fromNumber(1)) })
 	local ok, r = rt.hatch(P, 1, "manual")
-	check("잔액 부족 → insufficient_blox · 차감도 부르지 않는다", not ok and r == RollService.REASON_INSUFFICIENT_BLOX and #w.log == 0 and w.saves == 0)
-	w.blox = E1.rollCost
+	check("잔액 부족 → insufficient_coins(#37 다) · 차감도 부르지 않는다", not ok and r == PetService.REASON_INSUFFICIENT_COINS and #w.log == 0 and w.saves == 0)
+	w.blox = COST1
 	w.subtractFails = true
 	local ok2, r2 = rt.hatch(P, 1, "manual")
-	check("차감 거부(경합) → insufficient_blox · 판정 없음 · uid 그대로", not ok2 and r2 == RollService.REASON_INSUFFICIENT_BLOX and #w.log == 1
+	check("차감 거부(경합) → insufficient_coins(#37 다) · 판정 없음 · uid 그대로", not ok2 and r2 == PetService.REASON_INSUFFICIENT_COINS and #w.log == 1
 		and w.log[1] == "subtract:pet_hatch_egg1_manual" and w.data.pets.nextUid == 1 and count(w.data.pets.owned) == 0)
 	w.subtractFails = false
 	check("차감 거부는 롤 시계를 쓰지 않는다", (rt.hatch(P, 1, "manual")))
@@ -184,7 +187,7 @@ do
 	w.rolls = { 2 }
 	local ok, r = rt.hatch(P, 1, "manual")
 	check("차감 → 판정 순서", w.log[1] == "subtract:pet_hatch_egg1_manual" and w.log[2] == "roll")
-	check("비용 = 알 부화 비용", BigNum.eq(w.blox, BigNum.sub(before, E1.rollCost)))
+	check("비용 = 알 코인 가격(#37 다)", BigNum.eq(w.blox, BigNum.sub(before, COST1)))
 	check("uid = tostring(nextUid) · 문자열 키 · nextUid + 1", ok and r.uid == "1" and type(next(w.data.pets.owned)) == "string" and w.data.pets.nextUid == 2)
 	check("보유: petId · 강화 단계 1 · 이름 · m은 저장하지 않는다", w.data.pets.owned["1"].petId == E1.pets[2].id and w.data.pets.owned["1"].tier == 1
 		and w.data.pets.owned["1"].name == nil and w.data.pets.owned["1"].mult == nil)
@@ -219,7 +222,7 @@ do
 	local blox = w.blox
 	w.clock += INTERVAL * 0.5
 	local ok, r = rt.hatch(P, 1, "manual")
-	check("롤 시계 안 → rate_limited · 차감 없음", not ok and r == RollService.REASON_RATE_LIMITED and BigNum.eq(w.blox, blox))
+	check("부화 간격 안 → too_soon(#37 다) · 차감 없음", not ok and r == PetService.REASON_TOO_SOON and BigNum.eq(w.blox, blox))
 	w.clock += INTERVAL * 0.5
 	check("시계가 지나면 다시 부화", (rt.hatch(P, 1, "manual")))
 	check("시계는 플레이어마다 따로", (rt.hatch(Q, 1, "manual")))
@@ -399,14 +402,14 @@ do
 	give(w, E1.pets[1].id, 1, STORAGE - 2)
 	local ok2, r2 = rt.hatchMany(P, 1, 3, "manual")
 	check("3배 부화: 저장 공간 3칸 미만이면 storage_full · 차감 0", not ok2 and r2 == PetService.REASON_STORAGE_FULL and #w.log == 0)
-	local w3, rt3 = world({ blox = BigNum.mul(E1.rollCost, BigNum.fromNumber(2)) })
+	local w3, rt3 = world({ blox = BigNum.mul(COST1, BigNum.fromNumber(2)) })
 	w3.hatchPass = true
 	local ok3, r3 = rt3.hatchMany(P, 1, 3, "manual")
-	check("3배 부화: 블럭스가 비용 × 3 미만이면 insufficient_blox · 차감 0", not ok3 and r3 == RollService.REASON_INSUFFICIENT_BLOX and #w3.log == 0)
+	check("3배 부화: 코인이 가격 × 3 미만이면 insufficient_coins(#37 다) · 차감 0", not ok3 and r3 == PetService.REASON_INSUFFICIENT_COINS and #w3.log == 0)
 end
 do
 	-- 잔액 = 정확히 비용 × 3 → 성공하면 0. (큰 잔액에서 뺀 차이로 재면 BigNum 소거 오차에 걸린다 — CLAUDE.md 정밀도 계약)
-	local w, rt = world({ blox = BigNum.mul(E1.rollCost, BigNum.fromNumber(3)) })
+	local w, rt = world({ blox = BigNum.mul(COST1, BigNum.fromNumber(3)) })
 	w.hatchPass = true
 	w.rolls = { 1, 1, 2 }
 	local ok, list = rt.hatchMany(P, 1, 3, "manual")
@@ -425,7 +428,7 @@ do
 	check("3배 부화: 같은 배치의 두 번째 같은 종은 중복 · 새 종이 있으면 저장 1회", ok and list[1].isNew and not list[2].isNew and list[3].isNew
 		and w.saves == 1)
 	check("3배 부화: 보유 3마리 늘어남", count(w.data.pets.owned) == 3)
-	check("3배 부화: 롤 시계를 한 번 쓴다(바로 다음 부화는 rate_limited)", select(2, rt.hatch(P, 1, "manual")) == RollService.REASON_RATE_LIMITED)
+	check("3배 부화: 간격을 한 번 쓴다(바로 다음 부화는 too_soon — #37 다)", select(2, rt.hatch(P, 1, "manual")) == PetService.REASON_TOO_SOON)
 end
 
 -- 9. 배수 E3 — 힘 자리 한 번만 · 데미지 항 없음 (S9) -------------------------------------------------------------
@@ -435,17 +438,22 @@ do
 	local pm = PetConfig.totalMult(list)
 	check("E3: 1 + Σ (m − 1) × CRAFT_FACTOR^(단계 − 1)", math.abs(pm - (1 + (a.mult - 1) * PetConfig.CRAFT_FACTOR + (b.mult - 1))) < 1e-12)
 	local rebirths = BigNum.fromNumber(4)
+	-- #37 다: 환생 항 1 + 4 = 5 → 1.25^4
+	local R = 1.25 ^ 4
+	local function num(v: any): number
+		return v.m * 10 ^ v.e
+	end
 	local s = StrengthMultiplier.compute({ rebirths = rebirths, petMult = pm })
-	check("힘: (1 + 환생) × 펫 배수 — 한 번(제곱 아님)", math.abs(BigNum.toRatio(s, BigNum.fromNumber(5 * pm)) - 1) < 1e-9)
+	check("힘: 1.25^환생 × 펫 배수 — 한 번(제곱 아님)", math.abs(num(s) / (R * pm) - 1) < 1e-9)
 	local t = TitleConfig.Titles[3].mult
 	local m = AuraConfig.Packs[1].auras[2].mult
 	local all = StrengthMultiplier.compute({ rebirths = rebirths, titleMult = t, auraMult = m, petMult = pm })
-	check("힘: 칭호 × 아우라 × 펫 (S3)", math.abs(BigNum.toRatio(all, BigNum.fromNumber(5 * t * m * pm)) - 1) < 1e-9)
+	check("힘: 칭호 × 아우라 × 펫 (S3)", math.abs(num(all) / (R * t * m * pm) - 1) < 1e-9)
 	local onlyPet = StrengthMultiplier.compute({ rebirths = rebirths, titleMult = nil, auraMult = nil, petMult = pm })
-	check("힘: 칭호 · 아우라가 없어도(앞 항 nil) 펫은 곱해진다 — #11 ipairs 구멍 재발 방지", math.abs(BigNum.toRatio(onlyPet, BigNum.fromNumber(5 * pm)) - 1) < 1e-9)
-	check("힘: 깨진 펫 배수(0.5 · nan · inf)는 무시", BigNum.eq(StrengthMultiplier.compute({ rebirths = rebirths, petMult = 0.5 }), BigNum.fromNumber(5))
-		and BigNum.eq(StrengthMultiplier.compute({ rebirths = rebirths, petMult = 0 / 0 }), BigNum.fromNumber(5))
-		and BigNum.eq(StrengthMultiplier.compute({ rebirths = rebirths, petMult = math.huge }), BigNum.fromNumber(5)))
+	check("힘: 칭호 · 아우라가 없어도(앞 항 nil) 펫은 곱해진다 — #11 ipairs 구멍 재발 방지", math.abs(num(onlyPet) / (R * pm) - 1) < 1e-9)
+	check("힘: 깨진 펫 배수(0.5 · nan · inf)는 무시", math.abs(num(StrengthMultiplier.compute({ rebirths = rebirths, petMult = 0.5 })) - R) < 1e-9
+		and math.abs(num(StrengthMultiplier.compute({ rebirths = rebirths, petMult = 0 / 0 })) - R) < 1e-9
+		and math.abs(num(StrengthMultiplier.compute({ rebirths = rebirths, petMult = math.huge })) - R) < 1e-9)
 	local dmg = AttackService.combineDamageMultiplier({ punchDamage = 1.2, auraMult = m, petMult = pm } :: any)
 	check("데미지: 펫 배수는 1펀치 데미지에 들어가지 않는다(S9 — 힘을 통해서만)", math.abs(dmg - 1.2 * m) < 1e-12)
 	check("getMult 원본 = totalMult(장착 펫) · 빈 장착 1", PetConfig.totalMult(PetService._pure.equippedPets(Schema.new())) == 1)

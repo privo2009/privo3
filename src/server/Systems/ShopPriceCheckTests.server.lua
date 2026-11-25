@@ -82,7 +82,7 @@ do
 	check("실행: 자동으로 고치지 않는다(ShopConfig 가격 그대로)", priceOf("blox2x") == before)
 end
 
--- 3. 실제 표: 등록된 상품 = 39개 전부(지시서 #17 — ID 0 없음) ------------------------------------------
+-- 3. 실제 표: 등록된 상품 = 38개 전부(지시서 #17 — ID 0 없음 · #37 x2 Rebirths 빠짐) ------------------------------------------
 do
 	local n = 0
 	for _, def in pairs(ShopConfig.Products) do
@@ -90,7 +90,7 @@ do
 			n += 1
 		end
 	end
-	check("실제 ShopConfig: 39개 전부 ID가 있다(서버 시작 대조 대상)", n == 39, tostring(n))
+	check("실제 ShopConfig: 38개 전부 ID가 있다(서버 시작 대조 대상 · #37 다 — x2 Rebirths 빠짐)", n == 38, tostring(n))
 end
 
 print(string.format("[ShopPriceCheckTests] %d passed, %d failed", passed, failed))

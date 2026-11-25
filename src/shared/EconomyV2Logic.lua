@@ -2,7 +2,7 @@
 -- 새 경제 순수 로직 (지시서 #30 — 원본 결정 DESIGN.md "16. 경제 재설계" · 숫자 Shared/Config/EconomyV2Config).
 --
 -- 서비스 연결이 없다(드롭 · 줍기 · 대장간 화면은 다음 지시서). 난수는 주입한다(rand: () -> number, [0, 1)).
--- 게임(다음 지시서의 서비스) · 환생 v2 · 시뮬레이터(Tools/EconomyV2Report)가 **같은 함수**를 부른다 — 식을 두 곳에 쓰지 않는다.
+-- 게임(다음 지시서의 서비스) · 환생 v2 · 시뮬레이터(Tools/EconomyReport)가 **같은 함수**를 부른다 — 식을 두 곳에 쓰지 않는다.
 --
 -- 상태 꼴(저장 필드는 아직 없다 — 스키마는 다음 지시서. 여기 꼴이 그때의 출발점이다):
 --   inv     { [광석 k]: 개수 }                          1 ~ ORE_COUNT, 정수
@@ -25,10 +25,6 @@ local EconomyV2Logic = {}
 
 -- 환생 v2가 초기화하지 않는 것(규칙 — 저장 필드가 생기면 RebirthService 테스트가 이 목록을 대조한다)
 EconomyV2Logic.REBIRTH_KEEPS = { "pickaxes", "ores", "tokens", "coins" }
-
-function EconomyV2Logic.isOn(): boolean
-	return Config.ECONOMY_V2 == true
-end
 
 -- ===== 곡괭이 표 ===========================================================================================
 
@@ -682,26 +678,9 @@ function EconomyV2Logic.rebirthRemainder(blox: BigNumber, rebirths: BigNumber | 
 	return left
 end
 
--- 새 경제에서 빠진 로벅스 상품인가(지시서 #31 G14 — x2 Rebirths). economyV2 = nil이면 플래그.
--- #35: 새 경제 전용 상품(V2_ONLY_PRODUCTS — 새 패스 4개)은 꺼져 있을 때 "빠진" 것으로 본다(상점 · 구매 · 효과가 같은 함수를 본다)
-function EconomyV2Logic.isRemovedProduct(key: string, economyV2: boolean?): boolean
-	local v2 = if economyV2 ~= nil then economyV2 else EconomyV2Logic.isOn()
-	if v2 then
-		return Config.REMOVED_PRODUCTS[key] == true
-	end
-	return Config.V2_ONLY_PRODUCTS[key] == true
-end
-
--- 제한 지역에서 숨기는 새 경제 상품인가(#35 — RESTRICTED_RANDOM_PASSES). 새 경제가 꺼져 있으면 false(지금 경로 그대로)
-function EconomyV2Logic.isRestrictedRandom(key: string, economyV2: boolean?): boolean
-	local v2 = if economyV2 ~= nil then economyV2 else EconomyV2Logic.isOn()
-	return v2 and Config.RESTRICTED_RANDOM_PASSES[key] == true
-end
-
--- 새 경제에서 빠진 상점 업그레이드인가(#34 — 펀치 데미지). economyV2 = nil이면 플래그
-function EconomyV2Logic.isRemovedUpgrade(key: string, economyV2: boolean?): boolean
-	local v2 = if economyV2 ~= nil then economyV2 else EconomyV2Logic.isOn()
-	return v2 and Config.REMOVED_UPGRADES[key] == true
+-- 제한 지역에서 숨기는 상품인가(#35 — RESTRICTED_RANDOM_PASSES: 새 패스 4개 + Triple Hatch). 행운 상품(paidRandom)은 기존 경로가 따로 숨긴다
+function EconomyV2Logic.isRestrictedRandom(key: string): boolean
+	return Config.RESTRICTED_RANDOM_PASSES[key] == true
 end
 
 -- 이름 Strings 키(⚠️ 임시 이름 — 지시서 #31). 화면은 Locale.t(키)로 꺼낸다(Shared/Localization/Names).
@@ -718,8 +697,4 @@ function EconomyV2Logic.pickaxeNameKey(id: string): string
 end
 
 -- 새 경제 운동기구 해금 환생 수(기구 번호 — 로벅스 전용 기구는 nil)
-function EconomyV2Logic.gymUnlockRebirths(index: number): number?
-	return Config.GYM_UNLOCK_REBIRTHS[index]
-end
-
 return EconomyV2Logic

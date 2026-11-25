@@ -22,7 +22,8 @@ local WarpConfig = require(ReplicatedStorage.Shared.Config.WarpConfig)
 local TestHelpers = require(ReplicatedStorage.Shared.TestHelpers)
 local SuccessRateReport = require(ServerScriptService.Server.Tools.SuccessRateReport)
 local UpgradeConfig = require(ReplicatedStorage.Shared.Config.UpgradeConfig)
-local RebirthConfig = require(ReplicatedStorage.Shared.Config.RebirthConfig)
+-- 시뮬레이터 결정 모델의 옛 규칙(#37 — 게임에서 지운 RebirthConfig · 펀치 데미지 · 1 + n이 여기로 옮겨졌다)
+local Legacy = require(ServerScriptService.Server.Tools.LegacyEconomyModel)
 
 local checkClose = TestHelpers.checkClose
 
@@ -315,7 +316,7 @@ do
 	local gainA = BigNum.sub(a.strength, base)
 	local clicks = math.floor(a.clickRate * 10)
 	local padPower = ClickPadConfig.getPadPower(1, a.padIndex)
-	local mult = StrengthMultiplier.compute({ rebirths = a.rebirths })
+	local mult = Legacy.rebirthTerm(a.rebirths) -- 결정 모델 환생 항 1 + n(#37 배선 — 예전 StrengthMultiplier와 같은 값)
 	local plain = BigNum.mul(BigNum.mul(padPower, BigNum.fromNumber(clicks)), mult)
 	check("기구 클릭 힘 = 기구 없는 클릭 힘 × 기구 배수",
 		checkClose(BigNum.toRatio(gainA, plain), GymConfig.getMultiplier(1)),
@@ -351,9 +352,13 @@ do
 	-- 예산이 가장 싼 것보다 작으면 아무것도 안 산다
 	local TARGETS = SuccessRateReport.S5_TARGETS
 	check("S5': 구매 대상 = 1차 3종 (행운 업그레이드 제외 — 지시서 #11 · 이동 속도 삭제 L3 — #13)", table.concat(TARGETS, ",") == "punchDamage,punchSpeed,bloxGain")
-	local cheapest = UpgradeConfig.getCostAtLevel(TARGETS[1], 0)
+	-- #37 배선: 결정 모델의 펀치 데미지는 옛 모델(LegacyEconomyModel) — 판정은 SuccessRateReport.upgradeCanBuy 하나로
+	local function cost0(name: string): BigNum.BigNumber
+		return (select(3, SuccessRateReport.upgradeCanBuy(name, 0, BigNum.new(1, 300)))) :: any
+	end
+	local cheapest = cost0(TARGETS[1])
 	for _, name in ipairs(TARGETS) do
-		local c = UpgradeConfig.getCostAtLevel(name, 0)
+		local c = cost0(name)
 		if BigNum.lt(c, cheapest) then
 			cheapest = c
 		end
@@ -370,7 +375,7 @@ do
 	local left = BigNum.sub(budget, spent)
 	local canMore = false
 	for _, name in ipairs(TARGETS) do
-		if UpgradeConfig.canBuy(name, levels[name], left) then
+		if SuccessRateReport.upgradeCanBuy(name, levels[name], left) then
 			canMore = true
 		end
 	end
@@ -389,21 +394,22 @@ do
 	check("S5: 최대 레벨 항목은 더 안 산다", maxed.punchSpeed == UpgradeConfig.Upgrades.punchSpeed.maxLevel)
 
 	-- 예산 = 환생하면 버려질 나머지
-	check("getLeftover: 1999 → 999", BigNum.eq(RebirthConfig.getLeftover(BigNum.fromNumber(1999)), BigNum.fromNumber(999)))
-	check("getLeftover: 500 → 500 (환생 못 해도 전부 나머지)", BigNum.eq(RebirthConfig.getLeftover(BigNum.fromNumber(500)), BigNum.fromNumber(500)))
-	check("getLeftover: 3000 → 0", BigNum.eq(RebirthConfig.getLeftover(BigNum.fromNumber(3000)), BigNum.new(0, 0)))
-	check("getLeftover: 아주 크면 0 이상(음수 잡음 없음)", RebirthConfig.getLeftover(BigNum.new(1.234567, 30)).m >= 0)
+	check("getLeftover: 1999 → 999", BigNum.eq(Legacy.getLeftover(BigNum.fromNumber(1999)), BigNum.fromNumber(999)))
+	check("getLeftover: 500 → 500 (환생 못 해도 전부 나머지)", BigNum.eq(Legacy.getLeftover(BigNum.fromNumber(500)), BigNum.fromNumber(500)))
+	check("getLeftover: 3000 → 0", BigNum.eq(Legacy.getLeftover(BigNum.fromNumber(3000)), BigNum.new(0, 0)))
+	check("getLeftover: 아주 크면 0 이상(음수 잡음 없음)", Legacy.getLeftover(BigNum.new(1.234567, 30)).m >= 0)
 
 	-- 업그레이드 TEMP 후보 스윕: 갈아끼운 값은 끝나면 되돌아온다
-	local before = UpgradeConfig.Upgrades.punchDamage.effectPerLevel
+	-- #37 배선: 펀치 데미지가 UpgradeConfig에서 빠져 같은 꼴의 블럭스 획득으로 잰다(기대값 그대로)
+	local before = UpgradeConfig.Upgrades.bloxGain.effectPerLevel
 	local seen: number? = nil
-	SuccessRateReport.withUpgradeOverride({ punchDamage = { effectPerLevel = 0.5 } }, function()
-		seen = UpgradeConfig.Upgrades.punchDamage.effectPerLevel
+	SuccessRateReport.withUpgradeOverride({ bloxGain = { effectPerLevel = 0.5 } }, function()
+		seen = UpgradeConfig.Upgrades.bloxGain.effectPerLevel
 	end)
 	check("withUpgradeOverride: 안에서는 바뀐 값", seen == 0.5)
-	check("withUpgradeOverride: 끝나면 원래 값", UpgradeConfig.Upgrades.punchDamage.effectPerLevel == before)
-	local okErr = pcall(SuccessRateReport.withUpgradeOverride, { punchDamage = { costGrowth = 1 } }, function() end)
-	check("withUpgradeOverride: 규약 위반 후보는 에러 + 되돌림", not okErr and UpgradeConfig.Upgrades.punchDamage.costGrowth > 1)
+	check("withUpgradeOverride: 끝나면 원래 값", UpgradeConfig.Upgrades.bloxGain.effectPerLevel == before)
+	local okErr = pcall(SuccessRateReport.withUpgradeOverride, { bloxGain = { costGrowth = 1 } }, function() end)
+	check("withUpgradeOverride: 규약 위반 후보는 에러 + 되돌림", not okErr and UpgradeConfig.Upgrades.bloxGain.costGrowth > 1)
 	check("업그레이드 스윕 단독 모드는 커밋 값 false", SuccessRateReport.SIM.UPGRADE_SWEEP_ONLY == false)
 
 	-- 걷는 동안 클릭 (지시서 #8 진단 스위치). 결정 모델은 true, false면 걷기는 시간만 더한다.
@@ -735,14 +741,13 @@ do
 		and string.find(txt, "크래프팅 중앙값 1", 1, true) ~= nil)
 end
 
--- 배수 세 자리 · 환생 · 관측 고리 — StandardPathReport가 같은 함수를 부른다 (지시서 #13 4단계) ---------------
+-- 배수 세 자리 · 환생 · 관측 고리 (지시서 #13 4단계 — #37: StandardPathReport는 지웠다) ---------------
 do
 	local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
 	local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 	local AttackService = require(ServerScriptService.Server.Systems.AttackService)
 	local ChallengeService = require(ServerScriptService.Server.Systems.ChallengeService)
 	local Schema = require(ServerScriptService.Server.Data.Schema)
-	local StandardPathReport = require(ServerScriptService.Server.Tools.StandardPathReport)
 
 	local p = SuccessRateReport.newPlayer(Random.new(41))
 	p.rebirths = BigNum.new(3, 1)
@@ -751,12 +756,13 @@ do
 	p.pets[PetConfig.Eggs[1].pets[2].id .. ":2"] = 1
 	p.upgrades.punchDamage = 3
 	p.upgrades.bloxGain = 2
-	local expectClick = StrengthMultiplier.compute({ rebirths = p.rebirths, titleMult = SuccessRateReport.titleMult(p),
-		auraMult = SuccessRateReport.auraMult(p), petMult = SuccessRateReport.petMult(p) })
+	-- #37 배선: 결정 모델의 환생 항은 옛 1 + n(LegacyEconomyModel) — 값은 예전 StrengthMultiplier와 같다
+	local expectClick = BigNum.mul(StrengthMultiplier.compute({ titleMult = SuccessRateReport.titleMult(p),
+		auraMult = SuccessRateReport.auraMult(p), petMult = SuccessRateReport.petMult(p) }), Legacy.rebirthTerm(p.rebirths))
 	check("clickMultiplier = StrengthMultiplier.compute(환생 · 칭호 · 아우라 · 펫) 그대로",
 		BigNum.eq(SuccessRateReport.clickMultiplier(p), expectClick) and SuccessRateReport.titleMult(p) == TitleConfig.multOf(TitleConfig.Titles[4].id))
 	check("damageMultiplier = AttackService.combineDamageMultiplier(펀치 데미지 × 아우라)", SuccessRateReport.damageMultiplier(p)
-		== AttackService.combineDamageMultiplier({ punchDamage = UpgradeConfig.getEffect("punchDamage", 3), auraMult = SuccessRateReport.auraMult(p) }))
+		== AttackService.combineDamageMultiplier({ punchDamage = Legacy.upgradeEffect("punchDamage", 3), auraMult = SuccessRateReport.auraMult(p) }))
 	check("bloxMultiplier = ChallengeService.combineBloxMultiplier(블럭스 획득 × 칭호)", SuccessRateReport.bloxMultiplier(p)
 		== ChallengeService.combineBloxMultiplier({ bloxGain = UpgradeConfig.getEffect("bloxGain", 2), titleMult = SuccessRateReport.titleMult(p) }))
 
@@ -793,18 +799,6 @@ do
 	local b, events = threePlayers(true)
 	check("관측 고리: 고리를 달아도 결과가 같다(같은 seed 3명) · 고리는 불렸다", a == b and (events :: any) > 0, a .. " | " .. b)
 
-	-- StandardPathReport 절벽 판정 함수: 합성 기록으로 식을 잰다(경계 체류 ÷ 앞 두 전환 평균)
-	local function rec(t: number): any
-		return { elapsedSec = t, runNo = 1, rebirthCount = 0 }
-	end
-	local fake: any = { records = { [14] = rec(0), [15] = rec(60), [16] = rec(120), [17] = rec(420) } }
-	local here, neighbour, ratio = StandardPathReport.cliffRatio(fake, 16)
-	check("StandardPathReport.cliffRatio: 16→17 체류 300초 ÷ 이웃 평균 60초 = 5", here == 300 and neighbour == 60 and ratio == 5)
-	local missing = StandardPathReport.cliffRatio(fake, 8)
-	check("StandardPathReport.cliffRatio: 기록이 없으면 nil(구간 미도달)", missing == nil)
-	local bs = StandardPathReport.boundaries()
-	check("StandardPathReport.boundaries: WorldConfig 세그먼트 경계(8 · 16) · 임계 2.0(보기 전에 고정)", #bs == 2 and bs[1].stage == 8 and bs[2].stage == 16
-		and StandardPathReport.CLIFF_RATIO_THRESHOLD == 2)
 end
 
 -- 목표 성공률 · 지표 함수 (지시서 #13 5 · 6단계) -----------------------------------------------------------
