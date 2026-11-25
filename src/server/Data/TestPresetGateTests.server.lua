@@ -161,7 +161,7 @@ do
 	local source, active = TestPresetGate.chooseSessionStore("floor25", true, real, newStore)
 	source:StartSessionAsync("1")
 	check("켜짐: 세션 대상 = 새 스토어의 .Mock · 실제 스토어 호출 0", active == "floor25" and #log == 1 and log[1] == "mock:StartSessionAsync", table.concat(log, ","))
-	check("켜짐: 새 스토어 이름은 실제 스토어(PlayerData_v1)가 아니다", #made == 1 and made[1] == TestPresetGate.STORE_NAME and made[1] ~= "PlayerData_v1")
+	check("켜짐: 새 스토어 이름은 실제 스토어(PlayerData_v2)가 아니다", #made == 1 and made[1] == TestPresetGate.STORE_NAME and made[1] ~= "PlayerData_v2")
 	check("켜짐: 새 스토어 템플릿 = 프리셋 데이터(세션 전에 만든다)", madeTemplate ~= nil and BigNum.eq(madeTemplate.strength, TestPresets.Presets.floor25.strength))
 
 	local log2: { string } = {}

@@ -5,7 +5,7 @@
 -- ===== 안전장치 (전부 TestPresetGateTests가 잰다) =====================================
 --
 --   1. Studio에서만. RunService:IsStudio()가 아니면 프리셋을 무시하고 ERROR 로그를 남긴다 — 실제 저장소로 정상 진행한다
---   2. 프리셋이 켜지면 ProfileStore의 **Mock 저장소만** 쓴다(Store.Mock:StartSessionAsync). 실제 저장소(PlayerData_v1)에는
+--   2. 프리셋이 켜지면 ProfileStore의 **Mock 저장소만** 쓴다(Store.Mock:StartSessionAsync). 실제 저장소(PlayerData_v2)에는
 --      세션을 열지 않는다 — 읽기도 쓰기도 없다. Mock은 서버 메모리 안의 표(UserMockStore)라 Play를 멈추면 사라진다
 --      (ProfileStore 1.0.3 소스 확인: Mock 프로필은 is_mock이 붙어 저장 · 세션 종료도 UserMockStore로 간다 · MessagingService 구독도 안 한다)
 --   3. 프리셋 상태는 **세션을 열기 전에 템플릿으로** 만든다(Mock 저장소의 템플릿 = 프리셋 데이터). 런타임 재화 변경이 아니다 —

@@ -28,7 +28,7 @@ local LocaleGate = require(script.Parent.Parent.Systems.LocaleGate)
 -- 런타임에 검증하는 대상이라 여기서는 굳이 정적으로 좁히지 않는다.
 type Profile = any
 
--- 저장소 이름은 환경별로 다르다(지시서 #23 E1 ~ E3 — 원본은 Shared/Config/DataConfig). Studio는 언제나 studio(PlayerData_v1)다.
+-- 저장소 이름은 환경별로 다르다(지시서 #23 E1 ~ E3 — 원본은 Shared/Config/DataConfig). Studio는 언제나 studio(PlayerData_v2 — #37)다.
 -- 이름이 nil이면(Studio에서 beta · live를 요구 · Studio 밖인데 DATA_ENV가 틀림) 저장소를 열지 않는다 — 접속자는 킥.
 local DATA_ENV, STORE_NAME, STORE_ERR = DataConfig.resolveStore(RunService:IsStudio(), DataConfig.DATA_ENV)
 

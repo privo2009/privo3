@@ -1,13 +1,16 @@
 --!strict
 -- 데이터 환경 (지시서 #23 E1 ~ E6 — DESIGN.md 10장 "데이터 환경"). 저장소 이름 · 환경 값의 원본은 이 파일 한 곳이다.
 --
---   studio   PlayerData_v1        RunService:IsStudio()면 무조건(DATA_ENV가 무엇이든) — 지금 이름 그대로(개발 계정 진행 유지)
---   beta     PlayerData_beta_v1   Studio가 아니고 DATA_ENV = "beta"(커밋 값 — 비공개 테스트)
---   live     PlayerData_live_v1   Studio가 아니고 DATA_ENV = "live"(출시 당일 한 줄 커밋 — ROADMAP "출시 체크리스트")
+--   studio   PlayerData_v2        RunService:IsStudio()면 무조건(DATA_ENV가 무엇이든)
+--   beta     PlayerData_beta_v2   Studio가 아니고 DATA_ENV = "beta"(커밋 값 — 비공개 테스트)
+--   live     PlayerData_live_v2   Studio가 아니고 DATA_ENV = "live"(출시 당일 한 줄 커밋 — ROADMAP "출시 체크리스트")
+--
+-- #37(N4 해소): 세 이름을 _v1 → _v2로 바꿔 새로 시작했다 — 옛 환생 수(블럭스 1000마다 +1 — 수십 ~ 수만)가 새 배수 1.25^n에 들어가면
+-- 망가진다. 옛 저장소 데이터는 지우지 않았다(이름만 _v1로 되돌리면 그대로 열린다). 이주 목록(Migrations v1 → v10)은 그대로.
 --
 -- ⚠️ Studio에서 beta · live 저장소를 열지 않는다(E3). storeNameFor가 거부 사유와 nil을 돌려주고 ProfileManager는 열지 않는다.
 --    Studio 밖에서 DATA_ENV가 beta · live가 아니어도 같다 — 틀린 저장소에 섞여 쓰는 것보다 안 열리는 쪽이 고치기 쉽다.
--- ⚠️ 이름 뒤의 "v1"은 schemaVersion과 무관하다(스키마 변경은 Migrations). 데이터를 통째로 리셋하는 비상 상황에만 올린다.
+-- ⚠️ 이름 뒤의 "v2"는 schemaVersion과 무관하다(스키마 변경은 Migrations). 데이터를 통째로 리셋할 때만 올린다(#37에서 v1 → v2).
 -- beta에서는 개발자 상품을 팔지 않는다(E5 — 출시 때 진행이 초기화되면 산 것이 사라진다). 예외는 BETA_PRODUCT_ALLOWLIST(실서버 구매 확인 H7).
 -- 게임패스는 환경과 무관하게 판다(소유가 로블록스 계정에 남는다).
 
@@ -20,9 +23,9 @@ DataConfig.BETA = "beta"
 DataConfig.LIVE = "live"
 
 DataConfig.STORE_NAMES = {
-	studio = "PlayerData_v1",
-	beta = "PlayerData_beta_v1",
-	live = "PlayerData_live_v1",
+	studio = "PlayerData_v2",
+	beta = "PlayerData_beta_v2",
+	live = "PlayerData_live_v2",
 } :: { [string]: string }
 
 DataConfig.BETA_PRODUCT_ALLOWLIST = { "strengthPotion" } :: { string }

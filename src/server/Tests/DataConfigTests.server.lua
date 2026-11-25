@@ -45,12 +45,12 @@ do
 end
 
 -- 3. 저장소 이름 (E1) -----------------------------------------------------------------------------------
-check("이름: studio = PlayerData_v1(개발 계정 진행 유지)", DataConfig.STORE_NAMES[S] == "PlayerData_v1")
-check("이름: beta = PlayerData_beta_v1", DataConfig.STORE_NAMES[B] == "PlayerData_beta_v1")
-check("이름: live = PlayerData_live_v1", DataConfig.STORE_NAMES[L] == "PlayerData_live_v1")
-check("이름: Studio 밖 beta · live는 자기 이름", DataConfig.storeNameFor(B, false) == "PlayerData_beta_v1"
-	and DataConfig.storeNameFor(L, false) == "PlayerData_live_v1")
-check("이름: Studio의 studio는 PlayerData_v1", DataConfig.storeNameFor(S, true) == "PlayerData_v1")
+check("이름: studio = PlayerData_v2(#37 새로 시작)", DataConfig.STORE_NAMES[S] == "PlayerData_v2")
+check("이름: beta = PlayerData_beta_v2", DataConfig.STORE_NAMES[B] == "PlayerData_beta_v2")
+check("이름: live = PlayerData_live_v2", DataConfig.STORE_NAMES[L] == "PlayerData_live_v2")
+check("이름: Studio 밖 beta · live는 자기 이름", DataConfig.storeNameFor(B, false) == "PlayerData_beta_v2"
+	and DataConfig.storeNameFor(L, false) == "PlayerData_live_v2")
+check("이름: Studio의 studio는 PlayerData_v2", DataConfig.storeNameFor(S, true) == "PlayerData_v2")
 
 -- 4. Studio에서 beta · live 거부 (E3) -------------------------------------------------------------------
 for _, env in ipairs({ B, L }) do
@@ -65,11 +65,11 @@ end
 -- 5. resolveStore · 시작 로그 (E1 · E4) -----------------------------------------------------------------
 do
 	local env, name, err = DataConfig.resolveStore(true, DataConfig.DATA_ENV)
-	check("Studio + 커밋 값 → studio · PlayerData_v1 · 사유 없음", env == S and name == "PlayerData_v1" and err == nil)
-	check("시작 로그: [Data] env=studio store=PlayerData_v1", DataConfig.startLine(env, name, err) == "[Data] env=studio store=PlayerData_v1")
+	check("Studio + 커밋 값 → studio · PlayerData_v2 · 사유 없음", env == S and name == "PlayerData_v2" and err == nil)
+	check("시작 로그: [Data] env=studio store=PlayerData_v2", DataConfig.startLine(env, name, err) == "[Data] env=studio store=PlayerData_v2")
 	local env2, name2 = DataConfig.resolveStore(false, B)
-	check("실서버 + beta → beta · PlayerData_beta_v1", env2 == B and name2 == "PlayerData_beta_v1"
-		and DataConfig.startLine(env2, name2, nil) == "[Data] env=beta store=PlayerData_beta_v1")
+	check("실서버 + beta → beta · PlayerData_beta_v2", env2 == B and name2 == "PlayerData_beta_v2"
+		and DataConfig.startLine(env2, name2, nil) == "[Data] env=beta store=PlayerData_beta_v2")
 	local env3, name3, err3 = DataConfig.resolveStore(false, "Live")
 	check("실서버 + 잘못된 값 → 열지 않음 · ERROR 줄에 사유", env3 == nil and name3 == nil and err3 == DataConfig.ERR_BAD_ENV
 		and string.find(DataConfig.startLine(env3, name3, err3), "[Data][ERROR]", 1, true) == 1
