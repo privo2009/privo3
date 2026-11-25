@@ -519,7 +519,7 @@ PBR           SurfaceAppearance 맵 5종(color · normal · roughness · metalne
               https://create.roblox.com/docs/performance-optimization/design · /performance-optimization/improve
 ```
 
-### 6-2. 곡괭이 (펀치 데미지 업그레이드 자리 — 결정 대기: 등급 수 5 ~ 7)
+### 6-2. 곡괭이 (펀치 데미지 업그레이드 자리 — #37에서 그 업그레이드를 지웠다 · 지금 규격 원본은 `docs/ASSET_ORDER.md` 1절)
 
 ```
 형태        Tool. Handle 하나(손잡이) + 머리 메시. 쥐는 자리 = Handle 아래쪽 끝(Grip)

@@ -142,7 +142,7 @@ Strings 상단 주석에 같은 표가 있다. 바꿀 때는 둘 다 바꾼다(�
 자동 진행 Auto Advance
 ```
 
-새 경제(플래그 `ECONOMY_V2` 뒤 — 지시서 #31) — ⚠️ **광석 · 곡괭이 이름은 전부 임시 이름이다(확정은 `docs/PENDING.md` N1).**
+새 경제(지시서 #31 · #37부터 유일한 경제) — ⚠️ **광석 · 곡괭이 이름은 전부 임시 이름이다(확정은 `docs/PENDING.md` N1).**
 ```
 광석 Ore              곡괭이 Pickaxe         제작 Craft             토큰 Token
 교환 Exchange         별 Star                강화 Enhance           가방 Bag              코인 Coin

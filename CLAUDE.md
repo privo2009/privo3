@@ -1,6 +1,6 @@
 # privo3 — Roblox 방치형 블록 파괴 게임
 
-문서 갱신: 2026-11-24 (지시서 #30)
+문서 갱신: 2026-11-25 (지시서 #37 — 새 경제 플래그 규칙 지움)
 
 ## 개요
 힘을 키워 거대 블록을 부수고, 20초 챌린지로 블럭스를 획득하는
@@ -288,5 +288,3 @@ Rojo 플러그인 창의 Connect 상태는 MCP로 읽을 수 없고,
 - 확신 없으면 추측하지 말고 질문
 - 밸런싱 수치는 전부 `Shared/Config/`로 분리. 하드코딩 금지
 - 새 테스트(*Tests) · 리포트(*Report) 파일을 만들면 첫 실행 줄에 TestGate 게이트를 두고 `python -I tools/check_test_gate.py`를 돌린다(위반 0 — 지시서 #27 T2)
-- 새 경제 플래그 `Shared/Config/EconomyV2Config.ECONOMY_V2`는 **켜는 날까지 false로 커밋한다**(지시서 #30 — 큰 경제 변경은 전부 그 뒤에서 만들고 한 번에 켠다 ·
-  Play 확인은 로컬에서만 잠깐 true · `python -I tools/check_test_gate.py`가 커밋 값을 본다). 플래그가 꺼져 있을 때 기존 테스트 · 동작은 하나도 바뀌지 않아야 한다

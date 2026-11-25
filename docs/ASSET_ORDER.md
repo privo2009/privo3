@@ -183,10 +183,12 @@ ore_10  Starstone / 별빛석         10    25 전용           #F5F5FF 흰빛
 알 3 Iron Egg / 철 알      Cog Rat 톱니쥐 · Mech Hawk 기계매 · Steel Drake 강철드레이크 · Machine God 기계신
 리미티드                  Dawn Phoenix 새벽불사조(이름 확인 필요 — PENDING #20)
 지금 표시     희귀도 색 구 하나(지름 1.2 · 1.45 · 1.7 · 2.0 스터드 — 강화 단계) + 2단계 이상 껍질 · 캐릭터 뒤 4 스터드에서 따라옴
-             ⚠️ 펫 모델 자리는 아직 코드에 없다 — 모델이 오면 PetConfig에 자리를 만든다(정해야 함: 펫 하나 삼각형 · 크기)
+펫 모델      펫마다 Model 에셋 하나(#37 — 자리 13칸 pet_<petId>). 모델 크기 = 1단계 크기 기준 — 강화 단계가 오르면 코드가 같은 비율로 키운다.
+             삼각형 상한은 정해야 함(0절 로블록스 제한 안). 모델이 nil이거나 불러오기에 실패하면 지금 구 그대로
 부화 연출     화면(2D) — 알이 1초 흔들린 뒤 이름(희귀도 색) · 5초에 스킵 · 6초 닫힘
              자리: hatch_egg(알 그림 — 512 PNG 투명) · hatch_fx(결과 빛 그림 — 이름 뒤)
-넣는 곳      HATCH_FX_VISUAL = { eggImageId = …, effectId = … }
+넣는 곳      펫 모델: Shared/Config/PetConfig.VISUALS[petId] = { modelId = … }(예: VISUALS.egg1_rare = { modelId = 123 })
+             부화 연출: HATCH_FX_VISUAL = { eggImageId = …, effectId = … }
 ```
 
 ## 7. 토큰 아이콘 5개 + ??? · 새 패스 4개 아이콘 — 우선순위 7
@@ -195,7 +197,8 @@ ore_10  Starstone / 별빛석         10    25 전용           #F5F5FF 흰빛
 토큰         token_icon_rare · _epic · _mythic · _legendary · _next(??? — 잠긴 칸)
              128 × 128 PNG(투명) · 등급 색을 바탕으로. 저장 토큰은 5종(희귀 · 에픽 · 신화 · 전설 + ???)이라 자리도 5개다 —
              지시서의 "5개 + ???"를 이렇게 읽었다(???를 따로 6번째로 둘지는 정해야 함)
-             넣는 곳 TOKEN_VISUALS[키].iconId(자리만 — 창에 그리는 줄은 아이콘이 올 때 붙인다)
+             넣는 곳 Shared/Config/EconomyV2Config.TOKEN_VISUALS[키].iconId — #37에서 창에 연결했다(대장간 교환 탭 "보유" 줄 옆).
+             nil이면 글자만(지금 그대로)
 새 패스 4개   Big Bag 큰 가방 · Instant Craft 즉시 제작 · Triple Craft 트리플 제작 · Instant Hatch 즉시 부화
              대시보드 게임패스 그림(512 × 512 — 대시보드 규격은 docs/DASHBOARD_PRODUCTS.md). 게임 안 자리 없음
              넣는 곳: 대시보드에 그림과 함께 등록 → 게임패스 ID를 희준에게(ShopConfig.V2_GAMEPASS_IDS)
