@@ -13,6 +13,7 @@ local PadLayout = require(ReplicatedStorage.Shared.PadLayout)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Names = require(ReplicatedStorage.Shared.Localization.Names)
 local ConfirmFlow = require(script.Parent.ConfirmFlow)
+local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 
 local OnboardingLogic = {}
 
@@ -37,12 +38,14 @@ local function readStep(onboarding: any): (number, boolean)
 end
 
 -- 띠 표시 값. 끝났으면 숨긴다. skipArmed = 건너뛰기를 한 번 눌러 확인을 기다리는 중.
-function OnboardingLogic.view(onboarding: any, skipArmed: boolean): View
+-- economyV2(#36 — 없으면 커밋 플래그): 4단계 문장만 새 경제용(진행과 수령의 차이 — 실패하면 못 받는다)
+function OnboardingLogic.view(onboarding: any, skipArmed: boolean, economyV2: boolean?): View
 	local step, done = readStep(onboarding)
+	local v2 = if economyV2 == nil then EconomyV2Logic.isOn() else economyV2
 	return {
 		visible = not done,
 		step = step,
-		text = Locale.t("onboarding.step." .. tostring(step)),
+		text = Locale.t(if v2 and step == 4 then "onboarding.step.4.v2" else "onboarding.step." .. tostring(step)),
 		progress = Locale.t("onboarding.progress", { n = step, total = OnboardingConfig.STEP_COUNT }),
 		showFinish = step >= OnboardingConfig.STEP_COUNT,
 		finishText = Locale.t("onboarding.finish"),
@@ -69,6 +72,15 @@ function OnboardingLogic.target(onboarding: any, runStage: number?): Vector3?
 		return Vector3.new(pad.X, 0, pad.Z)
 	end
 	return nil
+end
+
+-- 새 경제 안내 하나를 띠에 보일 값(#36): 머리 "안내" · 문장 · 버튼 "알겠어요"
+function OnboardingLogic.tipView(key: string): { progress: string, text: string, buttonText: string }
+	return {
+		progress = Locale.t("onboarding.tip.title"),
+		text = Locale.t("onboarding.tip." .. key),
+		buttonText = Locale.t("onboarding.finish"),
+	}
 end
 
 function OnboardingLogic.newSkipConfirm(): ConfirmFlow.Flow

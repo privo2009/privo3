@@ -291,7 +291,20 @@ local OnboardingBand = require(script.Parent.Screens.Overlay.OnboardingBand)
 local OnboardingLogic = require(script.Parent.Logic.OnboardingLogic)
 -- 띠가 보이는 동안 토스트는 띠 아래 칸으로 내려간다(지시서 #26 — 같은 칸을 써서 안내 중 토스트가 띠를 덮었다).
 -- 그 칸은 오류 칸과 같은 자리라 오류(로딩 시간 초과)가 열려 있으면 내리지 않는다(드문 경우 — 예전처럼 띠 위에 그려진다).
+-- 새 경제(#36): 기존 안내가 끝난 뒤 같은 띠에 새 경제 안내를 하나씩(OnboardingTipsClient). 꺼져 있으면 nil — 지금 그대로
+local tipSource: any = nil
+if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() then
+	local OnboardingTipsClient = require(script.Parent.Parent.Economy.OnboardingTipsClient)
+	local tips = OnboardingTipsClient.shared()
+	tipSource = {
+		current = tips.current,
+		dismiss = tips.dismiss,
+		subscribe = tips.subscribe,
+		setShowing = OnboardingTipsClient.setShowing,
+	}
+end
 local onboardingBand = OnboardingBand.create({
+	tips = tipSource,
 	send = function(action: string)
 		local payload: Remotes.OnboardingRequestPayload = { action = action }
 		channels.onboardingRequest:FireServer(payload)

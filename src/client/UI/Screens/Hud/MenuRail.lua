@@ -70,6 +70,8 @@ MenuRail.Columns = COLUMNS
 
 export type MenuRailHandle = {
 	root: Frame,
+	setItemShown: (screenName: string, shown: boolean) -> (), -- #36 새 경제 — 자리는 그대로 두고 칸만 숨김
+	item: (screenName: string) -> Frame?,
 }
 
 -- 등록되지 않은 이름으로 open()하면 U3-1 설계상 error가 난다(오타/미구현 창을
@@ -200,8 +202,10 @@ function MenuRail.create(startY: number): MenuRailHandle
 	gridLayout.CellPadding = UDim2.fromScale(gapXScale, gapYScale)
 	gridLayout.Parent = root
 
+	local rowsByName: { [string]: Frame } = {}
 	for index, item in ipairs(ITEMS) do
 		local itemRow = createTile(item, index)
+		rowsByName[item.screenName] = itemRow
 		-- Size를 여기서 다시 세팅하지 않는다 — UIGridLayout은 UIListLayout과
 		-- 달리 자식의 Position뿐 아니라 Size도 CellSize로 직접 관리한다.
 		-- 손으로 root-상대 Size를 또 세팅해도 GridLayout이 바로 덮어써서
@@ -209,8 +213,25 @@ function MenuRail.create(startY: number): MenuRailHandle
 		itemRow.Parent = root
 	end
 
+	-- 새 경제(#36): 칸을 처음 필요할 때 보인다. 자리는 비워 둔 채 안의 그림 · 라벨 · 누르는 곳만 숨긴다(다른 칸이 움직이지 않게)
+	local function setItemShown(screenName: string, shown: boolean)
+		local itemRow = rowsByName[screenName]
+		if itemRow == nil then
+			return
+		end
+		for _, child in ipairs(itemRow:GetChildren()) do
+			if child:IsA("GuiObject") then
+				child.Visible = shown
+			end
+		end
+	end
+
 	return {
 		root = root,
+		setItemShown = setItemShown,
+		item = function(screenName: string): Frame?
+			return rowsByName[screenName]
+		end,
 	}
 end
 

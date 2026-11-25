@@ -36,6 +36,7 @@ Schema.LIMITS = {
 	-- 일일 보상 주기 일수(= DailyRewardConfig 칸 수) · 첫 접속 안내 단계 수(= OnboardingConfig 단계 수). SchemaTests가 Config와 대조한다(v8)
 	DAILY_CYCLE_DAYS = 7,
 	ONBOARDING_STEPS = 5,
+	MAX_ONBOARDING_TIPS = 16, -- 새 경제 안내 키 상한(onboarding.tips — #36 · 지금 7개)
 	-- 받은 코드 기록 상한 · 코드 글자 수 상한(= CodesConfig.MAX_LENGTH — 대조는 SchemaTests). 넘는 기록은 손상으로 본다(v8)
 	MAX_REDEEMED_CODES = 200,
 	MAX_CODE_LENGTH = 32,
@@ -490,6 +491,28 @@ function Schema.validate(data: any): (boolean, { string })
 		end
 		if type(data.onboarding.done) ~= "boolean" then
 			addError(errors, "onboarding.done이 boolean이 아님")
+		end
+		-- 새 경제 안내(#36 — 기존 필드 안 · 템플릿에 없다 · 없으면 빈 것): tips{["키"] = true} · tipsOff(boolean)
+		local tips = data.onboarding.tips
+		if tips ~= nil then
+			if type(tips) ~= "table" then
+				addError(errors, "onboarding.tips가 테이블이 아님")
+			else
+				local n = 0
+				for key, value in pairs(tips) do
+					n += 1
+					if type(key) ~= "string" or #key == 0 or #key > 32 or value ~= true then
+						addError(errors, string.format("onboarding.tips[%s]가 {[\"키\"] = true} 형태가 아님", tostring(key)))
+						break
+					end
+				end
+				if n > Schema.LIMITS.MAX_ONBOARDING_TIPS then
+					addError(errors, string.format("onboarding.tips가 %d개를 넘음(%d)", Schema.LIMITS.MAX_ONBOARDING_TIPS, n))
+				end
+			end
+		end
+		if data.onboarding.tipsOff ~= nil and type(data.onboarding.tipsOff) ~= "boolean" then
+			addError(errors, "onboarding.tipsOff가 boolean이 아님")
 		end
 	else
 		addError(errors, "onboarding 테이블이 없음")

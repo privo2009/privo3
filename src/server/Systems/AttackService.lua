@@ -366,9 +366,22 @@ function AttackService.getLastOutcome(player: Player): PunchOutcome?
 end
 
 -- 펀치 한 번을 지금 처리한다. 루프가 부르지만 테스트·검증도 직접 부를 수 있다.
+local punchListeners: { (Player, PunchOutcome) -> () } = {}
+
+-- 펀치 뒤 알림(#36 — 손에 든 곡괭이 휘두르기). 판정에 끼어들지 않는다(결과를 받기만). 듣는 쪽 오류는 펀치를 막지 않는다
+function AttackService.onPunched(fn: (Player, PunchOutcome) -> ())
+	table.insert(punchListeners, fn)
+end
+
 function AttackService.punch(player: Player): PunchOutcome
 	local outcome = runPunch(REAL, player)
 	lastOutcome[player] = outcome
+	for _, fn in ipairs(punchListeners) do
+		local ok, err = pcall(fn, player, outcome)
+		if not ok then
+			warn("[AttackService] 펀치 알림 오류: " .. tostring(err))
+		end
+	end
 	return outcome
 end
 

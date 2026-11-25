@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
+local AssetSlots = require(ReplicatedStorage.Shared.AssetSlots) -- 에셋 자리(#36 — 값이 있으면 그 그림 · 없으면 임시 도형)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
@@ -140,6 +141,7 @@ function ForgeWindow.create(deps: Deps): Handle
 		nameL.Text = Locale.t(EconomyV2Logic.oreNameKey(k))
 		local countL = text("Count", cell, "small", 0.04, 0.5, 0.92, 0.46, Enum.TextXAlignment.Center)
 		local hit = WindowParts.hitArea(cell)
+		AssetSlots.applyImage(cell, Config.ORE_VISUALS[k].iconId, { position = UDim2.fromScale(0.5, 0.3), size = UDim2.fromScale(0.5, 0.5) })
 		oreCells[k] = { root = cell, name = nameL, count = countL, hit = hit }
 	end
 
@@ -231,6 +233,7 @@ function ForgeWindow.create(deps: Deps): Handle
 	overlay.ZIndex = Z_OVERLAY
 	overlay.Visible = false
 	overlay.Parent = body
+	AssetSlots.applyImage(overlay, Config.CRAFT_FX_VISUAL.imageId, { size = UDim2.fromScale(0.6, 0.9) }) -- 제작 연출 그림(#36 — 이름 뒤)
 	local resultNames: { TextLabel } = {}
 	for i = 1, Config.TRIPLE_CRAFT_COUNT do
 		local l = text("Name" .. i, overlay, "large", 0.1, 0.2 + (i - 1) * 0.14, 0.8, 0.12, Enum.TextXAlignment.Center)
@@ -288,7 +291,9 @@ function ForgeWindow.create(deps: Deps): Handle
 			if k ~= nil then
 				cell.label.Text = Locale.t(EconomyV2Logic.oreNameKey(k))
 				cell.root.BackgroundColor3 = Config.ORE_VISUALS[k].color
+				AssetSlots.applyImage(cell.root, Config.ORE_VISUALS[k].iconId)
 			else
+				AssetSlots.applyImage(cell.root, nil)
 				cell.label.Text = ""
 				cell.root.BackgroundColor3 = UiTheme.Colors.neutral.dark
 			end

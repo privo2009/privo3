@@ -2,14 +2,16 @@
 -- 광석 드롭 표시(지시서 #32 — 클라 전용 · 플래그 ECONOMY_V2 뒤). 서버가 "어디에 무엇이 떨어졌다"를 알리면 그린다 — 판정은 서버.
 -- 절대 규칙 4: 물리 없음(Anchored · CanCollide false) · 반복 생성 없음(풀링 — Part를 다시 쓴다).
 -- 모습(임시 도형): 광석 재질 색의 작은 정육면체를 45도 돌려 세운 것 · 바닥 위에 떠서 천천히 오르내리며 돈다.
--- 에셋 자리: EconomyV2Config.ORE_VISUALS[k].modelId — 지금은 nil(임시 도형). 값을 넣는 방식은 #36 에셋 주문서에서 정한다
---           (⚠️ 런타임 메시 교체 방식은 공식 문서로 확인하지 않았다 — 기억으로 쓰지 않는다).
+-- 에셋 자리(#36 — DESIGN 16장 "에셋 교체 방식"): ORE_VISUALS[k].modelId가 있고 서버 AssetLoader가 불러 둔 틀(AssetSlots "ore_k" — MeshPart 하나,
+--           Model이면 PrimaryPart)이 있으면 그것을 복제해 쓴다(색은 모델 그대로 · 크기도 모델 그대로). 없으면 임시 도형.
+--           effectId가 있으면 드롭에 반짝이 파티클(ParticleEmitter.Texture — 클라 전용 · 절대 규칙 4). 풀은 모습(틀 키)마다 따로다
 -- 줍기: 서버가 "주웠다"를 알리면 플레이어 쪽으로 날아가며 작아지고 사라진다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
+local AssetSlots = require(ReplicatedStorage.Shared.AssetSlots)
 
 local DropRenderer = {}
 
@@ -24,6 +26,7 @@ export type Options = {
 	getTarget: (() -> Vector3?)?, -- 주운 드롭이 날아갈 곳(기본 내 캐릭터 루트)
 	clock: (() -> number)?,
 	autoStep: boolean?, -- 기본 true — RenderStepped로 움직인다(테스트는 false · step을 직접)
+	template: ((key: string) -> Instance?)?, -- 모델 틀 찾기(기본 AssetSlots.template — 테스트는 가짜 틀)
 }
 
 export type Handle = {
@@ -61,36 +64,92 @@ function DropRenderer.create(options: Options?): Handle
 	end
 	local getTarget = o.getTarget or defaultTarget
 
-	local pool: { BasePart } = {}
+	local findTemplate = o.template or function(key: string): Instance?
+		return AssetSlots.template(key)
+	end
+	local pools: { [string]: { BasePart } } = {}
 	local active: { [number]: { part: BasePart, base: Vector3, phase: number } } = {}
-	local flying: { { part: BasePart, from: Vector3, startAt: number } } = {}
+	local flying: { { part: BasePart, from: Vector3, startAt: number, size: Vector3 } } = {}
 	local created = 0
+	local TEMP_KEY = "temp"
 
-	local function take(): BasePart
-		local part = table.remove(pool)
+	-- 광석 k의 모델 틀(BasePart) — 없으면 nil(임시 도형)
+	local function templateOf(k: number): BasePart?
+		local t = findTemplate("ore_" .. k)
+		if t == nil then
+			return nil
+		end
+		if t:IsA("BasePart") then
+			return t
+		end
+		if t:IsA("Model") then
+			return t.PrimaryPart or t:FindFirstChildWhichIsA("BasePart", true)
+		end
+		return nil
+	end
+
+	local function take(k: number): BasePart
+		local tpl = templateOf(k)
+		local key = if tpl ~= nil then "ore_" .. k else TEMP_KEY
+		local pool = pools[key]
+		local part = if pool ~= nil then table.remove(pool) else nil
 		if part == nil then
-			local p = Instance.new("Part")
+			local p: BasePart
+			if tpl ~= nil then
+				p = (tpl :: BasePart):Clone()
+				p:ClearAllChildren()
+			else
+				local np = Instance.new("Part")
+				np.Material = Enum.Material.SmoothPlastic
+				np.Size = Vector3.new(DropRenderer.SIZE, DropRenderer.SIZE, DropRenderer.SIZE)
+				p = np
+			end
 			p.Name = "OreDrop"
 			p.Anchored = true
 			p.CanCollide = false
 			p.CanQuery = false
 			p.CanTouch = false
 			p.CastShadow = false
-			p.Material = Enum.Material.SmoothPlastic
-			p.Size = Vector3.new(DropRenderer.SIZE, DropRenderer.SIZE, DropRenderer.SIZE)
+			p:SetAttribute("PoolKey", key)
+			p:SetAttribute("BaseSize", p.Size)
 			created += 1
 			part = p
 		end
 		local pp = part :: BasePart
-		pp.Size = Vector3.new(DropRenderer.SIZE, DropRenderer.SIZE, DropRenderer.SIZE)
+		pp.Size = pp:GetAttribute("BaseSize") :: Vector3
 		pp.Transparency = 0
+		-- 반짝이(effectId — 없으면 끔)
+		local texture = AssetSlots.contentId((Config.ORE_VISUALS[k] or Config.ORE_VISUALS[1]).effectId)
+		local fx = pp:FindFirstChild("OreFx") :: ParticleEmitter?
+		if texture ~= nil and fx == nil then
+			local e = Instance.new("ParticleEmitter")
+			e.Name = "OreFx"
+			e.Rate = 4
+			e.Lifetime = NumberRange.new(0.4, 0.8)
+			e.Speed = NumberRange.new(0.5, 1)
+			e.Size = NumberSequence.new(0.4)
+			e.Parent = pp
+			fx = e
+		end
+		if fx ~= nil then
+			fx.Enabled = texture ~= nil
+			if texture ~= nil then
+				fx.Texture = texture
+			end
+		end
 		pp.Parent = folder
 		return pp
 	end
 
 	local function give(part: BasePart)
 		part.Parent = nil
-		table.insert(pool, part)
+		local key = part:GetAttribute("PoolKey") :: string? or TEMP_KEY
+		local pool = pools[key]
+		if pool == nil then
+			pool = {}
+			pools[key] = pool
+		end
+		table.insert(pool :: { BasePart }, part)
 	end
 
 	local self = {} :: Handle
@@ -98,9 +157,11 @@ function DropRenderer.create(options: Options?): Handle
 	function self.spawn(drops: { any })
 		for _, d in ipairs(drops) do
 			if type(d) == "table" and type(d.id) == "number" and active[d.id] == nil and typeof(d.position) == "Vector3" then
-				local visual = Config.ORE_VISUALS[d.ore] or Config.ORE_VISUALS[1]
-				local part = take()
-				part.Color = visual.color
+				local ore = if Config.ORE_VISUALS[d.ore] ~= nil then d.ore else 1
+				local part = take(ore)
+				if part:GetAttribute("PoolKey") == TEMP_KEY then
+					part.Color = Config.ORE_VISUALS[ore].color -- 임시 도형만 칠한다(모델은 제 색)
+				end
 				local base = (d.position :: Vector3) + Vector3.new(0, DropRenderer.HOVER, 0)
 				part.CFrame = CFrame.new(base) * CFrame.Angles(math.rad(45), 0, math.rad(45))
 				active[d.id] = { part = part, base = base, phase = (d.id % 7) / 7 * math.pi * 2 }
@@ -114,7 +175,7 @@ function DropRenderer.create(options: Options?): Handle
 			local a = active[id]
 			if a ~= nil then
 				active[id] = nil
-				table.insert(flying, { part = a.part, from = a.part.Position, startAt = now })
+				table.insert(flying, { part = a.part, from = a.part.Position, startAt = now, size = a.part.Size })
 			end
 		end
 	end
@@ -140,8 +201,7 @@ function DropRenderer.create(options: Options?): Handle
 					table.remove(flying, i)
 					give(f.part)
 				else
-					local s = DropRenderer.SIZE * (1 - t * 0.8)
-					f.part.Size = Vector3.new(s, s, s)
+					f.part.Size = f.size * (1 - t * 0.8)
 					f.part.CFrame = CFrame.new(f.from:Lerp(target :: Vector3, t))
 					f.part.Transparency = t * 0.6
 				end
@@ -158,7 +218,11 @@ function DropRenderer.create(options: Options?): Handle
 	end
 
 	function self.poolSize(): number
-		return #pool
+		local n = 0
+		for _, pool in pairs(pools) do
+			n += #pool
+		end
+		return n
 	end
 
 	function self.partOf(id: number): BasePart?
@@ -182,10 +246,12 @@ function DropRenderer.create(options: Options?): Handle
 			give(f.part)
 		end
 		table.clear(flying)
-		for _, p in ipairs(pool) do
-			p:Destroy()
+		for _, pool in pairs(pools) do
+			for _, p in ipairs(pool) do
+				p:Destroy()
+			end
 		end
-		table.clear(pool)
+		table.clear(pools)
 		if o.parent == nil then
 			folder:Destroy()
 		end

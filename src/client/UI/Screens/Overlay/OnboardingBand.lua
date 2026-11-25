@@ -8,6 +8,7 @@
 -- 요청은 OnboardingRequest(finish · skip) 한 번만(대기 중이면 버튼 잠김 — 결과 또는 시간 초과로 풀린다).
 -- 창(Window 층)이 열려 있으면 띠를 숨긴다(setSuppressed) — 큰 창(0.075 ~)의 X 버튼이 띠 자리와 겹친다(2026-11-01 #20 단계 8 실측).
 -- 띠가 보이고 · 숨는 순간 deps.onShown(보임)을 부른다 — 토스트가 그동안 띠 아래 칸으로 내려간다(지시서 #26 · ToastStack.setBelowBand).
+-- 새 경제(#36): deps.tips가 있으면 기존 안내가 끝난 뒤 그 줄의 안내를 하나씩 같은 띠에 보인다("안내" · 문장 · "알겠어요"). 없으면 지금 그대로
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
@@ -31,6 +32,13 @@ export type Deps = {
 	send: (action: string) -> (),
 	now: (() -> number)?,
 	onShown: ((boolean) -> ())?,
+	-- 새 경제 안내 줄(#36 — OnboardingTipsClient). nil이면 지금 그대로
+	tips: {
+		current: () -> string?,
+		dismiss: () -> (),
+		subscribe: (() -> ()) -> (),
+		setShowing: ((boolean) -> ())?,
+	}?,
 }
 
 export type Handle = {
@@ -97,12 +105,24 @@ function OnboardingBand.create(deps: Deps): Handle
 
 	local function render()
 		local v = OnboardingLogic.view(source.get("onboarding"), skipConfirm.isArmed(now()))
-		local nowShown = v.visible and not suppressed
+		local tipKey = if not v.visible and deps.tips ~= nil then deps.tips.current() else nil
+		local nowShown = (v.visible or tipKey ~= nil) and not suppressed
 		panel.Visible = nowShown
-		progress.Text = v.progress
-		text.Text = v.text
-		buttonLabel.Text = if v.showFinish then v.finishText else v.skipText
-		button.setDisabled(now() < pendingUntil)
+		if tipKey ~= nil then
+			local t = OnboardingLogic.tipView(tipKey)
+			progress.Text = t.progress
+			text.Text = t.text
+			buttonLabel.Text = t.buttonText
+			button.setDisabled(false)
+		else
+			progress.Text = v.progress
+			text.Text = v.text
+			buttonLabel.Text = if v.showFinish then v.finishText else v.skipText
+			button.setDisabled(now() < pendingUntil)
+		end
+		if deps.tips ~= nil and deps.tips.setShowing ~= nil then
+			deps.tips.setShowing(tipKey ~= nil and nowShown)
+		end
 		if nowShown ~= shown then
 			shown = nowShown
 			if deps.onShown ~= nil then
@@ -113,6 +133,11 @@ function OnboardingBand.create(deps: Deps): Handle
 
 	local function press()
 		local v = OnboardingLogic.view(source.get("onboarding"), false)
+		if not v.visible and deps.tips ~= nil and deps.tips.current() ~= nil then
+			deps.tips.dismiss() -- 새 경제 안내 "알겠어요"(#36)
+			render()
+			return
+		end
 		if not v.visible or now() < pendingUntil then
 			return
 		end
@@ -137,6 +162,9 @@ function OnboardingBand.create(deps: Deps): Handle
 		skipConfirm.cancel()
 		render()
 	end)
+	if deps.tips ~= nil then
+		deps.tips.subscribe(render)
+	end
 	render()
 
 	return {

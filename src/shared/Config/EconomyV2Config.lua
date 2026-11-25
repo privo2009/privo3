@@ -63,6 +63,8 @@ EconomyV2Config.DROP_SCATTER = 2.5
 
 -- 광석 표시(#32 — 임시 도형 + 에셋 자리). color = 광석 재질 색(등급 색은 미결 PENDING C1).
 -- modelId · iconId · effectId가 nil이면 임시 도형(작은 Part · 색 칸)을 쓴다 — 방학 때 ID만 넣으면 모델로 바뀐다.
+-- 교체 방식(#36 — DESIGN 16장 "에셋 교체 방식"): modelId = Model 에셋 ID(안에 MeshPart 하나 — 서버 AssetLoader가 불러 둔다) ·
+-- iconId = 이미지 에셋 ID(ImageLabel) · effectId = 이미지 에셋 ID(ParticleEmitter.Texture). 자리 목록 원본 = Shared/AssetSlots
 export type OreVisual = { color: Color3, modelId: number?, iconId: number?, effectId: number? }
 EconomyV2Config.ORE_VISUALS = {
 	{ color = Color3.fromRGB(184, 115, 51) }, -- 1 구리 — 주황갈색
@@ -216,7 +218,18 @@ EconomyV2Config.AUTO_HATCH_POLL_SEC = 0.25
 -- 자동 부화 중 크게 알릴 펫 희귀도(1 ~ 4 — 이 값 이상 · #35)
 EconomyV2Config.HATCH_BIG_NOTICE_RARITY = 3
 -- 부화 연출 에셋 자리(#35 — nil이면 임시 도형: 흔들리는 알 칸)
-EconomyV2Config.HATCH_FX_VISUAL = { eggModelId = nil :: number?, effectId = nil :: number? }
+-- #36: 화면 연출(2D)이라 알은 그림 ID(eggImageId — ImageLabel) · effectId = 파티클 텍스처 ID(ParticleEmitter.Texture — 화면 연출이라 쓰지 않으면 nil)
+EconomyV2Config.HATCH_FX_VISUAL = { eggImageId = nil :: number?, effectId = nil :: number? }
+-- 제작 결과 연출 에셋 자리(#36 — nil이면 지금 임시 연출). imageId = 연출 그림(화면 2D) · effectId = 파티클 텍스처
+EconomyV2Config.CRAFT_FX_VISUAL = { imageId = nil :: number?, effectId = nil :: number? }
+-- 토큰 아이콘 자리(#36 — nil이면 임시 색 칸). 키 = 저장 토큰 키(rare · epic · mythic · legendary · next = ???)
+EconomyV2Config.TOKEN_VISUALS = {
+	rare = { iconId = nil :: number? },
+	epic = { iconId = nil :: number? },
+	mythic = { iconId = nil :: number? },
+	legendary = { iconId = nil :: number? },
+	next = { iconId = nil :: number? },
+} :: { [string]: { iconId: number? } }
 -- 새 경제 전용 상품(꺼져 있으면 안 보이고 효과 없음 — #35)
 EconomyV2Config.V2_ONLY_PRODUCTS = { bigBag = true, instantCraft = true, tripleCraft = true, instantHatch = true } :: { [string]: boolean }
 -- 제한 지역(ArePaidRandomItemsRestricted)에서 숨기는 새 경제 상품(DESIGN 16장 — 랜덤의 재료 · 횟수를 로벅스로 늘린다 · #35).
@@ -270,9 +283,10 @@ EconomyV2Config.REMOVED_PRODUCTS = { rebirth2x = true } :: { [string]: boolean }
 -- 효과도 없다(AttackService가 곡괭이 배수를 대신 곱한다) · 구매 요청은 invalid_upgrade. 꺼지면 그대로다
 EconomyV2Config.REMOVED_UPGRADES = { punchDamage = true } :: { [string]: boolean }
 
--- 손에 든 곡괭이(#34 — 에셋 자리). 곡괭이 id → { modelId, swingAnimId } — 둘 다 nil이면 임시 도형(자루 + 머리 · 등급 색) · 휘두르기 없음.
--- 표에 없는 id도 임시 도형이다. 크기(스터드)는 임시 도형 값
-EconomyV2Config.PICKAXE_VISUALS = {} :: { [string]: { modelId: number?, swingAnimId: number? } }
+-- 손에 든 곡괭이(#34 — 에셋 자리). 곡괭이 id → { modelId, swingAnimId, iconId } — nil이면 임시 도형(자루 + 머리 · 등급 색) · 휘두르기 없음 · 아이콘 없음.
+-- 표에 없는 id도 임시 도형이다. 크기(스터드)는 임시 도형 값. #36: modelId = Model 에셋 ID(안에 "Handle" 파트 — 손에 묶는 곳) ·
+-- swingAnimId = 애니메이션 ID(게임 주인 계정 · 그룹 소유) · iconId = 이미지 ID(장비 창 칸)
+EconomyV2Config.PICKAXE_VISUALS = {} :: { [string]: { modelId: number?, swingAnimId: number?, iconId: number? } }
 EconomyV2Config.HELD_PICKAXE_SIZE = { handle = Vector3.new(0.3, 3, 0.3), head = Vector3.new(2.2, 0.45, 0.45) }
 
 -- 운동기구 해금 환생 수(새 경제 TEMP — GymConfig 기구 순서. 로벅스 전용 기구는 GymConfig 그대로).

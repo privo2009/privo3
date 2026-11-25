@@ -29,6 +29,9 @@ export type Values = {
 	-- 자동 부화(#35 — PetAutoHatchService 신호)
 	autoHatchOn: boolean,
 	autoHatchCount: number,
+	-- 새 경제 안내(#36 — OnboardingTipsService 신호). 지난 안내 키 · 안내 끔. HUD 칸이 이것을 보고 나타난다
+	tipsSeen: { [string]: boolean },
+	tipsOff: boolean,
 }
 export type State = {
 	get: () -> Values,
@@ -84,6 +87,8 @@ function EconomyV2State.new(): State
 		equipped = "",
 		autoHatchOn = false,
 		autoHatchCount = 0,
+		tipsSeen = {},
+		tipsOff = false,
 	}
 	local listeners: { (Values) -> () } = {}
 	local self = {} :: State
@@ -142,6 +147,19 @@ function EconomyV2State.new(): State
 			changed = true
 		elseif payload.kind == "auto_hatch_result" then
 			values.autoHatchCount = tonumber(payload.count) or values.autoHatchCount
+			changed = true
+		end
+		if payload.kind == "tips" and type(payload.seen) == "table" then
+			local seen = {}
+			for _, key in ipairs(payload.seen) do
+				if type(key) == "string" then
+					seen[key] = true
+				end
+			end
+			values.tipsSeen, values.tipsOff = seen, payload.off == true
+			changed = true
+		elseif payload.kind == "tip" and type(payload.key) == "string" then
+			values.tipsSeen[payload.key] = true
 			changed = true
 		end
 		if payload.kind == "equipment_state" and type(payload.equipment) == "table" then

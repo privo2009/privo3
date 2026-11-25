@@ -4,6 +4,7 @@
 -- 기존 컴포넌트(ValuePanel — Formatter · UiTheme.FONT · 외곽선)를 쓴다. 문장은 Strings 키(econ.*) · Locale.t · AutoLocalize = false.
 -- 아이콘 자리: EconomyV2Config.COIN_VISUAL.iconId — nil이면 임시 도형(코인 색 정사각형).
 -- #33: 셋째 줄 = 대장간 버튼(대장간이 열렸을 때만 보인다 — 어디서든 연다) + 자동 제작 상태(진행 중 · 횟수).
+-- #36: 코인 칸 · 가방 칸은 그 안내를 지났을 때 나타난다(values.tipsSeen — OnboardingTipsLogic.hudShown · 한 번 보이면 계속).
 -- 자리 맞춤: 기본 UI 인셋이 바뀌면(GuiService.TopbarInset 변경 신호 — 공식 문서 GuiService) 다시 맞춘다. #32의 "처음 5초 다시 맞춤"을 대신한다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,6 +18,8 @@ local Layout = require(script.Parent.Parent.Parent.Layout)
 local ValuePanel = require(script.Parent.Parent.Parent.Components.ValuePanel)
 local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
+local OnboardingTipsLogic = require(ReplicatedStorage.Shared.OnboardingTipsLogic)
+local AssetSlots = require(ReplicatedStorage.Shared.AssetSlots) -- 에셋 자리(#36 — 값이 있으면 그 그림 · 없으면 임시 도형)
 
 local EconomyHud = {}
 
@@ -30,7 +33,11 @@ export type Handle = {
 	coinValue: TextLabel,
 	bagName: TextLabel,
 	bagValue: TextLabel,
+	coinRow: Frame,
+	bagRow: Frame,
 	forgeRow: Frame,
+	forgeButton: Frame,
+	equipButton: Frame,
 	forgeHit: TextButton,
 	equipHit: TextButton,
 	autoStatus: TextLabel,
@@ -103,6 +110,9 @@ function EconomyHud.create(parent: Instance?): Handle
 	corner.CornerRadius = UDim.new(0.5, 0)
 	corner.Parent = icon
 	icon.Parent = coinRow
+	if AssetSlots.applyImage(icon, Config.COIN_VISUAL.iconId) ~= nil then
+		icon.BackgroundTransparency = 1 -- 아이콘이 오면 임시 원 대신(#36)
+	end
 	local coinPanel = ValuePanel.create(LEVEL, ValuePanel.MAX_CHARS_DEFAULT)
 	coinPanel.label.Name = "Value"
 	coinPanel.label.AutoLocalize = false
@@ -122,6 +132,7 @@ function EconomyHud.create(parent: Instance?): Handle
 	forgeButton.root.Parent = forgeRow
 	local forgeLabel, forgeHit = WindowParts.decorateButton(forgeButton, Locale.t("forge.title"))
 	forgeLabel.AutoLocalize = false
+	AssetSlots.applyImage(forgeButton.root, Config.FORGE_SITE.iconId, { position = UDim2.fromScale(0.15, 0.5), size = UDim2.fromScale(0.25, 0.9) })
 	-- 장비 버튼(#34 — 대장간이 열린 뒤에만 · 같은 줄)
 	local equipButton = Button.create({ size = "Small", color = "gray", widthScale = 0.3, heightScale = 0.8 })
 	equipButton.root.Name = "EquipButton"
@@ -140,7 +151,11 @@ function EconomyHud.create(parent: Instance?): Handle
 	self.coinValue = coinPanel.label
 	self.bagName = bagName
 	self.bagValue = bagValue
+	self.coinRow = coinRow
+	self.bagRow = bagRow
 	self.forgeRow = forgeRow
+	self.forgeButton = forgeButton.root
+	self.equipButton = equipButton.root
 	self.forgeHit = forgeHit
 	self.equipHit = equipHit
 	self.autoStatus = autoStatus
@@ -168,6 +183,9 @@ function EconomyHud.create(parent: Instance?): Handle
 		bagValue.TextColor3 = if values.bagCap > 0 and values.bagUsed >= values.bagCap then UiTheme.Colors.danger.light else Color3.new(1, 1, 1)
 		-- 대장간: 열렸을 때만 버튼 · 자동 제작 중이면 횟수
 		forgeRow.Visible = values.forgeOpen == true
+		local seen = if type(values.tipsSeen) == "table" then values.tipsSeen else nil
+		coinRow.Visible = seen == nil or OnboardingTipsLogic.hudShown(seen, "coins")
+		bagRow.Visible = seen == nil or OnboardingTipsLogic.hudShown(seen, "bag")
 		autoStatus.Text = if values.autoOn == true then Locale.t("forge.auto.status", { count = tostring(values.autoCount or 0) }) else ""
 	end
 

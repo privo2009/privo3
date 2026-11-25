@@ -371,6 +371,19 @@ function OreDropService.pickupTick(player: Player)
 	end
 end
 
+-- 가방에 든 광석 수(새 경제 안내 #36이 "첫 광석"을 읽는다). 런 밖이면 0
+function OreDropService.bagUsed(player: Player): number
+	local s = states[player]
+	if s == nil then
+		return 0
+	end
+	local n = 0
+	for _, c in ipairs(s.bag) do
+		n += c
+	end
+	return n
+end
+
 -- 테스트 전용: 상태 들여다보기 · 지우기
 function OreDropService._state(player: Player): RunEcon?
 	return states[player]

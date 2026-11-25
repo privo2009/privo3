@@ -44,6 +44,7 @@
 --   EconomyEvent    서버→클라. 새 경제 신호(지시서 #32 — 플래그 ECONOMY_V2 뒤에서만 발화). kind로 갈린다 — EconomyEventPayload 주석
 --   EquipmentRequest 클라→서버. 장비 요청(지시서 #34 — equip · enhance · star · sync). 결과는 EconomyEvent(equipment_*). 플래그 뒤에서만 듣는다
 --   PetAutoRequest  클라→서버. 자동 부화 켜기 · 끄기(지시서 #35 — { on, egg }). 결과는 EconomyEvent(auto_hatch_*). 플래그 뒤에서만 듣는다
+--   OnboardingTipRequest 클라→서버. 새 경제 안내 상태 다시 받기(지시서 #36 — { action = "sync" }). 결과는 EconomyEvent(tips). 플래그 뒤에서만 듣는다
 --   ForgeRequest    클라→서버. 대장간 요청(지시서 #33 — craft · auto · exchange · sync). 결과는 EconomyEvent(forge_* kind). 플래그 뒤에서만 듣는다
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
@@ -136,6 +137,7 @@ Remotes.ECONOMY_EVENT = "EconomyEvent"
 Remotes.FORGE_REQUEST = "ForgeRequest"
 Remotes.EQUIPMENT_REQUEST = "EquipmentRequest"
 Remotes.PET_AUTO_REQUEST = "PetAutoRequest"
+Remotes.ONBOARDING_TIP_REQUEST = "OnboardingTipRequest" -- 새 경제 안내 동기화(#36) { action = "sync" }
 
 -- 새 경제 신호(서버 → 클라 · OreDropService). kind마다 싣는 것(빠진 필드 없이 — 위 "nil이면 키가 사라진다" 규약):
 --   snapshot    bag · used · cap · coins(BigNum) · ores · forgeOpen · drops   (접속 · 동기화 — HUD 시작값)
@@ -158,6 +160,8 @@ Remotes.PET_AUTO_REQUEST = "PetAutoRequest"
 -- 자동 부화(PetAutoHatchService — #35):
 --   auto_hatch_state  on · count · egg · reason?                               (켜짐 · 꺼짐 · 멈춘 이유)
 --   auto_hatch_result results{petId, rarity, isNew} · count · big{petId}         (작은 목록 · big = 크게 알릴 것)
+--   tip               key · silent                                             (새 경제 안내 하나 — silent면 글 없이 칸만 #36)
+--   tips              seen{키} · off                                            (안내 전체 상태 — 접속 · 동기화 #36)
 export type EconomyEventPayload = any
 -- ForgeRequest(클라 → 서버 · #33). 결과값을 싣지 않는다 — 서버가 열림 · 광석 · 칸 · 간격 · 토큰을 다시 본다:
 --   { action = "craft", combo = {광석 번호 × 5}? , fill = boolean? }   (fill이면 서버가 자동 채우기 조합)
@@ -632,6 +636,7 @@ export type Channels = {
 	forgeRequest: RemoteEvent,
 	equipmentRequest: RemoteEvent,
 	petAutoRequest: RemoteEvent,
+	onboardingTipRequest: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -721,6 +726,7 @@ function Remotes.getServer(): Channels
 		forgeRequest = ensureEvent(folder, Remotes.FORGE_REQUEST),
 		equipmentRequest = ensureEvent(folder, Remotes.EQUIPMENT_REQUEST),
 		petAutoRequest = ensureEvent(folder, Remotes.PET_AUTO_REQUEST),
+		onboardingTipRequest = ensureEvent(folder, Remotes.ONBOARDING_TIP_REQUEST),
 	}
 	cached = channels
 	return channels
@@ -796,6 +802,7 @@ function Remotes.getClient(): Channels
 		forgeRequest = waitFor(folder, Remotes.FORGE_REQUEST) :: RemoteEvent,
 		equipmentRequest = waitFor(folder, Remotes.EQUIPMENT_REQUEST) :: RemoteEvent,
 		petAutoRequest = waitFor(folder, Remotes.PET_AUTO_REQUEST) :: RemoteEvent,
+		onboardingTipRequest = waitFor(folder, Remotes.ONBOARDING_TIP_REQUEST) :: RemoteEvent,
 	}
 	cached = channels
 	return channels

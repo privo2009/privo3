@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
+local AssetSlots = require(ReplicatedStorage.Shared.AssetSlots) -- 에셋 자리(#36 — 값이 있으면 그 그림 · 없으면 임시 도형)
 
 local CoinFx = {}
 
@@ -64,6 +65,9 @@ function CoinFx.create(o: Options): Handle
 			local c = Instance.new("UICorner")
 			c.CornerRadius = UDim.new(0.5, 0)
 			c.Parent = nf
+			if AssetSlots.applyImage(nf, Config.COIN_VISUAL.effectId) ~= nil then
+				nf.BackgroundTransparency = 1 -- 그림이 있으면 임시 노란 원 대신(#36)
+			end
 			f = nf
 		end
 		local ff = f :: Frame

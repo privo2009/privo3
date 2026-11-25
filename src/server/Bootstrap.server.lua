@@ -168,6 +168,9 @@ if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() then
 	require(script.Parent.Systems.HeldPickaxeService).init()
 	-- 자동 부화(지시서 #35 — 펫 부화는 PetService가 플래그를 보고 코인 · 연출 + 스킵 간격으로)
 	require(script.Parent.Systems.PetAutoHatchService).init()
+	-- 새 경제 안내(지시서 #36 — 해금 순서 · HUD 칸) · 모델 에셋 불러 두기(ID가 있는 자리만 — 전부 nil이면 빈 폴더)
+	require(script.Parent.Systems.OnboardingTipsService).init()
+	require(script.Parent.Systems.AssetLoader).init()
 end
 
 -- 환생을 연다 (4-2-d).

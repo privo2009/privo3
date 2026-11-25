@@ -112,6 +112,33 @@ ScreenController.open("AutoTools")
 ScreenController.open("BoostTimers") -- 열어 두고, 활성 부스트가 있을 때만 root.Visible
 ScreenController.open("DailyIcon")
 
+-- 새 경제(#36 — DESIGN 16장 "해금 순서"): 블럭스 칸 · 레일 환생 · 펫 칸은 그 안내를 지났을 때 나타난다(한 번 보이면 계속).
+-- 안내 강조 자리도 여기서 붙인다. 플래그가 꺼져 있으면 아무것도 하지 않는다 — 지금 HUD 그대로
+if require(ReplicatedStorage.Shared.EconomyV2Logic).isOn() then
+	local OnboardingTipsLogic = require(ReplicatedStorage.Shared.OnboardingTipsLogic)
+	local econ = require(script.Parent.Parent.Economy.EconomyV2State).shared()
+	local tips = require(script.Parent.Parent.Economy.OnboardingTipsClient).shared()
+	-- 블럭스 칸 root는 가로 목록이라 아이콘에 붙인다(빛 띠 덮개가 목록의 칸이 되지 않게 — #36 Play 실측)
+	local bloxIcon = bloxDisplay.root:FindFirstChild("Icon")
+	tips.register("blox", if bloxIcon ~= nil and bloxIcon:IsA("GuiObject") then bloxIcon else bloxDisplay.root)
+	local rebirthTile = menuRail.item("Rebirth")
+	local petTile = menuRail.item("Pet")
+	if rebirthTile ~= nil then
+		tips.register("rebirth", rebirthTile)
+	end
+	if petTile ~= nil then
+		tips.register("pet", petTile)
+	end
+	local function reveal(values: any)
+		local seen = values.tipsSeen
+		bloxDisplay.root.Visible = OnboardingTipsLogic.hudShown(seen, "blox")
+		menuRail.setItemShown("Rebirth", OnboardingTipsLogic.hudShown(seen, "rebirth"))
+		menuRail.setItemShown("Pet", OnboardingTipsLogic.hudShown(seen, "pet"))
+	end
+	reveal(econ.get())
+	econ.subscribe(reveal)
+end
+
 -- 연출 줄이기 · 효과음 설정(지시서 #25 U7 · S3): Store "settings" → FxPrefs(Fx · ButtonFx · Shine · Sfx가 읽는다). 효과음 시작 한 줄.
 -- HUD를 띄운 뒤에 붙인다(첫 PlayerState 전이라 값은 기본값 — 곧 서버 값이 들어온다)
 require(script.Parent.FxPrefs).bind(Store)

@@ -12,6 +12,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
+local Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
+local AssetSlots = require(ReplicatedStorage.Shared.AssetSlots) -- 에셋 자리(#36 — 값이 있으면 그 그림 · 없으면 임시 도형)
 local Panel = require(script.Parent.Parent.Parent.Components.Panel)
 local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
@@ -136,6 +138,10 @@ function EquipmentWindow.create(deps: Deps): Handle
 			ui.id = c.id
 			local color = UiTheme.equipGradeColor(c.rarity)
 			ui.name.Text = Logic.nameOf(c)
+			-- 곡괭이 아이콘(#36 — 가진 것만 · 없으면 실루엣 그대로)
+			local visual = Config.PICKAXE_VISUALS[c.id]
+			AssetSlots.applyImage(ui.root, if c.owned and visual ~= nil then visual.iconId else nil,
+				{ position = UDim2.fromScale(0.5, 0.5), size = UDim2.fromScale(0.6, 0.6) })
 			if c.owned then
 				ui.root.BackgroundColor3 = UiTheme.Colors.neutral.dark
 				ui.stroke.Color = color -- 테두리(등급 색 예외)

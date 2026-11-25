@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
+local AssetSlots = require(ReplicatedStorage.Shared.AssetSlots) -- 에셋 자리(#36 — 값이 있으면 그 그림 · 없으면 임시 도형)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
@@ -54,6 +55,15 @@ function HatchFx.create(options: { parent: Instance, clock: (() -> number)?, aut
 	aspect.AspectRatio = 0.75
 	aspect.Parent = egg
 	egg.Parent = root
+	-- 에셋 자리(#36): 알 그림이 있으면 임시 알 칸 대신 · 결과 빛 그림은 이름 뒤(드러난 뒤에만)
+	if AssetSlots.applyImage(egg, Config.HATCH_FX_VISUAL.eggImageId) ~= nil then
+		egg.BackgroundTransparency = 1
+	end
+	local burst = AssetSlots.applyImage(root, Config.HATCH_FX_VISUAL.effectId, { position = UDim2.fromScale(0.5, 0.42), size = UDim2.fromScale(0.5, 0.6) })
+	if burst ~= nil then
+		burst.ZIndex = Z + 1
+		burst.Visible = false
+	end
 
 	local title = WindowParts.makeText("Title", root, "large", 0.2, 0.12, 0.6, 0.08, Enum.TextXAlignment.Center)
 	title.AutoLocalize = false
@@ -96,6 +106,9 @@ function HatchFx.create(options: { parent: Instance, clock: (() -> number)?, aut
 		local t = now - (startAt :: number)
 		local revealed = t >= HatchFx.REVEAL_SEC
 		egg.Visible = not revealed
+		if burst ~= nil then
+			burst.Visible = revealed
+		end
 		-- 흔들기(임시 — 회전만)
 		egg.Rotation = if revealed then 0 else math.sin(t * 20) * 12
 		for i, l in ipairs(names) do
@@ -140,7 +153,7 @@ function HatchFx.create(options: { parent: Instance, clock: (() -> number)?, aut
 		isOpen = function()
 			return root.Visible
 		end,
-		_debug = { skip = skip.root, names = names, egg = egg },
+		_debug = { skip = skip.root, names = names, egg = egg, burst = burst },
 	}
 end
 
