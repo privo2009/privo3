@@ -321,6 +321,9 @@ function ForgeWindow.create(deps: Deps): Handle
 			tab.b.setPressed(r == exTab)
 		end
 		haveText.Text = Locale.t("forge.ex.have", { token = ForgeWindowLogic.tokenName(exTab), n = tostring(tokens[exTab] or 0) })
+		-- 토큰 아이콘(#37 — TOKEN_VISUALS · 값이 없으면 글자만)
+		local tv = Config.TOKEN_VISUALS[exTab]
+		AssetSlots.applyImage(haveText, if tv ~= nil then tv.iconId else nil, { position = UDim2.fromScale(0.97, 0.5), size = UDim2.fromScale(0.06, 1) })
 		locked.Visible = isLocked
 		local lines = if isLocked then {} else ForgeWindowLogic.exchangeLines(exTab, tokens, values.owned or {})
 		for i, row in ipairs(exRows) do
@@ -566,6 +569,7 @@ function ForgeWindow.create(deps: Deps): Handle
 			resultNames = resultNames,
 			exRows = exRows,
 			exTabs = exTabs,
+			haveText = haveText,
 			locked = locked,
 			logRows = logRows,
 			craftB = craftB,

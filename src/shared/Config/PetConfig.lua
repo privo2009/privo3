@@ -66,6 +66,9 @@ PetConfig.HATCH_INTERVAL_SEC = 0.25 -- 남용 방지. 플레이어당 초당 4�
 -- m 시작값 = 알 2 전설과 같은 값(1.4 × 1.4 = 1.96). TEMP — 사람이 튜닝한다(docs/TUNING.md). 이름은 Strings "pet.name.<id>"
 PetConfig.LIMITED_MULT = 1.96
 PetConfig.LIMITED_IDS = { "limited_dawn" }
+-- 펫 모델 자리(#37 — DESIGN 16장 "에셋 교체 방식"). 펫 id → { modelId } — Model 에셋 ID(안에 MeshPart 하나 · 서버 AssetLoader가
+-- AssetSlots "pet_<id>"로 불러 둔다). nil이면 지금 임시 표시(희귀도 색 구 + 껍질). 표에 없는 id도 임시 표시
+PetConfig.VISUALS = {} :: { [string]: { modelId: number? } }
 PetConfig.LIMITED_RARITY = 5 -- 종 희귀도 칸 코드(알 4등급 1 ~ 4 밖). 화면 "Limited / 리미티드" · 색 UiTheme.Rarity tier6(docs/UI.md)
 PetConfig.LIMITED_EGG_ID = 0 -- 알 번호 자리(알에서 나오지 않는다)
 

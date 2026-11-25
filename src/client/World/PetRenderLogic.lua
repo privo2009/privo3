@@ -13,6 +13,25 @@ local PetWindowLogic = require(script.Parent.Parent.UI.Logic.PetWindowLogic)
 
 local PetRenderLogic = {}
 
+-- 펫 모델 틀(#37 — AssetSlots "pet_<id>"). 틀이 BasePart(또는 PrimaryPart가 있는 Model)면 그 파트, 아니면 nil(임시 구).
+-- 크기는 틀 크기 × (강화 단계 지름 ÷ 1단계 지름) — 단계가 오르면 커지는 규칙 그대로. find는 테스트가 가짜 틀을 넘긴다
+function PetRenderLogic.templateOf(petId: string, find: (string) -> Instance?): BasePart?
+	local t = find("pet_" .. petId)
+	if t == nil then
+		return nil
+	end
+	if t:IsA("BasePart") then
+		return t
+	end
+	if t:IsA("Model") then
+		return t.PrimaryPart or t:FindFirstChildWhichIsA("BasePart", true)
+	end
+	return nil
+end
+function PetRenderLogic.templateSize(template: BasePart, pet: Pet): Vector3
+	return template.Size * (pet.size / PetConfig.DISPLAY.SIZE_BY_LEVEL[1])
+end
+
 export type Owner = { key: any, attribute: any, isLocal: boolean }
 export type Pet = { petId: string, level: number, rarityTier: number, size: number, shell: boolean, parts: number }
 export type Plan = { key: any, pets: { Pet } }

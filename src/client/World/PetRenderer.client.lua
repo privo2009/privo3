@@ -22,6 +22,7 @@ local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local PetRenderLogic = require(script.Parent.PetRenderLogic)
 local Store = require(script.Parent.Parent.UI.Store)
+local AssetSlots = require(ReplicatedStorage.Shared.AssetSlots) -- 펫 모델 자리(#37 — 값이 있으면 그 모델 · 없으면 임시 구)
 
 local ATTRIBUTE = "EquippedPets" -- 서버 PetService.ATTRIBUTE와 같은 문자열
 local BLOCK_CONTAINER_NAME = "LocalBlocks" -- Net/RemoteReceiver와 같은 이름
@@ -32,6 +33,7 @@ folder.Name = "PetDisplay"
 folder.Parent = Workspace
 
 local free: { BasePart } = {}
+local freeByKey: { [string]: { BasePart } } = {} -- 모델 틀 복제본(#37 — 틀 키마다 풀)
 
 local function newPart(): BasePart
 	local p = Instance.new("Part")
@@ -53,7 +55,34 @@ end
 
 local function give(p: BasePart)
 	p.Parent = nil
+	local key = p:GetAttribute("PoolKey") :: string?
+	if key ~= nil then
+		local pool = freeByKey[key] or {}
+		freeByKey[key] = pool
+		table.insert(pool, p)
+		return
+	end
 	table.insert(free, p)
+end
+
+-- 모델 틀이 있으면 그 복제본(풀) — 없으면 nil
+local function takeModel(template: BasePart, key: string): BasePart
+	local pool = freeByKey[key]
+	local p = if pool ~= nil then table.remove(pool) else nil
+	if p == nil then
+		local c = template:Clone()
+		c:ClearAllChildren()
+		c.Anchored = true
+		c.CanCollide = false
+		c.CanQuery = false
+		c.CanTouch = false
+		c.CastShadow = false
+		c:SetAttribute("PoolKey", key)
+		p = c
+	end
+	local pp = p :: BasePart
+	pp.Parent = folder
+	return pp
 end
 
 type Shown = { owner: Player, index: number, count: number, pet: PetRenderLogic.Pet, body: BasePart, shell: BasePart?, cf: CFrame? }
@@ -92,11 +121,20 @@ local function rebuild()
 	for _, plan in ipairs(plans) do
 		local owner = plan.key :: Player
 		for i, pet in ipairs(plan.pets) do
-			local body = take()
+			local template = PetRenderLogic.templateOf(pet.petId, function(key: string): Instance?
+				return AssetSlots.template(key)
+			end)
+			local body: BasePart
+			if template ~= nil then
+				body = takeModel(template, "pet_" .. pet.petId)
+				body.Size = PetRenderLogic.templateSize(template, pet)
+			else
+				body = take()
+				body.Color = UiTheme.rarityColor(pet.rarityTier)
+				body.Material = Enum.Material.SmoothPlastic -- 풀에서 꺼낸 파트가 전에 껍질이었을 수 있다
+				body.Size = Vector3.one * pet.size
+			end
 			body.Name = "Pet_" .. pet.petId
-			body.Size = Vector3.one * pet.size
-			body.Color = UiTheme.rarityColor(pet.rarityTier)
-			body.Material = Enum.Material.SmoothPlastic -- 풀에서 꺼낸 파트가 전에 껍질이었을 수 있다
 			body.Transparency = 0
 			local shell: BasePart? = nil
 			if pet.shell then

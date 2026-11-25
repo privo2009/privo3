@@ -206,6 +206,38 @@ do
 	gui:Destroy()
 end
 
+-- 5. 펫 모델 · 토큰 아이콘 자리(#37 6단계) -------------------------------------------------------------------
+do
+	local PetRenderLogic = require(Client.World.PetRenderLogic)
+	local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
+	local tpl = Instance.new("Part")
+	tpl.Size = Vector3.new(2, 2, 2)
+	local id = PetConfig.Eggs[1].pets[1].id
+	local function find(key: string): Instance?
+		return if key == "pet_" .. id then tpl else nil
+	end
+	local pet: any = { petId = id, level = 2, size = PetConfig.DISPLAY.SIZE_BY_LEVEL[2] }
+	local got = PetRenderLogic.templateOf(id, find)
+	local none = PetRenderLogic.templateOf(PetConfig.Eggs[1].pets[2].id, find)
+	local size = PetRenderLogic.templateSize(tpl, pet)
+	check("펫 모델: 틀이 있으면 그 파트 · 없으면 nil(임시 구) · 크기는 단계 비율", got == tpl and none == nil
+		and math.abs(size.X - 2 * PetConfig.DISPLAY.SIZE_BY_LEVEL[2] / PetConfig.DISPLAY.SIZE_BY_LEVEL[1]) < 1e-6)
+	tpl:Destroy()
+
+	local Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
+	local ForgeWindow = require(Client.UI.Screens.Window.ForgeWindow)
+	local saved = Config.TOKEN_VISUALS.rare.iconId
+	local w = ForgeWindow.create({ send = function() end, onClose = function() end })
+	w._debug.setExTab("rare")
+	local before = w._debug.haveText:FindFirstChild("SlotImage")
+	Config.TOKEN_VISUALS.rare.iconId = 5150
+	w._debug.setExTab("rare")
+	local img = w._debug.haveText:FindFirstChild("SlotImage") :: ImageLabel?
+	Config.TOKEN_VISUALS.rare.iconId = saved
+	check("토큰 아이콘: 값이 없으면 글자만 · 있으면 교환소 보유 줄에 그 그림(rbxassetid)", before == nil and img ~= nil and img.Image == "rbxassetid://5150" and img.Visible)
+	w.root:Destroy()
+end
+
 print(string.format("[OnboardingTipsClientTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[OnboardingTipsClientTests] %d test(s) failed", failed))

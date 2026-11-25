@@ -12,6 +12,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
+local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 
 local AssetSlots = {}
 
@@ -54,6 +55,20 @@ function AssetSlots.list(): { Slot }
 	add("forge_fx", "texture", Config.FORGE_SITE.effectId, "대장간 화로 이펙트 텍스처")
 	add("hatch_egg", "image", Config.HATCH_FX_VISUAL.eggImageId, "부화 연출 알 그림(화면)")
 	add("hatch_fx", "image", Config.HATCH_FX_VISUAL.effectId, "부화 결과 빛 그림(화면 — 결과 이름 뒤)")
+	-- 펫 모델(#37 — 알 3 × 4등급 + 리미티드). 펫 id 순서 = 알 번호 · 등급 순
+	local petIds = {}
+	for eggId = 1, #PetConfig.Eggs do
+		for _, def in ipairs(PetConfig.Eggs[eggId].pets) do
+			table.insert(petIds, def.id)
+		end
+	end
+	for _, id in ipairs(PetConfig.LIMITED_IDS) do
+		table.insert(petIds, id)
+	end
+	for _, id in ipairs(petIds) do
+		local v = PetConfig.VISUALS[id] or {}
+		add("pet_" .. id, "model", v.modelId, "따라다니는 펫(클라 · 풀링)")
+	end
 	for _, key in ipairs({ "rare", "epic", "mythic", "legendary", "next" }) do
 		local v = Config.TOKEN_VISUALS[key] or {}
 		add("token_icon_" .. key, "image", v.iconId, "토큰 아이콘(교환소 · 제작 결과)")
