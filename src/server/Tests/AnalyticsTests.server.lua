@@ -254,7 +254,7 @@ do
 	for _ in pairs(names) do
 		count += 1
 	end
-	check("커스텀 이벤트 이름 5개 · 서로 다름(공식 한도 100)", count == 5)
+	check("커스텀 이벤트 이름 6개 · 서로 다름(공식 한도 100 — #38 pickaxe_kinds 추가)", count == 6)
 end
 
 -- 9. 처음 깬 층 중복 없음 (ChallengeService.firstClear — 환생에도 줄지 않는 bestRunDepth) ------------------------------

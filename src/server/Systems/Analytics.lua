@@ -8,7 +8,12 @@
 --   커스텀(A3)         rebirth · floor_first_clear · auto_advance_start · robux_purchase
 --   상한 · pcall(A4)   플레이어당 WINDOW_SEC에 PER_PLAYER_PER_MINUTE개. 넘치면 버리고 개수만 로그(접음). 모든 호출은 pcall —
 --                     실패해도 게임 동작에 영향이 없다. AnalyticsService 메서드는 yield하므로 task.spawn 안에서 부른다
---   퍼널(A5)           첫 접속 안내 LogOnboardingFunnelStepEvent(#20 O5)
+--   퍼널(A5)           옛 첫 접속 안내 5단계(#20 O5) — #38부터 이름 붙은 퍼널 GUIDE_FUNNEL(LogFunnelStepEvent · 세션 id = UserId 하나)
+--   온보딩 퍼널(#38)    LogOnboardingFunnelStepEvent — AnalyticsConfig.ONBOARDING_STEPS 9단계. 프로필에서 "지났나"를 다시 계산해
+--                      (funnelReached — 줄지 않는 값만 본다 · 새 저장 필드 없음) 앞 단계를 다 지났을 때만 차례로 보낸다.
+--                      접속 때 이미 지난 단계(돌아온 사람)는 다시 보내지 않는다. PROGRESS_POLL_SEC마다 서버 루프 하나가 본다
+--   코인(#38)          CurrencyService coins 흐름 → 경제 이벤트 자원 "Coins"(COIN_FLOWS · 블럭스와 같은 모아 보내기)
+--   진행(#38)          pickaxe_kinds — 가진 곡괭이 종 수가 늘 때(최고 층 = floor_first_clear · 환생 수 = rebirth는 그대로)
 --
 -- Studio에서도 부른다(공식: Studio · 클라에서는 보내지지 않는다 — 결과 로그 줄만 본다). 결과 줄은 Studio에서만 찍는다(실패 줄은 언제나).
 -- 공식 문서(2026-11-06): create.roblox.com/docs/reference/engine/classes/AnalyticsService · production/analytics/economy-events ·
@@ -22,6 +27,7 @@ local Players = game:GetService("Players")
 
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local AnalyticsConfig = require(ReplicatedStorage.Shared.Config.AnalyticsConfig)
+local EconomyV2Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
 local LogFold = require(script.Parent.LogFold)
 
 type BigNumber = BigNum.BigNumber
@@ -32,7 +38,8 @@ local Analytics = {}
 export type Sink = {
 	economy: (player: any, flow: string, currency: string, amount: number, balance: number, transaction: string, sku: string, fields: { string }?) -> (),
 	custom: (player: any, name: string, value: number, fields: { string }?) -> (),
-	funnel: (player: any, step: number, name: string) -> (),
+	funnel: (player: any, step: number, name: string) -> (), -- 옛 안내 5단계(GUIDE_FUNNEL)
+	onboarding: ((player: any, step: number, name: string) -> ())?, -- 온보딩 퍼널(#38)
 }
 
 export type Deps = {
@@ -84,7 +91,74 @@ local function finite(n: any): boolean
 	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
 end
 
-type Pending = { flow: string, transaction: string, sku: string, amount: BigNumber, balance: BigNumber, count: number }
+type Pending = { currency: string, flow: string, transaction: string, sku: string, amount: BigNumber, balance: BigNumber, count: number }
+
+local function positiveBig(v: any): boolean
+	return type(v) == "table" and type(v.m) == "number" and v.m > 0
+end
+
+-- 온보딩 퍼널: 프로필에서 앞에서부터 이어서 지난 단계 수(0 ~ 9). 줄지 않는 값만 본다(코인은 부화 · 환생으로 줄어드니 그 흔적도 같이 본다)
+local function funnelReached(data: any): number
+	if type(data) ~= "table" then
+		return 0
+	end
+	local start = EconomyV2Config.START_PICKAXE
+	local pets = if type(data.pets) == "table" then data.pets else {}
+	local hatched = type(pets.nextUid) == "number" and pets.nextUid > 1
+	local rebirthed = positiveBig(data.rebirths)
+	local picks = if type(data.equipment) == "table" and type(data.equipment.pickaxe) == "table" then data.equipment.pickaxe else {}
+	local crafted, worked = false, false
+	for id, o in pairs(picks) do
+		if type(o) == "table" then
+			if id ~= start or (o.count or 0) > 1 then
+				crafted = true
+			end
+			if (o.enh or 0) > 0 or (o.stars or 0) > 0 then
+				worked = true
+			end
+		end
+	end
+	local oreNow = false
+	if type(data.ores) == "table" then
+		for _, n in ipairs(data.ores) do
+			if type(n) == "number" and n > 0 then
+				oreNow = true
+			end
+		end
+	end
+	local equipped = if type(data.equipped) == "table" then data.equipped.pickaxe else nil
+	local conds = {
+		true, -- 1 접속
+		positiveBig(data.lifetimeBlox), -- 2 첫 수령(블럭스는 수령으로 처음 들어온다)
+		positiveBig(data.coins) or hatched or rebirthed, -- 3 첫 코인
+		oreNow or crafted or worked, -- 4 첫 광석
+		hatched, -- 5 첫 알
+		rebirthed, -- 6 첫 환생
+		data.forgeOpen == true, -- 7 8층 대장간
+		crafted, -- 8 첫 제작
+		type(equipped) == "string" and equipped ~= start, -- 9 첫 장착
+	}
+	local k = 0
+	for i = 1, math.min(#conds, #AnalyticsConfig.ONBOARDING_STEPS) do
+		if not conds[i] then
+			break
+		end
+		k = i
+	end
+	return k
+end
+
+-- 가진 곡괭이 종 수와 가장 높은 등급 이름
+local function pickaxeKinds(data: any): number
+	local picks = if type(data) == "table" and type(data.equipment) == "table" and type(data.equipment.pickaxe) == "table" then data.equipment.pickaxe else {}
+	local n = 0
+	for _, o in pairs(picks) do
+		if type(o) == "table" and (o.count or 0) >= 1 then
+			n += 1
+		end
+	end
+	return n
+end
 
 function Analytics.new(deps: Deps)
 	local spawn = deps.spawn or function(fn: () -> ())
@@ -95,6 +169,7 @@ function Analytics.new(deps: Deps)
 	local pending: { [any]: { [string]: Pending } } = {}
 	local lastFlush: { [any]: number } = {}
 	local stats = { sent = 0, dropped = 0, failed = 0, rejected = 0, skipped = 0, unclassified = 0 }
+	local progress: { [any]: { logged: number, kinds: number } } = {}
 	local self: any = { stats = stats }
 
 	local function idOf(player: any): string
@@ -165,13 +240,13 @@ function Analytics.new(deps: Deps)
 		end)
 	end
 
-	-- 블럭스 흐름 한 건(A1). 결과: "queued" · "zero" · "rejected" · "unclassified" · "skipped"
-	function self.bloxFlow(player: any, reason: string, amount: any, balance: any): string
+	-- 흐름 한 건(A1 · #38 코인). 결과: "queued" · "zero" · "rejected" · "unclassified" · "skipped"
+	local function flowOf(currency: string, player: any, reason: string, amount: any, balance: any): string
 		if not isSafeBig(amount) or not isSafeBig(balance) then
 			reject("blox " .. tostring(reason), string.format("금액 · 잔액이 유한한 BigNum이 아님 (%s · %s)", tostring(amount and amount.m), tostring(balance and balance.m)))
 			return "rejected"
 		end
-		local row, sku = AnalyticsConfig.classify(reason)
+		local row, sku = AnalyticsConfig.classify(reason, currency)
 		if row == nil then
 			stats.unclassified += 1
 			folder.log("unclassified:" .. tostring(reason), string.format("[Analytics] 흐름표에 없는 reason=%s — 보내지 않음(AnalyticsConfig.BLOX_FLOWS)", tostring(reason)))
@@ -185,7 +260,7 @@ function Analytics.new(deps: Deps)
 			return "skipped"
 		end
 		local r = row :: AnalyticsConfig.Flow
-		local key = r.flow .. "|" .. r.transaction .. "|" .. (sku :: string)
+		local key = currency .. "|" .. r.flow .. "|" .. r.transaction .. "|" .. (sku :: string)
 		local byPlayer = pending[player]
 		if byPlayer == nil then
 			byPlayer = {}
@@ -196,13 +271,70 @@ function Analytics.new(deps: Deps)
 		end
 		local p = byPlayer[key]
 		if p == nil then
-			byPlayer[key] = { flow = r.flow, transaction = r.transaction, sku = sku :: string, amount = amount, balance = balance, count = 1 }
+			byPlayer[key] = { currency = currency, flow = r.flow, transaction = r.transaction, sku = sku :: string, amount = amount, balance = balance,
+				count = 1 }
 		else
 			p.amount = BigNum.add(p.amount, amount)
 			p.balance = balance
 			p.count += 1
 		end
 		return "queued"
+	end
+
+	function self.bloxFlow(player: any, reason: string, amount: any, balance: any): string
+		return flowOf(AnalyticsConfig.CURRENCY, player, reason, amount, balance)
+	end
+
+	function self.coinFlow(player: any, reason: string, amount: any, balance: any): string
+		return flowOf(AnalyticsConfig.CURRENCY_COINS, player, reason, amount, balance)
+	end
+
+	-- 온보딩 퍼널 한 단계(#38)
+	local function onboardingStep(player: any, step: number): boolean
+		local name = AnalyticsConfig.ONBOARDING_STEPS[step]
+		return send(player, string.format("onboarding %d %s", step, name), function()
+			if deps.sink.onboarding ~= nil then
+				deps.sink.onboarding(player, step, name)
+			end
+		end)
+	end
+
+	-- 프로필이 열렸을 때(#38). 처음 온 사람(지난 단계 1 이하)만 1단계를 보낸다 — 돌아온 사람의 지난 단계는 지난 세션에 보냈다
+	function self.onProfileLoaded(player: any, data: any)
+		local k = funnelReached(data)
+		local s = { logged = k, kinds = pickaxeKinds(data) }
+		progress[player] = s
+		if k <= 1 then
+			s.logged = 0
+			if onboardingStep(player, 1) then
+				s.logged = 1
+			end
+		end
+	end
+
+	-- 주기 확인(#38): 새로 지난 단계를 차례로 · 곡괭이 종 수가 늘었으면 한 번
+	function self.progressCheck(player: any, data: any)
+		local s = progress[player]
+		if s == nil or type(data) ~= "table" then
+			return
+		end
+		local k = funnelReached(data)
+		while s.logged < k do
+			if not onboardingStep(player, s.logged + 1) then
+				break -- 상한에 걸리면 다음 확인 때 다시
+			end
+			s.logged += 1
+		end
+		local kinds = pickaxeKinds(data)
+		if kinds > s.kinds then
+			if self.custom(player, AnalyticsConfig.EVENTS.pickaxeKinds, kinds) then
+				s.kinds = kinds
+			end
+		end
+	end
+
+	function self.progressOf(player: any)
+		return progress[player]
 	end
 
 	-- 모아 둔 흐름을 보낸다(A1 · A2). 보낸(시도한) 이벤트 수를 돌려준다
@@ -220,12 +352,13 @@ function Analytics.new(deps: Deps)
 			if amountN ~= nil and balanceN ~= nil then
 				send(player, string.format("economy %s %s %s amount=%s balance=%s n=%d", p.flow, p.transaction, p.sku,
 					tostring(amountN), tostring(balanceN), p.count), function()
-					deps.sink.economy(player, p.flow, AnalyticsConfig.CURRENCY, amountN :: number, balanceN :: number, p.transaction, p.sku, nil)
+					deps.sink.economy(player, p.flow, p.currency, amountN :: number, balanceN :: number, p.transaction, p.sku, nil)
 				end)
 			else
 				local lb = log10Big(p.balance)
 				self.custom(player, AnalyticsConfig.EVENTS.bloxFlowLarge, log10Big(p.amount) :: number,
-					{ p.flow, p.sku, if lb ~= nil then string.format("%.3f", lb) else "0" })
+					{ p.flow, if p.currency == AnalyticsConfig.CURRENCY then p.sku else p.currency .. ":" .. p.sku,
+						if lb ~= nil then string.format("%.3f", lb) else "0" })
 			end
 			n += 1
 		end
@@ -257,6 +390,18 @@ function Analytics.new(deps: Deps)
 		pending[player] = nil
 		lastFlush[player] = nil
 		windows[player] = nil
+		progress[player] = nil
+	end
+
+	-- 플레이어별 표에 남은 수(나가면 0이어야 한다 — #38 메모리 검사)
+	function self.trackedCount(player: any): number
+		local n = 0
+		for _, t in ipairs({ pending, lastFlush, windows, progress }) do
+			if (t :: any)[player] ~= nil then
+				n += 1
+			end
+		end
+		return n
 	end
 
 	-- 커스텀 이벤트 도우미(A3)
@@ -295,7 +440,7 @@ function Analytics.new(deps: Deps)
 end
 
 -- 테스트 전용 통로
-Analytics._pure = { isSafeBig = isSafeBig, log10Big = log10Big, smallNumber = smallNumber }
+Analytics._pure = { isSafeBig = isSafeBig, log10Big = log10Big, smallNumber = smallNumber, funnelReached = funnelReached, pickaxeKinds = pickaxeKinds }
 
 -- ===== 런타임 =====================================================================================
 
@@ -323,6 +468,10 @@ local function realSink(): Sink
 			service:LogCustomEvent(player, name, value, fieldsDict(fields))
 		end,
 		funnel = function(player, step, name)
+			-- 옛 안내 5단계(#38부터 이름 붙은 퍼널 — 온보딩 퍼널은 새 9단계가 쓴다). 한 사람에 한 번이라 세션 id = UserId
+			service:LogFunnelStepEvent(player, AnalyticsConfig.GUIDE_FUNNEL, tostring(player.UserId), step, name)
+		end,
+		onboarding = function(player, step, name)
 			service:LogOnboardingFunnelStepEvent(player, step, name)
 		end,
 	}
@@ -365,6 +514,35 @@ function Analytics.bloxFlow(player: any, reason: string, amount: any, balance: a
 	if live ~= nil then
 		live.bloxFlow(player, reason, amount, balance)
 	end
+end
+function Analytics.coinFlow(player: any, reason: string, amount: any, balance: any)
+	if live ~= nil then
+		live.coinFlow(player, reason, amount, balance)
+	end
+end
+-- 프로필을 단다(#38 — Bootstrap이 ProfileManager를 넘긴다. 순환 require를 피한다): 열리면 온보딩 시작 · 주기 확인
+function Analytics.attachProfiles(onLoaded: ((Player, any) -> ()) -> (), getData: (Player) -> any?)
+	if live == nil then
+		return
+	end
+	onLoaded(function(player: Player, profile: any)
+		live.onProfileLoaded(player, profile.Data)
+	end)
+	task.spawn(function()
+		while true do
+			task.wait(AnalyticsConfig.PROGRESS_POLL_SEC)
+			for _, player in ipairs(Players:GetPlayers()) do
+				local ok, err = pcall(live.progressCheck, player, getData(player))
+				if not ok then
+					warn("[Analytics] 진행 확인 오류(게임 동작 그대로): " .. tostring(err))
+				end
+			end
+		end
+	end)
+end
+-- 테스트 전용: 실물 런타임에 남은 플레이어별 표 수
+function Analytics._liveTracked(player: any): number
+	return if live ~= nil then live.trackedCount(player) else 0
 end
 function Analytics.funnel(player: any, step: number, name: string)
 	if live ~= nil then

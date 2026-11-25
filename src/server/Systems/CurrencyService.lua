@@ -225,11 +225,18 @@ function CurrencyService.setBloxFlowListener(listener: ((Player, string, BigNumb
 	bloxFlowListener = listener
 end
 
+-- 코인 흐름 청취자(지시서 #38 — 분석 경제 이벤트 "Coins"). 블럭스와 같은 규칙(바뀐 뒤 한 번 · pcall · yield 없음)
+local coinFlowListener: ((Player, string, BigNumber, BigNumber) -> ())? = nil
+function CurrencyService.setCoinFlowListener(listener: ((Player, string, BigNumber, BigNumber) -> ())?)
+	coinFlowListener = listener
+end
+
 local function notifyBloxFlow(player: Player, currency: string, reason: string, amount: BigNumber, newValue: BigNumber)
-	if currency ~= "blox" or bloxFlowListener == nil then
+	local listener = if currency == "blox" then bloxFlowListener elseif currency == "coins" then coinFlowListener else nil
+	if listener == nil then
 		return
 	end
-	local ok, err = pcall(bloxFlowListener :: any, player, reason, amount, newValue)
+	local ok, err = pcall(listener :: any, player, reason, amount, newValue)
 	if not ok then
 		warn(string.format("[CurrencyService] 블럭스 흐름 청취자 오류(무시 — 재화는 그대로): %s", tostring(err)))
 	end

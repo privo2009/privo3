@@ -61,6 +61,12 @@ LocaleGate.init(TEST_LOCALE)
 local Analytics = require(script.Parent.Systems.Analytics)
 Analytics.init()
 CurrencyService.setBloxFlowListener(Analytics.bloxFlow)
+CurrencyService.setCoinFlowListener(Analytics.coinFlow) -- 코인 경제 이벤트(#38)
+-- 온보딩 퍼널 · 곡괭이 종 수(#38). 프로필이 처음 열리기 전에 건다
+Analytics.attachProfiles(ProfileManager.onLoaded, function(player: Player)
+	local profile = ProfileManager.get(player)
+	return if profile ~= nil then profile.Data else nil
+end)
 
 print("[Bootstrap] ProfileManager.init() 호출 시작")
 -- 일일 보상 시드는 프리셋 템플릿을 만들기 전에 넘긴다(오늘 = 서버 UTC 일 번호 + 날짜 오프셋 — DailyService와 같은 식)
