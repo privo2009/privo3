@@ -137,6 +137,33 @@ do
 	local d4 = runtime.process(receipt("G-4", "superRoll15"))
 	check("플레이어가 없어도(나간 뒤) 지급 · 알림은 안 한다", d4 == GRANTED and profile.Data.rollCredits.super == def("superRoll15").effect.rolls
 		and notified == 3, tostring(notified))
+	-- 지시서 #38: 지금 있는 개발자 상품 전부 — 같은 영수증 두 번이면 두 번째는 프로필을 바꾸지 않는다
+	local HttpService = game:GetService("HttpService")
+	local function snap(): string
+		local d = profile.Data
+		return HttpService:JSONEncode({ d.potions, d.rollCredits, d.gymUnlocks, d.purchases })
+	end
+	local bad = {}
+	for i, key in ipairs(keys) do
+		local id = "ALL-" .. i
+		local first = runtime.process(receipt(id, key))
+		local after1 = snap()
+		local again = runtime.process(receipt(id, key))
+		if first ~= GRANTED or again ~= GRANTED or snap() ~= after1 then
+			table.insert(bad, key)
+		end
+	end
+	check("#38 상품 16개 전부: 같은 영수증 두 번 → 지급 1회(두 번째는 프로필 그대로)", #keys == 16 and #bad == 0, table.concat(bad, ","))
+	-- 지급 중 나가기: 프로필이 이미 내려갔으면 NotProcessedYet(다음 접속에 다시 온다) · 아무것도 안 바뀐다
+	local gone = runtime -- 같은 런타임 · 다른 사용자(프로필 없음)
+	local notYet = {}
+	for i, key in ipairs(keys) do
+		local r = gone.process({ PlayerId = USER + 1, PurchaseId = "GONE-" .. i, ProductId = ids[key], CurrencySpent = 0 })
+		if r ~= MarketplaceGateway.DECISION_NOT_YET then
+			table.insert(notYet, key)
+		end
+	end
+	check("#38 상품 16개 전부: 프로필 없는 사람(나간 뒤) → NotProcessedYet", #notYet == 0, table.concat(notYet, ","))
 end
 
 -- 4. 가짜 영수증(TEST_RECEIPTS — 지시서 #17 6단계): Studio + Mock에서만 · 커밋 값 nil -------------------------------------

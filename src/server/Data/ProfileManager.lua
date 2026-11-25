@@ -46,6 +46,7 @@ local initialized = false
 -- 같은 플레이어를 동시에 잡을 수 있어서(둘 다 "이 플레이어를 로드해야 함" 신호), 실제로
 -- StartSessionAsync를 두 번 호출하지 않도록 여기서 먼저 선점한다.
 local loadClaimed: { [Player]: boolean } = {}
+local closing = false -- 서버 종료 저장 중(BindToClose)
 
 -- 실제 DataStore 접근이 불가능한 환경(예: API 서비스 비활성화된 Studio)에서는
 -- ProfileStore가 내부적으로 자동 목업 저장소로 전환한다 - 여기서 별도 분기 불필요.
@@ -166,40 +167,32 @@ local function summarize(data: any): string
 	)
 end
 
-local function handlePlayerAdded(player: Player)
-	if loadClaimed[player] then
-		return -- 이미 다른 경로(PlayerAdded 이벤트 vs GetPlayers() 순회)로 로딩이 시작됨
-	end
-	loadClaimed[player] = true
-
-	if sessionStore == nil then
+-- 세션 열기 · 이전 · 검사(지시서 #38 — 실패 경로를 가짜 저장소로 테스트하려고 handlePlayerAdded에서 뺐다. 동작 그대로).
+-- 결과: (프로필, nil) 성공 / (nil, 킥 문구 키) 킥 / (nil, nil) 로딩 중 나감(조용히 끝)
+-- env.inGame(player): 아직 서버에 있나(실물 player.Parent == Players). env.log(줄)는 warn 대신(테스트가 모은다)
+local function openProfile(player: Player, store: any, env: { inGame: (Player) -> boolean, log: (string) -> () }): (Profile?, string?)
+	if store == nil then
 		-- 저장소를 열지 않은 서버(E3 — 시작 로그에 사유). 데이터 없이 플레이시킬 수 없으므로 킥한다.
-		warn(string.format("[ProfileManager][ERROR] %s(%d) 저장소 없음(env=%s reason=%s) - 킥", player.Name, player.UserId, tostring(DATA_ENV), tostring(STORE_ERR)))
-		if player.Parent == Players then
-			player:Kick(LocaleGate.kickText(player, "kick.loadFailed"))
-		end
-		return
+		env.log(string.format("[ProfileManager][ERROR] %s(%d) 저장소 없음(env=%s reason=%s) - 킥", player.Name, player.UserId, tostring(DATA_ENV), tostring(STORE_ERR)))
+		return nil, "kick.loadFailed"
 	end
 
-	local profile = sessionStore:StartSessionAsync(tostring(player.UserId), {
+	local profile = store:StartSessionAsync(tostring(player.UserId), {
 		Cancel = function()
-			return player.Parent ~= Players
+			return not env.inGame(player)
 		end,
 	})
 
 	if profile == nil then
-		-- 세션 시작 실패. 데이터 없이 플레이시킬 수 없으므로 무조건 킥한다.
-		warn(string.format("[ProfileManager] %s(%d) 세션 시작 실패 - 킥", player.Name, player.UserId))
-		if player.Parent == Players then
-			player:Kick(LocaleGate.kickText(player, "kick.loadFailed"))
-		end
-		return
+		-- 세션 시작 실패(다른 서버가 세션을 놓지 않음 · DataStore 오류 · 나감). 데이터 없이 플레이시킬 수 없으므로 킥한다.
+		env.log(string.format("[ProfileManager] %s(%d) 세션 시작 실패 - 킥", player.Name, player.UserId))
+		return nil, if env.inGame(player) then "kick.loadFailed" else nil
 	end
 
-	if player.Parent ~= Players then
+	if not env.inGame(player) then
 		-- Cancel 콜백이 걸리기 전에 세션이 이미 열린 경우: 로딩 중 나간 유저 처리.
 		profile:EndSession()
-		return
+		return nil, nil
 	end
 
 	profile:AddUserId(player.UserId) -- GDPR 삭제 요청 대응
@@ -208,23 +201,21 @@ local function handlePlayerAdded(player: Player)
 	local before = if fromVersion ~= Migrations.CURRENT then summarize(profile.Data) else nil
 	local migrateOk, migrateErr = Migrations.run(profile.Data)
 	if not migrateOk then
-		warn(string.format("[ProfileManager] %s(%d) 마이그레이션 실패: %s - 킥", player.Name, player.UserId, tostring(migrateErr)))
+		env.log(string.format("[ProfileManager] %s(%d) 마이그레이션 실패: %s - 킥", player.Name, player.UserId, tostring(migrateErr)))
 		profile:EndSession()
-		player:Kick(LocaleGate.kickText(player, "kick.versionError"))
-		return
+		return nil, "kick.versionError"
 	end
 
 	profile:Reconcile() -- ProfileStore.New()에 넘긴 템플릿 기준으로 누락된 필드 채움
 
 	local valid, errors = Schema.validate(profile.Data)
 	if not valid then
-		warn(string.format("[ProfileManager] %s(%d) 데이터 검증 실패 - 킥 (손상된 데이터 위에 덮어쓰지 않음)", player.Name, player.UserId))
+		env.log(string.format("[ProfileManager] %s(%d) 데이터 검증 실패 - 킥 (손상된 데이터 위에 덮어쓰지 않음)", player.Name, player.UserId))
 		for _, err in ipairs(errors) do
-			warn("  - " .. err)
+			env.log("  - " .. err)
 		end
 		profile:EndSession()
-		player:Kick(LocaleGate.kickText(player, "kick.corrupted"))
-		return
+		return nil, "kick.corrupted"
 	end
 
 	if before ~= nil then
@@ -238,6 +229,60 @@ local function handlePlayerAdded(player: Player)
 		))
 	end
 
+	return profile, nil
+end
+
+-- 세션이 끝났을 때(OnSessionEnd). 아직 서버에 있으면 다른 서버가 세션을 가져간 것 — 경고 · 킥.
+-- 나가는 중이면(나가기 · 서버 종료 저장) 정상 끝이라 경고하지 않는다(#38 — 출력 창 경고 0).
+local function sessionEndedLine(player: Player, inGame: boolean): (string, boolean)
+	if inGame then
+		return string.format("[ProfileManager] %s(%d) 세션 종료 - 킥 (다른 서버가 세션을 가져갔을 가능성)", player.Name, player.UserId), true
+	end
+	return string.format("[ProfileManager] %s(%d) 세션 종료 · 저장 끝(나감)", player.Name, player.UserId), false
+end
+
+-- 서버 종료 때 저장을 기다린다: 프로필 전부 EndSession → 표가 빌 때까지(OnSessionEnd가 지운다) · 상한 넘으면 포기하고 남은 수를 돌려준다.
+local function drainOnClose(list: { [any]: any }, timeoutSec: number, clock: () -> number, wait: () -> ()): number
+	for _, profile in pairs(list) do
+		profile:EndSession()
+	end
+	local deadline = clock() + timeoutSec
+	while next(list) ~= nil do
+		if clock() >= deadline then
+			local remaining = 0
+			for _ in pairs(list) do
+				remaining += 1
+			end
+			return remaining
+		end
+		wait()
+	end
+	return 0
+end
+
+ProfileManager._pure = { openProfile = openProfile, sessionEndedLine = sessionEndedLine, drainOnClose = drainOnClose }
+
+local function handlePlayerAdded(player: Player)
+	if loadClaimed[player] then
+		return -- 이미 다른 경로(PlayerAdded 이벤트 vs GetPlayers() 순회)로 로딩이 시작됨
+	end
+	loadClaimed[player] = true
+
+	local profile, kickKey = openProfile(player, sessionStore, {
+		inGame = function(p: Player)
+			return p.Parent == Players
+		end,
+		log = function(line: string)
+			warn(line)
+		end,
+	})
+	if profile == nil then
+		if kickKey ~= nil and player.Parent == Players then
+			player:Kick(LocaleGate.kickText(player, kickKey))
+		end
+		return
+	end
+
 	-- 신규 프로필 초기화. firstJoin이 0이면 이번이 첫 세션이라는 뜻.
 	-- (drones.lastCollectAt도 여기서 채웠지만 드론 폐기(2026-10-21)로 뺐다 — 읽는 코드가 없다)
 	local isNewProfile = profile.Data.stats.firstJoin == 0
@@ -247,9 +292,14 @@ local function handlePlayerAdded(player: Player)
 
 	profile.OnSessionEnd:Connect(function()
 		profiles[player] = nil
-		warn(string.format("[ProfileManager] %s(%d) 세션 종료 - 킥 (다른 서버가 세션을 가져갔을 가능성)", player.Name, player.UserId))
-		if player.Parent == Players then
+		-- 서버 종료 저장(BindToClose)으로 끝난 세션도 정상 끝이다 — 그때는 "다른 서버" 경고 · 킥을 하지 않는다
+		local inGame = player.Parent == Players and not closing
+		local line, isWarn = sessionEndedLine(player, inGame)
+		if isWarn then
+			warn(line)
 			player:Kick(LocaleGate.kickText(player, "kick.otherServer"))
+		else
+			print(line)
 		end
 	end)
 
@@ -319,26 +369,16 @@ function ProfileManager.init(testPreset: string?)
 	end)
 
 	game:BindToClose(function()
-		for _, profile in pairs(profiles) do
-			profile:EndSession()
-		end
-
+		closing = true
 		-- EndSession()은 저장을 새 스레드에서 돌리므로, BindToClose가 끝나기 전에
 		-- 실제로 저장이 끝나길(= OnSessionEnd가 profiles에서 지울 때까지) 기다린다.
 		-- 단, 무한 대기하지 않는다 - Roblox가 강제로 프로세스를 죽이면 진행 중이던
 		-- 저장이 오히려 더 지저분하게 끊길 수 있으므로 타임아웃 후에는 포기하고 빠져나간다.
-		local deadline = os.clock() + BIND_TO_CLOSE_TIMEOUT_SEC
-
-		while next(profiles) ~= nil do
-			if os.clock() >= deadline then
-				local remaining = 0
-				for _ in pairs(profiles) do
-					remaining = remaining + 1
-				end
-				warn(string.format("[ProfileManager] BindToClose 타임아웃(%ds) - 저장 미완료 프로필 %d개 남음", BIND_TO_CLOSE_TIMEOUT_SEC, remaining))
-				break
-			end
+		local remaining = drainOnClose(profiles, BIND_TO_CLOSE_TIMEOUT_SEC, os.clock, function()
 			task.wait()
+		end)
+		if remaining > 0 then
+			warn(string.format("[ProfileManager] BindToClose 타임아웃(%ds) - 저장 미완료 프로필 %d개 남음", BIND_TO_CLOSE_TIMEOUT_SEC, remaining))
 		end
 	end)
 end
