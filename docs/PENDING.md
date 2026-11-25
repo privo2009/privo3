@@ -9,7 +9,7 @@
 `docs/UI_HANDOFF.md`와 합치지 않는다. 그것은 인계 절차와 검증 관문 문서이고
 이것은 대기 큐다. 성격이 다르다.
 
-문서 갱신: 2026-11-25 (지시서 #37 — 경제 절을 남은 것만으로 정리)
+문서 갱신: 2026-11-25 (지시서 #38 — "#38 남은 것" 절 · 해소 기록 · 프리셋 새로 뽑음)
 
 ---
 
@@ -264,6 +264,43 @@ N3   운동기구 개편(사람 결정) — 해금 환생 수는 새 경제 TEMP
 
 **테스트 흔들림(#33 실측)**: UiFxTests "누름" 1개가 Play 3번 중 2번 실패 — 실제 마우스 커서가 화면 (0.3 ~ 0.5, 0.3 ~ 0.4)(시험 버튼 자리)에 있으면
 진짜 MouseEnter · Leave가 상태를 바꾼다(MCP 클릭이 커서를 거기 두었다). 커서를 구석으로 옮긴 뒤 2번 연속 통과. 코드 변화와 무관 — 개수 Play 전에 커서를 치운다
+
+### #38 남은 것 — 출시 전 안정성 · 보안 · 분석 · 프리셋 (2026-11-25)
+
+리모트 목록 · 규칙 → `docs/REMOTES.md` · 성능 숫자 · 상한 → `docs/TUNING.md` 11절 · 분석 → `DESIGN.md` 14-2 · 프리셋 → TUNING 4절.
+
+**사람 확인 목록(실물 — MCP로 못 한다)**
+```
+1  실제 12명 서버(비공개 테스트) — F9 개발자 콘솔 Server Stats · Memory · 네트워크(플레이어당 받는 양 10 KB/초 상한 — 지금 약 4)
+2  실제 폰(저사양 안드로이드 1대) — 드롭 · 코인 · 파편 겹칠 때 프레임 · 발열
+3  플레이스 설정 Workspace.PlayerCharacterDestroyBehavior 켜짐인가(나간 Player의 CharacterAdded 연결이 풀리게 — HeldPickaxe · RunDeath)
+4  분석 대시보드(출시 뒤): 온보딩 퍼널 9단계 · 이름 붙은 퍼널 FirstGuide · 경제 자원 Blox · Coins · 커스텀 pickaxe_kinds가 들어오는지
+   (Studio에서는 보내지지 않는다 — 결과 줄만 봤다)
+```
+
+**나중에 할 것(Claude 제안 · 급하지 않음)**
+```
+PlayerState 바뀐 필드만   한 명이 받는 양의 98%(0.2초마다 약 1 KB 전체 스냅샷 — shop · pets · daily가 매번). 클라 받는 쪽을 바꿔야 해서
+                          #38에서는 하지 않았다(동작 그대로 원칙). 12명 실측에서 문제면 이것부터
+Schema 음수 BigNum        Schema.validate가 블럭스 { m = -5 } 같은 음수를 통과시킨다. CurrencyService가 음수를 만들지 않아 실제로는 안 생긴다 —
+                          검사를 조이면 혹시 있는 프로필이 킥된다(지금은 저장소 _v2 새로 시작이라 위험 낮음). 사람 결정
+퍼널 차례                 8층 대장간(7)이 첫 환생(6)보다 먼저 오는 사람은 환생할 때 6 · 7을 몰아서 보낸다 — 차트에서 7의 시각이 늦게 보인다
+```
+
+**Claude 판단(#38 — 확인 필요)**
+```
+입구 문 상한        RemoteGuard 기본 0.15초 1번 · ClickInput/SpeedRequest 초당 10(몰림 4) · SyncRequest 초당 2(몰림 10).
+                   버린 요청에는 답하지 않는다(정상 플레이로는 닿지 않는 빈도 · 모양)
+구멍 막음 2곳       워프 층 소수 · 음수 · 2^31 넘음 → invalid_stage(전에는 WarpService가 거부 — 사유만 out_of_range → invalid_stage로 바뀌는 경우 있음) ·
+                   자동 부화 알 번호 범위 밖 → invalid_request(전에는 틱에서 부화가 거부되어 꺼졌다)
+옛 안내 퍼널 이동   첫 접속 안내 5단계(#20)를 온보딩 퍼널에서 이름 붙은 퍼널 FirstGuide로 옮겼다(온보딩 퍼널은 게임에 하나)
+로그 줄임          클릭 힘 성공 로그 · 시간 초과 warn → print · Gamepass Studio 안내 줄 print · 나가기/종료 세션 끝 줄 print
+프리셋 이름         fresh · min10 · min30 · hour1 · hour2 · hour3(옛 floor9 · floor17 · floor25 · before_first_rebirth · floor25_cleared 지움)
+```
+
+**테스트 흔들림(#38 실측 — 고침)**: DupeTests 가방 줄이 hour2 Play 1번 실패 — OreDropServiceTests가 잠깐 가짜 경제 고리를 끼운 사이에
+돌았다. 실물 고리가 걸릴 때까지 기다리게 고침(`4f5da3f`). 다른 테스트가 바꿔 끼우는 모듈 값(_deps · economyHooks)을 쓰는 새 테스트는
+같은 방식으로 실물이 돌아올 때까지 기다리고, 그 뒤로는 yield하지 않는다
 
 ### #26 정리 — 사람 할 일 · 나중 목록 (2026-11-20 지시서 #26 단계 2)
 
@@ -1616,6 +1653,12 @@ Play가 1~11번 전부 통과하면 다음은 **U4**다. 실패가 있으면 U4 
 
 ## 함정 — Play 검증 전에 확인할 것
 
+### execute_luau 결과를 string.sub로 자르면 한국어 줄이 깨져 응답이 오지 않는다 (2026-11-25 #38)
+
+로그 줄을 `string.sub(m, 1, 140)`처럼 바이트로 자르면 한글(3바이트) 가운데가 잘려 잘못된 UTF-8이 되고, 그 결과를 돌려주는 호출이
+120초를 넘겨 끝나지 않았다(서버 · 3번). 자를 때는 `utf8.offset(m, n)`으로 글자 단위로 자른다.
+위 "ko Play에서 멈춤"(#17)도 같은 원인이었을 수 있다. 개수 실측 전문(CLAUDE.md)은 자르지 않으므로 해당 없음
+
 ### TEST_LOCALE "ko" Play에서 클라 execute_luau가 한국어 긴 줄을 돌려주다 멈출 수 있다 (2026-10-31 #17)
 
 ko Play에서 클라 로그 필터 결과(한국어가 섞인 테스트 안내 줄 여러 개)를 돌려받는 호출이 두 번 120초를 넘겨 시간 초과로 끝났다.
@@ -1902,6 +1945,10 @@ RC Play는 2026-08-28에 끝났으므로 옛 조건은 **형식상 충족됐다.
 
 | 해소일 | 항목 | 커밋 |
 |---|---|---|
+| 2026-11-25 | 리모트 입구 공통 검사 없음(#23 S6 "공용화 안 함" — 채널마다 따로) | `bc858b9` RemoteGuard(모양 · 연타 · 오류 격리 · 나가면 지움) 22 리모트 · RemoteGuardTests 120 · DupeTests 16 · docs/REMOTES.md |
+| 2026-11-25 | 세션 열기 실패 경로 · 서버 종료 저장 테스트 없음 | `4f652de` ProfileManager openProfile · drainOnClose · ProfileManagerTests |
+| 2026-11-25 | 테스트 프리셋이 옛 경제 시점 값(#37 Claude 판단) | `84198cc` PresetExport로 V4 다시 뽑음 · fresh · min10 · min30 · hour1 · hour2 · hour3 |
+| 2026-11-25 | Play 출력 창 경고(Locale 자리 표시 7줄 · Gamepass Studio 줄 · 세션 끝 · 시간 초과) | `bc858b9` · `4f652de` · `4f5da3f` — 게임이 낸 경고 0(남은 것: Studio ContentId 203785492 · 테스트 가짜 플레이어 줄) |
 | 2026-11-25 | 새 경제 켜기 — 플래그 ECONOMY_V2 · 옛 경제 경로(v1 환생 · x2 Rebirths · 펀치 데미지 업그레이드 · 블럭스 부화 · 옛 안내 단계 · 옛 도구 6개) | `452cb38` 정리 뒤 동작 = 플래그 켰을 때 · V4 재측정 #33과 같음 |
 | 2026-11-25 | N4 옛 환생 수가 1.25^n에 들어가면 망가진다 | `1f0a475` 저장소 이름 _v2로 새로 시작(옛 데이터 지우지 않음 · DATA_ENV beta 그대로) |
 | 2026-11-25 | 잔재 — `StandardPathReport` 모듈 · Bootstrap `STANDARD_PATH_REPORT_ENABLED` 블록 | `452cb38` 지움 |

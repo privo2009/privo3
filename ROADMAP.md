@@ -1,6 +1,6 @@
 # 개발 로드맵
 
-문서 갱신: 2026-11-25 (지시서 #37 — 새 경제 켬 · 단계 7 완료)
+문서 갱신: 2026-11-25 (지시서 #38 — Phase 9 기술 점검: 리모트 보안 · 데이터 안전 · 성능 · 분석 퍼널 · 프리셋 · 테스트 4874)
 
 ## 원칙
 - 아래에서 위로 쌓는다. BigNum이 흔들리면 전부 무너진다
@@ -92,7 +92,7 @@
 | `Tests/UpgradeConfigTests.server.lua` | 57 | 노출 7종(칭호 #10 · 아우라 행운 #11 · 펫 슬롯 · 펫 행운 #12 · 이동 속도 삭제 L3 #13) · 비노출 없음 · 펫 슬롯 최대 1레벨 · 스키마 7키 · 효과 선형(S1) · 펀치 속도 증가량 유도 · 최대 레벨 = 상한(S2) · 최대 속도는 레벨로만(L2 · L3 — moveSpeed 구매 invalid · 되살리면 validate 거부) · 비용 단조 증가 · canBuy 사유 3종 · validate 거부 |
 | `Systems/UpgradeServiceTests.server.lua` | 34 | 구매 거부 경로(잘못된 항목 · 최대 레벨 · 블럭스 부족 · 프로필 없음) 부작용 0 · 차감 → 레벨 → 통지 순서 · 부분 실패 · 저장값 읽기 · 환생 경로가 업그레이드를 안 건드림 · moveSpeed 요청 거부(L3 — #13) · 환생이 2배 환생 배수를 읽기만(#16) |
 | `Systems/UpgradeRequestServiceTests.server.lua` | 13 | 구매 요청 payload 위생 · 서버 거부 사유 그대로 · 성공 결과 형태 · 빈도 상한(중복 요청) · 퇴장 정리 |
-| `Data/TestPresetGateTests.server.lua` | 41 | 테스트 프리셋 — 이름 = 뽑기 도구 시점 목록 · 6종 스키마 검증 · 값 = 프리셋 · id가 Config에 있다 · 장착 ≤ 슬롯 · Studio가 아니면 무시 + ERROR · 없는 이름 무시 · 켜지면 새 스토어 .Mock만(실제 스토어 호출 0) · ProfileStore Mock 실물 왕복(UserMockStore에만) · 커밋된 TEST_PRESET = nil(#13) · 일일 보상 시드(커밋 nil · Mock 템플릿 daily) · 첫 접속 안내 fresh만(#20) |
+| `Data/TestPresetGateTests.server.lua` | 42 | 테스트 프리셋 — 이름 = 뽑기 도구 시점 목록 · 6종 스키마 검증 · 값 = 프리셋 · id가 Config에 있다 · 장착 ≤ 슬롯 · Studio가 아니면 무시 + ERROR · 없는 이름 무시 · 켜지면 새 스토어 .Mock만(실제 스토어 호출 0) · ProfileStore Mock 실물 왕복(UserMockStore에만) · 커밋된 TEST_PRESET = nil(#13) · 일일 보상 시드(커밋 nil · Mock 템플릿 daily) · 첫 접속 안내 fresh만(#20) · #38 새 경제 필드(곡괭이 id · 장착 보유 · 광석 칸 · 대장간 · 시간 순 환생) |
 | `Tests/UpgradeShopTests.client.lua` | 45 | 상점 표시 값(UpgradeConfig 원본) · 잠김(MAX · 블럭스 부족) · 사유 문구 · 요청 한 번만(결과 대기 · 시간 뒤 풀림 · 잠긴 줄) · 로벅스 자리 숨김 · 창 규격 · 행운 줄 문구(#11) · 8줄 스크롤 목록 · 줄 높이 유지 · 펫 슬롯 · 펫 행운 문구(#12) · 7줄(이동 속도 삭제 · '최대 속도 도달' 없음 — #13) · RobuxSlot 삭제 · 처음 탭 업그레이드(#16) |
 | `Tests/FeedbackTests.client.lua` | 44 | 클릭 팝업 증가분 · 문구 · 진행, HUD 환생 배수(서버와 같은 함수), 환생 안내(×이전 → ×이후 · 알림층 · 상단 띠 안), 운동기구 3D 표시 역할 · 문구, 패드 · 기구 본체 색 |
 | `Systems/LogFoldTests.server.lua` | 11 | 첫 줄은 찍는다 · 창 안 반복은 접는다 · 창 뒤 'N번 더' 요약 + 새 줄 · 키(플레이어 · 사유)별 · ChallengeService 판정은 그대로 |
@@ -114,7 +114,7 @@
 | `Systems/PolicyGateTests.server.lua` | 12 | 유료 랜덤 아이템 제한 S13 — 확인 전 · 판정 실패 · 필드 없음은 제한 · false만 허용 · 퇴장(#16) · 가짜 제한 판정 TEST_PAID_RANDOM_RESTRICTED(nil · Studio true · false · Studio 밖 · boolean 아님 ERROR · 응답보다 먼저 · 커밋 값 nil — #27 +5) |
 | `Systems/ProductServiceTests.server.lua` | 24 | 영수증 S2 · S3 — 같은 PurchaseId 두 번 지급 1회 · 프로필 미로드 · 저장 실패 NotProcessedYet · 지급 함수 없음 ERROR · 기록 상한 100 · ProfileStore Mock 실물 저장 확인(#16) · 분석 통지 onGranted 영수증당 1회(#23 A3) |
 | `Systems/PurchaseRequestServiceTests.server.lua` | 38 | 구매 요청 채널 — payload · 빈도 · 판정 순서(invalid_key · already_owned · restricted · not_registered · not_available) · 프롬프트 · 닫힘 결과 · 실물 게이트웨이 ID 0(#16) · 상위 보유 거부 ladder_owned_higher · auto_owned_higher · 선해금 already_unlocked(#17) · beta 개발자 상품 beta_disabled · 허용 목록 · 게임패스 판매 · studio · live 그대로(#23 E5) |
-| `Systems/ProductGrantsTests.server.lua` | 25 | 개발자 상품 지급 16 — 포션 · 번들(반쪽 지급 없음) · 롤 · 선해금 · 표 없음 거부 · 등록 16 · 같은 영수증 지급 1회 · 알림(#17) · 가짜 영수증 TEST_RECEIPTS(Studio + Mock만 · 커밋 값 nil — #17 단계 6) |
+| `Systems/ProductGrantsTests.server.lua` | 27 | 개발자 상품 지급 16 — 포션 · 번들(반쪽 지급 없음) · 롤 · 선해금 · 표 없음 거부 · 등록 16 · 같은 영수증 지급 1회 · 알림(#17) · 가짜 영수증 TEST_RECEIPTS(Studio + Mock만 · 커밋 값 nil — #17 단계 6) · #38 상품 16종 전부 같은 영수증 두 번 = 지급 1회 · 프로필 없음 NotProcessedYet |
 | `Systems/PotionRequestServiceTests.server.lua` | 12 | 포션 켜기 — payload · invalid · none_owned · 보관 −1 · 부스트 · 연장 · 제한 유저 행운 포션 · 부스트 실패 되돌림 · 빈도(#17) |
 | `Systems/PlusPromptServiceTests.server.lua` | 8 | Roblox Plus(S16) — 꺼짐 · 커밋 플래그 false · 세션 한 번 · 구독자 제외 · 모르는 이유 · 새 세션 · 환생 알림(#17) |
 | `Systems/AutoAdvanceServiceTests.server.lua` | 50 | 자동 진행 — 요청 위생 · 미보유 · 목표층(0 · 26 · 소수 · 문자열) · 런 중 · 캐릭터 · 시작 순서 · advance("auto") 한 번 · 이동은 advance 뒤 · 벽 트리거 이중 진행 없음 · 디바운스 · 목표층 수령 · 반복 간격 · 실패 · 수동 수령 · 중지(런 유지) · character_lost · 퇴장 · 단일 루프 · 구매 직후 · 마지막 층 · 안전층 경계 · 워프 · 환생 auto_active · PlayerState 요약(#18) · 안전층 여유 S15(Config 0.9 · 경계 층 D − 1펀치 · 실물 표 1층 내려감 — #20) |
@@ -141,7 +141,11 @@
 | `Tests/AnalyticsTests.server.lua` | 55 | 분석 래퍼(#23 A1 ~ A5) — 흐름표 11종 · 엔진 Enum 이름 · 흐름별 호출 1회 · 모아 보내기(합 · 마지막 잔액) · tick · 나갈 때 · 1e15 넘으면 blox_flow_large(log10 · 필드 · 10^2000) · 경계 · inf · NaN · 음수 거부 · 상한(창 · 플레이어별 · 버림 로그) · pcall 실패 무해 · Player 아님 건너뜀 · 도우미 4종 · 퍼널 · 처음 깬 층 중복 없음(firstClear) |
 | `Tests/FxTests.client.lua` | 78 | 화면 연출(#25 U1 ~ U7) — 구간 표본 · 사양 = Config · log10 보간(0 · 같은 값 · 줄어듦 · 10^2000 · 지수 경계) · 계획 · 스로틀 · 가운데 기준 · 크래프팅 순서(결과 · PlayerState 어느 쪽 먼저 · 거부 · 시간 초과) · 구동기(가짜 시계 · 끝값 · onDone · 교체 · finish · cancel · 연출 줄이기 · 멈춤값 · 정리) · UIScale 하나 규칙 · 튀기 가운데 기준 · 창 열기 · 닫기(닫는 중 다른 창 · 같은 창 다시 · 알림 순서 · 연출 없는 인스턴스) · 결과 모달(보통 · 영웅 이상 · 빛 띠 1회) · 빛 띠 1회 모드 · 연출 줄이기(버튼 · 빛 띠) · 블럭스 올라가기 · 레벨 · 환생 배수 튀기 · 크래프팅 연결 · UiFxTests 요약 줄을 본 뒤 시작(상한 30초 — 넘으면 실패 1, #26 +1) |
 | `Tests/SfxTests.client.lua` | 19 | 효과음(#25 S1 ~ S3) — 키 12개 · 커밋 값 id 전부 nil · 판정(id 없음 · 끔 · 스로틀 · 모르는 키) · 희귀도 → 키(칭호 · 아우라 · 펫) · 런 상태 · 환생 · 구매 · 일일 보상 · 시도 기록 · 끔이면 시도 0 · 풀 |
-| **합계** | **4694** | 서버 78행 3169 · 클라 45행 1525 — 2026-11-25 #37 Play 2번 실측(Studio 플래그 전부 nil · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
+| `Systems/RemoteGuardTests.server.lua` | 120 | 리모트 입구 공통 문(#38) — 모양 예산 10종 사유 · 연타 통(기본 0.15초 · ClickInput · SyncRequest · 1초 1000번) · 오류 격리 · 나가면 지움 · 목록(Remotes 22 = 붙은 리모트 · SyncRequest 2) · 입구 19종 흔들기(RemoteFuzz — 정상 대조 · 통째 15종 · 필드 하나씩 · 연타 20번 · 오류 0) · 대장간 문 없이 1초 100번 · 클릭 count 위생 |
+| `Systems/DupeTests.server.lua` | 16 | 복제 점검(#38 — 가짜 프로필 · 실물 서비스) — 수령 두 번 · 수령 뒤 포기 · 실패 뒤 수령 · 환생 중 수령 · 제작 · 교환 · 강화 · 별 연달아 · 대장간 · 장비 같은 시각 연타 · 끝 스키마 통과 |
+| `Data/ProfileManagerTests.server.lua` | 16 | 데이터 안전(#38 — 가짜 저장소) — 저장소 없음 · 세션 잠금 실패 · 로딩 중 나감 · 버전 오류 · 손상 → 킥 키 · 세션 닫음 · 킥 문구 en · ko · 세션 끝 경고 구분 · 서버 종료 12명 저장 기다림 · 상한 · 프로필 크기(3시간 · 최악 vs 4,194,304) |
+| `Tests/AnalyticsFunnelTests.server.lua` | 25 | 분석 #38 — 한도 · 온보딩 9단계 이름 · 지난 단계 계산(줄지 않는 값 · 차례) · 처음 온 사람 · 돌아온 사람 · 중복 없음 · 곡괭이 종 수 · 코인 경제(모아 보내기 · Sink · 자원 따로) · 나가면 지움 |
+| **합계** | **4874** | 서버 82행 3349 · 클라 45행 1525 — 2026-11-25 #38 Play 2번 실측(Studio 플래그 전부 nil · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -169,7 +173,21 @@
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-11-25 Studio Play 런타임 실측 (전량, 지시서 #37 — 새 경제 켜기 · 옛 경제 코드 정리 · 저장소 _v2 · 펫 · 토큰 에셋 자리 · 플래그 전부 nil Play 2번).**
+최근 갱신: **2026-11-25 Studio Play 런타임 실측 (전량, 지시서 #38 — 리모트 보안 · 데이터 안전 · 분석 퍼널 · 프리셋 다시 뽑음 · 플래그 전부 nil Play 2번).**
+127개 행 전부가 두 Play 모두에 같은 개수로 찍혔다. **4874 passed / 0 failed** — 서버 3349(82행) + 클라 1525(45행). 끝 표시 `server 82/82 files · 3349` ·
+`client 45/45 files · 1525`. 시작 기준 Play는 #37 최종과 같았다(서버 78/78 3169 · 클라 45/45 1525).
+
+```
+신설   RemoteGuardTests        120   입구 공통 문 · 입구 19종 흔들기 (bc858b9)
+신설   DupeTests                16   복제 점검 (bc858b9)
+신설   ProfileManagerTests      16   세션 열기 실패 · 종료 저장 · 프로필 크기 (4f652de · 84198cc)
+신설   AnalyticsFunnelTests     25   온보딩 퍼널 · 코인 · 곡괭이 종 수 (2e86354)
+늘어남 ProductGrantsTests +2 (상품 16종 영수증) · TestPresetGateTests +1 (새 경제 필드)
+바뀜   AnalyticsTests 이름 수 5 → 6 · EconomyV2ClientTests · RebirthV2WindowTests 키 확인 방식(WARN 없이) · 프리셋 이름 floor9 → min10 등 — 개수 그대로
+대조   서버 3169 + 177(신설) + 3(늘어남) = 3349 · 클라 1525 그대로 · 합 4694 + 180 = 4874
+```
+
+그 전 갱신: **2026-11-25 Studio Play 런타임 실측 (전량, 지시서 #37 — 새 경제 켜기 · 옛 경제 코드 정리 · 저장소 _v2 · 펫 · 토큰 에셋 자리 · 플래그 전부 nil Play 2번).**
 123개 행 전부가 두 Play 모두에 같은 개수로 찍혔다. **4694 passed / 0 failed** — 서버 3169(78행) + 클라 1525(45행). 끝 표시 `server 78/78 files · 3169` ·
 `client 45/45 files · 1525`. 시작 기준 Play는 #36 최종과 같았다(서버 80/80 3248 · 클라 45/45 1545). 파일별 가 · 나 · 다 → `HANDOFF/37/ledger.md`(세션 기록).
 
@@ -1899,8 +1917,11 @@ x2 Rebirths 판매 중지(체크리스트 30 — 지금 바로) · 게임 아바
 ```
 [수동]  게임 아이콘, 썸네일  ← CTR 결정. 절대 대충 금지
 [수동]  게임 설명, 태그
-[코드]  RateLimiter, Validator (익스플로잇 방어) → 공용화 안 함(#23 S6 — 18개 채널이 각자 검사 · 빈도 상한을 이미 갖는다)
-[코드]  Analytics (D1/D7/D30 리텐션 측정) → 경제 · 커스텀 이벤트 래퍼(#23 A1 ~ A5 — DESIGN 14장). 리텐션 차트는 대시보드 몫
+[코드]  RateLimiter, Validator (익스플로잇 방어) → ✅ #38 RemoteGuard(입구 공통 문 — 모양 · 연타 · 오류 격리) + 채널마다 검사 그대로 · docs/REMOTES.md
+[코드]  ✅ #38 복제 점검(DupeTests) · 데이터 안전(세션 열기 실패 · 종료 저장 · 영수증 16종 · 프로필 크기 0.30%)
+[코드]  ✅ #38 성능 측정(PerfReport 12명 1.82 ms/초 · 네트워크 약 4 KB/초/명) · 상한 TUNING 11절 — 실제 12명 · 폰은 사람
+[코드]  ✅ #38 테스트 프리셋 새 경제로(fresh · min10 · min30 · hour1 · hour2 · hour3)
+[코드]  Analytics (D1/D7/D30 리텐션 측정) → 경제 · 커스텀 이벤트 래퍼(#23 A1 ~ A5 — DESIGN 14장) + ✅ #38 온보딩 퍼널 9단계 · 코인 · pickaxe_kinds(14-2). 리텐션 차트는 대시보드 몫
 [수동]  비공개 테스트 → 밸런싱 조정
 ```
 
@@ -1918,6 +1939,8 @@ x2 Rebirths 판매 중지(체크리스트 30 — 지금 바로) · 게임 아바
 [수동]  Roblox Plus 권유 켜기(S9 — 비공개 테스트에서)
 [수동]  장르 · 서브장르 — 3개월에 한 번만 바꿀 수 있다
 [수동]  상품 아이콘 · 상품 한국어 이름(대시보드)
+[수동]  #38 실물 확인 — 실제 12명 서버(F9 Server Stats · Memory · 네트워크) · 저사양 폰 1대 · 플레이스 설정 PlayerCharacterDestroyBehavior
+        · 출시 뒤 분석 대시보드에 온보딩 퍼널 · Coins · pickaxe_kinds가 들어오는지(docs/PENDING.md "#38 남은 것")
 ```
 
 ### 출시 체크리스트

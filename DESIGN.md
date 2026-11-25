@@ -1,6 +1,6 @@
 # 게임 설계서
 
-문서 갱신: 2026-11-25 (지시서 #37 — 새 경제가 유일한 경제다. 옛 경제 문장은 지웠다)
+문서 갱신: 2026-11-25 (지시서 #38 — 14-2 출시 첫 주 이탈 보기: 온보딩 퍼널 9단계 · 코인 경제 이벤트 · pickaxe_kinds)
 
 ## 코어 컨셉
 2트랙 구조. 힘은 방치로 키우고, 블럭스는 능동 챌린지로 번다.
@@ -2694,7 +2694,28 @@ https://create.roblox.com/docs/production/analytics/event-types
   처음 깬 층: `maxStage`는 환생 때 1로 돌아가 같은 층이 다시 "처음"이 된다. 그래서 계정 전체 기록 `stats.bestRunDepth`
   (스키마에 있던 빈 필드 — 환생에도 줄지 않는다)를 쓴다 — 깬 층 > bestRunDepth일 때만 보내고 그 값으로 올린다.
   "도달"은 클리어로 센다(maxStage가 오르는 자리와 같다). 스키마 버전은 그대로(필드가 이미 있다)
-- **A5** 첫 접속 안내 퍼널(#20 O5 — `LogOnboardingFunnelStepEvent`)도 래퍼(`Analytics.funnel`)로 옮긴다
+- **A5** 첫 접속 안내 퍼널(#20 O5)도 래퍼(`Analytics.funnel`)로 옮긴다. **#38부터** 이 5단계는 이름 붙은 퍼널 `FirstGuide`
+  (`LogFunnelStepEvent` · 세션 id = UserId 하나 — 한 사람에 한 번)로 보낸다. 온보딩 퍼널은 게임에 하나라 아래 새 9단계가 쓴다
+
+### 14-2. 출시 첫 주 이탈 보기 (2026-11-25 지시서 #38)
+
+공식 문서 다시 확인(2026-11-25): funnel-events · economy-events · custom-events · event-types ·
+data-stores/error-codes-and-limits. 한도: 커스텀 이벤트 이름 100 · 퍼널 10 · 퍼널 단계 100 · 커스텀 필드 3 ·
+요청 분당 120 + 20 × CCU · 경제 자원 5(economy-events 본문 — event-types 표는 10. 작은 쪽을 지킨다)
+- **온보딩 퍼널**(`LogOnboardingFunnelStepEvent`, `AnalyticsConfig.ONBOARDING_STEPS`):
+  ```
+  1 Joined  2 FirstCashout  3 FirstCoin  4 FirstOre  5 FirstEgg  6 FirstRebirth  7 ForgeFloor8  8 FirstCraft  9 FirstEquip
+  ```
+  공식 규칙: 뒤 단계를 먼저 보내면 앞 단계도 지난 것으로 친다 · 같은 단계는 첫 번만 센다. 그래서 **앞 단계를 다 지났을 때만**
+  다음 단계를 차례로 보낸다(실제 순서가 다르면 — 예: 8층 대장간이 첫 환생보다 먼저 — 앞 단계가 찰 때 몰아서 보낸다).
+  "지났나"는 프로필의 줄지 않는 값으로 다시 계산한다(`Analytics.funnelReached` — 새 저장 필드 없음):
+  2 = 평생 블럭스 > 0 · 3 = 코인 > 0 또는 부화 · 환생 흔적 · 4 = 광석 · 제작 · 강화 흔적 · 5 = 부화(nextUid > 1) · 6 = 환생 > 0 ·
+  7 = 대장간 열림 · 8 = 시작 곡괭이 말고 다른 곡괭이(또는 사본) · 9 = 다른 곡괭이 장착.
+  처음 온 사람만 1단계를 접속 때 보낸다 — 돌아온 사람의 지난 단계는 다시 보내지 않는다. 서버 루프 하나가 2초마다 본다
+- **코인 경제 이벤트**: 자원 `Coins` — 블록(`block_break` · Source · Gameplay · sku block) · 부화(`pet_hatch_` · Sink · Shop · sku egg).
+  CurrencyService 코인 흐름 청취자 → 블럭스와 같은 30초 모아 보내기
+- **진행**: 최고 층 = `floor_first_clear`(그대로) · 환생 수 = `rebirth`(그대로) · 곡괭이 종 수 = `pickaxe_kinds`(새 — 값 = 가진 종 수, 늘 때만)
+- 이벤트 이름 6/100 · 퍼널 2/10(온보딩 · FirstGuide) · 자원 2/5
 
 ---
 

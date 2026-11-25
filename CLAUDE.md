@@ -1,6 +1,6 @@
 # privo3 — Roblox 방치형 블록 파괴 게임
 
-문서 갱신: 2026-11-25 (지시서 #37 — 새 경제 플래그 규칙 지움)
+문서 갱신: 2026-11-25 (지시서 #38 — 리모트 입구 규칙 · REMOTES.md)
 
 ## 개요
 힘을 키워 거대 블록을 부수고, 20초 챌린지로 블럭스를 획득하는
@@ -63,6 +63,7 @@ ServerPackages/ → Wally 패키지 (직접 수정 금지)
 | `docs/LOCALIZATION.md` | 다국어 구조(Strings → CSV → 로블록스 현지화 표) · 새 문장 · 새 언어 추가 순서 · 용어집 (언어 결정 원본은 `DESIGN.md` "12. 언어") |
 | `docs/ASSET_ORDER.md` | 새 경제 에셋 주문서(곡괭이 · 광석 · 연출 · 이펙트 · 대장간 · 펫 · 토큰 · 맵) — 크기 · 개수 · 우선순위 · 넣는 법(교체 방식 원본은 `DESIGN.md` 16장) · 자리 목록 원본은 `Shared/AssetSlots` |
 | `docs/POLICY_CHECK.md` | 유료 랜덤 상품(행운 · 롤 충전) 정책 점검 — 공식 요구 · 상품 × 화면 점검표 · 남은 위험 · 다시 볼 순서 (상품을 새로 만들면 표에 한 줄) |
+| `docs/REMOTES.md` | 클라 → 서버 리모트 목록 · 입구마다 검사 · 연타 상한 · 실패 응답 · 공통 문 RemoteGuard 규칙 (새 입구를 만들면 표에 한 줄) |
 
 ⚠️ **화면 개수 · 색값 · 규격 수치를 이 문서로 복사하지 말 것.**
 원본 한 곳만 고치면 되도록 참조로 둔다. 복사본은 반드시 어긋난다 —
@@ -129,6 +130,9 @@ ServerPackages/ → Wally 패키지 (직접 수정 금지)
   어긋나 타이밍 함정이 생긴다. 판정 반경은 상수가 아니라 `BlockLayout`에서 파생된다.
   근거 → `ROADMAP.md` 4-2-e2, `Shared/Config/AttackConfig.lua` 상단
 - 클라가 보낸 값은 전부 검증 대상
+- 클라 → 서버 입구는 전부 `Server/Systems/RemoteGuard.connect`로 붙인다(모양 예산 · 연타 통 · 오류 격리 · 나가면 지움 — 지시서 #38).
+  `OnServerEvent:Connect`를 직접 쓰지 않는다. RemoteFunction · InvokeClient는 쓰지 않는다(서버가 클라 응답을 기다리다 멈춘다).
+  목록 · 입구마다 검사 → `docs/REMOTES.md` · 새 입구는 `RemoteGuardTests` 목록 · 흔들기에 한 줄
 
 ## 4. 파편·파티클은 클라이언트 전용
 - 파편을 서버에 생성 금지 (복제 비용 폭발)
