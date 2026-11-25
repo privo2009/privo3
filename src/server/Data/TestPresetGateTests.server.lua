@@ -85,6 +85,32 @@ for _, name in ipairs(TestPresets.NAMES) do
 				end)())
 	end
 end
+check("#38 새 경제 필드: 6개 전부 곡괭이 id가 Config에 · 장착 곡괭이는 보유 · 광석 칸 수 · 10분부터 대장간 열림 · 시간 순으로 환생이 늘어난다", (function()
+	local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
+	local EconomyV2Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
+	local prevRebirths = -1
+	for _, name in ipairs(TestPresets.NAMES) do
+		local preset = TestPresets.Presets[name]
+		local data = TestPresetGate.buildData(name)
+		for id in pairs(preset.pickaxes) do
+			if EconomyV2Logic.pickaxe(id) == nil then
+				return false
+			end
+		end
+		if data.equipment.pickaxe[preset.equippedPickaxe] == nil or #data.ores ~= EconomyV2Config.ORE_COUNT then
+			return false
+		end
+		if (name ~= "fresh") ~= data.forgeOpen then
+			return false
+		end
+		local r = preset.rebirths.m * 10 ^ preset.rebirths.e
+		if r < prevRebirths then
+			return false
+		end
+		prevRebirths = r
+	end
+	return TestPresets.NAMES[1] == "fresh" and #TestPresets.NAMES == 6
+end)())
 check("fresh = 신규 프로필과 같은 재화(시뮬레이터 시작 상태 = Schema.new)", (function()
 	local data = TestPresetGate.buildData("fresh")
 	local new = Schema.new()
@@ -100,9 +126,9 @@ check("일일 보상 시드(#20 단계 8): 커밋 값 nil · 시드가 있으면
 		return false
 	end
 	TestPresetGate.registerDailySeed({ streak = 6, daysAgo = 1 }, 20758)
-	local d = TestPresetGate.buildData("floor9").daily
+	local d = TestPresetGate.buildData("min10").daily
 	TestPresetGate.registerDailySeed(nil, 20758) -- 되돌린다(이 Play의 세션은 이미 열렸다 — 템플릿은 init 때 만들어졌다)
-	return d.streak == 6 and d.lastClaimDay == 20757 and TestPresetGate.buildData("floor9").daily.streak == 0
+	return d.streak == 6 and d.lastClaimDay == 20757 and TestPresetGate.buildData("min10").daily.streak == 0
 end)())
 check("첫 접속 안내(v8 — #20 O4): fresh만 1단계부터 · 나머지 프리셋은 끝남(일일 보상을 안내가 막지 않게)", (function()
 	for _, name in ipairs(TestPresets.NAMES) do
@@ -119,14 +145,14 @@ end)())
 do
 	local a, la = TestPresetGate.resolve(nil, true)
 	check("resolve: nil이면 꺼짐 · 로그 없음", a == nil and la == nil)
-	local b, lb, vb = TestPresetGate.resolve("floor25", false)
+	local b, lb, vb = TestPresetGate.resolve("hour2", false)
 	check("resolve: Studio가 아니면 무시 + ERROR 로그(warn)", b == nil and lb ~= nil and string.find(lb :: string, "ERROR", 1, true) ~= nil and vb == "warn")
 	local c, lc, vc = TestPresetGate.resolve("floor99", true)
 	check("resolve: 없는 이름이면 무시 + ERROR 로그(warn)", c == nil and lc ~= nil and string.find(lc :: string, "ERROR", 1, true) ~= nil and vc == "warn")
 	local d, ld, vd = TestPresetGate.resolve(7, true)
 	check("resolve: 문자열이 아니면 무시 + ERROR", d == nil and ld ~= nil and vd == "warn")
-	local e, le, ve = TestPresetGate.resolve("floor17", true)
-	check("resolve: Studio + 있는 이름이면 켜짐 + Mock 안내(print)", e == "floor17" and le ~= nil and string.find(le :: string, "Mock", 1, true) ~= nil and ve == "print")
+	local e, le, ve = TestPresetGate.resolve("min30", true)
+	check("resolve: Studio + 있는 이름이면 켜짐 + Mock 안내(print)", e == "min30" and le ~= nil and string.find(le :: string, "Mock", 1, true) ~= nil and ve == "print")
 end
 
 -- 3. 어느 저장소로 여는가 — 실제 저장소는 건드리지 않는다 -------------------------------------------
@@ -158,16 +184,16 @@ do
 		rawset(s, "_mock", recorder("mock", log))
 		return s
 	end
-	local source, active = TestPresetGate.chooseSessionStore("floor25", true, real, newStore)
+	local source, active = TestPresetGate.chooseSessionStore("hour2", true, real, newStore)
 	source:StartSessionAsync("1")
-	check("켜짐: 세션 대상 = 새 스토어의 .Mock · 실제 스토어 호출 0", active == "floor25" and #log == 1 and log[1] == "mock:StartSessionAsync", table.concat(log, ","))
+	check("켜짐: 세션 대상 = 새 스토어의 .Mock · 실제 스토어 호출 0", active == "hour2" and #log == 1 and log[1] == "mock:StartSessionAsync", table.concat(log, ","))
 	check("켜짐: 새 스토어 이름은 실제 스토어(PlayerData_v2)가 아니다", #made == 1 and made[1] == TestPresetGate.STORE_NAME and made[1] ~= "PlayerData_v2")
-	check("켜짐: 새 스토어 템플릿 = 프리셋 데이터(세션 전에 만든다)", madeTemplate ~= nil and BigNum.eq(madeTemplate.strength, TestPresets.Presets.floor25.strength))
+	check("켜짐: 새 스토어 템플릿 = 프리셋 데이터(세션 전에 만든다)", madeTemplate ~= nil and BigNum.eq(madeTemplate.strength, TestPresets.Presets.hour2.strength))
 
 	local log2: { string } = {}
 	local real2 = recorder("real", log2)
 	local made2 = 0
-	local source2, active2 = TestPresetGate.chooseSessionStore("floor25", false, real2, function()
+	local source2, active2 = TestPresetGate.chooseSessionStore("hour2", false, real2, function()
 		made2 += 1
 		return nil
 	end)
@@ -183,10 +209,10 @@ end
 do
 	local storeName = "TestPresetGateTests_Mock"
 	local key = "t" .. tostring(math.floor(os.clock() * 1000))
-	local store = ProfileStore.New(storeName, TestPresetGate.buildData("floor17"))
+	local store = ProfileStore.New(storeName, TestPresetGate.buildData("min30"))
 	local profile = store.Mock:StartSessionAsync(key)
-	check("Mock 세션: 열린다 · 데이터 = 프리셋 템플릿", profile ~= nil and BigNum.eq(profile.Data.strength, TestPresets.Presets.floor17.strength)
-		and profile.Data.cosmetics.equippedTitle == TestPresets.Presets.floor17.title)
+	check("Mock 세션: 열린다 · 데이터 = 프리셋 템플릿", profile ~= nil and BigNum.eq(profile.Data.strength, TestPresets.Presets.min30.strength)
+		and profile.Data.cosmetics.equippedTitle == TestPresets.Presets.min30.title)
 	local test = ProfileStore.Test()
 	local userMock = test.UserMockStore[storeName]
 	check("Mock 세션: UserMockStore(사용자 Mock)에만 기록 · API 대체 MockStore에는 없다", userMock ~= nil and userMock[key] ~= nil and test.MockStore[storeName] == nil)

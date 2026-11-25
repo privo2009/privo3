@@ -243,14 +243,14 @@ end
 
 -- 6. TEST_DAY_OFFSET 관문 (T1) · PlayerState 요약 ----------------------------------------------------------------
 do
-	local o0, l0 = DailyService.resolveOffset(nil, true, "floor9")
+	local o0, l0 = DailyService.resolveOffset(nil, true, "min10")
 	check("오프셋 nil → 0 · 로그 없음", o0 == 0 and l0 == nil)
-	local o1, l1, v1 = DailyService.resolveOffset(3, false, "floor9")
+	local o1, l1, v1 = DailyService.resolveOffset(3, false, "min10")
 	check("Studio가 아니면 → 0 · ERROR warn", o1 == 0 and l1 ~= nil and string.find(l1 :: string, "ERROR", 1, true) ~= nil and v1 == "warn")
 	local o2, _, v2 = DailyService.resolveOffset(2, true, nil)
 	check("Mock 프리셋 없으면 → 0 · warn(실제 프로필에 가짜 날짜를 남기지 않는다)", o2 == 0 and v2 == "warn")
-	local o3 = DailyService.resolveOffset(1.5, true, "floor9")
-	local o4, _, v4 = DailyService.resolveOffset(-2, true, "floor9")
+	local o3 = DailyService.resolveOffset(1.5, true, "min10")
+	local o4, _, v4 = DailyService.resolveOffset(-2, true, "min10")
 	check("정수 아님 → 0 · 프리셋 + 정수 → 그 값 · print", o3 == 0 and o4 == -2 and v4 == "print")
 	local t0 = os.clock()
 	while not DailyService.isRegistered() and os.clock() - t0 < 10 do

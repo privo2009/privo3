@@ -534,6 +534,10 @@ local function measureV2(b: Bundle, players: number): any
 				end
 				noteOwned(p, s)
 				hatchWithCoins(p, s)
+				if EconomyReport._snapHook ~= nil then
+					-- 테스트 프리셋 뽑기(#38 PresetExport): 런 시작마다 그 플레이어 상태를 넘긴다(바꾸지 않는다)
+					EconomyReport._snapHook(p, s, forgeOpen(s))
+				end
 				if s.enh60 == nil and p.elapsedSec >= 3600 then
 					s.enh60 = s.picks.owned[s.picks.equipped].enh
 				end
@@ -670,6 +674,17 @@ local function measureV2(b: Bundle, players: number): any
 		out.visible = table.concat(vis, " · ")
 	end)
 	return out
+end
+
+-- 테스트 프리셋 뽑기(#38): 지금 TEMP(V4 — set = {}) 표준 플레이어를 players명 돌리며 런 시작마다 hook(p, s, forgeOpen)을 부른다
+EconomyReport._snapHook = nil :: ((any, any, boolean) -> ())?
+function EconomyReport.snapshots(players: number, hook: (any, any, boolean) -> ())
+	EconomyReport._snapHook = hook
+	local ok, err = pcall(measureV2, { label = "V4", set = {} }, players)
+	EconomyReport._snapHook = nil
+	if not ok then
+		error(err)
+	end
 end
 
 -- 플레이어 players명을 돌려 층 첫 도달 · 지표를 모은다. st = nil이면 지금 경제(재현).

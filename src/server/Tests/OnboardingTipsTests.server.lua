@@ -133,7 +133,7 @@ do
 	for _, k in ipairs(keys) do
 		set[k] = true
 	end
-	check("floor9 꼴 접속: blox · rebirth · egg를 글 없이 적고 · 코인 · 가방 · 대장간 · 장비는 남김",
+	check("옛 9층 꼴(#37 이전 프로필) 접속: blox · rebirth · egg를 글 없이 적고 · 코인 · 가방 · 대장간 · 장비는 남김",
 		set.blox and set.rebirth and set.egg and not set.coins and not set.bag and not set.craft and not set.equip, table.concat(keys, ","))
 	local fd = fresh()
 	check("새 유저 접속: 지난 것 없음", #T.backfill(fd.onboarding, T.facts(fd)) == 0)

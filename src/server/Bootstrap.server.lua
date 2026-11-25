@@ -19,7 +19,7 @@ local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 
 -- ── 테스트 프리셋: TEST_PRESET (Studio 전용, 지시서 #13 3단계) ──────────────────────────
 -- 이름을 적고 Play하면 그 시점 상태의 **Mock 프로필**로 시작한다(실제 데이터에는 읽기도 쓰기도 하지 않는다 — TestPresetGate).
--- 이름: fresh · before_first_rebirth · floor9 · floor17 · floor25 · floor25_cleared (값 · 출처는 Shared/Config/TestPresets)
+-- 이름: fresh · min10 · min30 · hour1 · hour2 · hour3 (#38 새 경제) (값 · 출처는 Shared/Config/TestPresets)
 -- Studio가 아니면 무시하고 ERROR 로그를 남긴다. ⚠️ 커밋 값은 언제나 nil이다(TestPresetGateTests가 잰다 — 켠 Play에서는 그 줄이 실패한다).
 local TEST_PRESET: string? = nil
 
@@ -875,6 +875,28 @@ local SUCCESS_RATE_REPORT_ENABLED = false
 if SUCCESS_RATE_REPORT_ENABLED then
 	task.spawn(function()
 		require(script.Parent.Tools.SuccessRateReport).run()
+	end)
+end
+
+-- ── 개발용 플래그: PERF_REPORT_ENABLED(지시서 #38 4단계) ─────────────────────
+-- 가짜 플레이어 12명으로 서버 루프(줍기 · 안내 · 자동 제작 · 자동 부화 · 공격 · 블록 깨짐 · 분석 · 입구 문) 틱당 시간을 잰다.
+-- 가짜 프로필만 쓴다(실제 저장소에 닿지 않는다). 켠 Play에서는 테스트 개수를 세지 않는다. 커밋 값 false.
+local PERF_REPORT_ENABLED = false
+
+if PERF_REPORT_ENABLED then
+	task.spawn(function()
+		require(script.Parent.Tools.PerfReport).run()
+	end)
+end
+
+-- ── 개발용 플래그: PRESET_EXPORT_ENABLED(지시서 #38 6단계) ───────────────────
+-- EconomyReport V4 표준 플레이어 시점별 상태 → 테스트 프리셋 표(Tools/PresetExport). 시뮬레이터만 — 프로필을 읽지도 쓰지도 않는다.
+-- 켠 Play에서는 테스트 개수를 세지 않는다. 커밋 값 false.
+local PRESET_EXPORT_ENABLED = false
+
+if PRESET_EXPORT_ENABLED then
+	task.spawn(function()
+		require(script.Parent.Tools.PresetExport).run()
 	end)
 end
 

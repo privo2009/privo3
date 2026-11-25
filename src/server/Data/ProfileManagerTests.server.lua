@@ -164,6 +164,60 @@ do
 	check("서버 종료: 저장이 안 끝나면 상한(20초)에서 포기 · 남은 수", r2 == 2 and t == 20)
 end
 
+-- 5. 프로필 크기(#38): 직렬화(JSON) 길이 vs 로블록스 한도 — 공식 data-stores/error-codes-and-limits "Data (key value) 4,194,304 per key"
+--    (문자 수 · JSONEncode로 잰다고 문서가 적는다). 3시간 프리셋 · 저장 상한을 전부 채운 최악 꼴
+do
+	local HttpService = game:GetService("HttpService")
+	local TestPresetGate = require(script.Parent.TestPresetGate)
+	local TestPresets = require(ReplicatedStorage.Shared.Config.TestPresets)
+	local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
+	local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
+	local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
+	local EconomyV2Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
+	local LIMIT = 4194304
+	local sizes = {}
+	for _, name in ipairs(TestPresets.NAMES) do
+		table.insert(sizes, string.format("%s %d", name, #HttpService:JSONEncode(TestPresetGate.buildData(name))))
+	end
+	local h3 = #HttpService:JSONEncode(TestPresetGate.buildData("hour3"))
+	-- 최악 꼴: 펫 저장 상한 가득 · 칭호 · 아우라 전부 · 영수증 100개 · 곡괭이 15종 전부 큰 수 · 안내 키 상한
+	local w = TestPresetGate.buildData("hour3")
+	for i = 1, Schema.LIMITS.MAX_PET_STORAGE do
+		w.pets.owned[tostring(100000 + i)] = { petId = PetConfig.Eggs[#PetConfig.Eggs].pets[1].id, tier = 4 }
+	end
+	w.pets.owned = (function()
+		local t, n = {}, 0
+		for k, v in pairs(w.pets.owned) do
+			if n < Schema.LIMITS.MAX_PET_STORAGE then
+				t[k] = v
+				n += 1
+			end
+		end
+		return t
+	end)()
+	w.pets.equipped = {}
+	for _, def in ipairs(TitleConfig.Titles) do
+		w.cosmetics.ownedTitles[def.id] = true
+	end
+	for _, pack in pairs(AuraConfig.Packs) do
+		for _, a in ipairs((pack :: any).auras or {}) do
+			w.cosmetics.ownedAuras[a.id] = true
+		end
+	end
+	w.purchases = {}
+	for i = 1, Schema.LIMITS.MAX_PURCHASES do
+		table.insert(w.purchases, string.format("%08x-aaaa-bbbb-cccc-%012d", i, i))
+	end
+	for _, def in ipairs(EconomyV2Config.PICKAXES) do
+		w.equipment.pickaxe[def.id] = { count = 999999, stars = 5, enh = 10 }
+	end
+	local worst = #HttpService:JSONEncode(w)
+	print(string.format("[ProfileSize] 직렬화 문자 수 — %s · 최악 꼴 %d · 한도 %d(최악 = 한도의 %.2f%%)", table.concat(sizes, " · "), worst, LIMIT,
+		worst / LIMIT * 100))
+	check("프로필 크기: 3시간 프리셋 < 한도의 1%", h3 < LIMIT / 100, tostring(h3))
+	check("프로필 크기: 저장 상한을 다 채운 최악 꼴 < 한도의 10%", worst < LIMIT / 10, tostring(worst))
+end
+
 print(string.format("[ProfileManagerTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[ProfileManagerTests] %d test(s) failed", failed))

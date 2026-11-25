@@ -169,13 +169,13 @@ end
 -- 4. 가짜 영수증(TEST_RECEIPTS — 지시서 #17 6단계): Studio + Mock에서만 · 커밋 값 nil -------------------------------------
 do
 	local r = ProductService.resolveTestReceipts
-	local k1, l1 = r(nil, true, "floor9")
+	local k1, l1 = r(nil, true, "min10")
 	check("가짜 영수증: nil이면 꺼짐 · 로그 없음", k1 == nil and l1 == nil)
 	local k2, l2 = r({ "strengthPotion" }, true, nil)
 	check("가짜 영수증: Mock 프리셋이 없으면 무시 + ERROR(실제 프로필에 흘리지 않는다)", k2 == nil and string.find(l2 :: string, "ERROR", 1, true) ~= nil)
-	local k3, l3 = r({ "strengthPotion" }, false, "floor9")
+	local k3, l3 = r({ "strengthPotion" }, false, "min10")
 	check("가짜 영수증: Studio 밖이면 무시 + ERROR", k3 == nil and string.find(l3 :: string, "ERROR", 1, true) ~= nil)
-	local k4 = r({ "strengthPotion", "damage2x", "nope", "gymUnlock5" }, true, "floor9")
+	local k4 = r({ "strengthPotion", "damage2x", "nope", "gymUnlock5" }, true, "min10")
 	check("가짜 영수증: Studio + Mock이면 개발자 상품 키만(게임패스 · 없는 키 버림)", k4 ~= nil and #k4 == 2 and k4[1] == "strengthPotion" and k4[2] == "gymUnlock5")
 	local deadline = os.clock() + 10
 	local _, registered = ProductService.getRequestedTestReceipts()

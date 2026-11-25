@@ -18,6 +18,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local TestPresets = require(ReplicatedStorage.Shared.Config.TestPresets)
+local OnboardingTipsLogic = require(ReplicatedStorage.Shared.OnboardingTipsLogic)
 local Schema = require(script.Parent.Schema)
 
 local TestPresetGate = {}
@@ -121,11 +122,31 @@ function TestPresetGate.buildData(name: string): any
 		table.insert(data.pets.equipped, tostring(i))
 	end
 	data.pets.nextUid = #preset.pets + 1
+	-- 새 경제(#38): 코인 · 광석 · 토큰 · 곡괭이(보유 · 별 · 강화 · 장착) · 대장간
+	data.coins = copyBig(preset.coins)
+	data.ores = table.clone(preset.ores)
+	for key, n in pairs(preset.tokens) do
+		if data.tokens[key] ~= nil then
+			data.tokens[key] = n
+		end
+	end
+	data.equipment.pickaxe = {}
+	for id, o in pairs(preset.pickaxes) do
+		data.equipment.pickaxe[id] = { count = o.count, stars = o.stars, enh = o.enh }
+	end
+	data.equipped.pickaxe = preset.equippedPickaxe
+	data.forgeOpen = preset.forgeOpen
 	-- 첫 접속 안내(v8 — 지시서 #20 O4): 시작 직후 꼴(1층 · 환생 0)인 프리셋만 안내를 본다. 나머지는 이미 플레이한 시점이라 끝남 —
-	-- 그래야 floor9 등으로 일일 보상을 볼 때 안내가 먼저 막지 않는다(D5 — 안내가 끝난 뒤에 뜬다)
+	-- 그래야 min10 등으로 일일 보상을 볼 때 안내가 먼저 막지 않는다(D5 — 안내가 끝난 뒤에 뜬다)
 	local played = preset.maxStage > 1 or preset.rebirths.m > 0
 	data.onboarding.done = played
 	data.onboarding.step = if played then Schema.LIMITS.ONBOARDING_STEPS else 1
+	-- 새 경제 안내(#36): 그 상태에서 이미 지났거나 지금 뜰 안내는 본 것으로(플레이한 시점 — 접속하자마자 안내가 몰려 뜨지 않게)
+	if played then
+		for _, key in ipairs(OnboardingTipsLogic.backfill(data.onboarding, OnboardingTipsLogic.facts(data, 0))) do
+			OnboardingTipsLogic.mark(data.onboarding, key)
+		end
+	end
 	if type(dailySeed) == "table" and type(dailySeed.streak) == "number" and type(dailySeed.daysAgo) == "number" then
 		data.daily = { streak = dailySeed.streak, lastClaimDay = seedToday - dailySeed.daysAgo }
 	end
