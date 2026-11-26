@@ -78,7 +78,7 @@ end
 
 -- ===== UI 칸(2026-11-26 지시서 #39 — docs/UI.md "UI 키트 > AssetSlots의 UI 칸" · docs/UI_ASSET_SPEC.md "9") =====
 -- UI 그림(9-slice 틀 · 버튼 · 아이콘)을 한 목록으로 본다. list()와 따로 둔다 — list()는 서버 AssetLoader가 모델을 불러오는 목록이다.
---   ui_<키>   AssetRegistry 25종(버튼 6 · 패널 2 · 아이콘 17) — 값의 원본은 Config/AssetConfig(도착하면 한 줄). 없으면 역할색 도형(지금 모양)
+--   ui_<키>   AssetRegistry 24종(버튼 6 · 패널 2 · 아이콘 16) — 값의 원본은 Config/AssetConfig(도착하면 한 줄). 없으면 역할색 도형(지금 모양)
 --   kit_<칸>  키트 부품 그림(카드 · 탭 · 게이지 · 토스트 · 제목 판 · 모달 · 띠 · 막) — 값의 원본은 UiTheme.Skin.images(Config/UiSkin). 없으면 지금 모양
 export type UiSlot = { key: string, id: number?, scaleType: string, slice: Rect?, use: string }
 
