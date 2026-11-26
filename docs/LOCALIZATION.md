@@ -44,6 +44,26 @@ UI 확인 언어    en · ko 두 버전으로 만들고 확인한다(1월 스킨
 대체한 것       #41에서 확정한 "상품 이름 게임 안 번역"(PENDING #40 Claude 판단) · #41에서 4개 언어로 줄인 별대장간 곡괭이 이름
 ```
 
+**어떻게 돌아가나(지시서 #42 1부)**
+```
+이름 키 목록    src/shared/Localization/NameKeys.lua 한 곳 — PATTERNS("앞*뒤" 꼴 10줄) · ENGLISH_ONLY(지금 true)
+                ore.name.* · pickaxe.name.* · pet.name.* · egg.name.* · title.name.* · aura.name.* · token.* · world.name.* ·
+                shop.*.name(게임패스 · 개발자 상품 — 운동기구 선해금 Gym {n} Unlock · 공허 포함) · boost.*.name(포션 이름 = 상품 이름)
+                → 지금 102키. 등급 낱말(Common · Rare …) · 강화 단계(Gold …) · 업그레이드 항목 이름은 일반 용어라 번역 그대로
+Lang 파일       4개 언어 파일에서 이름 키 102개씩 지웠다(es · pt · fr · de 각 528 → 426키) — 그 언어에서 영어 이름이 보인다
+검사            check_strings 7번 · LocaleLangTests 8번: ENGLISH_ONLY면 이름 키는 4개 언어에서 비어 있어도 된다(en 대체 — "번역 없음" 아님).
+                대신 Lang 파일에 이름 키가 있으면 실패(규칙: en · ko만) · 꼴마다 맞는 키가 있어야 한다 ·
+                4개 언어에서 이름은 영어, 이름이 든 문장(예: 구매 알림 "{name} …")은 그 언어인지 Play로 잰다
+자리 표시로 바꾼 문장  shop.reason.auto_owned_higher("You already own {name}" — OP Auto Clicker) ·
+                auto.reason.not_owned("You need {name}" — Auto Advance). 기능 이름(자동 진행 창 제목 · HUD 줄 · 켬/끔 알림)은 일반 용어로 번역 유지
+새 이름 종류    NameKeys.PATTERNS에 한 줄 + Strings에 en · ko만
+```
+
+**4개 언어 이름을 다시 넣을 때(1월 말 출시 준비 — UI · 이름 확정 뒤)**
+1. `NameKeys.ENGLISH_ONLY = false`로 바꾼다 — 그 순간 check_strings · LocaleLangTests가 이름 키 102개 × 4개 언어를 "번역 없음"으로 실패시킨다
+2. 확정된 이름으로 Lang 4개 파일에 이름 키를 넣는다(예전 AI 번역은 git 이력 — `git show 8498512:src/shared/Localization/Lang/es.lua` 꼴 · #42 1부 바로 전) · 용어집(4절)도 같이
+3. 넘침은 TEST_LOCALE로 언어마다 Play(폰 틀 넘침 테스트) + 미리보기 LONG · `check_strings --long`
+
 ### 서버가 보내는 것
 
 서버는 화면 문장을 보내지 않는다. 거부 사유는 코드(`insufficient_blox` 등)로 보내고, 클라가 Strings로 문장을 고른다.
@@ -83,12 +103,13 @@ UI 확인 언어    en · ko 두 버전으로 만들고 확인한다(1월 스킨
    - 한국어: 지금 화면 말투(해요체) 그대로
    - 용어는 아래 "4. 용어집"을 따른다
    - 유럽 4개 언어도 같은 키로 `Lang/es.lua` · `pt.lua` · `fr.lua` · `de.lua`에 한 줄씩 넣는다(#40). 빠지면 그 언어에서 영어가 보이고
-     `check_strings`가 "번역 없음"으로 실패한다. 자리 표시 · 줄바꿈은 영어와 똑같이
+     `check_strings`가 "번역 없음"으로 실패한다. 자리 표시 · 줄바꿈은 영어와 똑같이 — 단 고유 이름 키는 넣지 않는다(#42 이름 번역 규칙)
 2. 바뀌는 값은 자리 표시 `{이름}`으로 둔다. 영어 · 한국어 둘 다 **같은 자리 표시 집합**이어야 한다(검사가 잰다)
    ```
    ["aura.pack.info"] = { en = "Pack {pack} · {cost} Blox per roll", ko = "팩 {pack} · 1회 {cost} 블럭스" },
    ```
-   숫자는 코드에서 `Formatter.format(...)` · `string.format("%.2f", ...)`로 문자열을 만든 뒤 넣는다
+   숫자는 코드에서 `Formatter.format(...)` · `string.format("%.2f", ...)`로 문자열을 만든 뒤 넣는다.
+   정수로 세는 값(환생 수 · 층 · 개수)은 `Formatter.formatCount(...)`("1" — "1.00"이 아니다 · 지시서 #42) 또는 숫자 그대로
 3. 코드에서는 키로만 부른다: `Locale.t("aura.pack.info", { pack = 1, cost = Formatter.format(c) })`.
    **화면 문장을 코드에 직접 쓰지 않는다**(CLAUDE.md 금지 사항)
 4. 검사를 돌린다 (Python 3만 있으면 된다)
@@ -97,6 +118,7 @@ UI 확인 언어    en · ko 두 버전으로 만들고 확인한다(1월 스킨
    python3 -I tools/l10n_scan.py --check   화면 코드에 한글 문장이 남았는지
    ```
 5. 영어 · 한국어 둘 다 그 칸에서 읽히는지 Studio에서 본다(`TEST_LOCALE` en · ko 두 번 Play). 길이 규칙은 `docs/UI.md` "4. 글자 > 글자 길이"
+6. **고유 이름**(광석 · 곡괭이 · 펫 · 상품 등 — 위 "이름 번역 규칙")이면 en · ko만 넣고 Lang 파일에는 넣지 않는다(#42). 문장에 이름이 들어가면 `{name}`
 
 ---
 
@@ -263,11 +285,12 @@ Strings 키: `ore.name.<1 ~ 10>` · `pickaxe.name.<id>`(id = `EconomyV2Config.PI
 
 ```
 언어        파일                   키      상태
-es          Lang/es.lua            528     AI 번역 · 원어민 검수 전 (중남미에서도 쓰는 표현)
-pt          Lang/pt.lua            528     AI 번역 · 원어민 검수 전 (브라질)
-fr          Lang/fr.lua            528     AI 번역 · 원어민 검수 전
-de          Lang/de.lua            528     AI 번역 · 원어민 검수 전
+es          Lang/es.lua            426     AI 번역 · 원어민 검수 전 (중남미에서도 쓰는 표현)
+pt          Lang/pt.lua            426     AI 번역 · 원어민 검수 전 (브라질)
+fr          Lang/fr.lua            426     AI 번역 · 원어민 검수 전
+de          Lang/de.lua            426     AI 번역 · 원어민 검수 전
 ```
+키 수는 528 − 고유 이름 102(#42 이름 번역 규칙 — 4개 언어는 영어 이름). 이름 키는 1월 말 이름 확정 뒤 다시 넣는다(1절 "이름 번역 규칙").
 - 검사: `python3 -I tools/check_strings.py` — 4개 언어 키 누락 · 빈 문자열 · 자리 표시 ≠ en · 줄바꿈 수 ≠ en · 표에 없는 키(고아)가 실패다.
   Play에서는 `LocaleLangTests`가 같은 규칙과 언어 판별 · en 대체 · 메뉴 8자를 잰다
 - 길이: `python3 -I tools/check_strings.py --long` — 영어보다 글자 수 1.4배 이상인 번역 목록(`[짧은]` = 영어 12자 이하 버튼 · 라벨).
@@ -289,4 +312,5 @@ de          Lang/de.lua            528     AI 번역 · 원어민 검수 전
 
 ### 출시 준비 번역 (1월 말 · 사람 — ROADMAP 출시 체크리스트 34 · 35)
 - 게임 이름 · 설명: ko · es · pt · fr · de — Creator Hub 현지화 메뉴(검색 · 추천 노출에 필요)
-- 게임패스 · 개발자 상품 이름 · 설명(선택): 문장은 `Lang/<코드>.lua`의 `shop.*` — 3절 "대시보드 상품 이름의 번역"
+- 게임패스 · 개발자 상품 이름 · 설명(선택): 설명은 `Lang/<코드>.lua`의 `shop.*.desc` — 3절 "대시보드 상품 이름의 번역".
+  상품 이름은 #42 이름 번역 규칙으로 지금 4개 언어 문장이 없다 — 이름 확정 · 4개 언어 이름 번역(위 "다시 넣을 때") 뒤에 넣는다

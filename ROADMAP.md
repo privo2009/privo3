@@ -1,6 +1,6 @@
 # 개발 로드맵
 
-문서 갱신: 2026-11-26 (지시서 #41 — 지금 위치 · 시험 뒤 할 일 순서 · 1월 UI 템플릿 방식 · 출시 체크리스트 34 · 35 · 운동기구 선택지)
+문서 갱신: 2026-11-26 (지시서 #42 — 이름 번역 규칙 · 정수 표시 · 운동기구 개편 A2 · 테스트 4983 · 사람 작업 운동기구 상품)
 
 ## 원칙
 - 아래에서 위로 쌓는다. BigNum이 흔들리면 전부 무너진다
@@ -9,11 +9,12 @@
 
 ---
 
-## 지금 위치 · 시험 뒤 할 일 (2026-11-26 지시서 #41 — 시험 전 마지막)
+## 지금 위치 · 시험 뒤 할 일 (2026-11-26 지시서 #41 · #42 — 시험 전 마지막)
 
 ```
-지금 위치   코드 기반 끝 — 새 경제(#37) · 리모트 보안 · 데이터 안전(#38) · UI 키트 · 미리보기(#39) · 6개 언어(#40) · 마무리(#41)
-            테스트 4959 / 0 failed(서버 83행 3381 · 클라 46행 1578 — 아래 "테스트 현황") · 시각 요소(모델 · UI 그림 · 맵)는 아직 임시 도형
+지금 위치   코드 기반 끝 — 새 경제(#37) · 리모트 보안 · 데이터 안전(#38) · UI 키트 · 미리보기(#39) · 6개 언어(#40) · 마무리(#41) ·
+            이름 번역 규칙 · 정수 표시 · 운동기구 A2(#42 — 시험 전 마지막)
+            테스트 4983 / 0 failed(서버 83행 3402 · 클라 46행 1581 — 아래 "테스트 현황") · 시각 요소(모델 · UI 그림 · 맵)는 아직 임시 도형
 다시 시작   HANDOFF 가장 최근 날짜 파일의 "시험 뒤 다시 시작하는 법" 한 쪽부터(세션 기록) · 남은 일 원본은 docs/PENDING.md
 ```
 
@@ -25,6 +26,8 @@
    - Studio 설정 2개: 아바타 R15 고정 · Workspace.PlayerCharacterDestroyBehavior 켜짐 확인
    - 계정 요건(구독 또는 수수료) 12/20 전에 결정(출시 체크리스트 31)
    - ✅ 운동기구 선택지 — A2로 결정(2026-11-26 희준 · 지시서 #42에서 구현)
+   - 대시보드 운동기구 선해금 새 개발자 상품 4개 등록(Gym 9 ~ 12 Unlock · 199 · 249 · 299 · 449 R$) → ID 전달(ShopConfig.GYM_UNLOCK_NEW_IDS)
+     · 기존 7개(gymUnlock2 ~ 8) 대시보드 가격 바꾸기(39 · 49 · 69 · 79 · 99 · 129 · 149 — docs/DASHBOARD_PRODUCTS.md 5절, #42)
 2  12/18부터     Astra 모델링 — docs/ASSET_ORDER.md(곡괭이 → 광석 → 제작 연출 → … 우선순위 차례)
 3  1월           UI 템플릿 방식(스킨 1벌 → 미리보기 관문 — docs/UI.md "UI 키트") · 시각 요소 넣기 · 번역 GPT 교차 검토(LOCALIZATION 6절)
 4  1월 말        출시 준비 — 계정 요건 · 심사 · 게임 이름 · 설명 번역 · 상품 번역(출시 체크리스트 31 · 34 · 35)
@@ -45,7 +48,7 @@
 | 파일 | 개수 | 대상 |
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
-| `Tests/FormatterTests.server.lua` | 33 | 숫자 표기 (접미사, 자릿수) |
+| `Tests/FormatterTests.server.lua` | 37 | 숫자 표기 (접미사, 자릿수) · 정수 표시 formatCount(1 · 15 · 0 · number · 1000 이상 · 음수 · 반올림 — #42) |
 | `Tests/TestGateTests.server.lua` | 6 | 테스트 · 리포트 게이트(#27 T3) — Studio 주입 true 실행 · false 몸통 0번 · 주입 없음 = IsStudio · 이 Play는 Studio · boolean 아님 거부 · 끝 표시 목록에 있음 |
 | `Tests/TestRunLogicTests.server.lua` | 18 | 테스트 끝 표시(#26) — 요약 줄 읽기 · 끝 줄 꼴(읽기 코드 필터에 걸림 · 행으로 안 읽힘) · 모으기(다시 읽어도 한 번 · 목록 밖 · 빠짐 · 두 번 찍힘) · 기대 목록(Tests로 끝나는 Script · LocalScript) · 실물 서버 목록 · 상한 |
 | `Tests/ConfigTests.server.lua` | 103 | 모든 Config의 validate + 스모크 · 파생 함수(getSlots · getStorage · getUnlockedPacks) · TitleConfig validate 거부 5종 · 블럭스 상품 금지(P1) · AuraConfig m = 사다리 × 비율 · G4 · 단조 거부(#11) · PetConfig m · 비용 100/100K/100M · 해금 · 실효 증가분 · totalMult(nil 구멍) · 강화 4단계 · validate 거부 · Attribute 직렬화(#12) · 레벨 L1 경계(1 · 2 · 3 · 4 · 2^k ± 가수 1 ulp · 10^2000대) · 진행률 0 이상 1 미만 · L2 상한(레벨 48) · 환생 뒤 0(#13) · ShopConfig 검사(가격 · 키 · 계단 순증가 · blox 거부 · 행운 표시 = 효과 · 같은 ID — #16) · 대시보드 ID 39 등록 · ID 표 섞임 · 0 거부 · ownedHigher R1 · R2 · rollCreditLuck(#17) · 1번 패드 덮어쓰기 = Config · 2번부터 식 · 사본 · validate 거부 3종(#24 P1) |
@@ -93,7 +96,7 @@
 | `Tests/PetV2Tests.server.lua` | 18 | 새 경제 펫(#35 — 가짜 deps) — 코인 부화 · 부족 · 간격(무료 · 즉시 부화) · 트리플 3마리 · 코인 3배 · 꺼짐 블럭스 · 자동 부화(반복 · 기다림 · 멈춤 · 알 번호) · 새 패스 4개(ID nil 줄 없음 · 가격 · 설정 ID · 가짜 소유 효과) · 제한 지역 목록 · R6 Right Arm · 플래그 꺼짐 |
 | `Tests/ForgeServiceTests.server.lua` | 32 | 대장간 서버(#33 — 가짜 deps · Schema.new 데이터에 InventoryService 순수 함수) — 점수 표 · 층 → 토큰 등급 · 자동 채우기 · 확률 표시 합 · 0% 금지 · 꼴 · 제작 거부(닫힘 · 모양 · 광석) · 난수 주입 결과 · 토큰 · 간격(무료 · 생략 ID 자리 · 트리플) · 자동 제작 반복 · 멈춤 · 교환(부족 · 차감 · 일반 · ??? · 닫힘) · 지급 원자성 · 요청 연타 · 플래그 꺼짐 init 없음 |
 | `Tests/OreDropServiceTests.server.lua` | 25 | 새 경제 드롭 · 줍기(#32 — 가짜 deps) — 반경(수평) · 가방 자리 · 바꿔 줍기 · 바닥에 남기 · 자동 진행 전부 · 높은 광석부터 · 층 이동 시 드롭 사라짐 · 수령 → 인벤토리 · 실패 · 이탈 → 비움 · 코인 유지 · 대장간 8층 영구(환생 뒤) · 첫 광석 안내 한 번 · ChallengeService 고리(순서 · 던져도 런 그대로) |
-| `Systems/GymServiceTests.server.lua` | 46 | 운동기구 조건·배수·가격 순증가·해금 경계·공허 훈련 구역(로벅스 전용·맨 끝·가장 비쌈·가장 셈·ShopConfig 가격)·스폰 구역 안·게이트 앞·패드와 안 겹침·발판 판정·배수 결정 · getShopKey · 선해금 가격 = ShopConfig(#16) |
+| `Systems/GymServiceTests.server.lua` | 53 | 운동기구 조건·배수·가격 순증가·해금 경계·공허 훈련 구역(로벅스 전용·맨 끝·가장 비쌈·가장 셈·ShopConfig 가격)·스폰 구역 안·게이트 앞·패드와 안 겹침·발판 판정·배수 결정 · getShopKey · 선해금 가격 = ShopConfig(#16) · A2(#42 — 12기구 표 · 환생별 열린 수 · 등록 1 ~ 8 / ID nil 9 ~ 12 · 가격표 · ID 들어오면 줄 · 미등록 구매 거부 · 3줄 × 5열 · 모델 자리) |
 | `Tests/CashoutPadViewTests.server.lua` | 23 | 런 상태 → 발판 켜짐(클리어 + 같은 층)·꺼짐(미클리어·다른 층·런 없음)·켜진 발판 1개·역할 키 |
 | `Tests/AdvanceWallViewTests.server.lua` | 97 | 런 상태 → 벽 모습(숨김·닫힘·열림)·크기 파생·층별 위치·잘못된 stage·LevelConfig 깊이 소스 등록 |
 | `Tests/AdvanceWallServiceTests.server.lua` | 29 | 트리거 스펙(최종층 없음·중심·크기)·층 대조·런 없음·디바운스 창·플레이어 격리 · 근처 확인(멀면 advance 0 · 층 불일치면 묻지 않음 — #23 N1) |
@@ -120,7 +123,7 @@
 | `Systems/UpgradeRequestServiceTests.server.lua` | 13 | 구매 요청 payload 위생 · 서버 거부 사유 그대로 · 성공 결과 형태 · 빈도 상한(중복 요청) · 퇴장 정리 |
 | `Data/TestPresetGateTests.server.lua` | 42 | 테스트 프리셋 — 이름 = 뽑기 도구 시점 목록 · 6종 스키마 검증 · 값 = 프리셋 · id가 Config에 있다 · 장착 ≤ 슬롯 · Studio가 아니면 무시 + ERROR · 없는 이름 무시 · 켜지면 새 스토어 .Mock만(실제 스토어 호출 0) · ProfileStore Mock 실물 왕복(UserMockStore에만) · 커밋된 TEST_PRESET = nil(#13) · 일일 보상 시드(커밋 nil · Mock 템플릿 daily) · 첫 접속 안내 fresh만(#20) · #38 새 경제 필드(곡괭이 id · 장착 보유 · 광석 칸 · 대장간 · 시간 순 환생) |
 | `Tests/UpgradeShopTests.client.lua` | 45 | 상점 표시 값(UpgradeConfig 원본) · 잠김(MAX · 블럭스 부족) · 사유 문구 · 요청 한 번만(결과 대기 · 시간 뒤 풀림 · 잠긴 줄) · 로벅스 자리 숨김 · 창 규격 · 행운 줄 문구(#11) · 8줄 스크롤 목록 · 줄 높이 유지 · 펫 슬롯 · 펫 행운 문구(#12) · 7줄(이동 속도 삭제 · '최대 속도 도달' 없음 — #13) · RobuxSlot 삭제 · 처음 탭 업그레이드(#16) |
-| `Tests/FeedbackTests.client.lua` | 44 | 클릭 팝업 증가분 · 문구 · 진행, HUD 환생 배수(서버와 같은 함수), 환생 안내(×이전 → ×이후 · 알림층 · 상단 띠 안), 운동기구 3D 표시 역할 · 문구, 패드 · 기구 본체 색 |
+| `Tests/FeedbackTests.client.lua` | 46 | 클릭 팝업 증가분 · 문구 · 진행, HUD 환생 배수(서버와 같은 함수), 환생 안내(×이전 → ×이후 · 알림층 · 상단 띠 안), 운동기구 3D 표시 역할 · 문구, 패드 · 기구 본체 색 · 필요 환생 수 정수 · 기구 모델 얹기(#42) |
 | `Systems/LogFoldTests.server.lua` | 11 | 첫 줄은 찍는다 · 창 안 반복은 접는다 · 창 뒤 'N번 더' 요약 + 새 줄 · 키(플레이어 · 사유)별 · ChallengeService 판정은 그대로 |
 | `Systems/RollLogicTests.server.lua` | 26 | 순차 판정 — 높은 등급 우선 · p 경계 · 행운 · p ≥ 1 확정 · 폴백(난수 안 씀) · 합 > 1 · 깨진 입력 · 분포 · seed 결정성 · 표본 |
 | `Systems/RollServiceTests.server.lua` | 28 | 행운 체인 G14 · 행운 업그레이드 1 + 증가량 × 레벨(G13) · 롤 상품은 아우라만 · 깨진 배수 · RNG 주입 · 복구 · seed · 결과 코드 · 앞 항이 없어도 뒤 항이 곱해진다(#12) |
@@ -138,7 +141,7 @@
 | `Tests/PetWindowTests.client.lua` | 62 | 알 탭 · 잠김 사유(해금 · 보관함 · 잔액) · 실제 확률 합 100 · 행운 · 희귀도 매핑 · 격자 · 슬롯 수 = 파생값 · 상세(크래프팅 가능 · 놓아주기 막힘) · 결과 판정(모달 · 토스트) · 요청 한 번만 · 놓아주기 확인 단계 · 추적 계획(내 펫 먼저 · 숨기기 · 파트 상한 · 자리 · 치는 모습) |
 | `Systems/GamepassServiceTests.server.lua` | 29 | 게임패스 소유 S1 — 조회 성공 · 실패 · RETRY_SEC 재시도 · 구매 완료 즉시 소유 · ID 0 조회 안 함 · 가짜 소유 Studio 전용(밖이면 무시 + ERROR) · 커밋된 TEST_GAMEPASSES = nil(#16) · G-OWN Studio 실제 소유 무시 · 실서버 그대로 · 구매 완료 반영 · 가짜 소유만(#17) |
 | `Systems/PolicyGateTests.server.lua` | 12 | 유료 랜덤 아이템 제한 S13 — 확인 전 · 판정 실패 · 필드 없음은 제한 · false만 허용 · 퇴장(#16) · 가짜 제한 판정 TEST_PAID_RANDOM_RESTRICTED(nil · Studio true · false · Studio 밖 · boolean 아님 ERROR · 응답보다 먼저 · 커밋 값 nil — #27 +5) |
-| `Systems/ProductServiceTests.server.lua` | 24 | 영수증 S2 · S3 — 같은 PurchaseId 두 번 지급 1회 · 프로필 미로드 · 저장 실패 NotProcessedYet · 지급 함수 없음 ERROR · 기록 상한 100 · ProfileStore Mock 실물 저장 확인(#16) · 분석 통지 onGranted 영수증당 1회(#23 A3) |
+| `Systems/ProductServiceTests.server.lua` | 25 | 영수증 S2 · S3 — 같은 PurchaseId 두 번 지급 1회 · 프로필 미로드 · 저장 실패 NotProcessedYet · 지급 함수 없음 ERROR · 기록 상한 100 · ProfileStore Mock 실물 저장 확인(#16) · 분석 통지 onGranted 영수증당 1회(#23 A3) · 선해금 12 영수증 멱등(#42) |
 | `Systems/PurchaseRequestServiceTests.server.lua` | 38 | 구매 요청 채널 — payload · 빈도 · 판정 순서(invalid_key · already_owned · restricted · not_registered · not_available) · 프롬프트 · 닫힘 결과 · 실물 게이트웨이 ID 0(#16) · 상위 보유 거부 ladder_owned_higher · auto_owned_higher · 선해금 already_unlocked(#17) · beta 개발자 상품 beta_disabled · 허용 목록 · 게임패스 판매 · studio · live 그대로(#23 E5) |
 | `Systems/ProductGrantsTests.server.lua` | 27 | 개발자 상품 지급 16 — 포션 · 번들(반쪽 지급 없음) · 롤 · 선해금 · 표 없음 거부 · 등록 16 · 같은 영수증 지급 1회 · 알림(#17) · 가짜 영수증 TEST_RECEIPTS(Studio + Mock만 · 커밋 값 nil — #17 단계 6) · #38 상품 16종 전부 같은 영수증 두 번 = 지급 1회 · 프로필 없음 NotProcessedYet |
 | `Systems/PotionRequestServiceTests.server.lua` | 12 | 포션 켜기 — payload · invalid · none_owned · 보관 −1 · 부스트 · 연장 · 제한 유저 행운 포션 · 부스트 실패 되돌림 · 빈도(#17) |
@@ -149,10 +152,10 @@
 | `Systems/BoostServiceTests.server.lua` | 18 | 부스트 S7 — 감소 · 연장 · 만료 · 같은 종류 한 번만 · 오프라인 중 안 줄어듦(남은 초 저장) · 요약 순서 · 숨김(#16) |
 | `Systems/AutoClickServiceTests.server.lua` | 20 | 자동 클리커 S8 — 초당 15 · 30 · 소수 이월 · 수동 무시 · 수동 상한 10 불변 · 미보유 not_owned · 보유가 사라지면 끔 · 세션 토글(#16) |
 | `Tests/RobuxShopTests.client.lua` | 82 | 로벅스 상점 UI — 탭 전환 · 표시 값(ShopConfig) · 보유 / 준비 중 / 구매 가능 · 계단 지금 단계 · 행운 줄 확률 숫자 · 제한 숨김 · 요청 한 번만 · HUD 구좌 · 자동 클리커 잠김 · 부스트 표시 · 뽑기 창 행운 · 환생 창 2배 · 공허 표시 · 폰 705×338 틀(11px · 넘침 0)(#16) · R2 보유(상위) · HUD 계단 구좌 다음 단계 · 사유 문구 2(#17) · 포션 묶음(줄 · 켜기 한 번 · 제한 숨김) · openPotions · 창별 상품 줄 · 부스트 표시 누르기(#17) · 사유 문구 beta_disabled(#23 E5) |
-| `Tests/WindowProductTests.client.lua` | 30 | 창별 상품 버튼 — 아우라 로벅스 탭 · 롤 사용 · 펫 로벅스 탭 · ×3 부화 · 칭호 10배 행운 버튼 · 운동기구 프롬프트 · 선해금 표시 · 폰 705×338 넘침 0 · 11px(#17) |
+| `Tests/WindowProductTests.client.lua` | 31 | 창별 상품 버튼 — 아우라 로벅스 탭 · 롤 사용 · 펫 로벅스 탭 · ×3 부화 · 칭호 10배 행운 버튼 · 운동기구 프롬프트 · 선해금 표시 · 폰 705×338 넘침 0 · 11px(#17) · 미등록 선해금 프롬프트 끔(#42) |
 | `Tests/AutoAdvanceWindowTests.client.lua` | 28 | 자동 진행 UI — 창 값 = 서버 요약 · 목표층 범위 · 기본 = 안전층 · 버튼 색 · 글자(안전층 경계) · 요청 한 번만 · 켜지면 닫힘 · HUD 세 상태 · 상태 줄 · 사유 · 워프 · 환생 auto_active 문구 · 17키 en · ko · 폰 705×338(#18) |
 | `Tests/LocaleTests.server.lua` | 39 | 다국어 표 · 고르기(#L1) — 모든 키에 en · 자리 표시 집합 = en · 없는 키 "?" + WARN · ko 없으면 en · 치환 · 언어 고르기(K2) · TEST_LOCALE 관문(Studio 전용) · Config id → 이름 키(K6) · 커밋된 TEST_LOCALE = nil · K11 신호 기다리기(바로 · 늦게 · 상한) · 서버가 LocaleReady를 세운다(#L2) |
-| `Tests/LocaleLangTests.server.lua` | 28 | 유럽 4개 언어(#40) — 지원 언어 6 · Lang 파일 목록 · 언어 판별(es-mx · pt-pt · fr-ca · 대문자 · 밑줄 · 그 밖 en) · 고아 키 0 · 언어마다 모든 키 · 자리 표시 = en · 줄바꿈 = en · 없거나 빈 번역 → en · 메뉴 라벨 8자 · TEST_LOCALE de · Kick 안내문 |
+| `Tests/LocaleLangTests.server.lua` | 37 | 유럽 4개 언어(#40) — 지원 언어 6 · Lang 파일 목록 · 언어 판별(es-mx · pt-pt · fr-ca · 대문자 · 밑줄 · 그 밖 en) · 고아 키 0 · 언어마다 모든 키 · 자리 표시 = en · 줄바꿈 = en · 없거나 빈 번역 → en · 메뉴 라벨 8자 · TEST_LOCALE de · Kick 안내문 · 이름 번역 규칙(#42 — 이름 키 빼고 모든 키 · 이름 키 Lang에 없음 · 꼴마다 키 · 이름은 영어 · 문장은 그 언어) |
 | `Tests/LocaleClientTests.client.lua` | 27 | K10 우리 GUI 루트 전수 AutoLocalize = false(예외: Freecam · 플레이스 StarterGui 복사본) · K11 지금 언어 = TEST_LOCALE 또는 계정 언어 · 첫 언어는 서버 신호 뒤 · 신호 전 기억 없는 호출 0 · 토스트 setLimit · 알림층 폰 705×338 틀(런 안내 3 · 오류 · 로딩 · 환생 안내 · 가장 긴 칭호 · 아우라 · 펫 토스트 · 결과 모달 — 넘침 0 · 11px · 그 Play의 언어) · 토스트 폰 예외(2개 · 두 줄)(#L2) · 글자 전부 UiTheme.FONT · 힘 블록 환생 배수 라벨 폰 한 줄 · 값 · 힘 수치와 안 겹침(#17 F1 · F2) · K10 화면이 상한 15초 안에 섰다(#26 +1) · **방식 변경(#26):** K11 Studio 전용 2개는 Studio 밖이면 건너뜀 2개로 센다 · 모달 등장 연출은 자기 판만 끝낸다(#27 — finishAll 경합 · 개수 그대로) |
 | `Systems/RewardServiceTests.server.lua` | 19 | 무료 보상 지급 R1 — 형식(포션 힘 · 데미지만 · bloxScaled · 펫) · bloxScaled 양(maxStage 0 · 9 · 25 · 상한) · 세 형식 지급 · 전부 아니면 0(틀린 항목 · 보관함 가득 · 블럭스 거부 · 프로필 없음) · PetService.grant(uid · 자동 장착 · 새 펫 저장 · 가득)(#20) |
 | `Systems/DailyServiceTests.server.lua` | 35 | 일일 보상 D1 ~ D5 · T1 — UTC 일 번호 경계 · 판정(처음 · 연속 · 끊김 · 오늘 · 7일 뒤 · 깨진 값) · 받기 · 같은 날 두 번 · 7일째 리미티드 · 보관함 가득 거부 후 같은 날 성공 · 날이 바뀌면 1일 · 요청 채널 · 리미티드(알 표에 없음 · 크래프팅) · 보상표 · TEST_DAY_OFFSET 관문 · 커밋 nil · PlayerState daily(#20) |
@@ -173,7 +176,7 @@
 | `Data/ProfileManagerTests.server.lua` | 18 | 데이터 안전(#38 — 가짜 저장소) — 저장소 없음 · 세션 잠금 실패 · 로딩 중 나감 · 버전 오류 · 손상 → 킥 키 · 세션 닫음 · 킥 문구 en · ko · 세션 끝 경고 구분 · 서버 종료 12명 저장 기다림 · 상한 · 프로필 크기(3시간 · 최악 vs 4,194,304) · 음수 재화 → 0 · 경고(#39) |
 | `Tests/AnalyticsFunnelTests.server.lua` | 25 | 분석 #38 — 한도 · 온보딩 9단계 이름 · 지난 단계 계산(줄지 않는 값 · 차례) · 처음 온 사람 · 돌아온 사람 · 중복 없음 · 곡괭이 종 수 · 코인 경제(모아 보내기 · Sink · 자원 따로) · 나가면 지움 |
 | `Tests/UiKitTests.client.lua` | 53 | UI 키트(#39) — 역할 이름(role · grade · rarity · text · 모르는 이름 오류) · 스킨 기본값 = #39 이전 숫자 · UiSkin 빈 표 · 덮기 · 되돌리기 · styleText · card · skinImage · tab · gauge · toastRow · oddsRow · currencyChip · modalPanel · dim · 틀 여백(0이면 이전 식 · 두께만큼 안으로 · Panel.create) · 미리보기 게이트(flagOn · 커밋 nil · STUDIO_FLAGS) · 창 전부 예시로 만들어짐 · 등급 5종 · AssetSlots UI 칸 · 긴 문장 |
-| **합계** | **4959** | 서버 83행 3381 · 클라 46행 1578 — 2026-11-26 #40 Play 2번 실측(Studio 플래그 전부 nil · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
+| **합계** | **4983** | 서버 83행 3402 · 클라 46행 1581 — 2026-11-26 #42 Play 2번 실측(Studio 플래그 전부 nil · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -201,10 +204,25 @@
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
+최근 갱신: **2026-11-26 Studio Play 런타임 실측 (전량, 지시서 #42 — 이름 번역 규칙 · 정수 표시 · 운동기구 A2 · 플래그 전부 nil Play 2번 + 작업 중 1번).**
+129개 행 전부가 같은 개수로 찍혔다. **4983 passed / 0 failed** — 서버 3402(83행) + 클라 1581(46행). 끝 표시 `server 83/83 files · 3402` ·
+`client 46/46 files · 1581`. 시작 기준 Play는 #41 최종과 같았다(4959).
+
+```
+바뀐 행 LocaleLangTests      28 → 37   이름 키 빼고 모든 키(바꿈) · 언어마다 이름 키가 Lang에 없다 +4 · 꼴마다 키 +1 · 언어마다 이름 영어 · 문장 그 언어 +4 (e184604)
+바뀐 행 FormatterTests       33 → 37   formatCount +4 (c8727d2)
+바뀐 행 GymServiceTests      46 → 53   A2 +7 · 2줄 → 3줄 × 5열 · 선해금 가격 기대 고침 (80ead84)
+바뀐 행 ProductServiceTests  24 → 25   선해금 12 영수증 멱등 +1 (80ead84)
+바뀐 행 FeedbackTests        44 → 46   필요 환생 수 정수 +1 (c8727d2) · 기구 모델 얹기 +1 (80ead84)
+바뀐 행 WindowProductTests   30 → 31   미등록 선해금 프롬프트 끔 +1 (80ead84)
+기대만  ConfigTests 103 · EconomyV2Tests 50 · OnboardingTipsTests 28 · RebirthWindowTests 41 · RebirthV2WindowTests 15 — 개수 그대로
+대조   서버 3381 + 9 + 4 + 7 + 1 = 3402 · 클라 1578 + 2 + 1 = 1581 · 합 4959 + 24 = 4983 · 새 행 0
+```
+
 재실측: **2026-11-26 지시서 #41 — 시작 기준 · 끝 Play 2번 모두 4959 / 0 failed(서버 83/83 3381 · 클라 46/46 1578) — 행 · 개수 그대로.**
 UiFxTests "누름" 흔들림 근본 수정(기준 틀 비교 · 따로 노는 연출 설정 — 개수 59 그대로) 뒤 커서를 시험 버튼 위에 둔 Play 3번 · MCP 마우스 직후 Play 1번 0 failed.
 
-최근 갱신: **2026-11-26 Studio Play 런타임 실측 (전량, 지시서 #40 — 다국어 확장 · 플래그 전부 nil Play 2번).**
+이전 갱신: **2026-11-26 Studio Play 런타임 실측 (전량, 지시서 #40 — 다국어 확장 · 플래그 전부 nil Play 2번).**
 129개 행 전부가 두 Play 모두에 같은 개수로 찍혔다. **4959 passed / 0 failed** — 서버 3381(83행) + 클라 1578(46행). 끝 표시 `server 83/83 files · 3381` ·
 `client 46/46 files · 1578`. 기준은 #39 최종(서버 82/82 3353 · 클라 46/46 1578).
 
@@ -1715,6 +1733,7 @@ MCP로 기기 해상도를 바꿀 수 없다) 하나다(→ `docs/PENDING.md` "�
 상태 (2026-10-22, 지시서 #6 뒤)
 U0 · U1   완료
 U2        G1 통과(2026-08-23). ✅ 1월 UI는 템플릿 방식(#41 희준 결정) — G2 · G4는 미리보기 · 테스트로 대체, 스킨 관문(docs/UI.md "UI 키트")
+          · 관문 언어는 en · ko + LONG(#42 희준 결정 — 유럽 4개 언어 화면 확인은 1월 말)
 U3        완료 — HUD 7종 · Play 확인 · U3-10b · 모바일 9번(Galaxy A06 시뮬레이션) 통과,
           HUD가 서버 값을 보인다(PlayerState 채널, f28f8b0). G4(세이프존)는 G1~G3 뒤
           폰 결함 수정(fd6cf4d) — 점프 버튼 자리 비키기 · 글자 하한 11px. 패드 표시 3장(55c3b05)
@@ -1980,6 +1999,11 @@ x2 Rebirths 판매 중지(체크리스트 30 — 지금 바로) · 게임 아바
 [코드]  ✅ #41 언어별 화면 확인(4개 언어 · 35장 — 별대장간 곡괭이 이름 줄임 · 미리보기 예시 실제 문장) · UiFxTests 흔들림 근본 수정
 [코드]  ✅ #41 EconomyReport "gym" 모드 — 운동기구 선택지 측정(docs/GYM_OPTIONS.md · 결정은 희준)
 [결정]  ✅ #41 1월 UI = 템플릿 방식(희준) — G2 · G4 대체 · 스킨 관문 · AI UI 그림 허용(docs/UI.md "UI 키트")
+[결정]  ✅ #42 이름 번역 규칙(희준) — UI 확정 전 고유 이름은 en · ko만 · 스킨 관문 언어 en · ko + LONG · 운동기구 A2
+[코드]  ✅ #42 이름 키 102개 4개 언어에서 지움(NameKeys.lua 한 곳 · check_strings 예외) · 정수 표시(Formatter.formatCount) ·
+        운동기구 A2(12기구 · 3줄 × 5열 · 선해금 12종 — 9 ~ 12 ID nil · 모델 자리 13 · EconomyReport A2 값 같음)
+[수동]  #42 대시보드 선해금 새 4개 등록(ID → GYM_UNLOCK_NEW_IDS) · 기존 7개 가격 바꾸기 — docs/DASHBOARD_PRODUCTS.md 5절
+[수동]  #42 4개 언어 이름 번역 · 화면 확인 — 1월 말(UI · 이름 확정 뒤 · NameKeys.ENGLISH_ONLY 끄기 — docs/LOCALIZATION.md "이름 번역 규칙")
 [수동]  #40 번역 — 원어민 검수는 출시 전 필수 아님(#41 희준): 1월 GPT 교차 검토 · 2월 테스터 의견 · 출시 뒤 많은 언어부터 · 상품 번역은 체크리스트 35
 [코드]  Analytics (D1/D7/D30 리텐션 측정) → 경제 · 커스텀 이벤트 래퍼(#23 A1 ~ A5 — DESIGN 14장) + ✅ #38 온보딩 퍼널 9단계 · 코인 · pickaxe_kinds(14-2). 리텐션 차트는 대시보드 몫
 [수동]  비공개 테스트 → 밸런싱 조정
@@ -2062,6 +2086,11 @@ x2 Rebirths 판매 중지(체크리스트 30 — 지금 바로) · 게임 아바
     증거: 온보딩 퍼널 9단계 · 이름 붙은 퍼널 FirstGuide · 경제 자원 Blox · Coins · 커스텀 pickaxe_kinds가 보이는 화면(차트는 보통 24시간 뒤 — DESIGN 14-2)
 34. 게임 이름 · 설명 번역(#41) — 사람 · 1월 말 · ko · es · pt · fr · de · Creator Hub 현지화 메뉴(검색 · 추천 노출) · 증거: 언어별 화면 캡처
 35. 게임패스 · 개발자 상품 이름 · 설명 번역(#41 · 선택) — 사람 · 1월 말 · 문장은 Lang/<코드>.lua shop.* (docs/LOCALIZATION.md 3절) · 증거: 대시보드 캡처
+    (#42: 상품 이름은 36 뒤에 — 지금 4개 언어 이름 문장이 없다)
+36. 4개 언어 고유 이름 번역 · 화면 확인(#42 이름 번역 규칙) — CC + 사람 · 1월 말 UI · 이름 확정 뒤 · NameKeys.ENGLISH_ONLY = false →
+    Lang 4개 파일에 이름 키 · TEST_LOCALE 언어마다 Play(넘침 0) + 미리보기 LONG · 증거: check_strings 0 failed · 언어별 스크린샷
+37. 운동기구 선해금 상품(#42) — 사람 · 시험 뒤 · 새 4개(Gym 9 ~ 12 Unlock) 등록 → ID · 기존 7개 가격 바꾸기 · 증거: 서버 시작 로그
+    `[ShopPriceCheck]` mismatch 0 · Gym 9 ~ 12 프롬프트가 켜짐
 
 **D. 출시 당일**
 23. `DATA_ENV = "live"` 한 줄 커밋 — CC · `Shared/Config/DataConfig` · 증거: 커밋 해시 · DataConfigTests 통과 · 실서버 로그 `[Data] env=live store=PlayerData_live_v2`(#37 — 저장소 이름 _v2)

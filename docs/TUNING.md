@@ -1,6 +1,6 @@
 # 튜닝 안내 — 혼자 값을 바꾸고 결과를 보는 법
 
-문서 갱신: 2026-11-25 (지시서 #38 — 테스트 프리셋 새 경제로 다시 뽑음 · 11절 서버 성능 · 네트워크 · 상한)
+문서 갱신: 2026-11-26 (지시서 #42 — 운동기구 A2 손잡이 · 프리셋 그대로 · PresetExport 5초 기다림)
 
 이 문서는 **사람(희준)용 한 장**이다. 값을 하나 바꾸고, Play 한 번으로 결과를 읽고, 되돌리는 순서를 적는다.
 ⚠️ 여기에는 **수치를 적지 않는다.** 지금 값은 언제나 Config 파일이 원본이다(복사본은 반드시 어긋난다 — CLAUDE.md "문서").
@@ -74,10 +74,11 @@
 - 같이 볼 것: 1~8층 성공률 · 표준 경로 25층 도달 분
 - 관계: 0보다 커야 한다
 
-**운동기구 배수** — `Shared/Config/GymConfig` `TIERS`의 `multiplier`
-- 움직이는 것: 막혔을 때 기구에서 올리는 힘 → 환생 사이 정체 시간
-- 같이 볼 것: 환생 횟수 · 25층 시간
-- 관계: 각 배수 > 1 · 뒤 기구가 앞 기구보다 커야 한다 · 공허(로벅스)가 가장 크다(validate)
+**운동기구 배수 · 해금** — `Shared/Config/GymConfig` `TIERS`의 `multiplier` · `unlockRebirths`(#42 A2 — 12기구 + 공허 · TEMP)
+- 움직이는 것: 막혔을 때 기구에서 올리는 힘 → 환생 사이 정체 시간 · 환생마다 기구가 열리는 간격
+- 같이 볼 것: 환생 횟수 · 25층 시간 · 15종 시간 — EconomyReport MODE "gym"(첫 줄 "지금 A2" = 게임 값 · 예전 8기구 비교 줄 · `docs/GYM_OPTIONS.md` 5절)
+- 관계: 각 배수 > 1 · 뒤 기구가 앞 기구보다 커야 한다 · 해금 환생 수 순증가 · 공허(로벅스)가 가장 크다 · 선해금 가격(ShopConfig.GYM_UNLOCK_PRICES)도
+  기구 수만큼 · 순증가 · 공허 799 아래(validate). 기구 수를 바꾸면 GymLayout(3줄 × 5열)과 선해금 상품 수 · AssetSlots 모델 칸도 따라 바뀐다
 
 **워프 가격** — `Shared/Config/WarpConfig` 상단 `TEMP_COST_BASE` · `TEMP_COST_RATIO`
 - 움직이는 것: 워프를 쓰는 사람의 시간. 표준 플레이어는 워프를 안 쓰므로 요약 숫자는 거의 안 움직인다
@@ -180,6 +181,7 @@ LOOP_SEC 0.1 · REQUEST_MIN_INTERVAL_SEC 0.5   서버 루프 주기 · 요청 �
   대장간 열림 · 칭호 · 아우라 · 업그레이드 · 패드 · 첫 접속 안내(fresh만 처음부터) · 새 경제 안내(그 상태에서 지난 것은 본 것으로)
 - **실제 개발 계정 데이터에는 읽기도 쓰기도 하지 않는다.** Play를 멈추면 프리셋 상태는 사라진다(ProfileStore Mock)
 - Studio에서만 켜진다. 라이브 서버에서는 무시되고 경고가 찍힌다
+- #42(운동기구 A2)에서는 다시 뽑아 비교만 했다 — 6개 시점의 시각 · 환생 수 · 최고 층이 같아 표는 그대로(PENDING "#42 남은 것")
 - **게임 수치를 바꾼 뒤에는 프리셋도 옛 값**이 된다 — 다시 뽑기: Bootstrap `PRESET_EXPORT_ENABLED = true` → Play →
   약 8분 뒤 `[PRESET]` 줄 6개(그대로 `Shared/Config/TestPresets`에 옮길 Lua 표) → 플래그 false로 되돌림. 도구 `Server/Tools/PresetExport`
 - 테스트 개수는 프리셋을 켠 Play에서 세지 않는다(TestPresetGateTests "커밋 값 nil" 한 줄이 실패한다)

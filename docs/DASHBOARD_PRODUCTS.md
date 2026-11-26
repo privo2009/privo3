@@ -11,7 +11,7 @@ Creator Dashboard에 만들 로벅스 상품 전부와, 만든 뒤 ID를 적을 
 한국어(Strings의 ko — 아래 표의 이름 · 설명)는 대시보드 번역 자리(Localization → Translate → 한국어 → Products 탭)에 사람이 넣는다
 (`docs/LOCALIZATION.md` 3절 "대시보드 상품 이름의 번역"). 영어 목록은 `python3 -I tools/export_localization_csv.py`의 `shop.` 줄로도 뽑을 수 있다.
 
-문서 갱신: 2026-10-30 (지시서 #17 — 대시보드 등록 완료 · 39개 ID · 가격 · 대시보드 이름)
+문서 갱신: 2026-11-26 (지시서 #42 — 운동기구 선해금 12종: 새 4개 등록 대기 · 2 ~ 8 가격 바꾸기)
 
 ---
 
@@ -119,13 +119,27 @@ damagePotion    Damage Potion      3722238762     19
 luckPotion    ★ Luck Potion        3722238841     29
 potionBundle  ★ Potion Bundle      3722238982    999
 gymUnlock1      Gym 1 Unlock       3722239093     29
-gymUnlock2      Gym 2 Unlock       3722239174     49
-gymUnlock3      Gym 3 Unlock       3722239239     79
-gymUnlock4      Gym 4 Unlock       3722239675     99
-gymUnlock5      Gym 5 Unlock       3722239721    149
-gymUnlock6      Gym 6 Unlock       3722239888    199
-gymUnlock7      Gym 7 Unlock       3722240101    299
-gymUnlock8      Gym 8 Unlock       3722240268    449
+gymUnlock2      Gym 2 Unlock       3722239174     39   ← 대시보드 49 → 39로 바꾸기(#42)
+gymUnlock3      Gym 3 Unlock       3722239239     49   ← 79 → 49
+gymUnlock4      Gym 4 Unlock       3722239675     69   ← 99 → 69
+gymUnlock5      Gym 5 Unlock       3722239721     79   ← 149 → 79
+gymUnlock6      Gym 6 Unlock       3722239888     99   ← 199 → 99
+gymUnlock7      Gym 7 Unlock       3722240101    129   ← 299 → 129
+gymUnlock8      Gym 8 Unlock       3722240268    149   ← 449 → 149
+```
+
+**운동기구 개편 A2(지시서 #42 — 2026-11-26 희준 결정 · `DESIGN.md` "운동기구 개편 A2")** — 선해금이 12종이 됐다.
+- **사람 작업 1: 새 개발자 상품 4개 등록**(설명 영어 = `Strings` `shop.gymUnlock.desc` — "Unlocks Gym {n} regardless of Rebirths"의 {n}에 번호).
+  등록하면 ID를 알려 준다 → `ShopConfig.GYM_UNLOCK_NEW_IDS`에 넣는다(지금 nil — nil이면 상품 표에 없어 "로벅스로 열기" 프롬프트 · 구매 · 지급이 없다.
+  기구는 환생으로 열린다).
+- **사람 작업 2: 기존 7개(gymUnlock2 ~ 8) 대시보드 가격 바꾸기**(위 표 ← 줄). 가격은 TEMP(GYM_OPTIONS 제안 — 29 ~ 449를 12칸에).
+  바꾸기 전에는 서버 시작 때 `[ShopPriceCheck] WARN mismatch` 7줄이 찍힌다(게임 화면 가격 = ShopConfig, 실제 결제 = 대시보드 가격).
+```
+키              대시보드 이름       R$    설명(영어)                                  ID
+gymUnlock9      Gym 9 Unlock       199    Unlocks Gym 9 regardless of Rebirths        (빈칸 — 사람 등록 대기)
+gymUnlock10     Gym 10 Unlock      249    Unlocks Gym 10 regardless of Rebirths       (빈칸 — 사람 등록 대기)
+gymUnlock11     Gym 11 Unlock      299    Unlocks Gym 11 regardless of Rebirths       (빈칸 — 사람 등록 대기)
+gymUnlock12     Gym 12 Unlock      449    Unlocks Gym 12 regardless of Rebirths       (빈칸 — 사람 등록 대기)
 ```
 지급(지시서 #17): 롤 → `rollCredits` · 포션 → `potions` 보관함(번들은 종류마다 +99) · 선해금 → `gymUnlocks` 기록. 규칙은 `DESIGN.md` 9장 "구매 규칙 · 지급 · 사용".
 
