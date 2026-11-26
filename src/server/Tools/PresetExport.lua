@@ -128,6 +128,9 @@ end
 
 function PresetExport.run()
 	if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
+	-- 시작 직후 테스트들이 MODEL · Config를 잠깐 흔들고 시뮬레이터 런을 돌리는 동안 기다린다(EconomyReport.run과 같은 이유).
+	-- #42: 기다리지 않으면 그 테스트 플레이어가 스냅숏에 섞였다(40명 → 56명 · 30분 힘 50배)
+	task.wait(5)
 	local EconomyReport = require(script.Parent.EconomyReport) :: any
 	print(string.format("[PRESET] ===== 뽑기 시작 (V4 · %d명)", PresetExport.PLAYERS))
 	local byPlayer: { [any]: { [string]: any } } = {}

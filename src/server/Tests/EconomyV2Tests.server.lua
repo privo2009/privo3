@@ -59,8 +59,8 @@ check("설정: 교환 비용(희귀 3 · 4 · 5 · 7 / 에픽 2 · 3 · 5 · 9 /
 		and table.concat(got.legendary, ",") == "50"
 end)())
 check("설정: 별 소모 1 · 3 · 5 · 7 · 10(누적 26) · 강화 +10", table.concat(Config.STAR_CONSUME, ",") == "1,3,5,7,10" and Config.ENHANCE_MAX == 10)
--- 운동기구 해금 환생 수(TEMP — #37에서 EconomyV2Config.GYM_UNLOCK_REBIRTHS → GymConfig 기구 표로 옮김 · 값 그대로)
-local GYM_UNLOCK = { 1, 2, 3, 5, 7, 9, 12, 15 }
+-- 운동기구 해금 환생 수(TEMP — #37에서 EconomyV2Config.GYM_UNLOCK_REBIRTHS → GymConfig 기구 표로 옮김 · #42 운동기구 개편 A2 12기구)
+local GYM_UNLOCK = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13, 15 }
 check("설정: 운동기구 해금 수 = 환생 기구 수", #GYM_UNLOCK == GymConfig.getRebirthTierCount())
 
 -- 2. 광석 · 게이지(정수) --------------------------------------------------------------------------

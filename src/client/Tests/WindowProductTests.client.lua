@@ -188,6 +188,11 @@ do
 	check("서버 꼴(프로필 {[\"3\"] = true})도 그대로", GymLayout.shopUnlocked({ ["3"] = true }, function()
 		return false
 	end)(3))
+	-- #42 A2: 선해금 9 ~ 12는 ID nil(상품 표에 없음) → 잠겨 있어도 프롬프트를 켜지 않는다 · 글자는 이름 꼴 그대로("?" 없음)
+	local p9 = WorldLabelLogic.gymPrompt(9, zero, none)
+	check("기구 프롬프트(#42): 등록 전 선해금 9 → 끔 · 글자 Gym 9 이름 · 199 R$", not p9.enabled and p9.key == "gymUnlock9"
+		and string.find(p9.objectText, "199 R$", 1, true) ~= nil and string.find(p9.objectText, "?", 1, true) == nil
+		and string.find(p9.objectText, Locale.t("shop.gymUnlock.name", { n = 9 }), 1, true) ~= nil, p9.objectText)
 end
 
 -- 4. 폰 틀 705×338 — 세 창의 새 칸(로벅스 탭 · 사용 · ×3 · 상품 버튼) 넘침 0 · 11px (그 Play의 언어) -----------------

@@ -84,8 +84,9 @@ local function productKeyAndParams(key: string): (string, { [string]: any }?)
 	local def = ShopConfig.get(key)
 	if def ~= nil and def.effect.type == "strengthTier" then
 		return "shop.strengthTier", { mult = def.effect.mult }
-	elseif def ~= nil and def.effect.type == "gymUnlock" then
-		return "shop.gymUnlock", { n = def.effect.gymIndex }
+	elseif ShopConfig.gymUnlockIndex(key) ~= nil then
+		-- 운동기구 선해금(등록 전 9 ~ 12도 — #42: ID nil이면 상품 표에 없지만 이름은 같은 꼴)
+		return "shop.gymUnlock", { n = ShopConfig.gymUnlockIndex(key) }
 	end
 	return "shop." .. key, nil
 end

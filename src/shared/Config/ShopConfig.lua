@@ -79,14 +79,15 @@ ShopConfig.PRODUCT_IDS = {
 	damagePotion   = 3722238762, -- Damage Potion · 19 R$
 	luckPotion     = 3722238841, -- Luck Potion · 29 R$
 	potionBundle   = 3722238982, -- Potion Bundle · 999 R$
+	-- 운동기구 선해금 1 ~ 8(가격은 아래 GYM_UNLOCK_PRICES — #42 A2에서 2 ~ 8 가격이 바뀌었다. 대시보드 가격 바꾸기는 사람 · 괄호 = 예전 가격)
 	gymUnlock1     = 3722239093, -- Gym 1 Unlock · 29 R$
-	gymUnlock2     = 3722239174, -- Gym 2 Unlock · 49 R$
-	gymUnlock3     = 3722239239, -- Gym 3 Unlock · 79 R$
-	gymUnlock4     = 3722239675, -- Gym 4 Unlock · 99 R$
-	gymUnlock5     = 3722239721, -- Gym 5 Unlock · 149 R$
-	gymUnlock6     = 3722239888, -- Gym 6 Unlock · 199 R$
-	gymUnlock7     = 3722240101, -- Gym 7 Unlock · 299 R$
-	gymUnlock8     = 3722240268, -- Gym 8 Unlock · 449 R$
+	gymUnlock2     = 3722239174, -- Gym 2 Unlock · 39 R$ (49)
+	gymUnlock3     = 3722239239, -- Gym 3 Unlock · 49 R$ (79)
+	gymUnlock4     = 3722239675, -- Gym 4 Unlock · 69 R$ (99)
+	gymUnlock5     = 3722239721, -- Gym 5 Unlock · 79 R$ (149)
+	gymUnlock6     = 3722239888, -- Gym 6 Unlock · 99 R$ (199)
+	gymUnlock7     = 3722240101, -- Gym 7 Unlock · 129 R$ (299)
+	gymUnlock8     = 3722240268, -- Gym 8 Unlock · 149 R$ (449)
 } :: { [string]: number }
 
 local Products: { [string]: ProductDef } = {}
@@ -138,12 +139,55 @@ product("damagePotion", 19, { type = "potion", boost = "damage", count = 1 })
 product("luckPotion", 29, { type = "potion", boost = "luck", count = 1 }, true)
 product("potionBundle", 999, { type = "potionBundle", counts = { strength = 99, damage = 99, luck = 99 } }, true)
 
--- 운동기구 선해금 8종. 가격은 2026-10-21 GymConfig 값 그대로(29 ~ 449). GymConfig는 이 키로 참조한다(원본 한 곳).
-ShopConfig.GYM_UNLOCKS = {} :: { string }
-for i, price in ipairs({ 29, 49, 79, 99, 149, 199, 299, 449 }) do
-	local key = "gymUnlock" .. i
-	product(key, price, { type = "gymUnlock", gymIndex = i })
-	table.insert(ShopConfig.GYM_UNLOCKS, key)
+-- 운동기구 선해금 12종(지시서 #42 — 운동기구 개편 A2 · docs/GYM_OPTIONS.md). 번호 i = 기구 i번(GymConfig productKey "gymUnlock<i>").
+-- ⚠️ TEMP 가격 — GYM_OPTIONS 제안: 29 ~ 449를 12칸에 · 공허(799)보다 아래 · 맨 위 기구(×8)는 예전 맨 위와 같은 449.
+--    예전 가격 단위(29 · 49 · 79 · 99 · 149 · 199 · 299 · 449)에 39 · 69 · 129 · 249를 끼웠다.
+--    1 ~ 8은 대시보드에 등록돼 있다 — 2 ~ 8은 가격이 바뀌어 대시보드 가격도 바꿔야 한다(사람 · 그전까지 서버 시작 때 ShopPriceCheck WARN).
+-- 9 ~ 12는 ID nil(사람 등록 대기 — GYM_UNLOCK_NEW_IDS). **nil이면 상품 표(Products)에 넣지 않는다**(새 경제 게임패스와 같은 규칙):
+--    3D "로벅스로 열기" 프롬프트 · 구매 · 지급이 없다. 기구 자체는 환생으로 열린다. 가격은 등록과 상관없이 GYM_UNLOCK_PRICES에서 읽는다.
+ShopConfig.GYM_UNLOCK_PRICES = { 29, 39, 49, 69, 79, 99, 129, 149, 199, 249, 299, 449 } :: { number }
+ShopConfig.GYM_UNLOCK_NEW_IDS = {
+	gymUnlock9 = nil :: number?, -- Gym 9 Unlock · 199 R$ (사람 등록 대기)
+	gymUnlock10 = nil :: number?, -- Gym 10 Unlock · 249 R$ (사람 등록 대기)
+	gymUnlock11 = nil :: number?, -- Gym 11 Unlock · 299 R$ (사람 등록 대기)
+	gymUnlock12 = nil :: number?, -- Gym 12 Unlock · 449 R$ (사람 등록 대기)
+}
+-- 선해금 상품 줄(순수 — 테스트가 가짜 ID 표로 부른다): 가격표 번호마다 ID가 있는 것만(PRODUCT_IDS 또는 GYM_UNLOCK_NEW_IDS).
+export type GymUnlockRow = { key: string, id: number, price: number, gymIndex: number }
+function ShopConfig.gymUnlockRows(productIds: { [string]: number }, newIds: { [string]: number? }): { GymUnlockRow }
+	local out: { GymUnlockRow } = {}
+	for i, price in ipairs(ShopConfig.GYM_UNLOCK_PRICES) do
+		local key = "gymUnlock" .. i
+		local id = productIds[key] or newIds[key]
+		if id ~= nil then
+			table.insert(out, { key = key, id = id, price = price, gymIndex = i })
+		end
+	end
+	return out
+end
+ShopConfig.GYM_UNLOCKS = {} :: { string } -- 상품 표에 있는(대시보드에 등록된) 선해금 키만
+for _, row in ipairs(ShopConfig.gymUnlockRows(ShopConfig.PRODUCT_IDS, ShopConfig.GYM_UNLOCK_NEW_IDS :: any)) do
+	ShopConfig.PRODUCT_IDS[row.key] = row.id
+	product(row.key, row.price, { type = "gymUnlock", gymIndex = row.gymIndex })
+	table.insert(ShopConfig.GYM_UNLOCKS, row.key)
+end
+
+-- 기구 i번 선해금 가격(등록 여부와 상관없이). 없는 번호면 nil.
+function ShopConfig.gymUnlockPrice(index: number): number?
+	return ShopConfig.GYM_UNLOCK_PRICES[index]
+end
+
+-- "gymUnlock<번호>" 꼴 키의 기구 번호(가격표에 있는 번호만 — 등록 여부와 상관없이). 아니면 nil.
+-- 이름(Names.product — "Gym {n} Unlock")이 등록 전 상품에도 번호를 쓰게 한다.
+function ShopConfig.gymUnlockIndex(key: any): number?
+	if type(key) ~= "string" then
+		return nil
+	end
+	local n = tonumber(string.match(key, "^gymUnlock(%d+)$"))
+	if n ~= nil and ShopConfig.GYM_UNLOCK_PRICES[n] ~= nil then
+		return n
+	end
+	return nil
 end
 
 -- 상점 창 로벅스 탭 순서(게임패스). 힘 배수 계단은 이 목록 앞에 한 줄로 따로 그린다.

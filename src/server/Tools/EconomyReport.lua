@@ -271,6 +271,7 @@ local function withBundle(b: Bundle, fn: () -> ())
 		click = SRR.clickMultiplier,
 		damage = SRR.damageMultiplier,
 		gym = SRR.gymUnlockedCount,
+		gymMult = SRR.gymMultiplier,
 		blox = SRR.bloxMultiplier,
 		targets = SRR.S5_TARGETS,
 		warp = MODEL.WARP_POLICY,
@@ -304,6 +305,7 @@ local function withBundle(b: Bundle, fn: () -> ())
 	SRR.clickMultiplier = savedSRR.click
 	SRR.damageMultiplier = savedSRR.damage
 	SRR.gymUnlockedCount = savedSRR.gym
+	SRR.gymMultiplier = savedSRR.gymMult
 	SRR.S5_TARGETS = savedSRR.targets
 	MODEL.WARP_POLICY = savedSRR.warp
 	if not ok then
@@ -682,6 +684,7 @@ local function measureV2(b: Bundle, players: number): any
 		SRR.gymUnlockedCount = function(p: any): number
 			return GymConfig.getUnlockedCount(p.rebirths)
 		end
+		SRR.gymMultiplier = GymConfig.getMultiplier -- 배수도 게임과 같은 표(#42 — 기본은 옛 모델 표)
 		if b.gymUnlock ~= nil then
 			SRR.gymUnlockedCount = b.gymUnlock
 		end
@@ -1274,9 +1277,11 @@ local function byStage(stages: { number }): (any) -> number
 end
 local NOW8 = { { 1, 1.2 }, { 2, 1.5 }, { 3, 2 }, { 5, 2.5 }, { 7, 3 }, { 9, 4 }, { 12, 5 }, { 15, 8 } }
 EconomyReport.GYM_OPTIONS = {
-	{ label = "G0 지금(8기구 · 환생 1~15 · ×1.2~×8)", set = {} },
-	{ label = "G0 · 기구 안 씀(비교)", set = {}, gymTrainSec = 0 },
-	{ label = "G0 · 공허 구매자(비교)", set = {}, ownsVoid = true },
+	-- #42: A2 채택 — "지금"이 A2다(게임 GymConfig). 예전 8기구(G0)는 비교 줄로 남긴다. 지금 = 아래 A2 줄과 같은 값이어야 한다
+	{ label = "지금 A2(GymConfig · 12기구 · 환생 1~15 · ×1.2~×8)", set = {} },
+	{ label = "지금 · 기구 안 씀(비교)", set = {}, gymTrainSec = 0 },
+	{ label = "지금 · 공허 구매자(비교)", set = {}, ownsVoid = true },
+	{ label = "G0 예전 8기구(환생 1~15 · ×1.2~×8 — #41 측정 기준)", set = {}, gymTiers = rebirthTiers(NOW8) },
 	{ label = "A 12기구(환생 1~30 · ×1.2~×20)", set = {}, gymTiers = rebirthTiers({ { 1, 1.2 }, { 2, 1.5 }, { 3, 2 }, { 5, 2.5 }, { 7, 3 },
 		{ 9, 4 }, { 12, 5 }, { 15, 8 }, { 18, 10 }, { 21, 12 }, { 25, 15 }, { 30, 20 } }) },
 	-- A는 25층까지 환생 15회 안팎이라 환생 18 ~ 30 기구는 3시간 안에 거의 안 열린다(측정값이 G0와 같다) — 같은 범위에 촘촘히 늘린 A2를 같이 잰다

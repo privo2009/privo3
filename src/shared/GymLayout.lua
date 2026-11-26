@@ -6,11 +6,12 @@
 --
 --   -Z 옆   패드 24개 (PadLayout)
 --   Z = 0   스폰 ──── 가운데 통로 ──── 입장 게이트     (통로에는 아무것도 없다)
---   +Z 옆   운동기구 9개, 2줄 격자            ← 여기
+--   +Z 옆   운동기구 13개, 3줄 × 5열 격자      ← 여기 (지시서 #42 운동기구 개편 A2 — 예전 9개 2줄)
 --
--- 기구 i번은 좌표 i번이다. 열 c(= ceil(i / 2))가 게이트 쪽으로 갈수록 커지고, 한 열 안에서는 통로 쪽(안쪽 줄)이 앞 번호다 —
--- 패드와 같은 방향으로 "게이트 쪽일수록 세다"가 읽힌다. 기구가 홀수(9)라 맨 끝 열에는 9번 하나만 선다 —
--- 9번이 로벅스 전용 공허 훈련 구역(가장 비싸고 가장 센 것)이고 맨 끝이다.
+-- 기구 i번은 좌표 i번이다. 열 c(= ceil(i / 3))가 게이트 쪽으로 갈수록 커지고, 한 열 안에서는 통로 쪽(안쪽 줄)이 앞 번호다 —
+-- 패드와 같은 방향으로 "게이트 쪽일수록 세다"가 읽힌다. 13 = 3 × 4 + 1이라 맨 끝(5번째) 열에는 13번 하나만 안쪽 줄에 선다 —
+-- 13번이 로벅스 전용 공허 훈련 구역(가장 비싸고 가장 센 것)이고 맨 끝이다(예전과 같은 자리 X −96 · Z 40).
+-- 줄 Z: 40 · 64 · 88 — 바깥 줄 가장자리 96 < 스폰 구역 ±120(ArenaConfig.SPAWN_ZONE_Z_HALF). 대장간(FORGE_SITE)은 −Z 쪽이라 겹치지 않는다.
 --
 -- 챌린지 구간(입장 게이트 너머)에는 기구가 없다. 그래서 런 중 클릭에는 기구 배수가 붙지 않는다.
 --
@@ -33,14 +34,14 @@ GymLayout.SIZE = Vector3.new(16, 1, 16)
 
 -- 열 간격(진행축) · 줄 간격(Z). SIZE + 8 — 기구 사이로 걸어 다닐 틈.
 GymLayout.PITCH = 24
-GymLayout.ROWS = 2
+GymLayout.ROWS = 3 -- #42 A2: 13기구 = 3줄 × 5열(예전 2줄 — 7열이면 마지막 열이 게이트를 넘는다)
 GymLayout.ROW_PITCH = 24
 
 -- 첫 열이 스폰 지점보다 앞(+X)에 선 거리. 5열이면 마지막 열이 -192 + 4 × 24 = -96 — 게이트(-74) 앞에서 끝난다.
 GymLayout.START_AHEAD_OF_SPAWN = 8
 
 -- 안쪽 줄의 Z. 통로(Z = 0)에서 기구 가장자리까지 32 studs — 패드 안쪽 줄(PadLayout.LANE_Z = -36)과 대칭인 여유.
--- 바깥쪽 줄은 +Z로 ROW_PITCH만큼 더 간다.
+-- 바깥쪽 줄은 +Z로 ROW_PITCH만큼씩 더 간다(40 · 64 · 88).
 GymLayout.LANE_Z = 40
 
 -- 발판 윗면이 지면 위에 오게 중심을 반 칸 띄운다 (PadLayout.GROUND_Y_OFFSET과 같은 이유).
@@ -50,7 +51,7 @@ GymLayout.GROUND_Y_OFFSET = GymLayout.SIZE.Y / 2
 -- 점프 중에도 놓치지 않게 넉넉히 잡는다.
 GymLayout.STAND_HEIGHT = 12
 
--- 기구 i번의 열(1부터)과 줄(0 = 안쪽, 1 = 바깥쪽).
+-- 기구 i번의 열(1부터)과 줄(0 = 안쪽 … ROWS − 1 = 가장 바깥쪽).
 function GymLayout.cellOf(index: number): (number, number)
 	return math.ceil(index / GymLayout.ROWS), (index - 1) % GymLayout.ROWS
 end
@@ -69,6 +70,12 @@ function GymLayout.computeLayout(count: number): { Vector3 }
 		))
 	end
 	return positions
+end
+
+-- 기구 모델(지시서 #42 — AssetSlots "gym_<번호>")을 놓을 자리: 모델 경계 상자 가운데의 CFrame.
+-- 발판 윗면에 모델 바닥이 닿는다(높이 modelHeight의 반만큼 위). 판정은 발판(SIZE)으로 하므로 모델은 보이기만 한다.
+function GymLayout.modelCenter(center: Vector3, modelHeight: number): CFrame
+	return CFrame.new(center + Vector3.new(0, GymLayout.SIZE.Y / 2 + modelHeight / 2, 0))
 end
 
 -- position이 center 기구의 발판 위(위쪽 STAND_HEIGHT 안)인가.

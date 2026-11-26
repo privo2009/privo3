@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
+local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 
 local AssetSlots = {}
 
@@ -29,7 +30,12 @@ function AssetSlots.contentId(id: any): string?
 	return nil
 end
 
--- 설정의 자리 전부(지금 값 포함). 순서 = 주문서 우선순위(곡괭이 → 광석 → 연출 → 코인 → 대장간 → 부화 → 토큰)
+-- 운동기구 모델 자리 키(지시서 #42) — 기구 번호 1 ~ GymConfig.getCount()(맨 끝 = 공허 훈련 구역)
+function AssetSlots.gymKey(index: number): string
+	return "gym_" .. tostring(index)
+end
+
+-- 설정의 자리 전부(지금 값 포함). 순서 = 주문서 우선순위(곡괭이 → 광석 → 연출 → 코인 → 대장간 → 부화 → 토큰 → 운동기구)
 function AssetSlots.list(): { Slot }
 	local out: { Slot } = {}
 	local function add(key: string, kind: Kind, id: number?, use: string)
@@ -72,6 +78,12 @@ function AssetSlots.list(): { Slot }
 	for _, key in ipairs({ "rare", "epic", "mythic", "legendary", "next" }) do
 		local v = Config.TOKEN_VISUALS[key] or {}
 		add("token_icon_" .. key, "image", v.iconId, "토큰 아이콘(교환소 · 제작 결과)")
+	end
+	-- 운동기구 모델(#42 — A2 12기구 + 공허). 값 원본 GymConfig.VISUALS · 쓰는 곳 Client/World/GymModels(발판 위에 얹는다)
+	for index = 1, GymConfig.getCount() do
+		local v = GymConfig.VISUALS[index] or {}
+		add(AssetSlots.gymKey(index), "model", v.modelId,
+			if GymConfig.isRobuxOnly(index) then "로비 공허 훈련 구역 모델(클라 — 발판 위)" else "로비 운동기구 모델(클라 — 발판 위)")
 	end
 	return out
 end

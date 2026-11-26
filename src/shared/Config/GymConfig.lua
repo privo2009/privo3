@@ -4,7 +4,8 @@
 --
 --   해금   환생 수(rebirths) ≥ 그 기구의 조건. 환생 수는 줄지 않으므로 한 번 열리면 계속 열려 있다
 --          (패드와 반대 — 패드는 lifeBlox 기준이라 환생하면 다시 잠긴다)
---          로벅스 선해금은 개발자 상품 8종(ShopConfig "gymUnlock1" ~ "gymUnlock8" — 지시서 #16). 가격의 원본은 ShopConfig다.
+--          로벅스 선해금은 개발자 상품 12종(ShopConfig "gymUnlock1" ~ "gymUnlock12" — 지시서 #16 · #42). 가격의 원본은 ShopConfig다.
+--          9 ~ 12는 대시보드 ID가 아직 없다(nil — 상품 표에 없어 프롬프트 · 구매가 안 보인다. 기구는 환생으로 열린다)
 --          지급(선해금 기록 gymUnlocks)은 #17. 판정은 GymService가 환생 수 OR 선해금 기록 OR 공허 게임패스로 한다
 --   유료   맨 끝 기구는 "공허 훈련 구역"이다 — 환생으로는 열리지 않고 로벅스로만 산다. 배수와 가격이
 --          모든 기구 중 가장 높다(2026-10-21 사람 결정). 가격의 원본은 ShopConfig(게임패스 voidTrainingZone)다
@@ -39,6 +40,7 @@ export type Tier = {
 
 --
 -- 근거 (2026-10-21 SuccessRateReport, 결정 모델 + "막힌 런 뒤 기구에서 30초" — 그 해석은 시뮬레이터 MODEL 주석):
+-- ⚠️ 아래 근거는 옛 경제(8기구) 기록이다. 지금 표는 운동기구 개편 A2(#42 — TIERS 바로 위 주석 · docs/GYM_OPTIONS.md)
 --
 --   해금 시점 — 사람 결정(2026-10-21): "로그 모양 — 처음엔 빠르게 열리다가 뒤로 갈수록 무뎌진다.
 --   첫 기구가 늦으면 이탈한다." 첫 안(환생 10, 100, … 10의 거듭제곱)은 첫 기구가 20.9분에 열렸다
@@ -66,7 +68,7 @@ export type Tier = {
 --   실제 유저가 기구에서 더 오래 있으면 배수를 낮춰야 한다 — 실플레이로 재확인.
 --   ⚠️ 패드 리셋 전(패드 유지)에는 46.7분이었다. 기구로는 이 속도를 되찾지 못한다(docs/PENDING.md).
 --
---   선해금 가격은 29 → 449 R$ 자리값이다(지금 원본은 ShopConfig gymUnlock1 ~ 8 — 지시서 #16). 공허 훈련 구역(799 R$, DESIGN.md "수익화" 표의 기존 값)이
+--   선해금 가격은 29 → 449 R$ 자리값이다(지금 원본은 ShopConfig.GYM_UNLOCK_PRICES — 지시서 #16 · #42에서 12칸으로 다시 펼침). 공허 훈련 구역(799 R$, DESIGN.md "수익화" 표의 기존 값)이
 --   가장 비싸야 하므로 그 아래에 펼쳤다. 기존 게임패스 가격 단위(29·49·79·99·149·199·299·449)를 따른다.
 --   Phase 8 수익화 때 다시 본다.
 --
@@ -76,16 +78,22 @@ export type Tier = {
 --   구매자 비교는 SuccessRateReport "공허 훈련 구역 구매자 (비교)" 줄. 성공률 목표는 무과금 기준이라
 --   구매자는 목표 밖이다.
 local TIERS: { Tier } = {
-	-- 해금 환생 수(#37 — 새 경제 TEMP 1 · 2 · 3 · 5 · 7 · 9 · 12 · 15만 남김. 옛 값 1 · 3 · 5 · 10 · 50 · 500 · 1e4 · 1e6은 환생 1000 블럭스마다 +1일 때 값).
-	-- 운동기구 개편 자체는 사람 결정(docs/PENDING.md N3)
+	-- ⚠️ TEMP — 운동기구 개편 A2(2026-11-26 희준 결정 · 지시서 #42 — docs/GYM_OPTIONS.md "A2" 값 그대로):
+	--   12기구를 환생 1 ~ 15 안에 촘촘히(환생마다 거의 하나) · 맨 위 ×8은 예전 8기구 표의 맨 위와 같다 · 공허 ×100 그대로.
+	--   측정(EconomyReport gym 모드 100명): 25층 첫 도달 126.2분 · 15종 171.5분(예전 8기구 125.2 · 162.2).
+	--   예전 8기구 표(#37): 환생 1 · 2 · 3 · 5 · 7 · 9 · 12 · 15 · ×1.2 · 1.5 · 2 · 2.5 · 3 · 4 · 5 · 8
 	{ unlockRebirths = BigNum.new(1, 0), multiplier = 1.2, productKey = "gymUnlock1" },
-	{ unlockRebirths = BigNum.new(2, 0), multiplier = 1.5, productKey = "gymUnlock2" },
-	{ unlockRebirths = BigNum.new(3, 0), multiplier = 2, productKey = "gymUnlock3" },
-	{ unlockRebirths = BigNum.new(5, 0), multiplier = 2.5, productKey = "gymUnlock4" },
-	{ unlockRebirths = BigNum.new(7, 0), multiplier = 3, productKey = "gymUnlock5" },
-	{ unlockRebirths = BigNum.new(9, 0), multiplier = 4, productKey = "gymUnlock6" },
-	{ unlockRebirths = BigNum.new(1.2, 1), multiplier = 5, productKey = "gymUnlock7" },
-	{ unlockRebirths = BigNum.new(1.5, 1), multiplier = 8, productKey = "gymUnlock8" },
+	{ unlockRebirths = BigNum.new(2, 0), multiplier = 1.4, productKey = "gymUnlock2" },
+	{ unlockRebirths = BigNum.new(3, 0), multiplier = 1.6, productKey = "gymUnlock3" },
+	{ unlockRebirths = BigNum.new(4, 0), multiplier = 2, productKey = "gymUnlock4" },
+	{ unlockRebirths = BigNum.new(5, 0), multiplier = 2.3, productKey = "gymUnlock5" },
+	{ unlockRebirths = BigNum.new(6, 0), multiplier = 2.6, productKey = "gymUnlock6" },
+	{ unlockRebirths = BigNum.new(7, 0), multiplier = 3, productKey = "gymUnlock7" },
+	{ unlockRebirths = BigNum.new(8, 0), multiplier = 3.5, productKey = "gymUnlock8" },
+	{ unlockRebirths = BigNum.new(9, 0), multiplier = 4, productKey = "gymUnlock9" },
+	{ unlockRebirths = BigNum.new(1.1, 1), multiplier = 5, productKey = "gymUnlock10" },
+	{ unlockRebirths = BigNum.new(1.3, 1), multiplier = 6, productKey = "gymUnlock11" },
+	{ unlockRebirths = BigNum.new(1.5, 1), multiplier = 8, productKey = "gymUnlock12" },
 	{
 		unlockRebirths = nil,
 		multiplier = 100,
@@ -93,6 +101,11 @@ local TIERS: { Tier } = {
 	},
 }
 GymConfig.TIERS = TIERS
+
+-- 기구 모델 자리(지시서 #42 — AssetSlots "gym_<번호>" · docs/ASSET_ORDER.md). 기구 번호 → { modelId } — Model 에셋 ID.
+-- nil이면 지금 임시 발판 그대로(GymService가 만든 Part). 있으면 클라(World/GymModels)가 그 발판 위에 얹는다 — 판정은 발판 좌표(GymLayout)라 모양과 상관없다.
+-- 13번(맨 끝)이 공허 훈련 구역이다.
+GymConfig.VISUALS = {} :: { [number]: { modelId: number? } }
 
 local function assertIndex(index: number)
 	assert(
@@ -154,11 +167,19 @@ function GymConfig.getShopKey(index: number): string
 	return (tier.productKey or tier.gamepassKey) :: string
 end
 
--- 로벅스 가격 — ShopConfig 원본(지시서 #16).
+-- 로벅스 가격 — ShopConfig 원본(지시서 #16). 환생 기구는 선해금 가격표(ShopConfig.GYM_UNLOCK_PRICES — 대시보드 등록 전에도 있다 · #42),
+-- 공허는 게임패스 가격.
 function GymConfig.getRobuxPrice(index: number): number
-	local def = ShopConfig.get(GymConfig.getShopKey(index))
-	assert(def ~= nil, string.format("GymConfig: 기구 %d의 상품이 ShopConfig에 없음", index))
-	return def.priceRobux
+	assertIndex(index)
+	local tier = TIERS[index]
+	if tier.gamepassKey ~= nil then
+		local def = ShopConfig.get(tier.gamepassKey)
+		assert(def ~= nil, string.format("GymConfig: 기구 %d의 게임패스가 ShopConfig에 없음", index))
+		return def.priceRobux
+	end
+	local price = ShopConfig.gymUnlockPrice(index)
+	assert(price ~= nil, string.format("GymConfig: 기구 %d의 선해금 가격이 ShopConfig.GYM_UNLOCK_PRICES에 없음", index))
+	return price :: number
 end
 
 -- 환생 수로 열렸는가. 로벅스 선해금(Phase 8)은 여기서 보지 않는다 — 소유 확인은 서버가
@@ -190,6 +211,8 @@ function GymConfig.validate(): boolean
 	assert(#TIERS >= 1, "GymConfig: 기구가 하나도 없음")
 	local rebirthTiers = GymConfig.getRebirthTierCount()
 	assert(rebirthTiers >= 1, "GymConfig: 환생으로 열리는 기구가 하나도 없음")
+	assert(#ShopConfig.GYM_UNLOCK_PRICES == rebirthTiers, string.format("GymConfig: 선해금 가격 %d개 ≠ 환생 기구 %d개(ShopConfig.GYM_UNLOCK_PRICES)",
+		#ShopConfig.GYM_UNLOCK_PRICES, rebirthTiers))
 	local prev: Tier? = nil
 	for index, tier in ipairs(TIERS) do
 		local need = tier.unlockRebirths
@@ -203,8 +226,11 @@ function GymConfig.validate(): boolean
 			assert(tier.productKey == nil, string.format("GymConfig: 기구 %d은 로벅스 전용인데 productKey가 있음", index))
 		else
 			assert(tier.gamepassKey == nil, string.format("GymConfig: 기구 %d은 환생 기구인데 gamepassKey가 있음", index))
+			-- 선해금 상품: 키는 "gymUnlock<번호>" · 가격표에 있다. 대시보드에 등록됐으면(상품 표에 있으면) 그 기구를 여는 상품이어야 한다(#42 — 9 ~ 12는 ID nil이라 표에 없다)
+			assert(tier.productKey == "gymUnlock" .. index and ShopConfig.gymUnlockPrice(index) ~= nil,
+				string.format("GymConfig: 기구 %d의 productKey(%s)가 gymUnlock%d이 아니거나 가격이 없음", index, tostring(tier.productKey), index))
 			local def = ShopConfig.get(tier.productKey)
-			assert(def ~= nil and def.kind == "product" and def.effect.type == "gymUnlock" and def.effect.gymIndex == index,
+			assert(def == nil or (def.kind == "product" and def.effect.type == "gymUnlock" and def.effect.gymIndex == index),
 				string.format("GymConfig: 기구 %d의 productKey(%s)가 그 기구의 선해금 상품이 아님", index, tostring(tier.productKey)))
 			assert(BigNum.gt(need, BigNum.new(0, 0)), string.format("GymConfig: 기구 %d의 조건이 0 이하", index))
 			assert(index <= rebirthTiers, string.format("GymConfig: 환생 기구 %d이 로벅스 전용 기구 뒤에 있음", index))

@@ -244,17 +244,21 @@ do
 		end
 	end
 	-- #37(6단계): 펫 모델 13칸(알 3 × 4등급 + 리미티드 1)이 더해졌다 — 89 → 102 · 모델 26 → 39
-	check("자리 목록: 곡괭이 15 × (모델 · 아이콘 · 휘두르기) · 광석 10 × 3 · 대장간 · 코인 · 부화 · 제작 · 펫 13 · 토큰 5 — 지금은 전부 nil",
-		#slots == 15 * 3 + 10 * 3 + 2 + 2 + 3 + 2 + 13 + 5 and models == 15 + 10 + 1 + 13 and count.anim == 15 and not anyId, tostring(#slots))
-	local petSlots, tokenSlots = 0, 0
+	-- #42: 운동기구 모델 13칸(A2 12기구 + 공허)이 더해졌다 — 102 → 115 · 모델 39 → 52
+	check("자리 목록: 곡괭이 15 × (모델 · 아이콘 · 휘두르기) · 광석 10 × 3 · 대장간 · 코인 · 부화 · 제작 · 펫 13 · 토큰 5 · 운동기구 13 — 지금은 전부 nil",
+		#slots == 15 * 3 + 10 * 3 + 2 + 2 + 3 + 2 + 13 + 5 + 13 and models == 15 + 10 + 1 + 13 + 13 and count.anim == 15 and not anyId, tostring(#slots))
+	local petSlots, tokenSlots, gymSlots = 0, 0, 0
 	for _, sl in ipairs(slots) do
 		if string.sub(sl.key, 1, 4) == "pet_" and sl.kind == "model" then
 			petSlots += 1
 		elseif string.sub(sl.key, 1, 11) == "token_icon_" and sl.kind == "image" then
 			tokenSlots += 1
+		elseif string.sub(sl.key, 1, 4) == "gym_" and sl.kind == "model" then
+			gymSlots += 1
 		end
 	end
-	check("자리 목록: 펫마다 모델 한 칸(13) · 토큰 아이콘 5(희귀 · 에픽 · 신화 · 전설 · ???) — #37 6단계", petSlots == 13 and tokenSlots == 5)
+	check("자리 목록: 펫마다 모델 한 칸(13) · 토큰 아이콘 5(희귀 · 에픽 · 신화 · 전설 · ???) — #37 6단계 · 운동기구 모델 13(gym_1 ~ gym_13 — #42)",
+		petSlots == 13 and tokenSlots == 5 and gymSlots == 13 and AssetSlots.gymKey(13) == "gym_13")
 	check("contentId: 양의 정수만 rbxassetid · nil · 소수 · 0은 nil(임시 도형)", AssetSlots.contentId(123) == "rbxassetid://123"
 		and AssetSlots.contentId(nil) == nil and AssetSlots.contentId(1.5) == nil and AssetSlots.contentId(0) == nil)
 	local root = Instance.new("Folder")

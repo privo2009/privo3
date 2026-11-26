@@ -749,6 +749,15 @@ function SuccessRateReport.gymUnlockedCount(p: Player): number
 	return Legacy.gymUnlockedCount(p.rebirths)
 end
 
+-- 기구 번호 → 클릭 배수(#42). 기본은 옛 모델 표(Legacy.GYM_MULTIPLIERS — 해금 수 gymUnlockedCount와 같은 옛 표) · 공허는 GymConfig(×100).
+-- 새 경제 측정(EconomyReport)은 해금 수 · 배수 둘 다 게임과 같은 GymConfig로 갈아 끼운다.
+function SuccessRateReport.gymMultiplier(index: number): number
+	if GymConfig.isRobuxOnly(index) then
+		return GymConfig.getMultiplier(index)
+	end
+	return Legacy.GYM_MULTIPLIERS[index] or GymConfig.getMultiplier(index)
+end
+
 -- 운동기구에서 sec초 클릭한다. 환생 수로 열린 기구 중 가장 좋은 것을 쓴다(공허를 샀으면 공허).
 -- 쓴 기구 번호(0 = 안 씀).
 function SuccessRateReport.trainAtGym(p: Player, sec: number): number
@@ -762,7 +771,7 @@ function SuccessRateReport.trainAtGym(p: Player, sec: number): number
 	if index == 0 then
 		return 0
 	end
-	addClicks(p, math.floor(p.clickRate * sec), GymConfig.getMultiplier(index))
+	addClicks(p, math.floor(p.clickRate * sec), SuccessRateReport.gymMultiplier(index))
 	p.elapsedSec += sec
 	SuccessRateReport.spendAutoRolls(p, sec)
 	return index

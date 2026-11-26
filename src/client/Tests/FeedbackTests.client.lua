@@ -124,6 +124,40 @@ do
 		end
 	end
 	check("기구 표시: 필요 환생 수는 정수(모든 환생 기구 — 소수점 없음)", noDecimals, WorldLabelLogic.gym(1, zero, false).detail)
+
+	-- 지시서 #42: 운동기구 모델 자리 — 틀(gym_<번호>)이 있으면 발판 위에 얹고, 없으면 그대로(임시 발판)
+	local GymModelLogic = require(script.Parent.Parent.World.GymModelLogic)
+	local pad = Instance.new("Part")
+	pad.Size = GymLayout.SIZE
+	pad.Position = GymLayout.computeLayout(count)[2]
+	pad:SetAttribute("GymIndex", 2)
+	local tpl = Instance.new("Model")
+	tpl.Name = "gym_2"
+	local body = Instance.new("Part")
+	body.Size = Vector3.new(6, 4, 6)
+	body.Position = Vector3.new(500, 500, 500) -- 틀은 어디 있든 발판 위로 옮겨진다
+	body.Parent = tpl
+	local asked = {}
+	local placed = GymModelLogic.attach(pad, function(key: string)
+		table.insert(asked, key)
+		return if key == "gym_2" then tpl else nil
+	end)
+	local top = pad.Position.Y + pad.Size.Y / 2
+	local got = placed ~= nil and placed:FindFirstChildWhichIsA("BasePart") or nil
+	local none2 = GymModelLogic.attach(pad, function()
+		return tpl
+	end) -- 이미 얹었으면 다시 안 얹는다
+	local plain = Instance.new("Part")
+	plain:SetAttribute("GymIndex", 3)
+	check("기구 모델(#42): 틀 gym_2 → 발판 위(바닥 = 윗면 · 고정) · 두 번 안 얹음 · 틀 없으면 그대로",
+		asked[1] == "gym_2" and placed ~= nil and placed.Parent == pad and got ~= nil and (got :: BasePart).Anchored
+			and math.abs((got :: BasePart).Position.Y - (top + 2)) < 1e-3 and math.abs((got :: BasePart).Position.X - pad.Position.X) < 1e-3
+			and none2 == nil and GymModelLogic.attach(plain, function()
+				return nil
+			end) == nil and plain:FindFirstChild(GymModelLogic.MODEL_NAME) == nil)
+	pad:Destroy()
+	plain:Destroy()
+	tpl:Destroy()
 	local void = WorldLabelLogic.gym(count, BigNum.new(1, 30), true)
 	-- 지시서 #17부터 공허 게임패스 ID가 등록돼 "(준비 중)"이 빠진다. ID 0일 때의 문구는 RobuxShopTests가 잰다
 	check("기구 표시: 공허는 로벅스 전용 · 프리미엄(ID 등록됨)", void.role == "premium" and void.detail == Locale.t("world.gym.robuxOnly"))

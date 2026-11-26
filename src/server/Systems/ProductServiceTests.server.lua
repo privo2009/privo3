@@ -181,6 +181,51 @@ do
 	check("기록 상한 100이 Schema 검증과 같다", Schema.LIMITS.MAX_PURCHASES == 100)
 end
 
+-- 6b. 운동기구 선해금(지시서 #42 — A2 12기구 · 9 ~ 12는 ID가 들어오면 같은 줄 규칙으로 등록): 같은 영수증 두 번 → 기록 한 번 -----------
+do
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
+	local ProductGrants = require(ServerScriptService.Server.Systems.ProductGrants)
+	-- 등록된 뒤의 gymUnlock12(가짜 ID 8212 — 실제 표는 그대로 nil)
+	local row = ShopConfig.gymUnlockRows({}, { gymUnlock12 = 8212 })[1]
+	local def12: any = { key = row.key, kind = "product", id = row.id, priceRobux = row.price, effect = { type = "gymUnlock", gymIndex = row.gymIndex },
+		paidRandom = false }
+	local gymCatalog = {
+		get = function(k: any): any
+			return if k == "gymUnlock12" then def12 else nil
+		end,
+		findById = function(kind: string, id: any): string?
+			return if kind == "product" and id == 8212 then "gymUnlock12" else nil
+		end,
+	}
+	local profile: any = { Data = Schema.new(), LastSavedData = { purchases = {} } }
+	local grants = 0
+	local rt = pure.createRuntime({
+		getProfile = function(userId: number)
+			return if userId == USER then profile else nil
+		end,
+		getPlayer = function()
+			return nil
+		end,
+		waitSaved = function(p: any)
+			p.LastSavedData = { purchases = table.clone(p.Data.purchases) }
+			return true
+		end,
+		log = function() end,
+		catalog = gymCatalog,
+	})
+	rt.register("gymUnlock12", function(_player, data, def)
+		grants += 1
+		return ProductGrants.apply(data, def)
+	end)
+	local r = { PlayerId = USER, PurchaseId = "G-12", ProductId = 8212, CurrencySpent = row.price }
+	local d1 = rt.process(r)
+	local d2 = rt.process(r)
+	local ok = Schema.validate(profile.Data)
+	check("선해금 12(#42): 같은 영수증 두 번 → 지급 1회 · gymUnlocks[\"12\"] · 기록 1 · 스키마 통과", d1 == GRANTED and d2 == GRANTED and grants == 1
+		and profile.Data.gymUnlocks["12"] == true and #profile.Data.purchases == 1 and ok)
+end
+
 -- 7. ProfileStore 1.0.3 Mock 실물: 저장 확인(Save → OnAfterSave → LastSavedData) ---------------------------------
 do
 	local store = ProfileStore.New("ProductServiceTests_Mock", Schema.getTemplate())

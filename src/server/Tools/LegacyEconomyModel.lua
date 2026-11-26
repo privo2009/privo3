@@ -153,6 +153,8 @@ end
 
 -- 옛 운동기구 해금 환생 수(GymConfig 기구 순서 — 로벅스 전용 기구는 세지 않는다)
 LegacyEconomyModel.GYM_UNLOCK_REBIRTHS = { BigNum.new(1, 0), BigNum.new(3, 0), BigNum.new(5, 0), BigNum.new(1, 1), BigNum.new(5, 1), BigNum.new(5, 2), BigNum.new(1, 4), BigNum.new(1, 6) }
+-- 옛 운동기구 배수(위 해금 표와 같은 순서 · #42 운동기구 개편 A2 전 GymConfig 값). 결정 모델 재현이 기구 표 개편에 흔들리지 않게 따로 둔다
+LegacyEconomyModel.GYM_MULTIPLIERS = { 1.2, 1.5, 2, 2.5, 3, 4, 5, 8 }
 function LegacyEconomyModel.gymUnlockedCount(rebirths: BigNumber): number
 	local n = 0
 	for i, need in ipairs(LegacyEconomyModel.GYM_UNLOCK_REBIRTHS) do

@@ -118,14 +118,14 @@ check("ShopConfig: 게임패스 12 + 계단 10 · 개발자 상품 8 + 운동기
 	return count("gamepass") == 22 and count("product") == 16 and #ShopConfig.STRENGTH_TIERS == 10 and #ShopConfig.GYM_UNLOCKS == 8
 		and #ShopConfig.GAMEPASS_ORDER == 12
 end)
-check("ShopConfig: 가격이 사람 결정 목록(2026-10-30 대시보드 가격 — 계단 32x부터 바뀜)과 같다", function()
-	-- #37 다: rebirth2x 빠짐
+check("ShopConfig: 가격이 사람 결정 목록(2026-10-30 대시보드 가격 — 계단 32x부터 바뀜 · #42 운동기구 선해금 2 ~ 8 TEMP)과 같다", function()
+	-- #37 다: rebirth2x 빠짐 · #42 A2: 선해금 가격을 12칸에 다시 펼침(2 ~ 8 바뀜 — 대시보드 가격 바꾸기는 사람)
 	local expect = { autoClicker = 49, autoClickerOP = 89, hatch3x = 99, petLuck2x = 99, petStorage100 = 49, damage2x = 149,
 		petSlots3 = 199, blox2x = 199, auraLuck10x = 299, titleLuck10x = 299, voidTrainingZone = 799, autoAdvance = 199,
 		strength2x = 3, strength4x = 9, strength8x = 29, strength16x = 79, strength32x = 149, strength64x = 249, strength128x = 399,
 		strength256x = 499, strength512x = 599, strength1024x = 699, luckyRoll5 = 49, luckyRoll15 = 149, superRoll5 = 99, superRoll15 = 249,
-		strengthPotion = 19, damagePotion = 19, luckPotion = 29, potionBundle = 999, gymUnlock1 = 29, gymUnlock2 = 49, gymUnlock3 = 79,
-		gymUnlock4 = 99, gymUnlock5 = 149, gymUnlock6 = 199, gymUnlock7 = 299, gymUnlock8 = 449 }
+		strengthPotion = 19, damagePotion = 19, luckPotion = 29, potionBundle = 999, gymUnlock1 = 29, gymUnlock2 = 39, gymUnlock3 = 49,
+		gymUnlock4 = 69, gymUnlock5 = 79, gymUnlock6 = 99, gymUnlock7 = 129, gymUnlock8 = 149 }
 	local n = 0
 	for key, price in pairs(expect) do
 		n += 1

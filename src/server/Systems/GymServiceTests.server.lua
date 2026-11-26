@@ -66,10 +66,11 @@ if VOID ~= nil then
 	check("환생 기구 수 = 공허 앞 기구 수", REBIRTH_COUNT == VOID - 1)
 	check("공허 가격 = ShopConfig 게임패스 가격",
 		GymConfig.getRobuxPrice(VOID) == (ShopConfig.get("voidTrainingZone") :: any).priceRobux)
-	check("환생 기구 선해금 가격 = ShopConfig gymUnlock1 ~ 8(29 ~ 449, 지시서 #16 — 원본 한 곳)", (function()
+	check("환생 기구 선해금 가격 = ShopConfig 선해금 가격표(29 ~ 449, 지시서 #16 · #42 — 원본 한 곳 · 등록된 상품 값과 같다)", (function()
 		for i = 1, REBIRTH_COUNT do
 			local def = ShopConfig.get("gymUnlock" .. i) :: any
-			if GymConfig.getShopKey(i) ~= "gymUnlock" .. i or GymConfig.getRobuxPrice(i) ~= def.priceRobux then
+			if GymConfig.getShopKey(i) ~= "gymUnlock" .. i or GymConfig.getRobuxPrice(i) ~= ShopConfig.GYM_UNLOCK_PRICES[i]
+				or (def ~= nil and def.priceRobux ~= GymConfig.getRobuxPrice(i)) then
 				return false
 			end
 		end
@@ -171,7 +172,19 @@ do
 	check("M1: 기구가 가운데 통로 밖", clearOfPath)
 	check("M1: 기구가 패드 반대쪽(+Z)", oppositeSide and pads[1].Z < 0)
 	check("M1: 맨 끝 번호(공허)가 게이트 쪽 맨 끝 열", positions[#positions].X == maxX)
-	check("M1: 기구 2줄", GymLayout.ROWS == 2 and #positions >= 2 and positions[1].X == positions[2].X and positions[1].Z ~= positions[2].Z)
+	-- #42 A2: 3줄 × 5열(13기구) — 한 열에 세 기구(X 같음 · Z 셋 다 다름) · 열 5개 · 마지막 열은 공허 하나(안쪽 줄)
+	local columns: { [number]: number } = {}
+	local nColumns = 0
+	for _, p in ipairs(positions) do
+		if columns[p.X] == nil then
+			nColumns += 1
+		end
+		columns[p.X] = (columns[p.X] or 0) + 1
+	end
+	check("M1 · #42: 기구 3줄 × 5열 · 마지막 열은 공허 하나(안쪽 줄)", GymLayout.ROWS == 3 and nColumns == 5
+		and positions[1].X == positions[2].X and positions[2].X == positions[3].X
+		and positions[1].Z < positions[2].Z and positions[2].Z < positions[3].Z
+		and columns[positions[COUNT].X] == 1 and positions[COUNT].Z == positions[1].Z)
 end
 
 do
@@ -186,6 +199,72 @@ do
 		local c2 = positions[2]
 		check("두 번째 발판 위면 기구 2", GymLayout.findAt(Vector3.new(c2.X, c2.Y + 3, c2.Z), COUNT) == 2)
 	end
+end
+
+-- 2b. 운동기구 개편 A2 (2026-11-26 희준 결정 · 지시서 #42 — docs/GYM_OPTIONS.md "A2" 값 그대로) -----------------
+do
+	-- 결정 값 고정(바꾸면 GYM_OPTIONS · DESIGN도 같이): 해금 환생 수 · 배수
+	local A2 = { { 1, 1.2 }, { 2, 1.4 }, { 3, 1.6 }, { 4, 2 }, { 5, 2.3 }, { 6, 2.6 }, { 7, 3 }, { 8, 3.5 }, { 9, 4 }, { 11, 5 }, { 13, 6 }, { 15, 8 } }
+	local same = REBIRTH_COUNT == #A2 and COUNT == #A2 + 1
+	for i, row in ipairs(A2) do
+		same = same and BigNum.eq(GymConfig.getUnlockRebirths(i), BigNum.fromNumber(row[1])) and GymConfig.getMultiplier(i) == row[2]
+	end
+	check("A2: 12기구 + 공허 · 해금 환생 1 ~ 9 · 11 · 13 · 15 · 배수 ×1.2 ~ ×8 · 공허 ×100", same and GymConfig.getMultiplier(VOID or COUNT) == 100)
+	-- 환생 수마다 열린 기구 수(환생마다 거의 하나 — 10 · 12 · 14는 앞과 같다)
+	local opened = {}
+	for r = 0, 16 do
+		table.insert(opened, tostring(GymConfig.getUnlockedCount(BigNum.fromNumber(r))))
+	end
+	check("A2: 환생 0 ~ 16 → 열린 기구 0 1 2 3 4 5 6 7 8 9 9 10 10 11 11 12 12", table.concat(opened, " ") == "0 1 2 3 4 5 6 7 8 9 9 10 10 11 11 12 12",
+		table.concat(opened, " "))
+
+	-- 선해금 상품: 1 ~ 8 등록(ID 있음) · 9 ~ 12 ID nil → 상품 표에 없다(프롬프트 · 구매 · 지급 없음) · 가격은 가격표
+	local registered, pending = true, true
+	for i = 1, REBIRTH_COUNT do
+		local key = "gymUnlock" .. i
+		local def = ShopConfig.get(key)
+		if i <= 8 then
+			registered = registered and def ~= nil and ShopConfig.isRegistered(key) and def.id == ShopConfig.PRODUCT_IDS[key]
+		else
+			pending = pending and def == nil and not ShopConfig.isRegistered(key) and ShopConfig.PRODUCT_IDS[key] == nil
+				and (ShopConfig.GYM_UNLOCK_NEW_IDS :: any)[key] == nil and ShopConfig.gymUnlockIndex(key) == i
+		end
+	end
+	check("A2 상품: 선해금 1 ~ 8 등록 · 9 ~ 12 ID nil → 상품 표에 없다(GYM_UNLOCKS 8개)", registered and pending and #ShopConfig.GYM_UNLOCKS == 8)
+	check("A2 상품: 가격 TEMP 29 · 39 · 49 · 69 · 79 · 99 · 129 · 149 · 199 · 249 · 299 · 449(공허 799 아래)",
+		table.concat(ShopConfig.GYM_UNLOCK_PRICES, " ") == "29 39 49 69 79 99 129 149 199 249 299 449" and GymConfig.getRobuxPrice(VOID or COUNT) == 799)
+	-- ID가 들어오면 같은 줄 규칙으로 상품 표에 들어간다(가짜 ID 표로 — 실제 표는 그대로)
+	local rows = ShopConfig.gymUnlockRows(ShopConfig.PRODUCT_IDS, { gymUnlock12 = 777 })
+	local last = rows[#rows]
+	check("A2 상품: ID가 들어오면 그 줄이 생긴다(gymUnlock12 · 기구 12 · 449 R$) · 없으면 8줄",
+		#rows == 9 and last.key == "gymUnlock12" and last.id == 777 and last.gymIndex == 12 and last.price == 449
+		and #ShopConfig.gymUnlockRows(ShopConfig.PRODUCT_IDS, {}) == 8)
+	-- 구매 요청: 등록 전 상품 키는 판정에서 거부(invalid_key — 프롬프트를 띄우지 않는다)
+	local PurchaseRequestService = require(ServerScriptService.Server.Systems.PurchaseRequestService)
+	local MarketplaceGateway = require(ServerScriptService.Server.Systems.MarketplaceGateway)
+	local sent = {}
+	local handler = PurchaseRequestService._pure.createHandler({
+		gateway = MarketplaceGateway.fake(),
+		owns = function()
+			return false
+		end,
+		isRestricted = function()
+			return false
+		end,
+		hasGrant = function()
+			return true
+		end,
+		send = function(_p, payload)
+			table.insert(sent, payload)
+		end,
+	})
+	local res = handler.onRequest({ Name = "GymTest", UserId = 802 } :: any, { key = "gymUnlock9" }, 0)
+	check("A2 상품: 등록 전 선해금(gymUnlock9) 구매 요청 → invalid_key 거부", res.ok == false and res.reason == PurchaseRequestService.REASON_INVALID_KEY,
+		tostring(res.reason))
+	-- 모델 자리: 발판 윗면 위(모델 높이 4면 가운데가 윗면 + 2)
+	local top = positions[1].Y + GymLayout.SIZE.Y / 2
+	check("A2 모델 자리: 모델 가운데 = 발판 윗면 + 높이 / 2", math.abs(GymLayout.modelCenter(positions[1], 4).Position.Y - (top + 2)) < 1e-6
+		and GymLayout.modelCenter(positions[1], 4).Position.X == positions[1].X)
 end
 
 -- 3. GymService.resolve ------------------------------------------------------------------
