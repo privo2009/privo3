@@ -186,7 +186,8 @@ LOOP_SEC 0.1 · REQUEST_MIN_INTERVAL_SEC 0.5   서버 루프 주기 · 요청 �
 
 ### 화면 언어 바꿔 보기 — TEST_LOCALE (Studio 전용, 지시서 #L1)
 
-프리셋과 같은 자리(Bootstrap 위쪽)의 `TEST_LOCALE = nil`을 `"en"` 또는 `"ko"`로 바꾸고 Play하면 그 언어로 보인다.
+프리셋과 같은 자리(Bootstrap 위쪽)의 `TEST_LOCALE = nil`을 `"en"` · `"ko"` · `"es"` · `"pt"` · `"fr"` · `"de"` 중 하나로 바꾸고 Play하면 그 언어로 보인다(#40).
+창을 하나씩 보려면 `WindowBoot`의 `TEST_UI_PREVIEW = true`를 같이 켠다(UI 미리보기 — `docs/UI.md` "UI 키트").
 끝나면 반드시 nil로 되돌린다(LocaleTests 한 줄이 실패해서 알려 준다). 자세히는 `docs/LOCALIZATION.md`.
 
 ### 날짜 넘겨 보기 — TEST_DAY_OFFSET · TEST_DAILY_SEED (Studio · 프리셋 전용, 지시서 #20)
