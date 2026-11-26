@@ -238,7 +238,7 @@ function RebirthWindow.create(deps: Deps): Handle
 		end
 		confirm.cancel()
 		if payload.ok then
-			resultText = Locale.t("rebirth.v2.success", { total = Formatter.format(payload.total) })
+			resultText = Locale.t("rebirth.v2.success", { total = Formatter.formatCount(payload.total) }) -- 환생 수는 정수(#42)
 		else
 			resultText = RebirthWindowLogic.reasonText(tostring(payload.reason), view.cost)
 		end

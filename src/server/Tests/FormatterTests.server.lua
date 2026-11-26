@@ -94,6 +94,19 @@ do
 	check("반올림 캐리 없음: 999.98 유지", actual == "999.98", actual)
 end
 
+-- 9. 정수 표시 formatCount (지시서 #42 — 환생 수 · 층 · 개수는 "1.00"이 아니라 "1") -----------------
+
+do
+	local F = Formatter.formatCount
+	check("formatCount: 1 · 15(BigNum 1.5e1) · 999 → 소수 없음", F(BigNum.new(1, 0)) == "1" and F(BigNum.new(1.5, 1)) == "15"
+		and F(BigNum.new(9.99, 2)) == "999", F(BigNum.new(1.5, 1)))
+	check("formatCount: 0 → \"0\" · number도 받는다(3 · 12.000000000000002 → 12)", F(BigNum.new(0, 0)) == "0" and F(3) == "3"
+		and F(1.2 * 10) == "12" and F(BigNum.new(1.2, 1)) == "12", F(BigNum.new(1.2, 1)))
+	check("formatCount: 1000 이상은 format 꼴(1.00K · 1.50M)", F(BigNum.new(1, 3)) == "1.00K" and F(BigNum.new(1.5, 6)) == "1.50M"
+		and F(BigNum.new(9.996, 2)) == "1.00K", F(BigNum.new(9.996, 2)))
+	check("formatCount: 음수 · 소수 반올림(2.6 → 3)", F(-5) == "-5" and F(2.6) == "3", F(-5))
+end
+
 -- 결과 -------------------------------------------------------------------
 
 print(string.format("[FormatterTests] %d passed, %d failed", passed, failed))

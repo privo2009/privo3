@@ -137,7 +137,7 @@ do
 	check("창: 확인 시간이 지나면 다시 두 번 눌러야 한다", w.sends == 1)
 
 	handle.onResult({ ok = true, reason = "", gained = { m = 1, e = 0 }, total = { m = 3, e = 0 } })
-	check("창: 성공 결과 문구(#37 다 — 환생 뒤 환생 수)", handle._debug.labels.status.Text == Locale.t("rebirth.v2.success", { total = Formatter.format(BigNum.new(3, 0)) }))
+	check("창: 성공 결과 문구(#37 다 — 환생 뒤 환생 수 · 정수 \"3\" — #42)", handle._debug.labels.status.Text == Locale.t("rebirth.v2.success", { total = "3" }))
 	handle.onResult({ ok = false, reason = "rate_limited", gained = { m = 0, e = 0 } })
 	check("창: 거부 결과는 사유 문구", handle._debug.labels.status.Text == RebirthWindowLogic.reasonText("rate_limited"))
 	-- 지시서 #18 AA9: "자동 진행 중" 거부 문구는 자동이 꺼지면 지워진다(다른 거부 문구는 그대로)

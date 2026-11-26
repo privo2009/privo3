@@ -74,4 +74,24 @@ function Formatter.format(value: BigNumber): string
 	return sign .. string.format("%.2f", displayM) .. getSuffix(tier)
 end
 
+-- 정수로 세는 값(환생 수 · 층 · 개수 · 별 · 강화 단계 — 지시서 #42). 1000 미만은 소수 없이("1" · "15" · "999"),
+-- 1000 이상은 format과 같은 꼴("1.50K" — DESIGN 4 큰 수 표기 그대로). 재화(블럭스 · 코인) 양은 format을 쓴다(소수 2자리 고정).
+-- number도 받는다. 소수가 섞여 들어오면 가장 가까운 정수로 반올림한다(BigNum 1.2e1 = 12.000000000000002 같은 오차).
+function Formatter.formatCount(value: BigNumber | number): string
+	local v: BigNumber = if type(value) == "number" then BigNum.fromNumber(value) else value
+	assert(type(v) == "table" and type(v.m) == "number" and type(v.e) == "number", "Formatter.formatCount: invalid value")
+	if v.m == 0 then
+		return "0"
+	end
+	if v.e < 3 then
+		local n = math.floor(math.abs(v.m) * (10 ^ v.e) + 0.5)
+		local sign = if v.m < 0 and n > 0 then -1 else 1
+		if n < 1000 then
+			return (if sign < 0 then "-" else "") .. tostring(n)
+		end
+		return Formatter.format(BigNum.fromNumber(sign * n)) -- 999.6 → 1000 → "1.00K"(반올림한 정수로 큰 수 표기)
+	end
+	return Formatter.format(v)
+end
+
 return Formatter

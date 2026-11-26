@@ -111,8 +111,19 @@ do
 	check("기구 표시: 열렸지만 안 서 있으면 한 줄", off.detail == "" and off.role == "power")
 	local locked = WorldLabelLogic.gym(4, zero, false)
 	check("기구 표시: 잠김은 필요 환생 수 · 회색", locked.role == "neutral"
-		and string.find(locked.detail, Formatter.format(GymConfig.getUnlockRebirths(4)), 1, true) ~= nil, locked.detail)
-	check("기구 표시: 잠긴 기구 위면 잠김", WorldLabelLogic.gym(4, zero, true).detail == Locale.t("world.gym.lockedNeed", { amount = Formatter.format(GymConfig.getUnlockRebirths(4)) }))
+		and string.find(locked.detail, Formatter.formatCount(GymConfig.getUnlockRebirths(4)), 1, true) ~= nil, locked.detail)
+	check("기구 표시: 잠긴 기구 위면 잠김", WorldLabelLogic.gym(4, zero, true).detail == Locale.t("world.gym.lockedNeed", { amount = Formatter.formatCount(GymConfig.getUnlockRebirths(4)) }))
+	-- 지시서 #42: 필요 환생 수는 정수("1.00"이 아니라 "1") — 환생 기구 전부(소수점이 없다)
+	local noDecimals = true
+	for i = 1, GymConfig.getRebirthTierCount() do
+		local d = WorldLabelLogic.gym(i, zero, false).detail
+		local v = GymConfig.getUnlockRebirths(i)
+		local need = tostring(math.floor(v.m * 10 ^ v.e + 0.5))
+		if string.find(d, ".", 1, true) ~= nil or d ~= Locale.t("world.gym.need", { amount = need }) then
+			noDecimals = false
+		end
+	end
+	check("기구 표시: 필요 환생 수는 정수(모든 환생 기구 — 소수점 없음)", noDecimals, WorldLabelLogic.gym(1, zero, false).detail)
 	local void = WorldLabelLogic.gym(count, BigNum.new(1, 30), true)
 	-- 지시서 #17부터 공허 게임패스 ID가 등록돼 "(준비 중)"이 빠진다. ID 0일 때의 문구는 RobuxShopTests가 잰다
 	check("기구 표시: 공허는 로벅스 전용 · 프리미엄(ID 등록됨)", void.role == "premium" and void.detail == Locale.t("world.gym.robuxOnly"))

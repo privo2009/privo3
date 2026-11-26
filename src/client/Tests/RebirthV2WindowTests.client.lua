@@ -91,7 +91,7 @@ do
 	h2._debug.press()
 	check("창: 확인 두 번에 요청 하나(지금 창과 같은 확인 단계)", sends() == 1)
 	h2.onResult({ ok = true, reason = "", gained = BigNum.new(1, 0), total = BigNum.fromNumber(REBIRTHS + 1) })
-	check("창: 성공 문구는 환생 수", h2._debug.labels.status.Text == Locale.t("rebirth.v2.success", { total = Formatter.format(BigNum.fromNumber(REBIRTHS + 1)) }))
+	check("창: 성공 문구는 환생 수(정수 — #42)", h2._debug.labels.status.Text == Locale.t("rebirth.v2.success", { total = tostring(REBIRTHS + 1) }))
 	h2.root:Destroy()
 
 end

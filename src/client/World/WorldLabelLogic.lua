@@ -189,7 +189,7 @@ function WorldLabelLogic.gym(index: number, rebirths: BigNumber, standing: boole
 	return {
 		visible = true,
 		title = multiplierText,
-		detail = Locale.t(if standing then "world.gym.lockedNeed" else "world.gym.need", { amount = Formatter.format(GymConfig.getUnlockRebirths(index)) }),
+		detail = Locale.t(if standing then "world.gym.lockedNeed" else "world.gym.need", { amount = Formatter.formatCount(GymConfig.getUnlockRebirths(index)) }), -- 환생 수는 정수(#42)
 		role = "neutral",
 	}
 end
