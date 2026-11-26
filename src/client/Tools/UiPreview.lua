@@ -5,12 +5,12 @@
 --
 --   - 창은 실물 창 모듈의 create()를 예시 Store(Store.new) · 예시 새 경제 상태로 따로 만든다. 요청 · 구매는 아무 데도 보내지 않는다
 --     (sendRequest · send · purchase가 빈 함수). 서버 · 프로필은 건드리지 않는다
---   - 언어 en ↔ ko: 지금 언어를 바꾸고 창을 다시 만든다. ⚠️ 모듈을 불러올 때 정해지는 문장(창 제목 상수 등 61곳)은 접속 언어 그대로다 —
+--   - LANG: 지금 언어를 SUPPORTED의 다음 언어로 바꾸고(en → ko → es → pt → fr → de) 창을 다시 만든다. ⚠️ 모듈을 불러올 때 정해지는 문장(창 제목 상수 등 61곳)은 접속 언어 그대로다 —
 --     전부 보려면 Bootstrap TEST_LOCALE을 같이 켠다
 --   - LONG: 모든 문장을 두 번 이어 붙여(Locale._setStretch) 넘침을 본다
 --   - KIT: 키트 견본 — 버튼 6색 · 탭 · 게이지 · 등급별 칸(장비 6 · 희귀도 6) · 확률 표 줄 · 토스트
 --   - 오버레이(결과 모달 · 일일 보상 · 환생 알림 · 토스트 · 부화 연출)는 예시 값으로 띄운다
--- 글자: 목록 버튼은 개발 도구 표시(창 이름 · en/ko · LONG · KIT)라 Strings 키를 쓰지 않는다 — 플레이어에게 보이지 않는다(게시 빌드에서 돌지 않음).
+-- 글자: 목록 버튼은 개발 도구 표시(창 이름 · LANG · LONG · KIT)라 Strings 키를 쓰지 않는다 — 플레이어에게 보이지 않는다(게시 빌드에서 돌지 않음).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -379,7 +379,7 @@ function UiPreview.run()
 	layout.Padding = UDim.new(0.004, 0)
 	layout.Parent = list
 	local items = table.clone(UiPreview.WINDOWS)
-	table.insert(items, "en/ko")
+	table.insert(items, "LANG")
 	table.insert(items, "LONG")
 	local rowH = 1 / (#items + 1)
 	for i, name in ipairs(items) do
@@ -397,8 +397,15 @@ function UiPreview.run()
 			end
 		end
 		hit.Activated:Connect(function()
-			if name == "en/ko" then
-				Locale._setCurrent(if Locale.current() == "ko" then "en" else "ko")
+			if name == "LANG" then -- 지금 언어 → SUPPORTED의 다음 언어(en → ko → es → pt → fr → de → en — 지시서 #40)
+				local codes = Locale.SUPPORTED
+				local nextCode = codes[1]
+				for idx, code in ipairs(codes) do
+					if code == Locale.current() then
+						nextCode = codes[idx % #codes + 1]
+					end
+				end
+				Locale._setCurrent(nextCode)
 			elseif name == "LONG" then
 				Locale._setStretch(not Locale._isStretched())
 			else

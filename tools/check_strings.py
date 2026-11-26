@@ -3,6 +3,7 @@
 사용:  python3 -I tools/check_strings.py           실패가 있으면 exit 1
        python3 -I tools/check_strings.py --keys    키 목록도 찍는다
        python3 -I tools/check_strings.py --lengths 영어가 한국어보다 많이 긴 항목(글자 수 2배 이상 · 폭 추정 1.3배 이상)
+       python3 -I tools/check_strings.py --long    유럽 4개 언어가 영어보다 많이 긴 항목(글자 수 1.4배 이상 — 지시서 #40)
 
 검사 (같은 규칙의 Luau 판은 src/server/Tests/LocaleTests.server.lua — #L2가 Play에서 돌린다):
   1. Strings.lua의 항목 줄이 전부 읽힌다 · 키 중복 없음
@@ -10,6 +11,8 @@
   3. 언어마다 자리 표시 집합이 en과 같다
   4. 코드가 부르는 키(Locale.t("…") 등 · 키 꼴 문자열 리터럴)가 표에 있다. "접두." .. 값 꼴은 그 접두로 시작하는 키가 하나 이상 있어야 한다
   5. (알림만) 어디서도 안 부르는 키
+  6. 유럽 4개 언어(Localization/Lang/<코드>.lua — 지시서 #40): 키마다 문장이 있다(누락 · 빈 문자열 = 실패) ·
+     자리 표시 집합 = en(3번과 같은 검사) · 줄바꿈(\n) 개수 = en · 표에 없는 키(고아) 없음 · 키 중복 없음
 """
 import os
 import re
@@ -21,6 +24,9 @@ from luau_lex import tokens  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STRINGS = os.path.join(ROOT, "src", "shared", "Localization", "Strings.lua")
+LANG_DIR = os.path.join(ROOT, "src", "shared", "Localization", "Lang")
+LANG_FILES = ["es", "pt", "fr", "de"]  # Strings.LANG_FILES와 같은 목록(지시서 #40)
+LANG_ENTRY = re.compile(r'^\s*\["([^"]+)"\]\s*=\s*"((?:[^"\\]|\\.)*)",?\s*(--.*)?$')
 
 ENTRY = re.compile(r'^\s*\["([^"]+)"\]\s*=\s*\{(.*)\},?\s*(--.*)?$')
 FIELD = re.compile(r'(\w+)\s*=\s*"((?:[^"\\]|\\.)*)"')
@@ -54,6 +60,69 @@ def load_entries(path=STRINGS):
     return entries, errors
 
 
+def load_lang(code):
+    """({key: text}, errors) — Lang/<코드>.lua의 항목 줄. 키 중복 · 읽지 못한 줄은 errors에."""
+    path = os.path.join(LANG_DIR, code + ".lua")
+    texts, errors, lines = {}, [], {}
+    if not os.path.exists(path):
+        return texts, [f"Lang/{code}.lua가 없다"]
+    inside = False
+    for n, line in enumerate(open(path, encoding="utf-8"), 1):
+        st = line.strip()
+        if st.startswith("return {"):
+            inside = True
+            continue
+        if inside and line.startswith("}"):
+            inside = False
+            continue
+        if not inside or st.startswith("--") or not st:
+            continue
+        m = LANG_ENTRY.match(line)
+        if not m:
+            errors.append(f"Lang/{code}.lua:{n}: 항목 줄을 읽지 못했다: {st[:80]}")
+            continue
+        key = m.group(1)
+        if key in texts:
+            errors.append(f"Lang/{code}.lua:{n}: 키 중복 {key} (처음 {lines[key]}줄)")
+        texts[key], lines[key] = unescape(m.group(2)), n
+    return texts, errors
+
+
+def load_all():
+    """(entries, errors, orphans) — Strings 항목에 Lang 파일 문장을 합친 것(게임의 Strings.lua 끝 합치기와 같은 규칙)."""
+    entries, errors = load_entries()
+    by_key = {key: fields for key, fields, _ in entries}
+    orphans = []
+    for code in LANG_FILES:
+        texts, errs = load_lang(code)
+        errors += errs
+        for key, text in texts.items():
+            if key in by_key:
+                by_key[key][code] = text
+            else:
+                orphans.append(f"Lang/{code}.lua: 표에 없는 키 {key}")
+    return entries, errors, orphans
+
+
+def long_report(entries):
+    """(언어, 키, en, 번역, 배율, 짧은 문구?) — 번역이 영어보다 글자 수 1.4배 이상인 것. 짧은 문구 = 영어 12자 이하(버튼 · 라벨)."""
+    out = []
+    for key, fields, _ in entries:
+        en = fields.get("en", "")
+        if not en:
+            continue
+        en_s = PLACEHOLDER.sub("0000", en)
+        for code in LANG_FILES:
+            tr = fields.get(code, "")
+            if not tr:
+                continue
+            ratio = len(PLACEHOLDER.sub("0000", tr)) / max(1, len(en_s))
+            if ratio >= 1.4:
+                out.append((code, key, en, tr, ratio, len(en_s) <= 12))
+    out.sort(key=lambda r: (LANG_FILES.index(r[0]), -r[4]))
+    return out
+
+
 def code_references():
     """(정확한 키 집합, 접두 집합, {키: 처음 본 자리}) — src 전체의 문자열 리터럴에서."""
     exact, prefixes, where = set(), set(), {}
@@ -63,8 +132,8 @@ def code_references():
                 continue
             path = os.path.join(base, f)
             rel = os.path.relpath(path, ROOT)
-            if os.path.abspath(path) == os.path.abspath(STRINGS):
-                continue
+            if os.path.abspath(path) == os.path.abspath(STRINGS) or os.path.abspath(base) == os.path.abspath(LANG_DIR):
+                continue  # 표 자체(Strings · Lang 번역 파일)는 "부르는 곳"이 아니다
             src = open(path, encoding="utf-8").read()
             for kind, text, line, start, end in tokens(src):
                 if kind != "string" or not KEY_SHAPE.match(text):
@@ -112,7 +181,8 @@ def length_report(entries):
 
 
 def main():
-    entries, errors = load_entries()
+    entries, errors, orphans = load_all()
+    errors += orphans
     keys = {}
     for key, fields, n in entries:
         if key in keys:
@@ -129,6 +199,13 @@ def main():
             got = set(PLACEHOLDER.findall(text))
             if got != want:
                 errors.append(f"Strings.lua:{n}: {key} — {lang} 자리 표시 {sorted(got)} ≠ en {sorted(want)}")
+            if text.count("\n") != en.count("\n"):
+                errors.append(f"Strings.lua:{n}: {key} — {lang} 줄바꿈 {text.count(chr(10))}개 ≠ en {en.count(chr(10))}개")
+        for lang in LANG_FILES:
+            if lang not in fields:
+                errors.append(f"Lang/{lang}.lua: {key} — 번역 없음(en이 보인다)")
+            elif fields[lang] == "":
+                errors.append(f"Lang/{lang}.lua: {key} — 빈 문자열")
 
     namespaces = {k.split(".")[0] for k in keys}
     exact, prefixes, where = code_references()
@@ -159,6 +236,13 @@ def main():
         print(f"--- 영어가 많이 긴 항목 {len(rows)} (글자 수 ≥ 2배 또는 폭 추정 ≥ 1.3배) ---")
         for key, en, ko, cr, wr in rows:
             print(f"  {key}  글자 ×{cr:.1f} · 폭 ×{wr:.1f}  en={en!r}  ko={ko!r}")
+    if "--long" in sys.argv:
+        rows = long_report(entries)
+        print(f"--- 영어보다 많이 긴 번역 {len(rows)} (글자 수 ≥ 1.4배 · [짧은] = 영어 12자 이하 버튼 · 라벨) ---")
+        for code, key, en, tr, ratio, short in rows:
+            print(f"  {code} {key}  ×{ratio:.2f}{' [짧은]' if short else ''}  en={en!r}  {code}={tr!r}")
+    counts = {code: sum(1 for _, f, _ in entries if f.get(code)) for code in ["ko"] + LANG_FILES}
+    print("언어별 키 수: en " + str(len(keys)) + " · " + " · ".join(f"{c} {counts[c]}" for c in counts))
     if "--keys" in sys.argv:
         for k in sorted(keys):
             print(k)

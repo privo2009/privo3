@@ -9,6 +9,8 @@
   Example  번역자 메모. 자리 표시가 있으면 이름을 적는다(값은 게임이 숫자 문자열로 채운다)
   Source   영어(en). 게임의 원본 언어(Source Language)는 English로 둔다
   ko       한국어(직접 번역 — 올리면 수동 번역으로 잠긴다. 자동 번역이 덮지 않는다)
+  es pt fr de  유럽 4개 언어(지시서 #40 — AI 번역 · 원어민 검수 전, 문장 원본은 Localization/Lang/<코드>.lua)
+           열 머리는 언어 코드다(공식 문서 language-codes "language code or locale ID" — 2026-11-26 확인)
 한계(공식 문서 add-translations): 파일 2MB · 항목 1만 · 한 번에 추가 · 수정 1,000개 — 넘으면 이 스크립트가 알린다.
 """
 import csv
@@ -19,15 +21,16 @@ import sys
 
 sys.dont_write_bytecode = True  # tools/__pycache__를 만들지 않는다
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from check_strings import load_entries, PLACEHOLDER  # noqa: E402
+from check_strings import load_all, PLACEHOLDER  # noqa: E402
 
-LANGS = ["ko"]  # Source(en) 밖의 열. 새 언어를 Strings에 직접 넣으면 여기에 코드를 더한다
+LANGS = ["ko", "es", "pt", "fr", "de"]  # Source(en) 밖의 열. 새 언어를 Strings에 직접 넣으면 여기에 코드를 더한다
 MAX_ROWS_PER_UPLOAD = 1000
 MAX_BYTES = 2 * 1024 * 1024
 
 
 def rows():
-    entries, errors = load_entries()
+    entries, errors, orphans = load_all()
+    errors += orphans
     if errors:
         raise SystemExit("Strings.lua를 읽지 못했다:\n" + "\n".join(errors))
     seen_source = {}

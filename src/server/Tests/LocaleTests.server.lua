@@ -139,7 +139,7 @@ do
 	check("ko-kr → ko", Locale.fromLocaleId("ko-kr") == "ko")
 	check("KO → ko", Locale.fromLocaleId("KO") == "ko")
 	check("en-us → en", Locale.fromLocaleId("en-us") == "en")
-	check("es-es → en (그 밖은 전부 en)", Locale.fromLocaleId("es-es") == "en")
+	check("es-es → es (지시서 #40 — 유럽 4개 언어. 나머지는 LocaleLangTests)", Locale.fromLocaleId("es-es") == "es")
 	check("ja-jp → en", Locale.fromLocaleId("ja-jp") == "en")
 	check("빈 값 · nil → en", Locale.fromLocaleId("") == "en" and Locale.fromLocaleId(nil) == "en")
 	local a, la = Locale.resolveTest(nil, true)
@@ -148,7 +148,7 @@ do
 	check("TEST_LOCALE ko(Studio) → ko · 안내 한 줄", b == "ko" and lb ~= nil)
 	local c, lc = Locale.resolveTest("ko", false)
 	check("TEST_LOCALE이 Studio 밖에서 무시됨 · ERROR", c == nil and lc ~= nil and string.find(lc :: string, "ERROR", 1, true) ~= nil)
-	local d, ld = Locale.resolveTest("fr", true)
+	local d, ld = Locale.resolveTest("ja", true) -- #40: fr은 이제 지원 언어 — 모르는 값의 예를 ja로
 	check("모르는 TEST_LOCALE 무시 · ERROR", d == nil and ld ~= nil and string.find(ld :: string, "ERROR", 1, true) ~= nil)
 	check("클라우드 Translator 커밋 값 = 꺼짐(Studio 확인 전 — K4)", Locale.CLOUD_TRANSLATOR_ENABLED == false)
 end

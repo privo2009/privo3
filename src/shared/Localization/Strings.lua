@@ -24,10 +24,17 @@
 --   포션 Potion · 행운 Luck · 부스트 Boost · 자동 클리커 Auto Clicker · 자동 진행 Auto Advance
 --   상품 이름은 대시보드 이름과 같은 꼴: x2 Power · Auto Clicker · Lucky Roll x5 (배수가 앞, 횟수가 뒤)
 --   새 경제(#31): 광석 Ore · 곡괭이 Pickaxe · 제작 Craft · 토큰 Token · 교환 Exchange · 별 Star · 강화 Enhance · 가방 Bag · 코인 Coin
+--
+-- ===== 유럽 4개 언어 (지시서 #40 — AI 번역 · 원어민 검수 전) ==========================================
+--
+--   es · pt(브라질) · fr · de 문장은 언어마다 따로 있다: Localization/Lang/<코드>.lua — 한 줄에 ["키"] = "문장",
+--   이 파일을 불러올 때 Entries[키][코드]로 합친다(아래 맨 끝). 그래서 Locale · 검사 · 내보내기는 한 표만 본다.
+--   새 키를 여기에 넣으면 Lang 네 파일에도 한 줄씩 넣는다(없으면 en이 보인다 — check_strings가 "번역 없음"으로 알린다).
+--   언어별 용어집은 docs/LOCALIZATION.md "4. 용어집" 둘째 표.
 
 local Strings = {}
 
-export type Entry = { en: string, ko: string? }
+export type Entry = { en: string, ko: string?, es: string?, pt: string?, fr: string?, de: string? }
 
 Strings.Entries = {
 	-- ===== 공통 ==========================================================================================
@@ -595,5 +602,20 @@ Strings.Entries = {
 	["kick.corrupted"] = { en = "Your data is damaged and can't be loaded. Please contact an admin.", ko = "데이터가 손상되어 로드할 수 없습니다. 관리자에게 문의해 주세요." },
 	["kick.otherServer"] = { en = "Your data was loaded on another server. Please rejoin.", ko = "다른 서버에서 데이터를 불러왔습니다. 다시 접속해 주세요." },
 } :: { [string]: Entry }
+
+-- 유럽 4개 언어 합치기(지시서 #40). 표에 없는 키는 버리고 Orphans에 남긴다(LocaleLangTests · check_strings가 0을 잰다)
+Strings.LANG_FILES = { "es", "pt", "fr", "de" }
+Strings.Orphans = {} :: { string }
+for _, code in ipairs(Strings.LANG_FILES) do
+	local texts = require(script.Parent.Lang[code]) :: { [string]: string }
+	for key, text in pairs(texts) do
+		local entry = (Strings.Entries :: any)[key]
+		if entry ~= nil then
+			entry[code] = text
+		else
+			table.insert(Strings.Orphans, code .. ":" .. key)
+		end
+	end
+end
 
 return Strings

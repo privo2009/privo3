@@ -42,7 +42,7 @@ local TEST_PAID_RANDOM_RESTRICTED: boolean? = nil
 local TEST_RECEIPTS: { string }? = nil
 
 -- ── 화면 언어: TEST_LOCALE (Studio 전용, 지시서 #L1 K2) ────────────────────────────────────
--- "en" 또는 "ko"를 적고 Play하면 계정 언어 대신 그 언어로 보인다(클라 · Kick 안내문 둘 다 — Server/Systems/LocaleGate).
+-- "en" · "ko" · "es" · "pt" · "fr" · "de"(Locale.SUPPORTED) 중 하나를 적고 Play하면 계정 언어 대신 그 언어로 보인다(클라 · Kick 안내문 둘 다 — Server/Systems/LocaleGate).
 -- Studio가 아니면 무시하고 ERROR 로그를 남긴다. ⚠️ 커밋 값은 언제나 nil이다(LocaleTests가 잰다 — 켠 Play에서는 그 줄이 실패한다).
 local TEST_LOCALE: string? = nil
 

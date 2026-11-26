@@ -7,7 +7,9 @@
 --
 -- ===== 언어 고르기 (K2) ===========================================================================
 --
--- 계정 언어(Player.LocaleId — 게임 콘텐츠 현지화에 쓰는 값, 공식 문서 Player.LocaleId)가 "ko"로 시작하면 ko, 그 밖은 전부 en.
+-- 계정 언어(Player.LocaleId — 게임 콘텐츠 현지화에 쓰는 값, 공식 문서 Player.LocaleId)의 앞 두 글자(언어 코드)가 SUPPORTED에 있으면
+-- 그 언어, 그 밖은 전부 en(지시서 #40 — es-es · es-mx → es, pt-br · pt-pt → pt, fr-fr · fr-ca → fr, de-de → de, ko-kr → ko).
+-- 언어 코드 · Locale ID 표: https://create.roblox.com/docs/production/localization/language-codes (2026-11-26 확인)
 -- Studio 확인용 TEST_LOCALE은 서버 Bootstrap 한 곳에 있다(커밋 값 nil — LocaleTests가 잰다). 서버 LocaleGate가 Studio에서만
 -- ReplicatedStorage 속성(TEST_LOCALE_ATTRIBUTE)으로 내려 주고, 클라는 처음 t를 부를 때 한 번 읽는다.
 -- 세션 중에 언어가 바뀌지 않는다(언어 선택 설정 항목 없음 — K2). 그래서 모듈 맨 위에서 t를 불러 상수로 둬도 된다.
@@ -19,7 +21,7 @@
 --
 -- ===== 클라우드 현지화 표 (K4 — 지금은 꺼져 있다) ===================================================
 --
--- CLOUD_TRANSLATOR_ENABLED를 켜면 en · ko가 아닌 언어 플레이어에게 LocalizationService:GetTranslatorForPlayerAsync의
+-- CLOUD_TRANSLATOR_ENABLED를 켜면 SUPPORTED 밖 언어 플레이어에게 LocalizationService:GetTranslatorForPlayerAsync의
 -- Translator:FormatByKey(키, 자리 표시)를 먼저 해 본다. 실패 · 없음이면 en. 켜는 조건은 docs/LOCALIZATION.md "5. 런타임 연결".
 -- ⚠️ Studio에서 확인하기 전에는 켜지 않는다(지시서 #L1).
 
@@ -27,10 +29,10 @@ local Strings = require(script.Parent.Strings)
 
 local Locale = {}
 
-export type LocaleCode = string -- "en" | "ko" (SUPPORTED)
+export type LocaleCode = string -- "en" | "ko" | "es" | "pt" | "fr" | "de" (SUPPORTED)
 
 Locale.DEFAULT = "en"
-Locale.SUPPORTED = { "en", "ko" }
+Locale.SUPPORTED = { "en", "ko", "es", "pt", "fr", "de" } -- es · pt · fr · de = 지시서 #40(AI 번역 · 원어민 검수 전)
 Locale.MISSING_TEXT = "?"
 Locale.TEST_LOCALE_ATTRIBUTE = "TestLocale"
 -- K11(#L2): 서버 LocaleGate.init이 TEST_LOCALE을 정한 뒤 true로 세운다(TEST_LOCALE이 nil이어도). 클라는 Studio에서만 이것을 기다린다
@@ -47,10 +49,17 @@ function Locale.isSupported(code: any): boolean
 	return type(code) == "string" and supportedSet[code] == true
 end
 
--- 계정 언어 ID("ko-kr" · "en-us" · "es-es" …) → 게임 언어. 한국어만 ko, 그 밖은 전부 en(K2).
+-- 계정 언어 ID("ko-kr" · "en-us" · "es-mx" …) → 게임 언어. 앞 두 글자가 SUPPORTED면 그 언어, 그 밖은 전부 en(K2 · #40).
+-- 두 글자 뒤가 "-" · "_"이거나 끝이어야 한다("esx" 같은 값은 en).
 function Locale.fromLocaleId(localeId: any): LocaleCode
-	if type(localeId) == "string" and string.lower(string.sub(localeId, 1, 2)) == "ko" then
-		return "ko"
+	if type(localeId) ~= "string" then
+		return Locale.DEFAULT
+	end
+	local lower = string.lower(localeId)
+	local code = string.sub(lower, 1, 2)
+	local after = string.sub(lower, 3, 3)
+	if supportedSet[code] and (after == "" or after == "-" or after == "_") then
+		return code
 	end
 	return Locale.DEFAULT
 end
@@ -154,7 +163,7 @@ local function startCloudTranslator(player: any, localeId: any)
 		return
 	end
 	if type(localeId) ~= "string" or Locale.isSupported(string.lower(string.sub(localeId, 1, 2))) then
-		return -- en · ko는 Strings가 직접 낸다
+		return -- SUPPORTED 언어는 Strings가 직접 낸다
 	end
 	task.spawn(function()
 		local ok, translator = pcall(function()
