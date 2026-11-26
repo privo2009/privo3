@@ -1,6 +1,6 @@
 # 개발 로드맵
 
-문서 갱신: 2026-11-25 (지시서 #38 — Phase 9 기술 점검: 리모트 보안 · 데이터 안전 · 성능 · 분석 퍼널 · 프리셋 · 테스트 4874)
+문서 갱신: 2026-11-26 (지시서 #39 — UI 키트 · 스킨 한 표 · UI 미리보기 · 음수 재화 조이기 · 테스트 4931)
 
 ## 원칙
 - 아래에서 위로 쌓는다. BigNum이 흔들리면 전부 무너진다
@@ -28,7 +28,7 @@
 | `Tests/AttackConfigTests.server.lua` | 29 | 펀치 속도·판정 반경 파생·경계(이하) |
 | `Data/SchemaTests.server.lua` | 62 | 프로필 스키마 검증 · v5(지운 4필드 · 장착/보유 상한 = 게임패스 최대 · selectedPack 범위 · LIMITS = Config) · v6(upgrades.moveSpeed 없음 · 7키 — #13) · v7(purchases · potions · rollCredits · gymUnlocks · boosts remainingSec — #16) · v8(daily {streak, lastClaimDay} · redeemedCodes · onboarding — 템플릿 · 통과 · 거부 — #20) · v9(cosmetics.reduceMotion · sfxEnabled — 템플릿 · 통과 · 거부 — #25) · v10 버전 줄(#32 — 개수 그대로) |
 | `Data/MigrationsTests.server.lua` | 68 | schemaVersion 마이그레이션·멱등성·v4 lifeBlox · v5 삭제 4필드(값 보존 · 방어 · 멱등) · v5 → v6 moveSpeed 삭제(값 보존 · 방어 · 멱등 — #13) · v6 → v7(boosts expiresAt → remainingSec · 새 표 · 멱등 — #16) · v7 → v8(freePotionDay 삭제 · v7 값 그대로 · 플레이한 프로필 끝남 · 범위 밖 0 · 덮지 않음 · 멱등 — #20) · v8 → v9(reduceMotion false · sfxEnabled true · 기존 설정 · v8 값 그대로 · 덮지 않음 · bool 아님 기본값 · cosmetics 없음 무해 · 멱등 · v9 검증 통과 — #25) · CURRENT 10 · v8→v9 결과가 최신까지(#32 — 버전 줄 4개 고침 · 개수 그대로) |
-| `Systems/CurrencyServiceTests.server.lua` | 59 | 재화 단일 게이트·롤백·rebirths·lifeBlox(이번 생애 누적) |
+| `Systems/CurrencyServiceTests.server.lua` | 61 | 재화 단일 게이트·롤백·rebirths·lifeBlox(이번 생애 누적) · 결과가 음수인 변경 거부 · 정상 흐름 그대로(#39) |
 | `Systems/BlockServiceTests.server.lua` | 51 | 배치·데미지 오버플로우·클리어 |
 | `Systems/ChallengeServiceTests.server.lua` | 85 | 타이머·보상 갱신·진입점 거부·source 식별·블럭스 획득 배수 한 함수(payableReward)·view nextReward · 앞 항이 없어도 뒤 항이 곱해진다(#12) |
 | `Systems/ClickServiceTests.server.lua` | 47 | 입력 위생·초당 상한 윈도우·통지 억제·자동 경로 |
@@ -143,9 +143,10 @@
 | `Tests/SfxTests.client.lua` | 19 | 효과음(#25 S1 ~ S3) — 키 12개 · 커밋 값 id 전부 nil · 판정(id 없음 · 끔 · 스로틀 · 모르는 키) · 희귀도 → 키(칭호 · 아우라 · 펫) · 런 상태 · 환생 · 구매 · 일일 보상 · 시도 기록 · 끔이면 시도 0 · 풀 |
 | `Systems/RemoteGuardTests.server.lua` | 120 | 리모트 입구 공통 문(#38) — 모양 예산 10종 사유 · 연타 통(기본 0.15초 · ClickInput · SyncRequest · 1초 1000번) · 오류 격리 · 나가면 지움 · 목록(Remotes 22 = 붙은 리모트 · SyncRequest 2) · 입구 19종 흔들기(RemoteFuzz — 정상 대조 · 통째 15종 · 필드 하나씩 · 연타 20번 · 오류 0) · 대장간 문 없이 1초 100번 · 클릭 count 위생 |
 | `Systems/DupeTests.server.lua` | 16 | 복제 점검(#38 — 가짜 프로필 · 실물 서비스) — 수령 두 번 · 수령 뒤 포기 · 실패 뒤 수령 · 환생 중 수령 · 제작 · 교환 · 강화 · 별 연달아 · 대장간 · 장비 같은 시각 연타 · 끝 스키마 통과 |
-| `Data/ProfileManagerTests.server.lua` | 16 | 데이터 안전(#38 — 가짜 저장소) — 저장소 없음 · 세션 잠금 실패 · 로딩 중 나감 · 버전 오류 · 손상 → 킥 키 · 세션 닫음 · 킥 문구 en · ko · 세션 끝 경고 구분 · 서버 종료 12명 저장 기다림 · 상한 · 프로필 크기(3시간 · 최악 vs 4,194,304) |
+| `Data/ProfileManagerTests.server.lua` | 18 | 데이터 안전(#38 — 가짜 저장소) — 저장소 없음 · 세션 잠금 실패 · 로딩 중 나감 · 버전 오류 · 손상 → 킥 키 · 세션 닫음 · 킥 문구 en · ko · 세션 끝 경고 구분 · 서버 종료 12명 저장 기다림 · 상한 · 프로필 크기(3시간 · 최악 vs 4,194,304) · 음수 재화 → 0 · 경고(#39) |
 | `Tests/AnalyticsFunnelTests.server.lua` | 25 | 분석 #38 — 한도 · 온보딩 9단계 이름 · 지난 단계 계산(줄지 않는 값 · 차례) · 처음 온 사람 · 돌아온 사람 · 중복 없음 · 곡괭이 종 수 · 코인 경제(모아 보내기 · Sink · 자원 따로) · 나가면 지움 |
-| **합계** | **4874** | 서버 82행 3349 · 클라 45행 1525 — 2026-11-25 #38 Play 2번 실측(Studio 플래그 전부 nil · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
+| `Tests/UiKitTests.client.lua` | 53 | UI 키트(#39) — 역할 이름(role · grade · rarity · text · 모르는 이름 오류) · 스킨 기본값 = #39 이전 숫자 · UiSkin 빈 표 · 덮기 · 되돌리기 · styleText · card · skinImage · tab · gauge · toastRow · oddsRow · currencyChip · modalPanel · dim · 틀 여백(0이면 이전 식 · 두께만큼 안으로 · Panel.create) · 미리보기 게이트(flagOn · 커밋 nil · STUDIO_FLAGS) · 창 전부 예시로 만들어짐 · 등급 5종 · AssetSlots UI 칸 · 긴 문장 |
+| **합계** | **4931** | 서버 82행 3353 · 클라 46행 1578 — 2026-11-26 #39 Play 2번 실측(Studio 플래그 전부 nil · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -173,7 +174,18 @@
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-11-25 Studio Play 런타임 실측 (전량, 지시서 #38 — 리모트 보안 · 데이터 안전 · 분석 퍼널 · 프리셋 다시 뽑음 · 플래그 전부 nil Play 2번).**
+최근 갱신: **2026-11-26 Studio Play 런타임 실측 (전량, 지시서 #39 — UI 키트 · 창 이관 · 미리보기 · 음수 재화 · 플래그 전부 nil Play 2번).**
+128개 행 전부가 두 Play 모두에 같은 개수로 찍혔다. **4931 passed / 0 failed** — 서버 3353(82행) + 클라 1578(46행). 끝 표시 `server 82/82 files · 3353` ·
+`client 46/46 files · 1578`. 시작 기준 Play는 #38 최종과 같았다(서버 82/82 3349 · 클라 45/45 1525).
+
+```
+신설   UiKitTests               53   키트 · 테마 · 틀 여백 · 미리보기 게이트 · UI 칸 (24078f1)
+늘어남 CurrencyServiceTests 59 → 61 · ProfileManagerTests 16 → 18 (음수 재화 — a75b1f1)
+그대로 기존 UI 테스트(HudLayout · Panel · Button · ValuePanel · 창 · Locale 등) 기대값을 하나도 바꾸지 않았다 — 모양 그대로
+대조   서버 3349 + 4(늘어남) = 3353 · 클라 1525 + 53(신설) = 1578 · 합 4874 + 57 = 4931
+```
+
+그 전 갱신: **2026-11-25 Studio Play 런타임 실측 (전량, 지시서 #38 — 리모트 보안 · 데이터 안전 · 분석 퍼널 · 프리셋 다시 뽑음 · 플래그 전부 nil Play 2번).**
 127개 행 전부가 두 Play 모두에 같은 개수로 찍혔다. **4874 passed / 0 failed** — 서버 3349(82행) + 클라 1525(45행). 끝 표시 `server 82/82 files · 3349` ·
 `client 45/45 files · 1525`. 시작 기준 Play는 #37 최종과 같았다(서버 78/78 3169 · 클라 45/45 1525).
 
@@ -1921,6 +1933,8 @@ x2 Rebirths 판매 중지(체크리스트 30 — 지금 바로) · 게임 아바
 [코드]  ✅ #38 복제 점검(DupeTests) · 데이터 안전(세션 열기 실패 · 종료 저장 · 영수증 16종 · 프로필 크기 0.30%)
 [코드]  ✅ #38 성능 측정(PerfReport 12명 1.82 ms/초 · 네트워크 약 4 KB/초/명) · 상한 TUNING 11절 — 실제 12명 · 폰은 사람
 [코드]  ✅ #38 테스트 프리셋 새 경제로(fresh · min10 · min30 · hour1 · hour2 · hour3)
+[코드]  ✅ #39 UI 키트 · 스킨 한 표(Config/UiSkin) · 창 이관(모양 그대로) · UI 미리보기(TEST_UI_PREVIEW) — 1월 UI 템플릿 준비(docs/UI.md "UI 키트")
+[코드]  ✅ #39 음수 재화 조이기 — CurrencyService 결과 음수 거부 · 불러올 때 0 + 경고(Schema.validate는 그대로)
 [코드]  Analytics (D1/D7/D30 리텐션 측정) → 경제 · 커스텀 이벤트 래퍼(#23 A1 ~ A5 — DESIGN 14장) + ✅ #38 온보딩 퍼널 9단계 · 코인 · pickaxe_kinds(14-2). 리텐션 차트는 대시보드 몫
 [수동]  비공개 테스트 → 밸런싱 조정
 ```
@@ -1939,8 +1953,8 @@ x2 Rebirths 판매 중지(체크리스트 30 — 지금 바로) · 게임 아바
 [수동]  Roblox Plus 권유 켜기(S9 — 비공개 테스트에서)
 [수동]  장르 · 서브장르 — 3개월에 한 번만 바꿀 수 있다
 [수동]  상품 아이콘 · 상품 한국어 이름(대시보드)
-[수동]  #38 실물 확인 — 실제 12명 서버(F9 Server Stats · Memory · 네트워크) · 저사양 폰 1대 · 플레이스 설정 PlayerCharacterDestroyBehavior
-        · 출시 뒤 분석 대시보드에 온보딩 퍼널 · Coins · pickaxe_kinds가 들어오는지(docs/PENDING.md "#38 남은 것")
+[수동]  #38 실물 확인 — 나눠 옮김(#39): 12명 서버 · 저사양 폰 → PENDING "2월 플레이 테스트에서 볼 것" · PlayerCharacterDestroyBehavior →
+        PENDING "사람 할 일"(R15 줄) · 분석 대시보드 → 아래 출시 체크리스트 33
 ```
 
 ### 출시 체크리스트
@@ -1998,6 +2012,8 @@ x2 Rebirths 판매 중지(체크리스트 30 — 지금 바로) · 게임 아바
     공개 직후에는 연령 확인된 16세 이상에게만 열리고, 이 유저들의 플레이가 60일 안에 100회 쌓여야 16세 미만에게 열린다.
     구독이면 12/20 전에 시작해야 2월 말에 2개월이 된다 · 증거: A-1 캡처 · 구독 시작일(또는 수수료 영수증)
 32. 비공개 테스터 모집(#32 일정) — 사람 · 1월 중(C-12와 같은 일 — 시작 시점을 당긴다) · 증거: 명단
+33. 분석 대시보드 확인(#38 → #39 옮김) — 사람 · 출시 뒤 Analytics › Funnels · Economy · Custom ·
+    증거: 온보딩 퍼널 9단계 · 이름 붙은 퍼널 FirstGuide · 경제 자원 Blox · Coins · 커스텀 pickaxe_kinds가 보이는 화면(차트는 보통 24시간 뒤 — DESIGN 14-2)
 
 **D. 출시 당일**
 23. `DATA_ENV = "live"` 한 줄 커밋 — CC · `Shared/Config/DataConfig` · 증거: 커밋 해시 · DataConfigTests 통과 · 실서버 로그 `[Data] env=live store=PlayerData_live_v2`(#37 — 저장소 이름 _v2)

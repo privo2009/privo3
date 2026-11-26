@@ -9,7 +9,7 @@
 `docs/UI_HANDOFF.md`와 합치지 않는다. 그것은 인계 절차와 검증 관문 문서이고
 이것은 대기 큐다. 성격이 다르다.
 
-문서 갱신: 2026-11-25 (지시서 #38 — "#38 남은 것" 절 · 해소 기록 · 프리셋 새로 뽑음)
+문서 갱신: 2026-11-26 (지시서 #39 — "#39 남은 것" 절 · #38 판단 확정 · #38 사람 확인 4건 나눠 옮김 · 음수 재화 해소)
 
 ---
 
@@ -242,13 +242,17 @@ N3   운동기구 개편(사람 결정) — 해금 환생 수는 새 경제 TEMP
 알 해금              알 1 = 누적 블럭스 100 ≈ 6층 수령 한 번 — 무과금 시점은 재지 않았다
 운동기구             새 경제 환생 15회 안에서 기구 8개가 열리는 속도
 폰 틀 Play           MCP가 Studio 창 크기를 못 바꾼다 — 705×338 폰 틀에서 대장간 · 장비 · 펫 · 상점 · 환생 창(선택)
+12명 서버(#38)       실제 12명 서버 — F9 개발자 콘솔 Server Stats · Memory · 네트워크(플레이어당 받는 양 10 KB/초 상한 — 지금 약 4 · TUNING 11절).
+                     PlayerState 바뀐 필드만 보내기(#38 미룸 확정)는 여기서 문제가 되면 그때 먼저 한다
+저사양 폰(#38)        실제 폰(저사양 안드로이드 1대) — 드롭 · 코인 · 파편 겹칠 때 프레임 · 발열
 ```
 
 **사람 할 일(#37 기준)**
 ```
 1  대시보드에 새 게임패스 4개 등록 → ID 전달(N2)
 2  대시보드에서 x2 Rebirths(2054058093) 판매 중지 — 코드에서는 #37에 지웠다(DASHBOARD_PRODUCTS 4절 · ROADMAP 출시 체크리스트)
-3  게임 아바타 R15 고정 여부 확인(휘두르기 애니메이션 · 손 모델 — R6이면 "Right Arm" 길)
+3  게임 아바타 R15 고정 여부 확인(휘두르기 애니메이션 · 손 모델 — R6이면 "Right Arm" 길) · 같은 화면에서 플레이스 설정
+   Workspace.PlayerCharacterDestroyBehavior 켜짐 확인(나간 Player의 CharacterAdded 연결이 풀리게 — HeldPickaxe · RunDeath · #38에서 옮김)
 4  공개 계정 요건(ROADMAP 출시 체크리스트 — H1) 12/20 전에 정하기
 5  (선택) 폰 틀 창 크기 Play
 ```
@@ -269,25 +273,21 @@ N3   운동기구 개편(사람 결정) — 해금 환생 수는 새 경제 TEMP
 
 리모트 목록 · 규칙 → `docs/REMOTES.md` · 성능 숫자 · 상한 → `docs/TUNING.md` 11절 · 분석 → `DESIGN.md` 14-2 · 프리셋 → TUNING 4절.
 
-**사람 확인 목록(실물 — MCP로 못 한다)**
+**사람 확인 목록 — #39에서 나눠 옮김(2026-11-26 사람 결정)**
 ```
-1  실제 12명 서버(비공개 테스트) — F9 개발자 콘솔 Server Stats · Memory · 네트워크(플레이어당 받는 양 10 KB/초 상한 — 지금 약 4)
-2  실제 폰(저사양 안드로이드 1대) — 드롭 · 코인 · 파편 겹칠 때 프레임 · 발열
-3  플레이스 설정 Workspace.PlayerCharacterDestroyBehavior 켜짐인가(나간 Player의 CharacterAdded 연결이 풀리게 — HeldPickaxe · RunDeath)
-4  분석 대시보드(출시 뒤): 온보딩 퍼널 9단계 · 이름 붙은 퍼널 FirstGuide · 경제 자원 Blox · Coins · 커스텀 pickaxe_kinds가 들어오는지
-   (Studio에서는 보내지지 않는다 — 결과 줄만 봤다)
+1 · 2  실제 12명 서버 · 저사양 폰   → 위 "경제 — 남은 것 > 2월 플레이 테스트에서 볼 것"
+3      PlayerCharacterDestroyBehavior → 위 "사람 할 일(#37 기준)" 3(R15 고정과 같은 줄)
+4      분석 대시보드(출시 뒤)          → ROADMAP Phase 9 출시 체크리스트 33
 ```
 
 **나중에 할 것(Claude 제안 · 급하지 않음)**
 ```
 PlayerState 바뀐 필드만   한 명이 받는 양의 98%(0.2초마다 약 1 KB 전체 스냅샷 — shop · pets · daily가 매번). 클라 받는 쪽을 바꿔야 해서
-                          #38에서는 하지 않았다(동작 그대로 원칙). 12명 실측에서 문제면 이것부터
-Schema 음수 BigNum        Schema.validate가 블럭스 { m = -5 } 같은 음수를 통과시킨다. CurrencyService가 음수를 만들지 않아 실제로는 안 생긴다 —
-                          검사를 조이면 혹시 있는 프로필이 킥된다(지금은 저장소 _v2 새로 시작이라 위험 낮음). 사람 결정
+                          #38에서는 하지 않았다(동작 그대로 원칙). **미룸 확정(#39 사람)** — 실제 12명 측정에서 문제가 되면 그때 먼저 한다
 퍼널 차례                 8층 대장간(7)이 첫 환생(6)보다 먼저 오는 사람은 환생할 때 6 · 7을 몰아서 보낸다 — 차트에서 7의 시각이 늦게 보인다
 ```
 
-**Claude 판단(#38 — 확인 필요)**
+**#38 판단 — 확정(2026-11-26 지시서 #39 사람 결정 — 아래 6줄 그대로)**
 ```
 입구 문 상한        RemoteGuard 기본 0.15초 1번 · ClickInput/SpeedRequest 초당 10(몰림 4) · SyncRequest 초당 2(몰림 10).
                    버린 요청에는 답하지 않는다(정상 플레이로는 닿지 않는 빈도 · 모양)
@@ -296,11 +296,45 @@ Schema 음수 BigNum        Schema.validate가 블럭스 { m = -5 } 같은 음�
 옛 안내 퍼널 이동   첫 접속 안내 5단계(#20)를 온보딩 퍼널에서 이름 붙은 퍼널 FirstGuide로 옮겼다(온보딩 퍼널은 게임에 하나)
 로그 줄임          클릭 힘 성공 로그 · 시간 초과 warn → print · Gamepass Studio 안내 줄 print · 나가기/종료 세션 끝 줄 print
 프리셋 이름         fresh · min10 · min30 · hour1 · hour2 · hour3(옛 floor9 · floor17 · floor25 · before_first_rebirth · floor25_cleared 지움)
+바뀐 필드만 보내기    미룸(위 "나중에 할 것" 첫 줄 — 12명 실측에서 문제면 먼저)
 ```
 
 **테스트 흔들림(#38 실측 — 고침)**: DupeTests 가방 줄이 hour2 Play 1번 실패 — OreDropServiceTests가 잠깐 가짜 경제 고리를 끼운 사이에
 돌았다. 실물 고리가 걸릴 때까지 기다리게 고침(`4f5da3f`). 다른 테스트가 바꿔 끼우는 모듈 값(_deps · economyHooks)을 쓰는 새 테스트는
 같은 방식으로 실물이 돌아올 때까지 기다리고, 그 뒤로는 yield하지 않는다
+
+### #39 남은 것 — UI 키트 · 미리보기 · 1월 템플릿 준비 (2026-11-26)
+
+규칙 · 부품 · 스킨 · 미리보기 → `docs/UI.md` "UI 키트" · 그림 규격 → `docs/UI_ASSET_SPEC.md` 9절 · 전후 스크린샷 `HANDOFF/39`(세션 기록).
+
+**사람이 정할 것**
+```
+1  1월 UI를 템플릿 방식으로 갈지 · 그러면 남은 관문 G2 ~ G4를 어떻게 바꿀지(docs/UI.md "UI 키트 > G2 ~ G4와 템플릿 방식" — 제안만 적었다)
+```
+
+**나중에 할 것(Claude 제안 · 1월 템플릿 때)**
+```
+cardSelected 연결     고른 칸은 지금 테두리 두께(slotSelected 5)로만 표시 — 그림 칸 cardSelected는 자리만 있다. 그림이 오면 장비 · 펫 칸에 붙인다
+대장간 탭 모양          대장간 위 탭 3 · 확률 탭 6 · 교환소 등급 탭 5는 "버튼 눌림"으로 고른 것을 보인다(Kit.tab과 다른 모양 — #39는 모양 그대로 원칙).
+                      템플릿에서 Kit.tab 하나로 맞출지
+미리보기 언어           모듈을 불러올 때 정해지는 문장 61곳(창 제목 상수 등)은 en/ko 버튼으로 안 바뀐다 — 지금은 TEST_LOCALE을 같이 켠다.
+                      템플릿에서 상수를 create 안으로 옮기면 버튼 하나로 다 바뀐다(개수 그대로 · 테스트 기대값 영향 확인 필요)
+미리보기 HUD           HUD는 미리보기 목록에 없다(늘 보이므로 일반 Play로 본다). HUD만 바꾸는 스킨 확인이 잦으면 HUD 칸을 더한다
+```
+
+**Claude 판단(#39 — 확인 필요)**
+```
+키트 위치            Client/UI/Components/Kit(공개 입구) + KitBase(바닥 — WindowParts · OverlayParts · ValuePanel이 require 순환 없이 쓴다)
+스킨 갈아 끼우기       Shared/Config/UiSkin.lua 한 파일(빈 표 = 지금 모양) — UiTheme가 접속 때 한 번 덮는다. Enum.Font 허용 파일에 UiSkin을 더함
+스킨 숫자 이름         line(asset · modal · notice · band · cell · cellToday · slot · slotSelected · text) · alpha(dim · hatchDim · band · cell ·
+                    cellSoft · row · toast) · fill(silhouette · egg · shade) · corner(round · cell) — #39 이전 숫자를 쓰던 자리 이름
+UI 칸 목록           AssetSlots.uiList()를 list()와 따로 둠(list는 서버 AssetLoader 모델 목록 — 섞으면 서버가 이미지를 모델로 불러 본다)
+미리보기 예시 데이터    UiPreview.sampleState · sampleEconomy(곡괭이 홀수 번째 + 마지막 · 광석 k×7 · 토큰 4종 · 펫 전부 · 칭호 절반) — 값은 화면 확인용
+                    TEMP 아님 · 게임 규칙과 무관
+음수 재화 관문         CurrencyService.applyUpdatesWithRollback에서 결과 음수면 롤백(add · subtract · set · resetLife 전부 지난다).
+                    InventoryService는 이미 사본 적용 + validateEconomy(0 이상)라 그대로
+음수 재화 불러올 때     Reconcile 뒤 · 검증 전에 0으로(음수 코인이 손상 킥이 되지 않게) · 대상 6필드(blox · lifetimeBlox · lifeBlox · strength · rebirths · coins)
+```
 
 ### #26 정리 — 사람 할 일 · 나중 목록 (2026-11-20 지시서 #26 단계 2)
 
@@ -1945,6 +1979,9 @@ RC Play는 2026-08-28에 끝났으므로 옛 조건은 **형식상 충족됐다.
 
 | 해소일 | 항목 | 커밋 |
 |---|---|---|
+| 2026-11-26 | Schema 음수 BigNum(#38 나중 — 사람 결정 "조인다") | `a75b1f1` 저장 시점 검사는 그대로 · CurrencyService 결과 음수 거부 · 불러올 때 0 + 경고 · 테스트 +4 |
+| 2026-11-26 | #38 Claude 판단 6줄 확인 필요 · 사람 확인 4건 자리 | #39 사람 결정 — 판단 확정 · 12명 · 폰 → 2월 플레이 테스트 · 캐릭터 설정 → 사람 할 일 3 · 분석 → 출시 체크리스트 33 |
+| 2026-11-26 | 창 · HUD마다 손으로 만든 외곽선 · 테두리 · 막 · 판 · 숫자(1월 템플릿이 스타일을 한 번에 못 바꾼다) | `24078f1` UI 키트 · UiTheme.Skin · UiSkin · 미리보기 · UiKitTests 53 |
 | 2026-11-25 | 리모트 입구 공통 검사 없음(#23 S6 "공용화 안 함" — 채널마다 따로) | `bc858b9` RemoteGuard(모양 · 연타 · 오류 격리 · 나가면 지움) 22 리모트 · RemoteGuardTests 120 · DupeTests 16 · docs/REMOTES.md |
 | 2026-11-25 | 세션 열기 실패 경로 · 서버 종료 저장 테스트 없음 | `4f652de` ProfileManager openProfile · drainOnClose · ProfileManagerTests |
 | 2026-11-25 | 테스트 프리셋이 옛 경제 시점 값(#37 Claude 판단) | `84198cc` PresetExport로 V4 다시 뽑음 · fresh · min10 · min30 · hour1 · hour2 · hour3 |

@@ -2447,6 +2447,10 @@ run 상태 (stage, currentReward, timeLeft)
   게임패스 값은 세션 값이다(절대 규칙 5). 저장하면 환불 뒤에도 슬롯이 남는다.
   검증(Schema.validate)은 게임패스를 모르는 로드 시점에도 패스 보유자를 깨뜨리지 않게
   "장착 수 ≤ 최대 슬롯" · "보유 수 ≤ 기본 + 게임패스 최대 보너스"로 본다.
+※ 음수 재화(2026-11-26 지시서 #39 사람 결정): 저장 시점 검사(Schema.validate)로 막지 않는다 — 저장 자체가 실패할 위험이 있다.
+  ① 바뀌기 전 관문이 결과가 음수인 변경을 거부한다(CurrencyService — 결과 음수면 롤백 · InventoryService — 사본 적용 뒤 validateEconomy 0 이상).
+  ② 불러올 때 재화(blox · lifetimeBlox · lifeBlox · strength · rebirths · coins)가 음수면 경고를 남기고 0으로 맞춘다(Schema.clampNegativeCurrencies — 검증 전).
+  새 저장 필드는 없다
 
 ### 데이터 환경 — 저장소를 환경별로 나눈다 (E1 ~ E6, 2026-11-02 사람 결정 — 지시서 #23)
 

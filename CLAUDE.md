@@ -1,6 +1,6 @@
 # privo3 — Roblox 방치형 블록 파괴 게임
 
-문서 갱신: 2026-11-25 (지시서 #38 — 리모트 입구 규칙 · REMOTES.md)
+문서 갱신: 2026-11-26 (지시서 #39 — UI 키트 규칙)
 
 ## 개요
 힘을 키워 거대 블록을 부수고, 20초 챌린지로 블럭스를 획득하는
@@ -278,6 +278,8 @@ Rojo 플러그인 창의 Connect 상태는 MCP로 읽을 수 없고,
 - ❌ 수령·진행을 화면 UI 버튼으로 구현 (3D 발판·벽 방식)
 - ❌ UI 크기·위치에 Offset 사용 (Scale만. Offset은 폰에서 깨짐)
 - ❌ 화면 문장을 코드에 직접 쓰는 것 (`Shared/Localization/Strings` 키로만 — `Locale.t(키)`. `docs/LOCALIZATION.md`)
+- ❌ 화면 코드에서 글자 외곽선 · 테두리 · 둥글기 · 막 · 판을 손으로 만들거나 색 · 두께 · 투명도 숫자를 쓰는 것
+     (`Client/UI/Components/Kit` 함수 · `UiTheme.Skin`만 — 1월 템플릿이 스킨 한 파일로 전부 바꾼다. `docs/UI.md` "UI 키트")
 - ❌ 블럭스 · 코인 · 광석 · 토큰을 로벅스로 파는 상품 (뽑기 3종 · 곡괭이 제작이 유료 랜덤 아이템이 된다 — DESIGN 9장 · 16장)
 - ❌ 디자인 담당 PC의 `C:\privo\privo3-assets`에 Rojo 연결
      (PNG 보관 폴더이며 프로젝트가 아니다. 연결하면 Team Create 스크립트 전멸)

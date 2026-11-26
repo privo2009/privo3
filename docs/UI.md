@@ -1,6 +1,6 @@
 # UI 설계서
 
-문서 갱신: 2026-11-01
+문서 갱신: 2026-11-26 (지시서 #39 — "UI 키트" 절 · 스킨 · 미리보기 · G2 ~ G4와 템플릿 방식)
 
 담당: 강지환 (디자인)
 상태: U2 진행 중(G1 통과 · G2 대기) · U3 완료(G4는 G1~G3 뒤) · U4 완료 · U7 환생 창 완료 (2026-10-22)
@@ -85,6 +85,135 @@ U5 이후는 전부 메뉴라 없어도 게임이 돌아간다.
 
 관문 상세는 `docs/UI_HANDOFF.md` 참조.
 G1(버튼 9-slice)은 Phase 6 착수 조건이므로 Phase 5 종료 전까지 통과해야 한다.
+
+---
+
+## UI 키트 (지시서 #39, 2026-11-26) — 1월 UI 템플릿 준비
+
+**목적**: 1월 UI 집중 기간에 "UI 템플릿 프롬프트" 방식으로 스타일을 한 번에 바꾼다. 모든 창 · HUD · 오버레이는 키트 함수로만 그린다 —
+키트 안쪽 · 스킨 표 · 그림 ID만 바꾸면 전부 같이 바뀐다. #39는 새 스타일을 만들지 않았다(지금 모양 그대로 · 전후 스크린샷 `HANDOFF/39/before` · `after` 17쌍 같음).
+
+**규칙**
+- 화면 코드는 `Client/UI/Components/Kit`의 함수로 틀 · 버튼 · 글자 · 칸 · 탭 · 게이지 · 토스트 · 모달을 만든다. 글자 외곽선 · 테두리 · 둥글기 · 막을 손으로 만들지 않는다
+- 색 · 글꼴 · 두께 · 둥글기 · 투명도 · 틀 여백 숫자는 `Shared/Config/UiTheme`의 `Skin` 한 표에만 있다. 화면 코드에 `Color3.new` · `Thickness = 3` 같은 숫자를 쓰지 않는다
+- 새 부품이 필요하면 Kit에 함수를 더한다. 있는 부품의 이름 · 인자는 바꾸지 않는다(창 코드 전부가 따라 바뀐다)
+
+### 부품 목록
+
+```
+부품              함수 · 인자(위치 · 크기는 부모 기준 Scale)                                    지금 모양                    스킨 그림 칸
+패널(틀)          Kit.panel(size "Small"|"Large", title) → { root, body, titleLabel, closeButton }  texture_lego + panel_frame    (AssetRegistry 2종)
+틀 자리 계산       Kit.panelLayout(size, inset?) → 제목 · X · 본문 자리(틀 두께를 뺀다)               —                            —
+제목 판           Kit.titlePlate(parent, text, pos, size)                                         흰 글자 · 검은 외곽선 · 대     titlePlate
+닫기 버튼          Kit.closeButton(parent, pos, height)                                           빨강 작은 버튼 · 정사각형      (btn_red)
+입체 버튼          Kit.button({ size, color, widthScale, heightScale? }) — 6색 · 눌림 · 비활성       색 도형 · 검은 테두리 3      (btn_* 6종)
+글자 붙은 버튼      Kit.labeledButton(name, parent, color, x, y, w, h, caption) → (btn, label, hit)  위 + 글자 · HitArea          —
+글자              Kit.text(name, parent, level, x, y, w, h, align?) · Kit.styleText(label, level)    흰 글자 · 검은 외곽선          —
+칸(아이템 · 줄)     Kit.card(name, parent, x, y, w, h, style, z?) · Kit.cardStyle(frame, style)       바탕 · 테두리 · 둥글기         card
+  style          { fill, alpha, line, lineColor, lineMode, corner, image }
+등급 테두리 색      Kit.gradeColor(grade) (장비 C1) · Kit.rarityColor(tier) (칭호 · 아우라 · 펫)        —                            —
+탭                Kit.tab(name, parent, x, y, w, h, caption, { color?, selectedColor? }) → { button, selected, label, hit, setSelected }
+                                                                                                회색 위에 하늘 한 벌            tab · tabSelected
+움직이는 빛 띠      Kit.shine(target, options?) · Kit.unshine(target)  (= Components/Shine)          흰 띠                         —
+게이지            Kit.gauge(name, parent, x, y, w, h, { back?, fill?, anchor? }) → { root, fill, set }  어두운 바탕 + 힘 색 채움       gaugeBack · gaugeFill
+토스트 한 줄        Kit.toastRow(name, level)                                                      어두운 바탕 · 오른쪽 정렬       toast
+확률 표 줄         Kit.oddsRow(parent, i, rowH, nameW) → (이름, 확률)                               글자 두 칸                     —
+재화 칸           Kit.currencyChip(parent, { color, iconId, level, maxChars? }) → { icon, value }    색 원 + 숫자                   (coin_icon — AssetSlots)
+모달 판           Kit.modalPanel(name, parent, w, h, z, { lineColor? }) → (panel, stroke)           어두운 판 · 테두리 4           modal
+막               Kit.dim(name, parent, alpha?)                                                   검정 45%                      dim
+바닥             Kit.box · Kit.stroke(parent, color?, px?, mode?) · Kit.corner(parent, "round"|"cell"|UDim) · Kit.skinImage(frame, slot)
+```
+띠 판(첫 접속 안내 · 환생 알림)은 `Kit.card(... { image = "band" })`로 만든다. 예시는 미리보기 KIT 견본(아래)에 전부 있다.
+
+### 테마 · 스킨
+
+`UiTheme.Skin` 한 표 — 기본값 = #39 이전 화면 코드에 흩어져 있던 숫자 그대로(`UiKitTests`가 대조한다 · 숫자 원본은 `UiTheme.lua`).
+```
+colors       색 역할 8종 × 3단계(= UiTheme.Colors — 아래 "3. 색" 표와 같은 값)
+rarity       희귀도 6단계(= UiTheme.Rarity)       equipGrade  장비 등급 6(= UiTheme.EquipGrade — C1)
+font         글꼴(= UiTheme.FONT)
+text         main(흰 글자) · stroke(외곽선 · 테두리 검정) · dim(받은 칸 · 꺼진 글자)
+fill         역할 밖 바탕(silhouette 잠긴 칸 · egg 부화 알 · shade 막 · 덮개)
+line         테두리 두께 px — asset · modal · notice · band · cell · cellToday · slot · slotSelected · text
+corner       round(원) · cell(대장간 광석 칸)
+alpha        바탕 투명도 — dim · hatchDim · band · cell · cellSoft · row · toast
+panel        margin(화면 폭의 2%) · frameInset(틀 그림 두께 — 화면 높이 대비, 기본 0) · small · large(창 크기 2종)
+button       heightBig · heightSmall · pressOffsetPx · pressDarken
+images       키트 부품 그림 { id, slice } — 비면 지금 모양(아래 "AssetSlots의 UI 칸")
+```
+**이름 붙은 역할**: `UiTheme.color("role.power")`(= base) · `"role.power.light"` · `"grade.epic"` · `"rarity.tier3"` · `"text.main"`. 모르는 이름은 오류(오타를 흰색으로 그리지 않는다).
+
+**스킨 갈아 끼우는 법**: `Shared/Config/UiSkin.lua` 한 파일만 바꾼다(지금은 빈 표 = 기본 모양). 적은 칸만 덮인다(UiTheme.applySkin — 표를 제자리에서 바꿔
+`UiTheme.Colors`를 들고 있는 코드도 새 값을 본다). 예:
+```
+return {
+	font = Enum.Font.FredokaOne,
+	colors = { power = { base = Color3.fromHex("FF8C1A") } },
+	line = { modal = 6 },
+	panel = { frameInset = 0.012 },
+	images = { card = { id = 1234567890, slice = Rect.new(24, 24, 104, 104) } },
+}
+```
+- 스킨은 화면을 만들 때 읽힌다(창은 처음 열 때 만든다) — 접속 때 한 번 정한다. 바꾸고 Play하면 전부 바뀐다
+- 색을 바꾸면 아래 "3. 색" 표도 같이 바꾼다(UiTheme 머리 주석). Enum.Font는 UiTheme · UiSkin 두 곳만(`tools/check_fonts.py`)
+
+**틀 여백**: `Panel.layout`이 틀 그림 두께(`Skin.panel.frameInset`)를 먼저 빼고 그 안에 여백 · 제목 · X · 본문을 둔다. 1월 틀 그림이 두꺼워져도
+제목 · X · 본문이 그림 위로 올라가지 않는다(0이면 #39 이전 값과 똑같다 — `UiKitTests` 대조).
+
+### AssetSlots의 UI 칸
+
+`AssetSlots.uiList()` — UI 그림 자리를 한 목록으로 본다(`AssetSlots.list()`는 서버 AssetLoader가 모델을 불러오는 목록이라 따로 둔다).
+```
+ui_<키>    AssetRegistry 24종(버튼 6 · 패널 2 · 아이콘 16) — 값 원본 Config/AssetConfig(도착하면 한 줄). 없으면 역할색 도형
+kit_<칸>   키트 그림 11칸(card · cardSelected · tab · tabSelected · gaugeBack · gaugeFill · toast · titlePlate · modal · band · dim)
+           — 값 원본 UiTheme.Skin.images(= Config/UiSkin). 없으면 지금 모양 · 있으면 9-slice 그림을 칸 뒤에 깔고 바탕을 비운다
+```
+그림 규격(크기 · 9-slice) → `docs/UI_ASSET_SPEC.md` "9. 새 화면 · 키트 그림".
+
+### 미리보기 화면 (Studio 전용)
+
+1월 템플릿 작업에서 창별 확인을 8층까지 플레이하지 않고 한다.
+```
+켜기      src/client/UI/WindowBoot.client.lua  local TEST_UI_PREVIEW: boolean? = true  → Play
+          ⚠️ 커밋 값은 nil(tools/check_test_gate.py · UiKitTests가 잡는다). Studio가 아니면 켜도 돌지 않는다(TestGate.flagOn)
+목록      화면 왼쪽 띠 — Forge · Equipment · Pet · Title · Aura · Shop · Rebirth · Warp · AutoAdvance · Settings · Code ·
+          Daily · Result · RebirthNotice · Toast · Hatch · KIT(키트 견본) · en/ko · LONG
+예시 데이터 창마다 실물 창 모듈의 create()를 예시 Store(Store.new) · 예시 새 경제 값으로 따로 만든다 — 곡괭이 등급 5종 · 광석 10 · 토큰 ·
+          펫 전부 · 칭호 절반 · 아우라 1팩 · 부스트 · 일일 3일째. 요청 · 구매는 아무 데도 안 나간다(빈 함수) · 프로필을 건드리지 않는다
+KIT       버튼 6색 · 눌림 · 비활성 · 탭 · 게이지 · 장비 등급 6칸 · 희귀도 6칸 · 확률 표 줄 · 토스트
+en/ko     지금 언어를 바꾸고 보던 창을 다시 만든다. ⚠️ 모듈을 불러올 때 정해지는 문장(창 제목 상수 등 61곳)은 접속 언어 그대로 —
+          전부 보려면 Bootstrap TEST_LOCALE도 같이 켠다
+LONG      모든 문장을 두 번 이어 붙인다(Locale._setStretch) — 넘침 · 줄어든 글자 확인
+쓰는 법    스킨(UiSkin)을 바꾼다 → 플래그 켜고 Play → 목록을 차례로 눌러 본다 → 플래그 nil로 되돌리고 커밋
+```
+
+### 감사 · 이관 결과 (#39)
+
+```
+HUD        MenuRail · DailyIcon · EconomyHud(코인 칸 → currencyChip) · AutoTools · BoostTimers · ChallengeInfo · PowerBlock(레벨 바 → gauge) · ShopSlots
+           — 손으로 만든 흰 글자 · 검은 외곽선 · 크기 상한 → styleText · 둥근 배지 → corner · 테두리 숫자 → 스킨
+오버레이    ResultModal · DailyRewardWindow(막 → dim · 판 → modalPanel · 날짜 칸 → card) · RebirthNotice · OnboardingBand(띠 → card band) ·
+           ToastStack(줄 → toastRow) · OverlayParts.textRow(→ styleText)
+창         Forge(광석 칸 · 넣은 칸 · 교환 줄 · 잠김 · 결과 덮개 → card · 버튼 도우미 → labeledButton) · Equipment(칸 → card · 실루엣 색 → 스킨) ·
+           Pet(탭 → tab · 칸 · 슬롯 · 대역 → card) · Aura(탭 · 카드) · Shop(탭 · 줄 · 사기 버튼) · Title(줄) · AutoAdvance(버튼) · Settings · Code(입력칸 테두리)
+그 밖       HatchFx(막 · 알) · CoinFx(원) · RobuxList(줄) · Components(WindowParts.makeText · ValuePanel → styleText · AssetImage 테두리 → 스킨 ·
+           Button 높이 · 눌림 → 스킨 · Panel 제목 · X → makeTitle · makeClose)
+글꼴       Enum.Font 직접 사용은 #39 전에도 0(UiTheme.FONT 한 곳 — #17 F1)
+키트 밖     ForgeSite(로비 3D 건물 색 — UI 아님 · DESIGN 16장 에셋 교체 방식) · Button 눌림 어둡게 계산 · Shine 덮개 내부 ·
+           대장간 게이지 칸(바탕색만 — 칸 상태 색은 창이 정한다) · 레이아웃용 투명 틀(Instance.new Frame — 모양 없음)
+```
+
+### G2 ~ G4와 템플릿 방식 (결정은 희준)
+
+남은 관문은 G2(패널 2층) · G3(아이콘 실사용) · G4(더미 HUD 통합) — `docs/UI_HANDOFF.md` "5. 검증 관문". 1월 템플릿 방식(키트 + 스킨 + 그림 칸)으로 가면:
+```
+G2 패널 2층    대체 가능 — 템플릿이 panel_frame · texture_lego(또는 kit 그림 칸)를 넣고 미리보기에서 Small · Large 두 창을 연달아 본다.
+               "무늬 크기가 같은가 · 이음매"는 그대로 사람 눈 확인(관문 내용은 같고 확인 장소가 미리보기로 바뀐다)
+G3 아이콘      그대로 — 아이콘 형태(40px 실루엣 구분)는 스킨과 무관. HUD 실제 자리 확인은 미리보기가 아니라 일반 Play(HUD는 미리보기 대상 아님)
+G4 더미 HUD    대부분 이미 됨 — U3 더미 HUD · HudLayoutTests · HudVisibilityTests · 폰 틀 테스트가 세이프존 · 중앙 금지 · 숫자 잘림을 매 Play 잰다.
+               남는 것: 새 그림을 넣은 뒤 같은 테스트 통과 + 사람 눈 확인 1회
+대량 제작 순서  "G1 → G4 → 대량 제작"은 템플릿 방식이면 "스킨 1벌 → 미리보기 전 창 확인 → 테스트 0 failed → 커밋"으로 바뀐다(관문 = 미리보기 + 기존 테스트)
+```
 
 ---
 
