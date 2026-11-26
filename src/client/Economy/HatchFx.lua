@@ -15,6 +15,7 @@ local Names = require(ReplicatedStorage.Shared.Localization.Names)
 local Button = require(script.Parent.Parent.UI.Components.Button)
 local WindowParts = require(script.Parent.Parent.UI.Components.WindowParts)
 local PetWindowLogic = require(script.Parent.Parent.UI.Logic.PetWindowLogic)
+local Kit = require(script.Parent.Parent.UI.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local HatchFx = {}
 
@@ -33,8 +34,8 @@ function HatchFx.create(options: { parent: Instance, clock: (() -> number)?, aut
 	local clock = options.clock or os.clock
 	local root = Instance.new("Frame")
 	root.Name = "HatchFx"
-	root.BackgroundColor3 = Color3.new(0, 0, 0)
-	root.BackgroundTransparency = 0.35
+	root.BackgroundColor3 = UiTheme.Skin.fill.shade -- 막(키트 스킨 #39)
+	root.BackgroundTransparency = UiTheme.Skin.alpha.hatchDim
 	root.BorderSizePixel = 0
 	root.Size = UDim2.fromScale(1, 1)
 	root.ZIndex = Z
@@ -46,11 +47,9 @@ function HatchFx.create(options: { parent: Instance, clock: (() -> number)?, aut
 	egg.AnchorPoint = Vector2.new(0.5, 0.5)
 	egg.Position = UDim2.fromScale(0.5, 0.42)
 	egg.Size = UDim2.fromScale(0.12, 0.3)
-	egg.BackgroundColor3 = Color3.fromRGB(245, 235, 210)
+	egg.BackgroundColor3 = UiTheme.Skin.fill.egg
 	egg.ZIndex = Z + 1
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0.5, 0)
-	corner.Parent = egg
+	Kit.corner(egg, "round")
 	local aspect = Instance.new("UIAspectRatioConstraint")
 	aspect.AspectRatio = 0.75
 	aspect.Parent = egg

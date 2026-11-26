@@ -8,6 +8,7 @@ local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
 local AssetSlots = require(ReplicatedStorage.Shared.AssetSlots) -- 에셋 자리(#36 — 값이 있으면 그 그림 · 없으면 임시 도형)
+local Kit = require(script.Parent.Parent.UI.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local CoinFx = {}
 
@@ -62,9 +63,7 @@ function CoinFx.create(o: Options): Handle
 			a.AspectRatio = 1
 			a.DominantAxis = Enum.DominantAxis.Height
 			a.Parent = nf
-			local c = Instance.new("UICorner")
-			c.CornerRadius = UDim.new(0.5, 0)
-			c.Parent = nf
+			Kit.corner(nf, "round") -- 키트(#39)
 			if AssetSlots.applyImage(nf, Config.COIN_VISUAL.effectId) ~= nil then
 				nf.BackgroundTransparency = 1 -- 그림이 있으면 임시 노란 원 대신(#36)
 			end

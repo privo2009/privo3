@@ -16,6 +16,7 @@ local Panel = require(script.Parent.Parent.Parent.Components.Panel)
 local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local CodeWindowLogic = require(script.Parent.Parent.Parent.Logic.CodeWindowLogic)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local CodeWindow = {}
 
@@ -53,18 +54,15 @@ function CodeWindow.create(deps: Deps): Handle
 	box.Text = ""
 	box.PlaceholderText = Locale.t("code.placeholder")
 	box.PlaceholderColor3 = UiTheme.Colors.neutral.base
-	box.TextColor3 = Color3.new(0, 0, 0)
+	box.TextColor3 = UiTheme.Skin.text.stroke -- 밝은 입력칸 위 검은 글자(외곽선 없음)
 	box.TextScaled = true
 	box.Font = UiTheme.FONT
 	box.ZIndex = WindowParts.Z_TEXT
 	local boxSize = Instance.new("UITextSizeConstraint")
 	boxSize.MaxTextSize = TextScale.Levels.medium.maxTextSize
 	boxSize.Parent = box
-	local boxStroke = Instance.new("UIStroke")
-	boxStroke.Color = Color3.new(0, 0, 0)
-	boxStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	boxStroke.Thickness = 2
-	boxStroke.Parent = box
+	-- 입력칸 테두리(키트 — 바깥선)
+	Kit.stroke(box, UiTheme.Skin.text.stroke, UiTheme.Skin.line.cell, Enum.ApplyStrokeMode.Border)
 	box.Parent = body
 
 	local submit = Button.create({ size = "Small", color = "blue", widthScale = SUBMIT_W, heightScale = ROW_H })

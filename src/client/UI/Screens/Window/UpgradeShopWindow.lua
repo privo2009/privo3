@@ -31,6 +31,7 @@ local RobuxShopLogic = require(script.Parent.Parent.Parent.Logic.RobuxShopLogic)
 local PurchaseClient = require(script.Parent.Parent.Parent.Parent.Net.PurchaseClient)
 local PotionClient = require(script.Parent.Parent.Parent.Parent.Net.PotionClient)
 local RobuxList = require(script.Parent.Parent.Parent.Components.RobuxList)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 type BigNumber = BigNum.BigNumber
 
@@ -148,8 +149,7 @@ local function makeRow(name: string, list: ScrollingFrame, index: number, k: num
 	-- 오른쪽 끝을 스크롤바 폭만큼 비우지 않는다 — 비우려면 Offset이 필요하다. 스크롤바는 줄 위에 얇게 겹친다
 	frame.Size = UDim2.fromScale(1, onCanvas(ROW_H, k))
 	-- 줄 바탕: 중립 어두운 단계 — 패널 자리표시(중립 기본)와 구분된다(워프 창 행 경계 결함과 같은 이유)
-	frame.BackgroundColor3 = UiTheme.Colors.neutral.dark
-	frame.BackgroundTransparency = 0
+	Kit.cardStyle(frame, { fill = UiTheme.Colors.neutral.dark, alpha = 0 }) -- 줄 바탕(키트 #39)
 	frame.BorderSizePixel = 0
 	frame.ZIndex = 3
 	frame.Parent = list
@@ -157,12 +157,7 @@ local function makeRow(name: string, list: ScrollingFrame, index: number, k: num
 	local title = WindowParts.makeText("Title", frame, "medium", 0.02, 0, LEFT_W, 0.5)
 	local effect = WindowParts.makeText("Effect", frame, "small", 0.02, 0.5, LEFT_W, 0.5)
 
-	local button = Button.create({ size = "Small", color = color, widthScale = BUTTON_W, heightScale = BUTTON_H })
-	button.root.Name = "BuyButton"
-	button.root.Position = UDim2.fromScale(BUTTON_X, 0)
-	button.root.ZIndex = WindowParts.Z_BUTTON
-	button.root.Parent = frame
-	local buttonLabel, hit = WindowParts.decorateButton(button, buttonText)
+	local button, buttonLabel, hit = Kit.labeledButton("BuyButton", frame, color, BUTTON_X, 0, BUTTON_W, BUTTON_H, buttonText) -- 키트(#39)
 	table.insert(raise, button.root)
 
 	local foot = WindowParts.makeText("Foot", frame, "small", BUTTON_X, FOOT_Y, BUTTON_W, FOOT_H, Enum.TextXAlignment.Center)
@@ -182,20 +177,10 @@ function UpgradeShopWindow.create(deps: Deps): Handle
 	-- 탭 줄(선택 표시는 색 — 고른 탭 하늘 / 나머지 회색. 탭마다 두 벌을 둔다 — 아우라 창 팩 탭과 같은 이유)
 	local tabs: { [string]: TabParts } = {}
 	for i, tabKey in ipairs({ UpgradeShopWindow.TAB_UPGRADE, UpgradeShopWindow.TAB_ROBUX }) do
-		local gray = Button.create({ size = "Small", color = "gray", widthScale = TAB_W, heightScale = TAB_H })
-		gray.root.Name = "Tab_" .. tabKey
-		gray.root.Position = UDim2.fromScale((i - 1) * (TAB_W + TAB_GAP), 0)
-		gray.root.ZIndex = WindowParts.Z_BUTTON
-		gray.root.Parent = body
-		local selected = Button.create({ size = "Small", color = "blue", widthScale = 1, heightScale = 1 })
-		selected.root.Name = "Selected"
-		selected.root.Position = UDim2.fromScale(0, 0)
-		selected.root.ZIndex = WindowParts.Z_BUTTON
-		selected.root.Visible = false
-		selected.root.Parent = gray.root
-		local label, hit = WindowParts.decorateButton(gray, UpgradeShopWindow.TAB_TEXT[tabKey])
-		table.insert(raise, gray.root)
-		tabs[tabKey] = { button = gray, selected = selected, label = label, hit = hit }
+		-- 키트 탭(#39 — 회색 위에 하늘 한 벌)
+		local tab = Kit.tab("Tab_" .. tabKey, body, (i - 1) * (TAB_W + TAB_GAP), 0, TAB_W, TAB_H, UpgradeShopWindow.TAB_TEXT[tabKey])
+		table.insert(raise, tab.button.root)
+		tabs[tabKey] = { button = tab.button, selected = tab.selected, label = tab.label, hit = tab.hit }
 	end
 
 	-- 업그레이드 탭 목록

@@ -277,13 +277,27 @@ end
 
 -- ===== 부르는 곳 ==================================================================================
 
+-- 넘침 확인(Studio UI 미리보기 전용 — 지시서 #39 5단계 · Client/Tools/UiPreview): 켜면 모든 문장을 두 번 이어 붙여 길게 보인다.
+-- 기본 꺼짐 — 게임 문장은 바뀌지 않는다. 미리보기만 켠다(게시 빌드에서는 미리보기가 돌지 않는다 — TestGate)
+local stretch = false
+function Locale._setStretch(on: boolean)
+	stretch = on == true
+end
+function Locale._isStretched(): boolean
+	return stretch
+end
+
 function Locale.tFor(code: LocaleCode, key: string, params: { [string]: any }?): string
 	local template = Locale.template(code, key)
 	if template == nil then
 		warnOnce(key, string.format("[Locale] WARN 키 %s에 문장이 없다(%s · en 둘 다) — \"%s\"로 보인다", key, code, Locale.MISSING_TEXT))
 		return Locale.MISSING_TEXT
 	end
-	return Locale.format(template, params, key)
+	local text = Locale.format(template, params, key)
+	if stretch then
+		return text .. " " .. text
+	end
+	return text
 end
 
 function Locale.t(key: string, params: { [string]: any }?): string

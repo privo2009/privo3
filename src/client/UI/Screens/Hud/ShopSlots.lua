@@ -34,6 +34,7 @@ local Store = require(script.Parent.Parent.Parent.Store)
 local ButtonFx = require(script.Parent.Parent.Parent.Components.ButtonFx)
 local Shine = require(script.Parent.Parent.Parent.Components.Shine)
 local UIFxConfig = require(ReplicatedStorage.Shared.Config.UIFxConfig)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local ShopSlots = {}
 
@@ -65,8 +66,8 @@ local PRICE_LEVEL: TextScale.Level = "small" -- 소(2.5%)
 local PRICE_LABEL_HEIGHT_TILE_REL = TextScale.Levels[PRICE_LEVEL].heightFraction / TILE_HEIGHT
 
 -- docs/UI.md "8. 비주얼 스타일" — 모든 UI 요소에 검은 테두리 3~4px. AssetImage.lua의
--- STROKE_THICKNESS(3)과 같은 값 — 그 헬퍼는 local이라 가져다 쓸 수 없어 재현한다.
-local STROKE_THICKNESS = 3
+-- 테두리 두께와 같은 값 — #39부터 둘 다 스킨 한 칸(UiTheme.Skin.line.asset)을 읽는다.
+local STROKE_THICKNESS = UiTheme.Skin.line.asset
 
 local PRICE_FONT = UiTheme.FONT
 
@@ -138,10 +139,7 @@ local function createSlot(slot: ShopSlotConfig.Slot, x: number, y: number, cellW
 	aspect.DominantAxis = Enum.DominantAxis.Height
 	aspect.Parent = tile
 
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = STROKE_THICKNESS
-	stroke.Color = Color3.new(0, 0, 0)
-	stroke.Parent = tile
+	Kit.stroke(tile, UiTheme.Skin.text.stroke, STROKE_THICKNESS) -- 키트(#39)
 
 	local priceLabel = Instance.new("TextLabel")
 	priceLabel.Name = "Price"
@@ -152,19 +150,9 @@ local function createSlot(slot: ShopSlotConfig.Slot, x: number, y: number, cellW
 	priceLabel.BorderSizePixel = 0
 	-- 실제 가격은 Phase 8에서 MarketplaceService가 준다. 지금은 Config 값을 그대로 보여준다.
 	priceLabel.Text = ShopSlots.priceText(slot.priceRobux, false)
-	priceLabel.TextScaled = true
-	priceLabel.TextColor3 = Color3.new(1, 1, 1)
-	priceLabel.Font = PRICE_FONT
+	Kit.styleText(priceLabel, PRICE_LEVEL) -- 키트(#39 — 글꼴 PRICE_FONT = UiTheme.FONT)
 	priceLabel.ZIndex = 2
 	priceLabel.Parent = tile
-
-	local priceSizeConstraint = Instance.new("UITextSizeConstraint")
-	priceSizeConstraint.MaxTextSize = TextScale.Levels[PRICE_LEVEL].maxTextSize
-	priceSizeConstraint.Parent = priceLabel
-
-	local priceStroke = Instance.new("UIStroke")
-	priceStroke.Color = Color3.new(0, 0, 0)
-	priceStroke.Parent = priceLabel
 
 	return tile, priceLabel
 end

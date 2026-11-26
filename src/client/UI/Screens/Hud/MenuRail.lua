@@ -28,6 +28,7 @@ local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local ScreenController = require(script.Parent.Parent.Parent.ScreenController)
 local ButtonFx = require(script.Parent.Parent.Parent.Components.ButtonFx)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local MenuRail = {}
 
@@ -130,18 +131,8 @@ local function createTile(item: { assetKey: string, label: string, screenName: s
 	label.Size = UDim2.fromScale(1, LABEL_HEIGHT / itemHeight) -- itemRow 기준
 	label.Position = UDim2.fromScale(0, TILE_HEIGHT / itemHeight) -- 타일 바로 아래
 	label.Text = item.label
-	label.TextScaled = true
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.Font = UiTheme.FONT
+	Kit.styleText(label, LABEL_LEVEL) -- 흰 글자 · 검은 외곽선(키트 — #39)
 	label.Parent = itemRow
-
-	local labelSizeConstraint = Instance.new("UITextSizeConstraint")
-	labelSizeConstraint.MaxTextSize = TextScale.Levels[LABEL_LEVEL].maxTextSize
-	labelSizeConstraint.Parent = label
-
-	local labelStroke = Instance.new("UIStroke")
-	labelStroke.Color = Color3.new(0, 0, 0)
-	labelStroke.Parent = label
 
 	-- 탭 감지용 투명 버튼. AssetImage가 내는 Frame/ImageLabel은 버튼 클래스가
 	-- 아니라 Activated를 못 받으므로, 타일+라벨 전체를 덮는 투명 TextButton을

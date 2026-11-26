@@ -14,6 +14,7 @@ local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local OverlayParts = require(script.Parent.OverlayParts)
 local FeedbackLogic = require(script.Parent.Parent.Parent.Logic.FeedbackLogic)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local RebirthNotice = {}
 
@@ -46,19 +47,9 @@ function RebirthNotice.create(): Handle
 	root.ZIndex = OverlayParts.Z.notice
 	-- ⚠️ root는 늘 보이는 투명 틀이다. ScreenController.open이 root를 보이게 하므로(2026-10-23 Play: 빈 파란 띠가 떴다)
 	-- 보일지 말지는 안쪽 Panel의 Visible로 정한다.
-	local panel = Instance.new("Frame")
-	panel.Name = "Panel"
-	panel.Size = UDim2.fromScale(1, 1)
-	panel.BackgroundColor3 = UiTheme.Colors.blox.dark
-	panel.BackgroundTransparency = 0.15
-	panel.BorderSizePixel = 0
-	panel.ZIndex = OverlayParts.Z.notice
+	local panel = Kit.card("Panel", root, 0, 0, 1, 1, { fill = UiTheme.Colors.blox.dark, alpha = UiTheme.Skin.alpha.band,
+		line = UiTheme.Skin.line.notice, lineColor = UiTheme.Skin.text.stroke, image = "band" }, OverlayParts.Z.notice) -- 키트(#39)
 	panel.Visible = false
-	panel.Parent = root
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.new(0, 0, 0)
-	stroke.Thickness = 3
-	stroke.Parent = panel
 
 	local function row(name: string, level: TextScale.Level, y: number, h: number): TextLabel
 		local label = OverlayParts.textRow(name, "", level, nil)

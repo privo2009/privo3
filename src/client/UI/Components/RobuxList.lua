@@ -10,6 +10,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
+local KitBase = require(script.Parent.KitBase) -- 키트 바닥(#39 — Kit는 이 파일을 쓰는 창이 부른다)
 local Button = require(script.Parent.Button)
 local WindowParts = require(script.Parent.WindowParts)
 local Shine = require(script.Parent.Shine)
@@ -91,7 +92,8 @@ function RobuxList.create(o: Options): Handle
 	for i = 1, o.maxRows do
 		local frame = Instance.new("Frame")
 		frame.Name = "RobuxRow_" .. i
-		frame.BackgroundColor3 = UiTheme.Colors.neutral.dark -- 줄 바탕: 패널 자리표시(중립 기본)와 구분(워프 창 행 경계와 같은 이유)
+		-- 줄 바탕: 패널 자리표시(중립 기본)와 구분(워프 창 행 경계와 같은 이유 — 키트 #39)
+		KitBase.cardStyle(frame, { fill = UiTheme.Colors.neutral.dark })
 		frame.BorderSizePixel = 0
 		frame.ZIndex = 3
 		frame.Parent = list

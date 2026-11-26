@@ -31,6 +31,7 @@ local TitleWindowLogic = require(script.Parent.Parent.Parent.Logic.TitleWindowLo
 local RobuxShopLogic = require(script.Parent.Parent.Parent.Logic.RobuxShopLogic)
 local RobuxList = require(script.Parent.Parent.Parent.Components.RobuxList)
 local PurchaseClient = require(script.Parent.Parent.Parent.Parent.Net.PurchaseClient)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local AuraWindow = {}
 
@@ -124,12 +125,7 @@ function AuraWindow.create(deps: Deps): Handle
 	local raise: { Instance } = { panel.closeButton.root }
 
 	local function makeButton(name: string, color: Button.ColorName, x: number, y: number, w: number, h: number, parent: Instance, text: string)
-		local b = Button.create({ size = "Small", color = color, widthScale = w, heightScale = h })
-		b.root.Name = name
-		b.root.Position = UDim2.fromScale(x, y)
-		b.root.ZIndex = WindowParts.Z_BUTTON
-		b.root.Parent = parent
-		local label, hit = WindowParts.decorateButton(b, text)
+		local b, label, hit = Kit.labeledButton(name, parent, color, x, y, w, h, text) -- 키트(#39)
 		table.insert(raise, b.root)
 		return b, label, hit
 	end
@@ -139,15 +135,10 @@ function AuraWindow.create(deps: Deps): Handle
 	local tabBlue: { Button.ButtonHandle } = {}
 	for i = 1, MAX_TABS do
 		local x = (i - 1) * (TAB_W + TAB_GAP)
-		local gray, label, hit = makeButton("Tab" .. i, "gray", x, 0, TAB_W, TAB_H, body, "")
-		local blue = Button.create({ size = "Small", color = "blue", widthScale = 1, heightScale = 1 })
-		blue.root.Name = "Selected"
-		blue.root.Position = UDim2.fromScale(0, 0)
-		blue.root.ZIndex = WindowParts.Z_BUTTON
-		blue.root.Visible = false
-		blue.root.Parent = gray.root
-		tabs[i] = { button = gray, label = label, hit = hit }
-		tabBlue[i] = blue
+		local tab = Kit.tab("Tab" .. i, body, x, 0, TAB_W, TAB_H, "") -- 키트 탭(#39 — 회색 위에 하늘 한 벌)
+		table.insert(raise, tab.button.root)
+		tabs[i] = { button = tab.button, label = tab.label, hit = tab.hit }
+		tabBlue[i] = tab.selected
 	end
 	local _titleBtn, _titleLabel, titleHit = makeButton("TitleButton", "gray", 1 - TITLE_BTN_W, 0, TITLE_BTN_W, TAB_H, body, AuraWindowLogic.TITLE_BUTTON_TEXT)
 	-- 로벅스 탭(지시서 #17) — 초록(로벅스 역할색). 누르면 카드 자리가 상품 목록으로 바뀐다
@@ -166,7 +157,7 @@ function AuraWindow.create(deps: Deps): Handle
 		frame.Name = "Card" .. i
 		frame.Position = UDim2.fromScale((i - 1) * (CARD_W + CARD_GAP), CARD_Y)
 		frame.Size = UDim2.fromScale(CARD_W, CARD_H)
-		frame.BackgroundColor3 = UiTheme.Colors.neutral.dark
+		Kit.cardStyle(frame, { fill = UiTheme.Colors.neutral.dark, image = "card" }) -- 아우라 카드(키트)
 		frame.BorderSizePixel = 0
 		frame.ZIndex = 3
 		frame.Parent = body

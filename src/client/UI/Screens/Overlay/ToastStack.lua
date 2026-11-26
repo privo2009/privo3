@@ -24,6 +24,7 @@ local Layout = require(script.Parent.Parent.Parent.Layout)
 local OverlayParts = require(script.Parent.OverlayParts)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local ToastLogic = require(script.Parent.Parent.Parent.Logic.ToastLogic)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local ToastStack = {}
 
@@ -71,12 +72,9 @@ function ToastStack.create(now: (() -> number)?): Handle
 	local height = ToastStack.Bounds.y1 - TOP
 	local rows: { TextLabel } = {}
 	for i = 1, ToastLogic.MAX_VISIBLE do
-		local label = OverlayParts.textRow("Toast" .. i, "", "small", nil)
+		local label = Kit.toastRow("Toast" .. i, "small") -- 키트(#39 — 어두운 바탕 · 오른쪽 정렬)
 		label.Position = UDim2.fromScale(0, (i - 1) * (ROW_H + GAP) / height)
 		label.Size = UDim2.fromScale(1, ROW_H / height)
-		label.BackgroundColor3 = UiTheme.Colors.neutral.dark
-		label.BackgroundTransparency = 0.1
-		label.TextXAlignment = Enum.TextXAlignment.Right
 		label.ZIndex = OverlayParts.Z.notice
 		label.Visible = false
 		label.Parent = root

@@ -21,6 +21,7 @@ local Panel = require(script.Parent.Parent.Parent.Components.Panel)
 local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local ForgeWindowLogic = require(script.Parent.Parent.Parent.Logic.ForgeWindowLogic)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local ForgeWindow = {}
 
@@ -48,15 +49,7 @@ export type Handle = {
 }
 
 local function frame(name: string, parent: Instance, x: number, y: number, w: number, h: number): Frame
-	local f = Instance.new("Frame")
-	f.Name = name
-	f.BackgroundTransparency = 1
-	f.BorderSizePixel = 0
-	f.Position = UDim2.fromScale(x, y)
-	f.Size = UDim2.fromScale(w, h)
-	f.ZIndex = WindowParts.Z_TEXT
-	f.Parent = parent
-	return f
+	return Kit.box(name, parent, x, y, w, h, Kit.Z_TEXT) -- 키트(#39)
 end
 
 local function text(name: string, parent: Instance, level: any, x: number, y: number, w: number, h: number, align: Enum.TextXAlignment?): TextLabel
@@ -67,25 +60,11 @@ local function text(name: string, parent: Instance, level: any, x: number, y: nu
 end
 
 local function button(name: string, parent: Instance, color: Button.ColorName, x: number, y: number, w: number, h: number, caption: string)
-	local b = Button.create({ size = "Small", color = color, widthScale = w, heightScale = h })
-	b.root.Name = name
-	b.root.Position = UDim2.fromScale(x, y)
-	b.root.ZIndex = WindowParts.Z_BUTTON
-	b.root.Parent = parent
-	local label, hit = WindowParts.decorateButton(b, caption)
+	local b, label, hit = Kit.labeledButton(name, parent, color, x, y, w, h, caption) -- 키트(#39)
 	label.AutoLocalize = false
 	label.TextScaled = true
 	WindowParts.raiseButtons({ b.root })
 	return b, label, hit
-end
-
-local function stroke(parent: Instance, color: Color3, thickness: number?)
-	local s = Instance.new("UIStroke")
-	s.Color = color
-	s.Thickness = thickness or 2
-	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	s.Parent = parent
-	return s
 end
 
 local function rarityOf(id: string): string
@@ -132,11 +111,8 @@ function ForgeWindow.create(deps: Deps): Handle
 	for k = 1, Config.ORE_COUNT do
 		local col, row = (k - 1) % 5, (k - 1) // 5
 		local cell = frame("Ore" .. k, craftFrame, col * cellW, row * 0.15, cellW - 0.01, 0.135)
-		cell.BackgroundTransparency = 0.15
-		cell.BackgroundColor3 = Config.ORE_VISUALS[k].color -- 임시 도형(광석 재질 색 — iconId 자리)
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0.15, 0)
-		corner.Parent = cell
+		-- 광석 칸(키트 card — 임시 도형: 광석 재질 색 · 둥근 칸 · iconId 자리)
+		Kit.cardStyle(cell, { fill = Config.ORE_VISUALS[k].color, alpha = UiTheme.Skin.alpha.cell, corner = "cell" })
 		local nameL = text("Name", cell, "small", 0.04, 0.02, 0.92, 0.5, Enum.TextXAlignment.Center)
 		nameL.Text = Locale.t(EconomyV2Logic.oreNameKey(k))
 		local countL = text("Count", cell, "small", 0.04, 0.5, 0.92, 0.46, Enum.TextXAlignment.Center)
@@ -149,9 +125,9 @@ function ForgeWindow.create(deps: Deps): Handle
 	local slotCells: { { root: Frame, label: TextLabel, hit: TextButton } } = {}
 	for i = 1, Config.CRAFT_INPUT do
 		local cell = frame("Slot" .. i, craftFrame, (i - 1) * cellW, 0.32, cellW - 0.01, 0.16)
-		cell.BackgroundTransparency = 0.2
-		cell.BackgroundColor3 = UiTheme.Colors.neutral.dark
-		stroke(cell, Color3.new(1, 1, 1), 2)
+		-- 넣은 광석 칸(키트 card — 흰 테두리)
+		Kit.cardStyle(cell, { fill = UiTheme.Colors.neutral.dark, alpha = UiTheme.Skin.alpha.cellSoft, line = UiTheme.Skin.line.cell,
+			lineColor = UiTheme.Skin.text.main, lineMode = Enum.ApplyStrokeMode.Border, image = "card" })
 		local label = text("Label", cell, "small", 0.04, 0.1, 0.92, 0.8, Enum.TextXAlignment.Center)
 		local hit = WindowParts.hitArea(cell)
 		slotCells[i] = { root = cell, label = label, hit = hit }
@@ -205,10 +181,10 @@ function ForgeWindow.create(deps: Deps): Handle
 	local haveText = text("Have", exFrame, "medium", 0, 0.11, 1, 0.07)
 	local exRows: { any } = {}
 	for i = 1, 4 do
+		-- 교환 줄(키트 card — 등급 테두리: 그릴 때 등급 색으로)
 		local row = frame("Row" .. i, exFrame, 0, 0.2 + (i - 1) * 0.16, 1, 0.14)
-		row.BackgroundTransparency = 0.3
-		row.BackgroundColor3 = UiTheme.Colors.neutral.dark
-		local border = stroke(row, UiTheme.EquipGrade.common, 3)
+		local border = Kit.cardStyle(row, { fill = UiTheme.Colors.neutral.dark, alpha = UiTheme.Skin.alpha.row, line = UiTheme.Skin.line.slot,
+			lineColor = Kit.gradeColor("common"), lineMode = Enum.ApplyStrokeMode.Border, image = "card" }) :: UIStroke
 		local nameL = text("Name", row, "medium", 0.02, 0.1, 0.44, 0.8)
 		local costL = text("Cost", row, "small", 0.47, 0.1, 0.16, 0.8)
 		local ownL = text("Owned", row, "small", 0.63, 0.1, 0.16, 0.8)
@@ -216,23 +192,15 @@ function ForgeWindow.create(deps: Deps): Handle
 		exRows[i] = { root = row, border = border, name = nameL, cost = costL, owned = ownL, b = b, hit = hit, id = nil :: string? }
 	end
 	local locked = frame("Locked", exFrame, 0.2, 0.25, 0.6, 0.4)
-	locked.BackgroundTransparency = 0.3
-	locked.BackgroundColor3 = UiTheme.Colors.neutral.dark
-	stroke(locked, UiTheme.EquipGrade.next, 3)
+	Kit.cardStyle(locked, { fill = UiTheme.Colors.neutral.dark, alpha = UiTheme.Skin.alpha.row, line = UiTheme.Skin.line.slot,
+		lineColor = Kit.gradeColor("next"), lineMode = Enum.ApplyStrokeMode.Border })
 	local lockedText = text("Text", locked, "medium", 0.05, 0.1, 0.9, 0.8, Enum.TextXAlignment.Center)
 	lockedText.Text = Locale.t("forge.ex.locked")
 	local exMessage = text("Message", exFrame, "small", 0, 0.86, 1, 0.08, Enum.TextXAlignment.Center)
 
 	-- ===== 결과 연출(임시) ===============================================================================
-	local overlay = Instance.new("Frame")
-	overlay.Name = "ResultOverlay"
-	overlay.BackgroundColor3 = Color3.new(0, 0, 0)
-	overlay.BackgroundTransparency = 0.3
-	overlay.BorderSizePixel = 0
-	overlay.Size = UDim2.fromScale(1, 1)
-	overlay.ZIndex = Z_OVERLAY
+	local overlay = Kit.card("ResultOverlay", body, 0, 0, 1, 1, { fill = UiTheme.Skin.fill.shade, alpha = UiTheme.Skin.alpha.row }, Z_OVERLAY) -- 키트(#39)
 	overlay.Visible = false
-	overlay.Parent = body
 	AssetSlots.applyImage(overlay, Config.CRAFT_FX_VISUAL.imageId, { size = UDim2.fromScale(0.6, 0.9) }) -- 제작 연출 그림(#36 — 이름 뒤)
 	local resultNames: { TextLabel } = {}
 	for i = 1, Config.TRIPLE_CRAFT_COUNT do

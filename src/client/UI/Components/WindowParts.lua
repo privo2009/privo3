@@ -6,11 +6,12 @@
 -- 위치 · 크기는 부모 기준 Scale이다. Offset을 쓰지 않는다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local Button = require(script.Parent.Button)
 -- 버튼 반응(지시서 #21 A): 덮는 HitArea를 만드는 이 함수가 공용 진입점이다 — 기본으로 켠다(그림 = HitArea의 부모)
 local ButtonFx = require(script.Parent.ButtonFx)
+-- 글자 모양은 키트 바닥(#39 — 흰 글자 · 검은 외곽선 · 글꼴 · 크기 상한이 UiTheme.Skin에서 온다)
+local KitBase = require(script.Parent.KitBase)
 
 local WindowParts = {}
 
@@ -35,18 +36,9 @@ function WindowParts.makeText(
 	label.BorderSizePixel = 0
 	label.Position = UDim2.fromScale(x, y)
 	label.Size = UDim2.fromScale(w, h)
-	label.TextScaled = true
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.Font = UiTheme.FONT
 	label.TextXAlignment = align or Enum.TextXAlignment.Left
 	label.ZIndex = WindowParts.Z_TEXT
-	local size = Instance.new("UITextSizeConstraint")
-	size.MaxTextSize = TextScale.Levels[level].maxTextSize
-	size.Parent = label
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.new(0, 0, 0)
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-	stroke.Parent = label
+	KitBase.styleText(label, level)
 	label.Parent = parent
 	return label
 end

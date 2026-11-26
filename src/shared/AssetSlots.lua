@@ -76,6 +76,70 @@ function AssetSlots.list(): { Slot }
 	return out
 end
 
+-- ===== UI 칸(2026-11-26 지시서 #39 — docs/UI.md "UI 키트 > AssetSlots의 UI 칸" · docs/UI_ASSET_SPEC.md "9") =====
+-- UI 그림(9-slice 틀 · 버튼 · 아이콘)을 한 목록으로 본다. list()와 따로 둔다 — list()는 서버 AssetLoader가 모델을 불러오는 목록이다.
+--   ui_<키>   AssetRegistry 25종(버튼 6 · 패널 2 · 아이콘 17) — 값의 원본은 Config/AssetConfig(도착하면 한 줄). 없으면 역할색 도형(지금 모양)
+--   kit_<칸>  키트 부품 그림(카드 · 탭 · 게이지 · 토스트 · 제목 판 · 모달 · 띠 · 막) — 값의 원본은 UiTheme.Skin.images(Config/UiSkin). 없으면 지금 모양
+export type UiSlot = { key: string, id: number?, scaleType: string, slice: Rect?, use: string }
+
+local KIT_IMAGE_USE: { [string]: string } = {
+	card = "아이템 칸 · 줄 바탕(등급 테두리는 위에 그린다)",
+	cardSelected = "고른 칸",
+	tab = "탭(안 고른 것)",
+	tabSelected = "탭(고른 것)",
+	gaugeBack = "게이지 바탕",
+	gaugeFill = "게이지 채움",
+	toast = "토스트 한 줄 바탕",
+	titlePlate = "창 제목 판(글자 뒤)",
+	modal = "모달 판(결과 · 일일 보상)",
+	band = "띠 판(안내 · 환생 알림)",
+	dim = "모달 뒤 막",
+}
+AssetSlots.KIT_IMAGE_SLOTS = { "card", "cardSelected", "tab", "tabSelected", "gaugeBack", "gaugeFill", "toast", "titlePlate", "modal", "band", "dim" }
+
+local function numberOf(content: any): number?
+	if type(content) == "number" then
+		return content
+	end
+	if type(content) == "string" then
+		return tonumber(string.match(content, "%d+$"))
+	end
+	return nil
+end
+
+function AssetSlots.uiList(): { UiSlot }
+	local AssetRegistry = require(ReplicatedStorage.Shared.Config.AssetRegistry)
+	local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
+	local out: { UiSlot } = {}
+	local keys = {}
+	for key in pairs(AssetRegistry.Entries) do
+		table.insert(keys, key)
+	end
+	table.sort(keys)
+	for _, key in ipairs(keys) do
+		local r: any = AssetRegistry.resolve(key)
+		table.insert(out, {
+			key = "ui_" .. key,
+			id = if r.arrived then numberOf(r.id) else nil,
+			scaleType = r.scaleType,
+			slice = if r.arrived then r.slice else nil,
+			use = (AssetRegistry.Entries[key].source :: { string })[1],
+		})
+	end
+	for _, slot in ipairs(AssetSlots.KIT_IMAGE_SLOTS) do
+		local spec = UiTheme.Skin.images[slot]
+		local hasId = type(spec) == "table" and type(spec.id) == "number"
+		table.insert(out, {
+			key = "kit_" .. slot,
+			id = if hasId then spec.id else nil,
+			scaleType = "Slice",
+			slice = if hasId and typeof(spec.slice) == "Rect" then spec.slice else nil,
+			use = KIT_IMAGE_USE[slot],
+		})
+	end
+	return out
+end
+
 -- 화면 칸에 그림을 붙인다(#36): id가 있으면 자식 ImageLabel "SlotImage"를 보이고 그 그림으로 · 없으면 숨긴다(임시 도형 그대로).
 -- 붙였으면 그 ImageLabel(보일 때), 아니면 nil. opts: position · size(Scale — 기본 칸 전체) · behind(글자 뒤로 — 기본 true)
 function AssetSlots.applyImage(frame: GuiObject, id: any, opts: { position: UDim2?, size: UDim2? }?): ImageLabel?

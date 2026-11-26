@@ -18,4 +18,16 @@ function TestGate.shouldRun(isStudio: boolean?): boolean
 	return isStudio == true
 end
 
+-- Studio 전용 개발 플래그(지시서 #39 — TEST_UI_PREVIEW 등): 값이 켜져 있고(nil · false가 아님) Studio일 때만 true.
+-- 게시된 클라 · 서버에서는 플래그를 잘못 커밋해도 꺼진 것으로 본다. 커밋 값은 tools/check_test_gate.py가 nil · false인지 본다
+function TestGate.flagOn(value: any, isStudio: boolean?): boolean
+	if value == nil or value == false then
+		return false
+	end
+	return TestGate.shouldRun(isStudio)
+end
+
+-- 커밋 값이 꺼져 있어야 하는 Studio 전용 플래그 이름(check_test_gate.py가 같은 목록으로 파일을 본다 — 빠지면 실패)
+TestGate.STUDIO_FLAGS = { "TEST_UI_PREVIEW" }
+
 return TestGate

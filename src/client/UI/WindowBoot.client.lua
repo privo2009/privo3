@@ -12,6 +12,14 @@ local RebirthWindow = require(script.Parent.Screens.Window.RebirthWindow)
 
 local channels = Remotes.getClient()
 
+-- ── 개발용 플래그: TEST_UI_PREVIEW (Studio 전용, 지시서 #39 5단계) ────────────────────────────────
+-- true로 두고 Play하면 화면 왼쪽에 UI 미리보기 목록이 생긴다 — 모든 창을 예시 데이터로 하나씩 연다(Client/Tools/UiPreview ·
+-- docs/UI.md "UI 키트 > 미리보기 화면"). Studio가 아니면 켜도 돌지 않는다(TestGate.flagOn).
+-- ⚠️ 커밋 값은 언제나 nil(tools/check_test_gate.py · UiKitTests)
+local TEST_UI_PREVIEW: boolean? = nil
+local UiPreview = require(script.Parent.Parent.Tools.UiPreview)
+UiPreview.register(TEST_UI_PREVIEW)
+
 local rebirthWindow = RebirthWindow.create({
 	sendRequest = function()
 		local payload: Remotes.RebirthRequestPayload = {}
@@ -278,3 +286,5 @@ channels.petResult.OnClientEvent:Connect(function(payload: Remotes.PetResultPayl
 end)
 
 StateSync.request()
+
+task.defer(UiPreview.run) -- TEST_UI_PREVIEW가 nil이면 아무것도 안 한다

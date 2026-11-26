@@ -44,6 +44,7 @@ local Fx = require(script.Parent.Parent.Parent.Components.Fx)
 local FxLogic = require(script.Parent.Parent.Parent.Logic.FxLogic)
 local RobuxList = require(script.Parent.Parent.Parent.Components.RobuxList)
 local PurchaseClient = require(script.Parent.Parent.Parent.Parent.Net.PurchaseClient)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local PetWindow = {}
 
@@ -158,12 +159,7 @@ function PetWindow.create(deps: Deps): Handle
 	local raise: { Instance } = { panel.closeButton.root }
 
 	local function makeButton(name: string, color: Button.ColorName, x: number, y: number, w: number, h: number, parent: Instance, text: string)
-		local b = Button.create({ size = "Small", color = color, widthScale = w, heightScale = h })
-		b.root.Name = name
-		b.root.Position = UDim2.fromScale(x, y)
-		b.root.ZIndex = WindowParts.Z_BUTTON
-		b.root.Parent = parent
-		local label, hit = WindowParts.decorateButton(b, text)
+		local b, label, hit = Kit.labeledButton(name, parent, color, x, y, w, h, text) -- 키트(#39)
 		table.insert(raise, b.root)
 		return b, label, hit
 	end
@@ -173,15 +169,10 @@ function PetWindow.create(deps: Deps): Handle
 	local tabBlue: { Button.ButtonHandle } = {}
 	for i = 1, MAX_TABS do
 		local x = (i - 1) * (TAB_W + TAB_GAP)
-		local gray, label, hit = makeButton("Tab" .. i, "gray", x, 0, TAB_W, TAB_H, body, "")
-		local blue = Button.create({ size = "Small", color = "blue", widthScale = 1, heightScale = 1 })
-		blue.root.Name = "Selected"
-		blue.root.Position = UDim2.fromScale(0, 0)
-		blue.root.ZIndex = WindowParts.Z_BUTTON
-		blue.root.Visible = false
-		blue.root.Parent = gray.root
-		tabs[i] = { button = gray, label = label, hit = hit }
-		tabBlue[i] = blue
+		local tab = Kit.tab("Tab" .. i, body, x, 0, TAB_W, TAB_H, "") -- 키트 탭(#39 — 회색 위에 하늘 한 벌)
+		table.insert(raise, tab.button.root)
+		tabs[i] = { button = tab.button, label = tab.label, hit = tab.hit }
+		tabBlue[i] = tab.selected
 	end
 	local _bestBtn, _bestLabel, bestHit = makeButton("BestButton", "gray", 1 - BEST_W, 0, BEST_W, TAB_H, body, PetWindowLogic.BEST_TEXT)
 	local robuxTab, _robuxTabLabel, robuxTabHit = makeButton("RobuxTab", "green", ROBUX_TAB_X, 0, ROBUX_TAB_W, TAB_H, body,
@@ -228,15 +219,13 @@ function PetWindow.create(deps: Deps): Handle
 		end
 		local frame = Instance.new("Frame")
 		frame.Name = "Cell" .. i
-		frame.BackgroundColor3 = UiTheme.Colors.neutral.dark
 		frame.BorderSizePixel = 0
 		frame.ZIndex = 3
 		frame.Parent = grid
-		local stroke = Instance.new("UIStroke")
-		stroke.Thickness = 2
-		stroke.Color = UiTheme.Colors.cashout.base
+		-- 펫 칸(키트 card — 고르면 노랑 테두리)
+		local stroke = Kit.cardStyle(frame, { fill = UiTheme.Colors.neutral.dark, line = UiTheme.Skin.line.cell, lineColor = UiTheme.Colors.cashout.base,
+			image = "card" }) :: UIStroke
 		stroke.Enabled = false
-		stroke.Parent = frame
 		local name = WindowParts.makeText("Name", frame, "small", 0.04, 0.05, 0.92, 0.5, Enum.TextXAlignment.Center)
 		local level = WindowParts.makeText("Level", frame, "small", 0.04, 0.55, 0.92, 0.4, Enum.TextXAlignment.Center)
 		local hit = WindowParts.hitArea(frame)
@@ -256,7 +245,7 @@ function PetWindow.create(deps: Deps): Handle
 		frame.Name = "Slot" .. i
 		frame.Position = UDim2.fromScale(RIGHT_X + col * slotW, SLOT_Y + row * SLOT_ROW_H)
 		frame.Size = UDim2.fromScale(slotW * 0.95, SLOT_ROW_H * 0.9)
-		frame.BackgroundColor3 = UiTheme.Colors.neutral.dark
+		Kit.cardStyle(frame, { fill = UiTheme.Colors.neutral.dark }) -- 장착 슬롯 칸(키트)
 		frame.BorderSizePixel = 0
 		frame.ZIndex = 3
 		frame.Parent = body
@@ -311,15 +300,13 @@ function PetWindow.create(deps: Deps): Handle
 		local g = Instance.new("Frame")
 		g.Name = "Ghost" .. i
 		g.AnchorPoint = Vector2.new(0.5, 0.5)
-		g.BackgroundColor3 = UiTheme.Colors.neutral.dark
 		g.BorderSizePixel = 0
 		g.Active = false
 		g.ZIndex = 41
 		g.Visible = false
 		g.Parent = fxLayer
-		local st = Instance.new("UIStroke")
-		st.Thickness = 2
-		st.Parent = g
+		-- 대역 칸(키트 card — 테두리 색은 연출이 정한다)
+		local st = Kit.cardStyle(g, { fill = UiTheme.Colors.neutral.dark, line = UiTheme.Skin.line.cell, lineColor = UiTheme.Skin.text.stroke }) :: UIStroke
 		local nm = WindowParts.makeText("Name", g, "small", 0.04, 0.05, 0.92, 0.9, Enum.TextXAlignment.Center)
 		nm.ZIndex = 42
 		ghosts[i], ghostNames[i], ghostStrokes[i] = g, nm, st
@@ -487,7 +474,7 @@ function PetWindow.create(deps: Deps): Handle
 			releaseFlow.cancel()
 		end
 		selName.Text = if d ~= nil then d.name else PetWindowLogic.NO_SELECTION_TEXT
-		selName.TextColor3 = if d ~= nil then UiTheme.rarityColor(d.rarityTier) else Color3.new(1, 1, 1)
+		selName.TextColor3 = if d ~= nil then UiTheme.rarityColor(d.rarityTier) else UiTheme.Skin.text.main
 		selInfo.Text = if d ~= nil then (if d.releaseFoot ~= "" and releaseFlow.isArmed(t) then d.releaseFoot else d.infoText) else ""
 		equipLabel.Text = if d ~= nil then d.equipText else PetWindowLogic.EQUIP_TEXT
 		equipButton.setDisabled(d == nil or not d.canEquip or pending.isPending("equip", t) or pending.isPending("unequip", t))

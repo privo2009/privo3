@@ -50,6 +50,7 @@ local Fx = require(script.Parent.Parent.Parent.Components.Fx)
 local FxLogic = require(script.Parent.Parent.Parent.Logic.FxLogic)
 local Sfx = require(script.Parent.Parent.Parent.Parent.Audio.Sfx)
 local PlayerStateClient = require(script.Parent.Parent.Parent.Parent.Net.PlayerStateClient)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 type BigNumber = BigNum.BigNumber
 
@@ -191,16 +192,8 @@ function PowerBlock.create(store: Store.StoreInstance?, options: Options?): Powe
 	multCaption.BackgroundTransparency = 1
 	multCaption.BorderSizePixel = 0
 	multCaption.Text = Locale.t("hud.power.rebirthMult")
-	multCaption.TextScaled = true
-	multCaption.TextColor3 = Color3.new(1, 1, 1)
-	multCaption.Font = UiTheme.FONT
+	local _, multCaptionSize = Kit.styleText(multCaption, "small") -- 키트(#39)
 	multCaption.Parent = multFrame
-	local multCaptionSize = Instance.new("UITextSizeConstraint")
-	multCaptionSize.MaxTextSize = TextScale.Levels.small.maxTextSize
-	multCaptionSize.Parent = multCaption
-	local multCaptionStroke = Instance.new("UIStroke")
-	multCaptionStroke.Color = Color3.new(0, 0, 0)
-	multCaptionStroke.Parent = multCaption
 
 	local multValue = ValuePanel.create("medium", ValuePanel.MAX_CHARS_DEFAULT)
 	multValue.label.Name = "MultiplierValue"
@@ -259,18 +252,8 @@ function PowerBlock.create(store: Store.StoreInstance?, options: Options?): Powe
 	currentLabel.BackgroundTransparency = 1
 	currentLabel.BorderSizePixel = 0
 	currentLabel.Text = "0"
-	currentLabel.TextScaled = true
-	currentLabel.TextColor3 = Color3.new(1, 1, 1)
-	currentLabel.Font = UiTheme.FONT
+	Kit.styleText(currentLabel, LEVEL_LABEL_LEVEL) -- 키트(#39)
 	currentLabel.Parent = levelRow
-
-	local currentSizeConstraint = Instance.new("UITextSizeConstraint")
-	currentSizeConstraint.MaxTextSize = TextScale.Levels[LEVEL_LABEL_LEVEL].maxTextSize
-	currentSizeConstraint.Parent = currentLabel
-
-	local currentStroke = Instance.new("UIStroke")
-	currentStroke.Color = Color3.new(0, 0, 0)
-	currentStroke.Parent = currentLabel
 
 	local nextLabel = Instance.new("TextLabel")
 	nextLabel.Name = "NextLabel"
@@ -280,40 +263,17 @@ function PowerBlock.create(store: Store.StoreInstance?, options: Options?): Powe
 	nextLabel.BackgroundTransparency = 1
 	nextLabel.BorderSizePixel = 0
 	nextLabel.Text = "1"
-	nextLabel.TextScaled = true
-	nextLabel.TextColor3 = Color3.new(1, 1, 1)
-	nextLabel.Font = UiTheme.FONT
+	Kit.styleText(nextLabel, LEVEL_LABEL_LEVEL) -- 키트(#39)
 	nextLabel.Parent = levelRow
-
-	local nextSizeConstraint = Instance.new("UITextSizeConstraint")
-	nextSizeConstraint.MaxTextSize = TextScale.Levels[LEVEL_LABEL_LEVEL].maxTextSize
-	nextSizeConstraint.Parent = nextLabel
-
-	local nextStroke = Instance.new("UIStroke")
-	nextStroke.Color = Color3.new(0, 0, 0)
-	nextStroke.Parent = nextLabel
 
 	-- 배경 + 채움 두 층 (docs "레벨 진행 바"). AssetRegistry에 진행 바용 엔트리가 없어
 	-- UiTheme 역할색 Frame으로 그린다 — 새 엔트리를 추가하지 않는다(디자인 담당의
 	-- 제작 목록을 늘리는 별개의 결정이라 U3-5 범위 밖. 막히면 멈추라는 지시에 따라
 	-- 여기서는 막히지 않고 이 대안으로 진행한다).
-	local barBg = Instance.new("Frame")
-	barBg.Name = "BarBackground"
-	barBg.AnchorPoint = Vector2.new(0, 0.5)
-	barBg.Position = UDim2.fromScale(LEVEL_LABEL_WIDTH, 0.5)
-	barBg.Size = UDim2.fromScale(1 - LEVEL_LABEL_WIDTH * 2, LEVEL_BAR_HEIGHT_REL)
-	barBg.BackgroundColor3 = UiTheme.Colors.neutral.dark
-	barBg.BorderSizePixel = 0
-	barBg.Parent = levelRow
-
-	local barFill = Instance.new("Frame")
-	barFill.Name = "Fill"
-	barFill.AnchorPoint = Vector2.new(0, 0)
-	barFill.Position = UDim2.fromScale(0, 0)
-	barFill.Size = UDim2.fromScale(0, 1)
-	barFill.BackgroundColor3 = UiTheme.Colors.power.base
-	barFill.BorderSizePixel = 0
-	barFill.Parent = barBg
+	-- 게이지(키트 — #39): 배경 neutral.dark · 채움 power.base(그림 칸 gaugeBack · gaugeFill이 오면 그 그림)
+	local bar = Kit.gauge("BarBackground", levelRow, LEVEL_LABEL_WIDTH, 0.5, 1 - LEVEL_LABEL_WIDTH * 2, LEVEL_BAR_HEIGHT_REL,
+		{ back = UiTheme.Colors.neutral.dark, fill = UiTheme.Colors.power.base, anchor = Vector2.new(0, 0.5) })
+	local barFill = bar.fill
 
 	-- 행 3: 이동 속도 ---------------------------------------------------------------------
 
@@ -346,18 +306,8 @@ function PowerBlock.create(store: Store.StoreInstance?, options: Options?): Powe
 	maxLabel.BackgroundTransparency = 1
 	maxLabel.BorderSizePixel = 0
 	maxLabel.Text = Locale.t("hud.power.maxSpeed", { n = 0 })
-	maxLabel.TextScaled = true
-	maxLabel.TextColor3 = Color3.new(1, 1, 1)
-	maxLabel.Font = UiTheme.FONT
+	Kit.styleText(maxLabel, SPEED_LEVEL) -- 키트(#39)
 	maxLabel.Parent = speedRow
-
-	local maxSizeConstraint = Instance.new("UITextSizeConstraint")
-	maxSizeConstraint.MaxTextSize = TextScale.Levels[SPEED_LEVEL].maxTextSize
-	maxSizeConstraint.Parent = maxLabel
-
-	local maxStroke = Instance.new("UIStroke")
-	maxStroke.Color = Color3.new(0, 0, 0)
-	maxStroke.Parent = maxLabel
 
 	-- 연필 아이콘: 자리만 잡는다. 클릭 배선은 이번 범위가 아니다(위 파일 상단 참고) —
 	-- 실제 탭 타겟은 값 패널 전체가 될 예정이지만 그 배선도 이번엔 넣지 않는다.

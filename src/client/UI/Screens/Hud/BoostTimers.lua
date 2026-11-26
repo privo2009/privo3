@@ -17,6 +17,7 @@ local Layout = require(script.Parent.Parent.Parent.Layout)
 local Store = require(script.Parent.Parent.Parent.Store)
 local BoostTimersLogic = require(script.Parent.Parent.Parent.Logic.BoostTimersLogic)
 local ButtonFx = require(script.Parent.Parent.Parent.Components.ButtonFx)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local BoostTimers = {}
 
@@ -65,18 +66,10 @@ function BoostTimers.create(deps: Deps?): Handle
 		label.BackgroundTransparency = 1
 		label.BorderSizePixel = 0
 		label.Text = ""
-		label.TextScaled = true
 		label.TextXAlignment = Enum.TextXAlignment.Right
-		label.TextColor3 = Color3.new(1, 1, 1)
-		label.Font = UiTheme.FONT
+		Kit.styleText(label, LEVEL) -- 키트(#39)
 		label.Visible = false
 		label.Parent = root
-		local size = Instance.new("UITextSizeConstraint")
-		size.MaxTextSize = TextScale.Levels[LEVEL].maxTextSize
-		size.Parent = label
-		local stroke = Instance.new("UIStroke")
-		stroke.Color = Color3.new(0, 0, 0)
-		stroke.Parent = label
 		labels[i] = label
 	end
 

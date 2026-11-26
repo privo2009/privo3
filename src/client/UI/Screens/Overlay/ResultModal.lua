@@ -15,6 +15,7 @@ local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local OverlayParts = require(script.Parent.OverlayParts)
 local Fx = require(script.Parent.Parent.Parent.Components.Fx)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local ResultModal = {}
 
@@ -39,31 +40,13 @@ function ResultModal.create(options: { fx: Fx.Driver? }?): Handle
 	root.BackgroundTransparency = 1
 	root.ZIndex = OverlayParts.Z.blocking
 	-- root는 늘 보이는 투명 틀이다(ScreenController.open이 root를 보이게 한다 — RebirthNotice와 같은 이유). 막과 판을 Visible로.
-	local dim = Instance.new("TextButton") -- 입력을 막는 막(누르면 아무 일도 없다 — "확인"으로만 닫는다)
-	dim.Name = "Dim"
-	dim.Text = ""
-	dim.AutoButtonColor = false
-	dim.Size = UDim2.fromScale(1, 1)
-	dim.BackgroundColor3 = Color3.new(0, 0, 0)
-	dim.BackgroundTransparency = 0.45
-	dim.BorderSizePixel = 0
+	-- 입력을 막는 막(누르면 아무 일도 없다 — "확인"으로만 닫는다) · 모달 판(키트 — #39)
+	local dim = Kit.dim("Dim", nil)
 	dim.ZIndex = OverlayParts.Z.blocking
 	dim.Visible = false
 	dim.Parent = root
 
-	local panel = Instance.new("Frame")
-	panel.Name = "Panel"
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.fromScale(PANEL_W, PANEL_H)
-	panel.BackgroundColor3 = UiTheme.Colors.neutral.dark
-	panel.BorderSizePixel = 0
-	panel.ZIndex = OverlayParts.Z.blocking + 1
-	panel.Visible = false
-	panel.Parent = root
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 4
-	stroke.Parent = panel
+	local panel, stroke = Kit.modalPanel("Panel", root, PANEL_W, PANEL_H, OverlayParts.Z.blocking + 1)
 
 	local function text(name: string, level: any, y: number, h: number): TextLabel
 		local l = WindowParts.makeText(name, panel, level, 0.05, y, 0.9, h, Enum.TextXAlignment.Center)

@@ -9,7 +9,7 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-ALLOWED = {ROOT / "src" / "shared" / "Config" / "UiTheme.lua"}
+ALLOWED = {ROOT / "src" / "shared" / "Config" / "UiTheme.lua", ROOT / "src" / "shared" / "Config" / "UiSkin.lua"}
 PATTERN = re.compile(r"Enum\.Font\.")
 
 found = []

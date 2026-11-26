@@ -13,6 +13,7 @@ local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local Store = require(script.Parent.Parent.Parent.Store)
 local AutoAdvanceWindowLogic = require(script.Parent.Parent.Parent.Logic.AutoAdvanceWindowLogic)
 local AutoAdvanceClient = require(script.Parent.Parent.Parent.Parent.Net.AutoAdvanceClient)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local AutoAdvanceWindow = {}
 
@@ -63,12 +64,7 @@ function AutoAdvanceWindow.create(deps: Deps): Handle
 	local raise: { Instance } = { panel.closeButton.root }
 
 	local function makeButton(name: string, color: Button.ColorName, x: number, y: number, w: number, h: number, text: string)
-		local b = Button.create({ size = "Small", color = color, widthScale = w, heightScale = h })
-		b.root.Name = name
-		b.root.Position = UDim2.fromScale(x, y)
-		b.root.ZIndex = WindowParts.Z_BUTTON
-		b.root.Parent = body
-		local label, hit = WindowParts.decorateButton(b, text)
+		local b, label, hit = Kit.labeledButton(name, body, color, x, y, w, h, text) -- 키트(#39)
 		table.insert(raise, b.root)
 		return b, label, hit
 	end

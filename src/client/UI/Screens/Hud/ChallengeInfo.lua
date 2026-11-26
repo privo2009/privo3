@@ -29,6 +29,7 @@ local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
 local ValuePanel = require(script.Parent.Parent.Parent.Components.ValuePanel)
 local StateSync = require(script.Parent.Parent.Parent.Parent.Net.StateSync)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local ChallengeInfo = {}
 
@@ -78,18 +79,8 @@ function ChallengeInfo.create(): ChallengeInfoHandle
 	stageLabel.BorderSizePixel = 0
 	stageLabel.Size = UDim2.fromScale(1, stageHeight / rootHeight)
 	stageLabel.Text = INACTIVE_STAGE_TEXT
-	stageLabel.TextScaled = true
-	stageLabel.TextColor3 = Color3.new(1, 1, 1)
-	stageLabel.Font = UiTheme.FONT
+	Kit.styleText(stageLabel, STAGE_LEVEL) -- 키트(#39)
 	stageLabel.Parent = root
-
-	local stageSizeConstraint = Instance.new("UITextSizeConstraint")
-	stageSizeConstraint.MaxTextSize = TextScale.Levels[STAGE_LEVEL].maxTextSize
-	stageSizeConstraint.Parent = stageLabel
-
-	local stageStroke = Instance.new("UIStroke")
-	stageStroke.Color = Color3.new(0, 0, 0)
-	stageStroke.Parent = stageLabel
 
 	local timer = ValuePanel.create(TIMER_LEVEL, TIMER_CHARS)
 	timer.label.Name = "Timer"

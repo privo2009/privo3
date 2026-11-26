@@ -17,6 +17,7 @@ local Store = require(script.Parent.Parent.Parent.Store)
 local DailyRewardWindowLogic = require(script.Parent.Parent.Parent.Logic.DailyRewardWindowLogic)
 local OverlayParts = require(script.Parent.OverlayParts)
 local Fx = require(script.Parent.Parent.Parent.Components.Fx)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local DailyRewardWindow = {}
 
@@ -70,32 +71,14 @@ function DailyRewardWindow.create(deps: Deps): Handle
 	root.BackgroundTransparency = 1
 	root.ZIndex = Z
 	-- root는 늘 보이는 투명 틀이다(결과 모달과 같은 이유). 막과 판을 Visible로.
-	local dim = Instance.new("TextButton") -- 입력을 막는 막(누르면 아무 일도 없다 — "닫기"로만 닫는다)
-	dim.Name = "Dim"
-	dim.Text = ""
-	dim.AutoButtonColor = false
-	dim.Size = UDim2.fromScale(1, 1)
-	dim.BackgroundColor3 = Color3.new(0, 0, 0)
-	dim.BackgroundTransparency = 0.45
-	dim.BorderSizePixel = 0
+	-- 입력을 막는 막(누르면 아무 일도 없다 — "닫기"로만 닫는다) · 모달 판(테두리 노랑 — 키트 #39)
+	local dim = Kit.dim("Dim", nil)
 	dim.ZIndex = Z
 	dim.Visible = false
 	dim.Parent = root
 
-	local panel = Instance.new("Frame")
-	panel.Name = "Panel"
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.fromScale(DailyRewardWindow.PANEL_W, DailyRewardWindow.PANEL_H)
-	panel.BackgroundColor3 = UiTheme.Colors.neutral.dark
-	panel.BorderSizePixel = 0
-	panel.ZIndex = Z + 1
-	panel.Visible = false
-	panel.Parent = root
-	local panelStroke = Instance.new("UIStroke")
-	panelStroke.Thickness = 4
-	panelStroke.Color = UiTheme.Colors.cashout.base
-	panelStroke.Parent = panel
+	local panel = Kit.modalPanel("Panel", root, DailyRewardWindow.PANEL_W, DailyRewardWindow.PANEL_H, Z + 1,
+		{ lineColor = UiTheme.Colors.cashout.base })
 
 	local function text(name: string, parent: Instance, level: any, x: number, y: number, w: number, h: number): TextLabel
 		local l = WindowParts.makeText(name, parent, level, x, y, w, h, Enum.TextXAlignment.Center)
@@ -111,18 +94,10 @@ function DailyRewardWindow.create(deps: Deps): Handle
 		local rowCount = if row == 1 then 4 else 3
 		local rowWidth = rowCount * CELL_W + (rowCount - 1) * CELL_GAP
 		local x = (1 - rowWidth) / 2 + col * (CELL_W + CELL_GAP)
-		local frame = Instance.new("Frame")
-		frame.Name = "Day" .. day
-		frame.Position = UDim2.fromScale(x, ROW_Y[row])
-		frame.Size = UDim2.fromScale(CELL_W, CELL_H)
-		frame.BackgroundColor3 = UiTheme.Colors.neutral.base
-		frame.BorderSizePixel = 0
-		frame.ZIndex = Z + 2
-		frame.Parent = panel
-		local stroke = Instance.new("UIStroke")
-		stroke.Thickness = 2
-		stroke.Color = Color3.new(0, 0, 0)
-		stroke.Parent = frame
+		-- 날짜 칸(키트 card — 바탕 neutral.base 불투명 · 테두리 cell)
+		local frame, cellStroke = Kit.card("Day" .. day, panel, x, ROW_Y[row], CELL_W, CELL_H,
+			{ fill = UiTheme.Colors.neutral.base, alpha = 0, line = UiTheme.Skin.line.cell, lineColor = UiTheme.Skin.text.stroke, image = "card" }, Z + 2)
+		local stroke = cellStroke :: UIStroke
 		cells[day] = {
 			frame = frame,
 			stroke = stroke,
@@ -168,9 +143,9 @@ function DailyRewardWindow.create(deps: Deps): Handle
 			parts.amount.Text = c.amount
 			local claimed = c.state == "claimed"
 			parts.frame.BackgroundColor3 = if claimed then UiTheme.Colors.neutral.dark else UiTheme.Colors.neutral.base
-			parts.stroke.Color = if c.state == "today" then UiTheme.Colors.cashout.base else Color3.new(0, 0, 0)
-			parts.stroke.Thickness = if c.state == "today" then 4 else 2
-			local textColor = if claimed then UiTheme.Colors.neutral.light else Color3.new(1, 1, 1)
+			parts.stroke.Color = if c.state == "today" then UiTheme.Colors.cashout.base else UiTheme.Skin.text.stroke
+			parts.stroke.Thickness = if c.state == "today" then UiTheme.Skin.line.cellToday else UiTheme.Skin.line.cell
+			local textColor = if claimed then UiTheme.Skin.text.dim else UiTheme.Skin.text.main
 			parts.day.TextColor3 = textColor
 			parts.amount.TextColor3 = if c.isPet and not claimed then UiTheme.rarityColor(c.rarityTier) else textColor
 			parts.name.TextColor3 = if c.isPet then UiTheme.rarityColor(c.rarityTier) else textColor

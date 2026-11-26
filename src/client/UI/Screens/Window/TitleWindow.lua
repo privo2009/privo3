@@ -31,6 +31,7 @@ local OddsPreviewLogic = require(script.Parent.Parent.Parent.Logic.OddsPreviewLo
 local PurchaseClient = require(script.Parent.Parent.Parent.Parent.Net.PurchaseClient)
 local Names = require(ReplicatedStorage.Shared.Localization.Names)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local TitleWindow = {}
 
@@ -67,7 +68,7 @@ local AUTO_X, AUTO_W = 0.51, 0.49
 TitleWindow.Layout = { ROW_H = ROW_H, ROWS_H = ROWS_H, CONTROL_Y = CONTROL_Y, STATUS_Y = STATUS_Y }
 
 local TOGGLE_ON_STROKE = UiTheme.Colors.cashout.base
-local TOGGLE_OFF_STROKE = Color3.new(0, 0, 0)
+local TOGGLE_OFF_STROKE = UiTheme.Skin.text.stroke -- 스킨(#39)
 local TOGGLE_ON_TEXT = UiTheme.Colors.neutral.light
 local TOGGLE_OFF_TEXT = UiTheme.Colors.neutral.base
 
@@ -134,7 +135,7 @@ function TitleWindow.create(deps: Deps): Handle
 		frame.Name = "Row" .. i
 		frame.Position = UDim2.fromScale(0, ROW_TOP + (i - 1) * (ROW_H + ROW_GAP))
 		frame.Size = UDim2.fromScale(1, ROW_H)
-		frame.BackgroundColor3 = UiTheme.Colors.neutral.dark -- 상점 줄과 같은 이유(패널 자리표시와 경계)
+		Kit.cardStyle(frame, { fill = UiTheme.Colors.neutral.dark }) -- 줄 바탕(키트 — 상점 줄과 같은 이유: 패널 자리표시와 경계)
 		frame.BorderSizePixel = 0
 		frame.ZIndex = 3
 		frame.Parent = body

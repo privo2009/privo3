@@ -15,7 +15,7 @@
 -- (FormatterTests가 이미 그 계약을 검증한다).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
+local KitBase = require(script.Parent.KitBase) -- 키트 바닥(#39)
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
@@ -53,24 +53,14 @@ function ValuePanel.create(level: TextScale.Level, maxChars: number?): ValuePane
 	label.Name = "ValuePanel"
 	label.BackgroundTransparency = 1
 	label.BorderSizePixel = 0
-	label.TextScaled = true
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.Font = UiTheme.FONT
 	label.Text = ""
-
-	local sizeConstraint = Instance.new("UITextSizeConstraint")
-	sizeConstraint.MaxTextSize = spec.maxTextSize
-	sizeConstraint.Parent = label
+	-- 흰 글자 + 검은 외곽선 · 글꼴 · 크기 상한(docs/UI.md "4. 글자 > 외곽선" — 키트 바닥 #39)
+	KitBase.styleText(label, level)
 
 	local aspect = Instance.new("UIAspectRatioConstraint")
 	aspect.AspectRatio = chars * CHAR_WIDTH_RATIO
 	aspect.DominantAxis = Enum.DominantAxis.Height
 	aspect.Parent = label
-
-	-- 외곽선: 흰 글자 + 검은 스트로크 (docs/UI.md "4. 글자 > 외곽선")
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.new(0, 0, 0)
-	stroke.Parent = label
 
 	local function setValue(value: BigNumber)
 		label.Text = Formatter.format(value)

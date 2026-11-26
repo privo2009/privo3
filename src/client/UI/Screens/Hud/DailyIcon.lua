@@ -16,6 +16,7 @@ local Layout = require(script.Parent.Parent.Parent.Layout)
 local Store = require(script.Parent.Parent.Parent.Store)
 local DailyRewardWindowLogic = require(script.Parent.Parent.Parent.Logic.DailyRewardWindowLogic)
 local ButtonFx = require(script.Parent.Parent.Parent.Components.ButtonFx)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local DailyIcon = {}
 
@@ -39,16 +40,7 @@ local function textLabel(name: string, parent: Instance, level: TextScale.Level)
 	l.Name = name
 	l.BackgroundTransparency = 1
 	l.BorderSizePixel = 0
-	l.TextScaled = true
-	l.TextColor3 = Color3.new(1, 1, 1)
-	l.Font = UiTheme.FONT
-	local size = Instance.new("UITextSizeConstraint")
-	size.MaxTextSize = TextScale.Levels[level].maxTextSize
-	size.Parent = l
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.new(0, 0, 0)
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-	stroke.Parent = l
+	Kit.styleText(l, level) -- 키트(#39)
 	l.Parent = parent
 	return l
 end
@@ -102,9 +94,7 @@ function DailyIcon.create(deps: Deps?): Handle
 	badge.BorderSizePixel = 0
 	badge.ZIndex = 3
 	badge.Parent = tile
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0.5, 0)
-	corner.Parent = badge
+	Kit.corner(badge, "round")
 	local badgeLabel = textLabel("Mark", badge, "small")
 	badgeLabel.Size = UDim2.fromScale(1, 1)
 	badgeLabel.TextXAlignment = Enum.TextXAlignment.Center

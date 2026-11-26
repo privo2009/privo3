@@ -30,19 +30,20 @@ local Button = {}
 export type Size = "Big" | "Small"
 export type ColorName = "yellow" | "purple" | "blue" | "green" | "red" | "gray"
 
--- 화면 높이 대비 (docs/UI.md "5. 버튼 > 크기 2종")
-Button.HEIGHT_BIG = 0.09
-Button.HEIGHT_SMALL = 0.06
+-- 화면 높이 대비 (docs/UI.md "5. 버튼 > 크기 2종") — 값은 스킨(UiTheme.Skin.button — #39)
+Button.HEIGHT_BIG = UiTheme.Skin.button.heightBig
+Button.HEIGHT_SMALL = UiTheme.Skin.button.heightSmall
 
 -- 눌림 시 아래로 이동하는 픽셀 오프셋 (docs/UI.md "5. 버튼 > 상태 3종은 PNG를 그리지 않는다"
 -- 원문 "1~2px"의 중간값).
-local PRESS_OFFSET_PIXELS = 2
+-- 값은 스킨(UiTheme.Skin.button.pressOffsetPx — #39)
+local PRESS_OFFSET_PIXELS = UiTheme.Skin.button.pressOffsetPx
 
 -- ImageColor3/BackgroundColor3를 어둡게 하는 비율. docs는 "어둡게"라고만 하고 수치를
 -- 주지 않아 임의로 정했다 — UiTheme의 밝은→기본→어두운 3단계가 대략 20~30% 폭으로
 -- 감쇠하므로(실측), 눌림도 그와 비슷한 "한 단계 어두워진 것"처럼 보이도록 20% 감쇠를
 -- 골랐다. 실물 확인 후 조정 가능 (게임 수치가 아니라 시각 튜닝값).
-local PRESS_DARKEN_FACTOR = 0.8
+local PRESS_DARKEN_FACTOR = UiTheme.Skin.button.pressDarken -- 스킨(#39)
 
 local COLOR_TO_ASSET_KEY: { [ColorName]: string } = {
 	yellow = "btn_yellow",

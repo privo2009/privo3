@@ -16,6 +16,7 @@ local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local Store = require(script.Parent.Parent.Parent.Store)
 local TitleWindowLogic = require(script.Parent.Parent.Parent.Logic.TitleWindowLogic)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local SettingsWindow = {}
 
@@ -66,7 +67,7 @@ local LABEL_W = 0.62
 local TOGGLE_X, TOGGLE_W = 0.66, 0.34
 
 local ON_STROKE = UiTheme.Colors.cashout.base
-local OFF_STROKE = Color3.new(0, 0, 0)
+local OFF_STROKE = UiTheme.Skin.text.stroke -- 스킨(#39)
 local ON_TEXT = UiTheme.Colors.neutral.light
 local OFF_TEXT = UiTheme.Colors.neutral.base
 

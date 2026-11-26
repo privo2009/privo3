@@ -18,6 +18,7 @@ local Panel = require(script.Parent.Parent.Parent.Components.Panel)
 local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local Logic = require(script.Parent.Parent.Parent.Logic.EquipmentWindowLogic)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local EquipmentWindow = {}
 
@@ -26,7 +27,7 @@ local COLS = 5
 local ROWS = 3
 local DETAIL_X = 0.63
 local DETAIL_W = 0.37
-local SILHOUETTE = Color3.fromRGB(25, 25, 30)
+local SILHOUETTE = UiTheme.Skin.fill.silhouette -- 스킨(#39)
 
 export type Deps = {
 	send: (payload: any) -> (),
@@ -42,15 +43,7 @@ export type Handle = {
 }
 
 local function frame(name: string, parent: Instance, x: number, y: number, w: number, h: number): Frame
-	local f = Instance.new("Frame")
-	f.Name = name
-	f.BackgroundTransparency = 1
-	f.BorderSizePixel = 0
-	f.Position = UDim2.fromScale(x, y)
-	f.Size = UDim2.fromScale(w, h)
-	f.ZIndex = WindowParts.Z_TEXT
-	f.Parent = parent
-	return f
+	return Kit.box(name, parent, x, y, w, h, Kit.Z_TEXT) -- 키트(#39)
 end
 
 local function text(name: string, parent: Instance, level: any, x: number, y: number, w: number, h: number, align: Enum.TextXAlignment?): TextLabel
@@ -61,12 +54,7 @@ local function text(name: string, parent: Instance, level: any, x: number, y: nu
 end
 
 local function button(name: string, parent: Instance, color: Button.ColorName, x: number, y: number, w: number, h: number, caption: string)
-	local b = Button.create({ size = "Small", color = color, widthScale = w, heightScale = h })
-	b.root.Name = name
-	b.root.Position = UDim2.fromScale(x, y)
-	b.root.ZIndex = WindowParts.Z_BUTTON
-	b.root.Parent = parent
-	local label, hit = WindowParts.decorateButton(b, caption)
+	local b, label, hit = Kit.labeledButton(name, parent, color, x, y, w, h, caption) -- 키트(#39)
 	label.AutoLocalize = false
 	WindowParts.raiseButtons({ b.root })
 	return b, label, hit
@@ -95,12 +83,9 @@ function EquipmentWindow.create(deps: Deps): Handle
 	for i = 1, COLS * ROWS do
 		local col, row = (i - 1) % COLS, (i - 1) // COLS
 		local cell = frame("Cell" .. i, grid, col * cellW + 0.005, row * cellH + 0.01, cellW - 0.01, cellH - 0.02)
-		cell.BackgroundTransparency = 0.15
-		cell.BackgroundColor3 = UiTheme.Colors.neutral.dark
-		local stroke = Instance.new("UIStroke")
-		stroke.Thickness = 3
-		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		stroke.Parent = cell
+		-- 아이템 칸(키트 card — 등급 테두리는 아래 그릴 때 색을 바꾼다)
+		local stroke = Kit.cardStyle(cell, { fill = UiTheme.Colors.neutral.dark, alpha = UiTheme.Skin.alpha.cell, line = UiTheme.Skin.line.slot,
+			lineColor = UiTheme.Skin.text.stroke, lineMode = Enum.ApplyStrokeMode.Border, image = "card" }) :: UIStroke
 		local badge = text("Equipped", cell, "small", 0.04, 0.02, 0.92, 0.2, Enum.TextXAlignment.Center)
 		badge.TextColor3 = UiTheme.Colors.cashout.light
 		local name = text("Name", cell, "small", 0.04, 0.22, 0.92, 0.26, Enum.TextXAlignment.Center)
@@ -158,7 +143,7 @@ function EquipmentWindow.create(deps: Deps): Handle
 				ui.mult.Text = ""
 			end
 			ui.badge.Text = if c.equipped then Locale.t("equip.equipped") else ""
-			ui.stroke.Thickness = if c.id == selected then 5 else 3
+			ui.stroke.Thickness = if c.id == selected then UiTheme.Skin.line.slotSelected else UiTheme.Skin.line.slot
 			if c.id == selected then
 				cur = c
 			end

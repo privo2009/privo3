@@ -17,6 +17,7 @@ local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local Store = require(script.Parent.Parent.Parent.Store)
 local OnboardingLogic = require(script.Parent.Parent.Parent.Logic.OnboardingLogic)
 local OverlayParts = require(script.Parent.OverlayParts)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local OnboardingBand = {}
 
@@ -61,19 +62,9 @@ function OnboardingBand.create(deps: Deps): Handle
 	root.BackgroundTransparency = 1
 	root.ZIndex = Z
 
-	local panel = Instance.new("Frame")
-	panel.Name = "Panel"
-	panel.Size = UDim2.fromScale(1, 1)
-	panel.BackgroundColor3 = UiTheme.Colors.neutral.dark
-	panel.BackgroundTransparency = 0.15
-	panel.BorderSizePixel = 0
-	panel.ZIndex = Z
+	local panel = Kit.card("Panel", root, 0, 0, 1, 1, { fill = UiTheme.Colors.neutral.dark, alpha = UiTheme.Skin.alpha.band,
+		line = UiTheme.Skin.line.band, lineColor = UiTheme.Colors.cashout.base, image = "band" }, Z) -- 키트(#39)
 	panel.Visible = false
-	panel.Parent = root
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 2
-	stroke.Color = UiTheme.Colors.cashout.base
-	stroke.Parent = panel
 
 	local progress = WindowParts.makeText("Progress", panel, "small", 0.04, 0.04, 0.5, HEAD_H - 0.06)
 	progress.ZIndex = Z + 1

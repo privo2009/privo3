@@ -11,6 +11,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
+local KitBase = require(script.Parent.Parent.Parent.Components.KitBase) -- 키트 바닥(#39)
 
 local OverlayParts = {}
 
@@ -30,9 +31,6 @@ function OverlayParts.textRow(name: string, text: string, level: TextScale.Level
 	local label = Instance.new("TextLabel")
 	label.Name = name
 	label.Text = text
-	label.TextScaled = true
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.Font = UiTheme.FONT
 	label.BorderSizePixel = 0
 	if role ~= nil then
 		label.BackgroundColor3 = UiTheme.Colors[role].base
@@ -40,15 +38,7 @@ function OverlayParts.textRow(name: string, text: string, level: TextScale.Level
 	else
 		label.BackgroundTransparency = 1
 	end
-
-	local size = Instance.new("UITextSizeConstraint")
-	size.MaxTextSize = TextScale.Levels[level].maxTextSize
-	size.Parent = label
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.new(0, 0, 0)
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-	stroke.Parent = label
+	KitBase.styleText(label, level) -- 흰 글자 · 검은 외곽선 · 글꼴 · 크기 상한(키트 바닥 — #39)
 
 	return label
 end

@@ -10,13 +10,11 @@ local UiTheme = require(script.Parent.Parent.Config.UiTheme)
 
 local AssetImage = {}
 
--- docs/UI.md "8. 비주얼 스타일" — 모든 UI 요소에 검은 테두리 3~4px. 3으로 고정.
-local STROKE_THICKNESS = 3
-
+-- docs/UI.md "8. 비주얼 스타일" — 모든 UI 요소에 검은 테두리 3~4px. 두께 · 색은 스킨(UiTheme.Skin.line.asset · text.stroke — #39)
 local function addStroke(instance: GuiObject)
 	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = STROKE_THICKNESS
-	stroke.Color = Color3.new(0, 0, 0)
+	stroke.Thickness = UiTheme.Skin.line.asset
+	stroke.Color = UiTheme.Skin.text.stroke
 	stroke.Parent = instance
 end
 

@@ -15,11 +15,11 @@ local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local Layout = require(script.Parent.Parent.Parent.Layout)
-local ValuePanel = require(script.Parent.Parent.Parent.Components.ValuePanel)
 local Button = require(script.Parent.Parent.Parent.Components.Button)
 local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local OnboardingTipsLogic = require(ReplicatedStorage.Shared.OnboardingTipsLogic)
 local AssetSlots = require(ReplicatedStorage.Shared.AssetSlots) -- 에셋 자리(#36 — 값이 있으면 그 그림 · 없으면 임시 도형)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local EconomyHud = {}
 
@@ -67,19 +67,11 @@ local function textLabel(name: string, text: string, order: number, parent: Inst
 	label.Name = name
 	label.AutoLocalize = false
 	label.BackgroundTransparency = 1
-	label.Font = UiTheme.FONT
-	label.TextScaled = true
-	label.TextColor3 = Color3.new(1, 1, 1)
+	Kit.styleText(label, LEVEL) -- 키트(#39)
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.Text = text
 	label.Size = UDim2.fromScale(0.45, 1)
 	label.LayoutOrder = order
-	local c = Instance.new("UITextSizeConstraint")
-	c.MaxTextSize = TextScale.Levels[LEVEL].maxTextSize
-	c.Parent = label
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.new(0, 0, 0)
-	stroke.Parent = label
 	label.Parent = parent
 	return label
 end
@@ -97,28 +89,10 @@ function EconomyHud.create(parent: Instance?): Handle
 	list.Parent = root
 
 	local coinRow = row("Coins", 1, root)
-	local icon = Instance.new("Frame")
-	icon.Name = "CoinIcon"
-	icon.BackgroundColor3 = Config.COIN_VISUAL.color -- 임시 도형(iconId nil)
-	icon.Size = UDim2.fromScale(1, 0.8)
-	icon.LayoutOrder = 1
-	local aspect = Instance.new("UIAspectRatioConstraint")
-	aspect.AspectRatio = 1
-	aspect.DominantAxis = Enum.DominantAxis.Height
-	aspect.Parent = icon
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0.5, 0)
-	corner.Parent = icon
-	icon.Parent = coinRow
-	if AssetSlots.applyImage(icon, Config.COIN_VISUAL.iconId) ~= nil then
-		icon.BackgroundTransparency = 1 -- 아이콘이 오면 임시 원 대신(#36)
-	end
-	local coinPanel = ValuePanel.create(LEVEL, ValuePanel.MAX_CHARS_DEFAULT)
-	coinPanel.label.Name = "Value"
-	coinPanel.label.AutoLocalize = false
-	coinPanel.label.Size = UDim2.fromScale(1, 1)
-	coinPanel.label.LayoutOrder = 2
-	coinPanel.label.Parent = coinRow
+	-- 재화 칸(키트 — #39): 둥근 아이콘(iconId nil이면 코인 색 원 — 임시 도형) + 숫자(ValuePanel)
+	local chip = Kit.currencyChip(coinRow, { color = Config.COIN_VISUAL.color, iconId = Config.COIN_VISUAL.iconId, level = LEVEL })
+	local icon = chip.icon
+	local coinPanel = chip.value
 
 	local bagRow = row("Bag", 2, root)
 	local bagName = textLabel("Name", Locale.t("econ.bag.label"), 1, bagRow)
@@ -180,7 +154,7 @@ function EconomyHud.create(parent: Instance?): Handle
 		coinPanel.setValue(values.coins)
 		bagValue.Text = Locale.t("econ.bag.value", { used = tostring(values.bagUsed), cap = tostring(values.bagCap) })
 		-- 가득 차면 숫자를 경고색으로(색 역할: 위험 = danger)
-		bagValue.TextColor3 = if values.bagCap > 0 and values.bagUsed >= values.bagCap then UiTheme.Colors.danger.light else Color3.new(1, 1, 1)
+		bagValue.TextColor3 = if values.bagCap > 0 and values.bagUsed >= values.bagCap then UiTheme.Colors.danger.light else UiTheme.Skin.text.main
 		-- 대장간: 열렸을 때만 버튼 · 자동 제작 중이면 횟수
 		forgeRow.Visible = values.forgeOpen == true
 		local seen = if type(values.tipsSeen) == "table" then values.tipsSeen else nil

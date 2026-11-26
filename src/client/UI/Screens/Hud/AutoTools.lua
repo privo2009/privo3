@@ -47,6 +47,7 @@ local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
 local AutoAdvanceWindowLogic = require(script.Parent.Parent.Parent.Logic.AutoAdvanceWindowLogic)
 local ButtonFx = require(script.Parent.Parent.Parent.Components.ButtonFx)
+local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
 
 local AutoTools = {}
 
@@ -81,7 +82,7 @@ AutoTools.StatusHeight = STATUS_H
 -- 하나를 고른 것이다 — "수령·안전(노랑)"은 이미 "확정된·활성화된 선택"이라는
 -- 뜻으로 쓰이고 있어(발판) 가장 가까운 기존 의미였다. 새 역할을 만들지 않았다.
 local TOGGLE_ON_COLOR = UiTheme.Colors.cashout.base
-local TOGGLE_OFF_COLOR = Color3.new(0, 0, 0) -- AssetImage 기본 테두리 색과 동일(무표시 = 꺼짐)
+local TOGGLE_OFF_COLOR = UiTheme.Skin.text.stroke -- AssetImage 기본 테두리 색과 동일(무표시 = 꺼짐 — 스킨 #39)
 
 -- 밝기 채널(U3-7). UiTheme "중립" 역할의 기존 3단계 셰이드를 그대로 쓴다 — 새
 -- 상수를 만들지 않는다. 순서: 켜짐(light, 가장 밝음) > 꺼짐(base, 기존 기본값과
@@ -170,18 +171,8 @@ local function createItem(name: string, assetKey: string, label: string, layoutO
 	textLabel.Size = UDim2.fromScale(1, LABEL_HEIGHT / ITEM_HEIGHT)
 	textLabel.Position = UDim2.fromScale(0, TILE_HEIGHT / ITEM_HEIGHT) -- 아이콘 바로 아래
 	textLabel.Text = label
-	textLabel.TextScaled = true
-	textLabel.TextColor3 = Color3.new(1, 1, 1)
-	textLabel.Font = UiTheme.FONT
+	Kit.styleText(textLabel, LABEL_LEVEL) -- 키트(#39)
 	textLabel.Parent = itemRow
-
-	local labelSizeConstraint = Instance.new("UITextSizeConstraint")
-	labelSizeConstraint.MaxTextSize = TextScale.Levels[LABEL_LEVEL].maxTextSize
-	labelSizeConstraint.Parent = textLabel
-
-	local labelStroke = Instance.new("UIStroke")
-	labelStroke.Color = Color3.new(0, 0, 0)
-	labelStroke.Parent = textLabel
 
 	return itemRow
 end
@@ -322,18 +313,10 @@ function AutoTools.create(deps: Deps?): AutoToolsHandle
 	status.BackgroundTransparency = 1
 	status.BorderSizePixel = 0
 	status.Text = ""
-	status.TextScaled = true
 	status.TextXAlignment = Enum.TextXAlignment.Right
-	status.TextColor3 = Color3.new(1, 1, 1)
-	status.Font = UiTheme.FONT
+	local _, statusSize = Kit.styleText(status, STATUS_LEVEL) -- 키트(#39)
 	status.Visible = false
 	status.Parent = root
-	local statusSize = Instance.new("UITextSizeConstraint")
-	statusSize.MaxTextSize = TextScale.Levels[STATUS_LEVEL].maxTextSize
-	statusSize.Parent = status
-	local statusStroke = Instance.new("UIStroke")
-	statusStroke.Color = Color3.new(0, 0, 0)
-	statusStroke.Parent = status
 
 	-- 폰 맞춤(K12 — 레이아웃 먼저): 줄 높이가 하한보다 낮으면 하한 + 1px(화면 높이 기준 — Scale로 다시 쓴다, BoostTimers와 같은 방식).
 	-- 그 글자 크기로 한 줄 폭이 칸(자동 도구 폭)보다 길면 두 줄로 감싼다 — 폰 705×338 영어 "Auto · Floor 25 · 999 runs"가 99px 칸을
