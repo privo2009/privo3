@@ -136,7 +136,7 @@ EconomyReport.GOAL = {
 	legendChance = 0.1, -- 3시간 안 확률 전설 기대 횟수
 	horizonMin = 180,
 }
--- run() 모드: "full"(재현 + 후보 묶음 + 정책 비교 + 참고 측정) · "explore"(재현 + EXPLORE 목록만)
+-- run() 모드: "full"(재현 + 후보 묶음 + 정책 비교 + 참고 측정) · "explore"(재현 + EXPLORE 목록만) · "gym"(운동기구 선택지 GYM_OPTIONS만 — #41 · docs/GYM_OPTIONS.md)
 EconomyReport.MODE = "full"
 
 export type Policy = {
@@ -154,7 +154,13 @@ export type Policy = {
 	damagePass: number?, -- 비교용 2배 데미지
 	exchange: string?, -- "best"(기본) · "none"
 }
-export type Bundle = { label: string, set: { [string]: any }?, policy: Policy?, hpSegments: { any }? }
+export type Bundle = { label: string, set: { [string]: any }?, policy: Policy?, hpSegments: { any }?,
+	-- 운동기구 개편 선택지 측정(지시서 #41 4부 — 측정만. GymConfig · 게임 코드는 바꾸지 않는다 — 묶음 동안 메모리에서만 갈아 끼운다)
+	gymTiers: { any }?, -- GymConfig.TIERS 자리에 잠깐 깔 표(로벅스 전용은 맨 끝)
+	gymUnlock: ((any) -> number)?, -- 열린 기구 수 고르는 식(nil이면 게임과 같은 GymConfig.getUnlockedCount(환생 수))
+	gymTrainSec: number?, -- MODEL.GYM_TRAIN_SEC(막힌 런 뒤 기구에서 클릭하는 초 — 0 = 기구 안 씀)
+	ownsVoid: boolean?, -- MODEL.OWNS_VOID_ZONE(공허 구매자 비교 줄)
+}
 
 -- ===== 묶음 깔기(언제나 되돌린다) =====================================================================================
 
@@ -244,7 +250,23 @@ local function withBundle(b: Bundle, fn: () -> ())
 	if (b :: any).bloxSegments ~= nil then
 		world.bloxGrowthSegments = (b :: any).bloxSegments
 	end
+	-- 운동기구 선택지(#41): 표 · 훈련 시간 · 공허 구매자 — 끝나면 되돌린다
+	local savedTiers = table.clone(GymConfig.TIERS)
+	local savedTrain, savedVoid = MODEL.GYM_TRAIN_SEC, MODEL.OWNS_VOID_ZONE
+	if b.gymTiers ~= nil then
+		table.clear(GymConfig.TIERS)
+		for _, t in ipairs(b.gymTiers :: { any }) do
+			table.insert(GymConfig.TIERS, t)
+		end
+	end
+	if b.gymTrainSec ~= nil then
+		MODEL.GYM_TRAIN_SEC = b.gymTrainSec
+	end
+	if b.ownsVoid ~= nil then
+		MODEL.OWNS_VOID_ZONE = b.ownsVoid
+	end
 	local savedSRR = {
+		train = SRR.trainAtGym,
 		econ = SRR.ECON,
 		click = SRR.clickMultiplier,
 		damage = SRR.damageMultiplier,
@@ -269,6 +291,12 @@ local function withBundle(b: Bundle, fn: () -> ())
 	for _, k in ipairs(touched) do
 		(Config :: any)[k] = saved[k]
 	end
+	table.clear(GymConfig.TIERS)
+	for _, t in ipairs(savedTiers) do
+		table.insert(GymConfig.TIERS, t)
+	end
+	MODEL.GYM_TRAIN_SEC, MODEL.OWNS_VOID_ZONE = savedTrain, savedVoid
+	SRR.trainAtGym = savedSRR.train
 	world.hpGrowthSegments = savedHp
 	world.bloxGrowthSegments = savedBloxSeg
 	SRR.bloxMultiplier = savedSRR.blox
@@ -653,6 +681,24 @@ local function measureV2(b: Bundle, players: number): any
 		end
 		SRR.gymUnlockedCount = function(p: any): number
 			return GymConfig.getUnlockedCount(p.rebirths)
+		end
+		if b.gymUnlock ~= nil then
+			SRR.gymUnlockedCount = b.gymUnlock
+		end
+		-- 운동기구 몫 관측(#41): 기구에서 보낸 시간 · 한 번(막힌 런 뒤)에 힘이 몇 % 늘었나. 측정만 — 결과는 바꾸지 않는다
+		local gymStats = { sec = 0, gains = {} :: { number }, uses = 0 }
+		EconomyReport._gymStats = gymStats
+		local origTrain = SRR.trainAtGym -- withBundle이 이미 저장해 두고 끝나면 되돌린다
+		SRR.trainAtGym = function(p: any, sec: number): number
+			p._gymBest = math.max(p._gymBest or 0, p.bestThisLife or 0)
+			local before = log10Big(p.strength)
+			local index = origTrain(p, sec)
+			if index > 0 then
+				gymStats.sec += sec
+				gymStats.uses += 1
+				table.insert(gymStats.gains, (10 ^ (log10Big(p.strength) - before) - 1) * 100)
+			end
+			return index
 		end
 		SRR.S5_TARGETS = { "punchSpeed", "bloxGain", "petSlots" }
 		MODEL.WARP_POLICY = pol.warp or "none"
@@ -1202,12 +1248,64 @@ local function setText(set: { [string]: any }): string
 	return table.concat(keys, " ")
 end
 
+-- ===== 운동기구 개편 선택지 (지시서 #41 4부 — docs/GYM_OPTIONS.md · 결정은 희준) ==========================================
+-- 측정만 한다. 표는 묶음 동안만 GymConfig.TIERS 자리에 깔고 되돌린다(게임 값 · 상품은 그대로).
+local VOID = { unlockRebirths = nil, multiplier = 100, gamepassKey = "voidTrainingZone" }
+local function rebirthTiers(rows: { { number } }): { any }
+	local out = {}
+	for _, r in ipairs(rows) do
+		table.insert(out, { unlockRebirths = BigNum.fromNumber(r[1]), multiplier = r[2] })
+	end
+	table.insert(out, VOID)
+	return out
+end
+-- 층 도달 해금: 이 플레이어가 지금까지 닿은 가장 높은 층(생애를 넘어 — 환생해도 안 잠긴다)으로 연다
+local function byStage(stages: { number }): (any) -> number
+	return function(p: any): number
+		local best = math.max(p._gymBest or 0, p.bestThisLife or 0)
+		local n = 0
+		for i, need in ipairs(stages) do
+			if best >= need then
+				n = i
+			end
+		end
+		return n
+	end
+end
+local NOW8 = { { 1, 1.2 }, { 2, 1.5 }, { 3, 2 }, { 5, 2.5 }, { 7, 3 }, { 9, 4 }, { 12, 5 }, { 15, 8 } }
+EconomyReport.GYM_OPTIONS = {
+	{ label = "G0 지금(8기구 · 환생 1~15 · ×1.2~×8)", set = {} },
+	{ label = "G0 · 기구 안 씀(비교)", set = {}, gymTrainSec = 0 },
+	{ label = "G0 · 공허 구매자(비교)", set = {}, ownsVoid = true },
+	{ label = "A 12기구(환생 1~30 · ×1.2~×20)", set = {}, gymTiers = rebirthTiers({ { 1, 1.2 }, { 2, 1.5 }, { 3, 2 }, { 5, 2.5 }, { 7, 3 },
+		{ 9, 4 }, { 12, 5 }, { 15, 8 }, { 18, 10 }, { 21, 12 }, { 25, 15 }, { 30, 20 } }) },
+	-- A는 25층까지 환생 15회 안팎이라 환생 18 ~ 30 기구는 3시간 안에 거의 안 열린다(측정값이 G0와 같다) — 같은 범위에 촘촘히 늘린 A2를 같이 잰다
+	{ label = "A2 12기구(환생 1~15 촘촘히 · ×1.2~×8)", set = {}, gymTiers = rebirthTiers({ { 1, 1.2 }, { 2, 1.4 }, { 3, 1.6 }, { 4, 2 }, { 5, 2.3 },
+		{ 6, 2.6 }, { 7, 3 }, { 8, 3.5 }, { 9, 4 }, { 11, 5 }, { 13, 6 }, { 15, 8 } }) },
+	{ label = "B 8기구 층 도달(3~22층 · ×1.2~×8)", set = {}, gymTiers = rebirthTiers(NOW8), gymUnlock = byStage({ 3, 5, 8, 10, 13, 16, 19, 22 }) },
+	{ label = "C 등급 4기구(환생 1 · 4 · 8 · 14 · ×1.5 · ×3 · ×6 · ×12)", set = {}, gymTiers = rebirthTiers({ { 1, 1.5 }, { 4, 3 }, { 8, 6 }, { 14, 12 } }) },
+	{ label = "C · 공허 구매자(비교)", set = {}, gymTiers = rebirthTiers({ { 1, 1.5 }, { 4, 3 }, { 8, 6 }, { 14, 12 } }), ownsVoid = true },
+} :: { any }
+
 function EconomyReport.run()
 	if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
 	task.wait(5) -- 시작 직후 테스트들이 MODEL · Config를 잠깐 흔드는 동안 기다린다
 	local E = EconomyReport
 	local t0 = os.clock()
 	print(string.format("[ECON2] ===== 새 경제 5차 측정 (지시서 #33 — 점수 표 · 드롭 0.5 이상 · 등급별 강화 · 추천까지만) · 모드 %s =====", E.MODE))
+	if E.MODE == "gym" then -- 운동기구 개편 선택지(#41 4부) — 재현 없이 선택지만
+		for _, b in ipairs(E.GYM_OPTIONS) do
+			E.report(b, E.PLAYERS)
+			local g = E._gymStats
+			if g ~= nil then
+				print(string.format("[ECON2]   기구 몫 %s: 기구 시간 %.1f분/명 · %.1f회/명 · 1회 힘 증가 중앙 %s%%", b.label, g.sec / 60 / E.PLAYERS,
+					g.uses / E.PLAYERS, fmt(median(g.gains), "%.1f")))
+			end
+			print(string.format("[ECON2]   · %.0f초", os.clock() - t0))
+		end
+		print(string.format("[ECON2] ===== 끝 · %.0f초 =====", os.clock() - t0))
+		return
+	end
 	E.reproduceV1(200)
 	if E.MODE == "explore" then
 		for _, b in ipairs(E.EXPLORE) do
