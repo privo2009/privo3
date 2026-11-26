@@ -54,6 +54,27 @@ local TEST_DAY_OFFSET: number? = nil
 -- Mock은 Play를 멈추면 사라져 어제 기록이 이어지지 않는다 — { streak = n, daysAgo = d }를 적으면 Mock 프로필이 "d일 전에 n일째까지 받은" 상태로 시작한다.
 -- TEST_PRESET 없이는 아무것도 하지 않는다. ⚠️ 커밋 값은 언제나 nil(TestPresetGateTests)
 local TEST_DAILY_SEED: { streak: number, daysAgo: number }? = nil
+
+-- ── 자동 플레이 봇: TEST_AUTOPLAY (Studio · Mock 전용, 지시서 #43 1부) ─────────────────────────────────
+-- 구간 이름 "fresh" · "min30" · "hour2"(Shared/Config/AutoplayConfig.SEGMENTS)를 적고 Play하면 그 구간의 **Mock 프리셋**으로 시작해
+-- 클라 봇이 실제 리모트 · 캐릭터 이동으로 놀고(Client/Tools/AutoplayBot) 서버가 검사한다(Server/Tools/AutoplayMonitor).
+-- 결과 줄 "[AUTOPLAY] …" · 끝 줄 "[AUTOPLAY] ===== 서버 끝" / "클라 끝". TEST_PRESET은 nil로 둔다(구간이 프리셋을 연다).
+-- Studio가 아니면 무시하고 ERROR 로그. ⚠️ 커밋 값은 언제나 nil(tools/check_test_gate.py · AutoplayLogicTests — 켠 Play로 테스트 개수를 세지 않는다)
+local TEST_AUTOPLAY: string? = nil
+local AutoplayLogic = require(ReplicatedStorage.Shared.AutoplayLogic)
+AutoplayLogic.register(TEST_AUTOPLAY)
+local autoplaySegment, autoplayPreset, autoplayLine, autoplayLevel =
+	AutoplayLogic.resolve(TEST_AUTOPLAY, TEST_PRESET, game:GetService("RunService"):IsStudio())
+if autoplayLine ~= nil then
+	if autoplayLevel == "warn" then
+		warn(autoplayLine)
+	else
+		print(autoplayLine)
+	end
+end
+if autoplaySegment ~= nil then
+	TEST_PRESET = autoplayPreset
+end
 local LocaleGate = require(script.Parent.Systems.LocaleGate)
 LocaleGate.init(TEST_LOCALE)
 
@@ -897,6 +918,13 @@ local PRESET_EXPORT_ENABLED = false
 if PRESET_EXPORT_ENABLED then
 	task.spawn(function()
 		require(script.Parent.Tools.PresetExport).run()
+	end)
+end
+
+-- 자동 플레이 봇 서버 검사(지시서 #43 — 위 TEST_AUTOPLAY). 서버 테스트 끝 줄을 기다린 뒤 시작 신호를 낸다
+if autoplaySegment ~= nil then
+	task.spawn(function()
+		require(script.Parent.Tools.AutoplayMonitor).run(autoplaySegment :: string)
 	end)
 end
 

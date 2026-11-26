@@ -385,6 +385,11 @@ function OreDropService.bagUsed(player: Player): number
 	return n
 end
 
+-- 지금 가방 용량(읽기만 — 자동 플레이 봇 검사 #43이 가방 상한을 잰다). 줍기와 같은 식(capOf)
+function OreDropService.capacityOf(player: Player): number
+	return capOf(player)
+end
+
 -- 테스트 전용: 상태 들여다보기 · 지우기
 function OreDropService._state(player: Player): RunEcon?
 	return states[player]
