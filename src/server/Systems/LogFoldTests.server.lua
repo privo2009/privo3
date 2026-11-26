@@ -62,6 +62,12 @@ do
 	end
 	check("ChallengeService: 접어도 판정은 그대로(클리어 전 cashout 5번 모두 거부)", allRejected)
 	ChallengeService.abandonRun(fake)
+	-- #44: 사람이 걷다가 나는 거부(클리어 전 진행 벽 · 수령 발판 · 마지막 층 닫힌 벽)는 print — 출력 창 경고 0(#38). 이상은 warn 그대로
+	local level = ChallengeService._pure.rejectLevel
+	check("ChallengeService: 걷다 나는 거부 3종은 print · 런 없음 · 지급 거부는 warn(#44)",
+		level("advance_not_cleared") == "print" and level("cashout_not_cleared") == "print" and level("advance_final") == "print"
+			and level("cashout_no_run") == "warn" and level("advance_no_run") == "warn" and level("applyDamage_no_run") == "warn"
+			and level("cashout_pay_rejected") == "warn")
 end
 
 print(string.format("[LogFoldTests] %d passed, %d failed", passed, failed))

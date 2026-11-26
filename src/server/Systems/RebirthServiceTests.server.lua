@@ -7,7 +7,7 @@
 -- 가짜 Player 테이블이면 ProfileManager.get이 nil을 주므로 모든 경로가 "프로필 없음"
 -- 한 갈래로 끝나고, 정작 확인해야 할 "거부됐을 때 아무것도 안 건드렸는가"와
 -- "힘을 되돌린 뒤에 속도를 재적용했는가"가 전부 가려진다.
--- (Bootstrap의 VERIFY_CHALLENGE 블록이 존재하는 이유와 같은 제약이다)
+-- (실물 경로를 자동 플레이 봇 · Mock 프로필로 보는 이유와 같은 제약이다 — #44 VERIFY_CHALLENGE는 지웠다)
 --
 -- 여기서 다루지 않는 것: 실제 프로필 왕복과 Humanoid 반영. 그쪽은 Play 육안 확인 몫이고
 -- Bootstrap 배선(Prompt 3) 이후에 본다.

@@ -2,7 +2,7 @@
 -- 커스텀 스피드 송신·수신부. SpeedRequest로 보내고 SpeedApplied를 받는다.
 -- 채널 이름과 payload 형태는 Shared/Remotes.lua에 있다 — 여기 다시 적지 않는다.
 --
--- ⚠️ 이 파일은 ModuleScript다 (.client.lua가 아니다). Phase 6 UI가 require해서
+-- ⚠️ 이 파일은 ModuleScript다 (.client.lua가 아니다). 커스텀 속도 입력 UI(아직 없다 — PowerBlock은 표시만)가 require해서
 --    request()를 부를 수 있어야 하기 때문이다. LocalScript는 require 대상이 못 된다.
 --    살아 있게 하는 것은 같은 폴더의 SpeedInputBoot.client.lua다.
 --
@@ -32,7 +32,7 @@ local SpeedInput = {}
 local channels = Remotes.getClient()
 
 -- 서버가 마지막으로 알려준 적용값과 최대치. 아직 한 번도 안 왔으면 nil이다.
--- ⚠️ nil과 0을 구분한다. 0으로 초기화하면 Phase 6 UI가 "속도 0으로 적용됨"으로 읽는다.
+-- ⚠️ nil과 0을 구분한다. 0으로 초기화하면 입력 UI가 "속도 0으로 적용됨"으로 읽는다.
 local lastApplied: number? = nil
 local lastMaxSpeed: number? = nil
 
@@ -77,7 +77,7 @@ end
 -- ===== 수신 ============================================================================
 
 -- 서버가 실제 적용값을 알려올 때 부를 콜백을 건다. (적용값, 최대치)를 받는다.
--- Phase 6 UI가 입력칸을 실제값으로 되돌리는 자리다.
+-- 입력 UI가 생기면 입력칸을 실제값으로 되돌리는 자리다(지금 받는 쪽 없음).
 function SpeedInput.onApplied(callback: (number, number) -> ())
 	table.insert(appliedCallbacks, callback)
 end

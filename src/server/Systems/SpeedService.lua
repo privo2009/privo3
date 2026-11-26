@@ -48,7 +48,7 @@
 -- 세팅을 걸면 초당 30번 WalkSpeed를 쓴다. 레벨은 로그 기반이라(힘 2배마다 +1 — L1) 클릭 대부분에서
 -- 값이 그대로다. 그래서 주기 검사가 "지금 있어야 할 값"을
 -- 계산해 다를 때만 쓴다 — 조작 되돌리기와 레벨업 반영이 같은 비교 한 줄로 처리된다.
--- 즉시 반영이 필요해지면 onStrengthChanged()를 호출자에서 부르면 된다.
+-- 즉시 반영이 필요해지면 호출자에서 reapply(player)를 부르면 된다.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -275,14 +275,7 @@ function SpeedService.onRebirth(player: Player): number
 	return applyToHumanoid(player)
 end
 
--- 힘이 바뀐 직후 즉시 반영이 필요할 때 부른다.
---
--- ⚠️ 클릭 경로에서 매번 부르지 말 것 — 초당 30회 호출이 된다. 평상시의 레벨업 반영은
--- 주기 검사가 맡는다(파일 상단 "재적용 계약" 참고). 이 함수는 "지금 당장 보여야 하는"
--- 경우(예: 대량 지급 직후 연출)를 위한 통로다.
-function SpeedService.onStrengthChanged(player: Player): number
-	return applyToHumanoid(player)
-end
+-- (#44: 부르는 곳이 없던 onStrengthChanged는 지웠다 — 즉시 반영이 필요하면 reapply(player)를 부른다. 평상시 레벨업 반영은 주기 검사)
 
 -- 주기 검사 한 틱. 초과 상태면 되돌리고, 로그는 억제 간격을 두고 찍는다.
 local function checkOnce(player: Player, now: number)

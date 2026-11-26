@@ -34,8 +34,18 @@ local Analytics = require(script.Parent.Analytics)
 local rejectLog = LogFold.new(LogFold.WINDOW_SEC, os.clock, function(message: string)
 	warn(message)
 end)
-local function warnFolded(player: Player, reasonKey: string, message: string)
-	rejectLog.log(tostring(player.UserId) .. "|" .. reasonKey, message)
+-- 정상 플레이로 나는 거부(지시서 #44 — #38 "출력 창 경고 0"): 클리어 전에 진행 벽 · 수령 발판을 밟거나 25층(마지막 층)에서 닫힌 진행 벽에
+-- 닿는 것은 사람이 그냥 걷다가도 난다 — 접는 것은 같고 warn 대신 print. 판정은 그대로(거부). "런 없음" · "지급 거부"는 이상이라 warn으로 남긴다
+local TOUCH_REASONS: { [string]: boolean } = { advance_not_cleared = true, advance_final = true, cashout_not_cleared = true }
+local function rejectLevel(reasonKey: string): string
+	return if TOUCH_REASONS[reasonKey] then "print" else "warn"
+end
+local touchLog = LogFold.new(LogFold.WINDOW_SEC, os.clock, function(message: string)
+	print(message)
+end)
+local function rejectFolded(player: Player, reasonKey: string, message: string)
+	local folder = if rejectLevel(reasonKey) == "print" then touchLog else rejectLog
+	folder.log(tostring(player.UserId) .. "|" .. reasonKey, message)
 end
 -- 블럭스 획득량 업그레이드 효과 (지시서 #7). 식은 UpgradeConfig, 레벨은 UpgradeService가 안다.
 local UpgradeService = require(script.Parent.UpgradeService)
@@ -191,6 +201,7 @@ ChallengeService._pure = {
 	normalizeSource = normalizeSource,
 	payableReward = payableReward,
 	combineBloxMultiplier = combineBloxMultiplier,
+	rejectLevel = rejectLevel,
 }
 
 -- ===== 공개 API (Player 상태 보관) ======================================================
@@ -425,7 +436,7 @@ end
 function ChallengeService.applyDamage(player: Player, originPosition: Vector3, damage: BigNumber): { BlockChange }?
 	local run = runs[player]
 	if run == nil then
-		warnFolded(player, "applyDamage_no_run", string.format("[ChallengeService] applyDamage 실패: %s(%d) 활성 런 없음", player.Name, player.UserId))
+		rejectFolded(player, "applyDamage_no_run", string.format("[ChallengeService] applyDamage 실패: %s(%d) 활성 런 없음", player.Name, player.UserId))
 		return nil
 	end
 
@@ -501,12 +512,12 @@ function ChallengeService.advance(player: Player, source: string?): boolean
 	local src = normalizeSource(source)
 	local run = runs[player]
 	if run == nil then
-		warnFolded(player, "advance_no_run", string.format("[ChallengeService] advance 실패: %s(%d) 활성 런 없음 (source=%s)", player.Name, player.UserId, src))
+		rejectFolded(player, "advance_no_run", string.format("[ChallengeService] advance 실패: %s(%d) 활성 런 없음 (source=%s)", player.Name, player.UserId, src))
 		return false
 	end
 
 	if not run.cleared then
-		warnFolded(player, "advance_not_cleared", string.format("[ChallengeService] advance 거부: %s(%d) 아직 클리어 안 됨 (stage=%d, source=%s)", player.Name, player.UserId, run.stage, src))
+		rejectFolded(player, "advance_not_cleared", string.format("[ChallengeService] advance 거부: %s(%d) 아직 클리어 안 됨 (stage=%d, source=%s)", player.Name, player.UserId, run.stage, src))
 		return false
 	end
 
@@ -514,7 +525,7 @@ function ChallengeService.advance(player: Player, source: string?): boolean
 
 	if not canAdvanceFrom(run, StageConfig.hasStage(nextStage)) then
 		-- 에러가 아니라 설계된 종착점이다. WorldConfig에 다음 월드가 추가되면 저절로 풀린다.
-		warnFolded(player, "advance_final", string.format("[ChallengeService] advance 거부: %s(%d) 최종 층 도달 (stage=%d, source=%s) - 스테이지 %d를 담당하는 월드가 WorldConfig에 없음. 진행 벽 비활성, 수령만 가능", player.Name, player.UserId, run.stage, src, nextStage))
+		rejectFolded(player, "advance_final", string.format("[ChallengeService] advance 거부: %s(%d) 최종 층 도달 (stage=%d, source=%s) - 스테이지 %d를 담당하는 월드가 WorldConfig에 없음. 진행 벽 비활성, 수령만 가능", player.Name, player.UserId, run.stage, src, nextStage))
 		return false
 	end
 
@@ -543,13 +554,13 @@ function ChallengeService.cashout(player: Player, source: string?): (boolean, Bi
 	local src = normalizeSource(source)
 	local run = runs[player]
 	if run == nil then
-		warnFolded(player, "cashout_no_run", string.format("[ChallengeService] cashout 실패: %s(%d) 활성 런 없음 (source=%s)", player.Name, player.UserId, src))
+		rejectFolded(player, "cashout_no_run", string.format("[ChallengeService] cashout 실패: %s(%d) 활성 런 없음 (source=%s)", player.Name, player.UserId, src))
 		return false, nil
 	end
 
 	-- 진행 벽이 막힌 최종 층에서도 이 게이트는 그대로 통과한다. 수령은 벽 상태와 무관하다.
 	if not canCashout(run) then
-		warnFolded(player, "cashout_not_cleared", string.format("[ChallengeService] cashout 거부: %s(%d) 아직 클리어 안 됨 (stage=%d, source=%s)", player.Name, player.UserId, run.stage, src))
+		rejectFolded(player, "cashout_not_cleared", string.format("[ChallengeService] cashout 거부: %s(%d) 아직 클리어 안 됨 (stage=%d, source=%s)", player.Name, player.UserId, run.stage, src))
 		return false, nil
 	end
 
@@ -561,7 +572,7 @@ function ChallengeService.cashout(player: Player, source: string?): (boolean, Bi
 	local ok = CurrencyService.add(player, "blox", reward, "challenge_cashout_" .. src)
 	if not ok then
 		-- CurrencyService가 이미 거부 사유를 로깅했다. 런은 유지해서(날리지 않고) 재시도 가능하게 둔다.
-		warnFolded(player, "cashout_pay_rejected", string.format("[ChallengeService] cashout 실패: %s(%d) 지급 거부됨 (stage=%d, source=%s) - 런 유지, 재시도 가능", player.Name, player.UserId, run.stage, src))
+		rejectFolded(player, "cashout_pay_rejected", string.format("[ChallengeService] cashout 실패: %s(%d) 지급 거부됨 (stage=%d, source=%s) - 런 유지, 재시도 가능", player.Name, player.UserId, run.stage, src))
 		return false, nil
 	end
 

@@ -273,6 +273,8 @@ EconomyV2Config.REBIRTH_KEEP_REMAINDER = true
 -- swingAnimId = 애니메이션 ID(게임 주인 계정 · 그룹 소유) · iconId = 이미지 ID(장비 창 칸)
 EconomyV2Config.PICKAXE_VISUALS = {} :: { [string]: { modelId: number?, swingAnimId: number?, iconId: number? } }
 EconomyV2Config.HELD_PICKAXE_SIZE = { handle = Vector3.new(0.3, 3, 0.3), head = Vector3.new(2.2, 0.45, 0.45) }
+-- 임시 도형 자루 색(머리 색은 등급색 UiTheme.equipGradeColor). 곡괭이 모델(틀)이 들어오면 쓰지 않는다 — #44에서 HeldPickaxeService 숫자를 옮겼다
+EconomyV2Config.HELD_PICKAXE_HANDLE_COLOR = Color3.fromRGB(110, 75, 45)
 
 
 -- ===== 검증 ==========================================================================================

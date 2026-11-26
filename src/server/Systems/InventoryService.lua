@@ -359,23 +359,8 @@ function InventoryService.takeOres(player: Player, counts: Counts, reason: strin
 	end)
 end
 
-function InventoryService.addTokens(player: Player, counts: TokenCounts, reason: string): boolean
-	return run("addTokens", player, reason, function(d)
-		return applyAddTokens(d, counts)
-	end)
-end
-
-function InventoryService.takeTokens(player: Player, counts: TokenCounts, reason: string): boolean
-	return run("takeTokens", player, reason, function(d)
-		return applyTakeTokens(d, counts)
-	end)
-end
-
-function InventoryService.grantEquipment(player: Player, kind: string, id: string, reason: string): boolean
-	return run("grantEquipment", player, reason, function(d)
-		return applyGrantEquipment(d, kind, id)
-	end)
-end
+-- (#44: 부르는 곳이 없던 addTokens · takeTokens · grantEquipment 공개 함수는 지웠다 — 토큰 · 장비는 craft · exchange가
+--  applyAddTokens · applyTakeTokens · applyGrantEquipment(_pure)를 한 번에 묶어 쓴다. 따로 필요해지면 run(...)으로 한 줄씩 되살린다)
 
 function InventoryService.equip(player: Player, kind: string, id: string, reason: string): boolean
 	return run("equip", player, reason, function(d)

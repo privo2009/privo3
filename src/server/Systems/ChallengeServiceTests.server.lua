@@ -308,7 +308,7 @@ end
 -- ⚠️ 가짜 Player는 프로필이 없어 CurrencyService가 지급을 거부하므로 **cashout 성공
 -- 경로는 여기서 탈 수 없다.** 그 경로의 복귀는 코드 구조로만 보장된다(cashout 성공
 -- 지점에 endRun 호출이 하나 있고, 종료 처리가 그 함수에만 있다). 실물 확인은
--- Bootstrap의 VERIFY_CHALLENGE 블록이 도는 Play 몫이다.
+-- 자동 플레이 봇(TEST_AUTOPLAY — 수령 뒤 스폰 복귀 · 가방 검사)이 도는 Play 몫이다(#44 — VERIFY_CHALLENGE를 대신한다).
 
 local originalReturnToSpawn = ChallengeService._deps.returnToSpawn
 

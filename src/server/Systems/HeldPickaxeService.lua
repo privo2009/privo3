@@ -96,7 +96,7 @@ function HeldPickaxeService.attach(character: Model, id: string?): Model?
 	local model = Instance.new("Model")
 	model.Name = HeldPickaxeService.MODEL_NAME
 	model:SetAttribute("PickaxeId", def.id)
-	local handle = part("Handle", size.handle, Color3.fromRGB(110, 75, 45), model)
+	local handle = part("Handle", size.handle, Config.HELD_PICKAXE_HANDLE_COLOR, model)
 	-- 손 아래로 쥐고 앞으로 뻗는다: 자루 Y축이 손의 앞(−Z)을 보게 눕힌다(임시 도형 자리 — 모델이 오면 #36에서 다시)
 	handle.CFrame = grip
 	local head = part("Head", size.head, UiTheme.equipGradeColor(def.rarity), model)

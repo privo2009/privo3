@@ -49,7 +49,7 @@ local pending = 0
 -- InputBegan 하나로 마우스와 터치를 함께 받는다. 모바일은 UserInputType.Touch로 들어온다.
 --
 -- gameProcessedEvent가 참이면 무시한다: 그 입력은 로블록스 UI(버튼·채팅창 등)가 이미
--- 소비한 것이다. 이걸 안 걸러내면 Phase 6에서 화면에 버튼이 생기는 순간 버튼을 누를
+-- 소비한 것이다. 이걸 안 걸러내면 화면 버튼(HUD · 창)을 누를
 -- 때마다 클릭이 같이 들어간다.
 UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessedEvent: boolean)
 	if gameProcessedEvent then
@@ -90,11 +90,11 @@ end)
 
 -- ===== 상한 통지 수신 ==================================================================
 --
--- Phase 6에서 "최대 속도! 자동 클리커로 더 빠르게" 안내가 뜨는 자리다.
+-- "최대 속도! 자동 클리커로 더 빠르게" 안내를 띄울 수 있는 자리다(안내 UI는 아직 없다 — 지금은 로그 한 줄).
 -- 지금은 채널이 살아 있는지 확인하는 print만 한다 — HUD는 이 단계의 범위가 아니다.
 channels.clickRejected.OnClientEvent:Connect(function(payload: Remotes.ClickRejectedPayload)
 	print(string.format(
-		"[ClickInput] 상한 도달 - %d회 버려짐 (서버 상한 %d회/초). Phase 6에서 안내 UI로 대체될 자리",
+		"[ClickInput] 상한 도달 - %d회 버려짐 (서버 상한 %d회/초)",
 		payload.dropped,
 		payload.limitPerSec
 	))

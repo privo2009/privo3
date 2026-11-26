@@ -2,8 +2,8 @@
 -- 챌린지 입장 게이트 검증. Studio에서 Rojo 연결 후 Play 하면 서버 시작 시 자동 실행된다.
 --
 -- 순수 함수와 deps 이음매만 쓴다 — 진짜 ChallengeService도 Instance도 없이 검증한다
--- (AdvanceWallServiceTests와 같은 방식). 실제로 걸어서 런이 서는지는 Bootstrap
--- VERIFY_CHALLENGE가 매 Play 확인한다(게이트를 걸어 지나가 런을 기다린다).
+-- (AdvanceWallServiceTests와 같은 방식). 실제로 걸어서 런이 서는지는 자동 플레이 봇
+-- (TEST_AUTOPLAY — 게이트를 걸어 지나가 런을 기다린다 · 못 서면 흐름 gate_no_run)이 본다(#44).
 --
 -- ⚠️ 설정 숫자를 여기 리터럴로 적지 않는다. 기대값은 ArenaConfig에서 다시 유도한다.
 -- ⚠️ 케이스마다 새 플레이어 테이블을 만든다 (CashoutPadServiceTests 상단, U3-10a).
