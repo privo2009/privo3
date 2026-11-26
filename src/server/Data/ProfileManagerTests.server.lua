@@ -115,6 +115,29 @@ do
 	check("세션 여는 동안 나감 → 세션 닫음 · 킥 없음", p7 == nil and k7 == nil and late.ended == 1)
 end
 
+-- 1b. 음수 재화(#39 사람 결정): 불러올 때 경고 한 줄 · 0으로 맞추고 들여보낸다(손상 킥 아님) -----------------------------
+do
+	local neg = Schema.new()
+	neg.blox = { m = -2.5, e = 4 }
+	neg.coins = { m = -1, e = 0 }
+	local np = fakeProfile(neg)
+	local p8, k8, l8 = run(fakeStore(np), true)
+	local warned = false
+	for _, line in ipairs(l8) do
+		warned = warned or (string.find(line, "음수 재화", 1, true) ~= nil and string.find(line, "blox", 1, true) ~= nil
+			and string.find(line, "coins", 1, true) ~= nil)
+	end
+	check("음수 블럭스 · 코인 → 0으로 맞추고 경고 한 줄 · 킥 없음 · 세션 그대로", p8 == np and k8 == nil and warned and np.ended == 0
+		and neg.blox.m == 0 and neg.blox.e == 0 and neg.coins.m == 0 and neg.coins.e == 0)
+
+	local mixed = Schema.new()
+	mixed.strength = { m = 3, e = 7 }
+	mixed.rebirths = "broken" :: any
+	local fixed = Schema.clampNegativeCurrencies(mixed)
+	check("음수 맞추기: 0 이상은 그대로 · BigNum이 아닌 값은 건드리지 않음(검증이 손상으로 잡는다) · 대상 6필드",
+		#fixed == 0 and mixed.strength.m == 3 and mixed.rebirths == "broken" and #Schema.CURRENCY_FIELDS == 6)
+end
+
 -- 2. 킥 문구 ------------------------------------------------------------------------------------------
 do
 	local all = true

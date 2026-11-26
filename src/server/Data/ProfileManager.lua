@@ -208,6 +208,12 @@ local function openProfile(player: Player, store: any, env: { inGame: (Player) -
 
 	profile:Reconcile() -- ProfileStore.New()에 넘긴 템플릿 기준으로 누락된 필드 채움
 
+	-- 음수 재화 → 0(#39 사람 결정). 검증보다 먼저 — 음수 코인이 손상 킥이 되지 않게 고쳐서 들여보낸다. 경고 한 줄(복구 근거)
+	local fixed = Schema.clampNegativeCurrencies(profile.Data)
+	if #fixed > 0 then
+		env.log(string.format("[ProfileManager] WARN %s(%d) 음수 재화를 0으로 맞춤: %s", player.Name, player.UserId, table.concat(fixed, " · ")))
+	end
+
 	local valid, errors = Schema.validate(profile.Data)
 	if not valid then
 		env.log(string.format("[ProfileManager] %s(%d) 데이터 검증 실패 - 킥 (손상된 데이터 위에 덮어쓰지 않음)", player.Name, player.UserId))

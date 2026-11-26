@@ -174,6 +174,13 @@ local function applyUpdatesWithRollback(data: { [string]: any }, updates: { [str
 			end
 			return false, string.format("%s 필드가 연산 후 유효한 BigNum이 아님(inf/nan 의심) - 롤백함", field)
 		end
+		-- 결과가 음수인 변경은 거부(#39 사람 결정 — 이미 음수인 잔액에 더해도 음수로 남는 길을 막는다). 정상 흐름에서는 생기지 않는다
+		if newValue.m < 0 then
+			for f, oldValue in pairs(previous) do
+				data[f] = oldValue
+			end
+			return false, string.format("%s 필드가 연산 후 음수 - 롤백함", field)
+		end
 	end
 
 	return true, nil

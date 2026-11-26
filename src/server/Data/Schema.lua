@@ -74,6 +74,27 @@ local function newBigNum(m: number, e: number)
 	return { m = m, e = e }
 end
 
+-- 음수 재화(2026-11-26 지시서 #39 — 사람 결정 "조인다"): 저장 시점 검사(validate)로 막지 않는다 — 저장 자체가 실패할 위험이 있다.
+-- 대신 ① 바뀌기 전 관문(CurrencyService · InventoryService)이 결과가 음수인 변경을 거부하고 ② 불러올 때 음수면 0으로 맞춘다(여기 · ProfileManager가 경고).
+-- 필드 = CurrencyService가 다루는 재화 전부(strength · blox · rebirths · coins)와 blox를 따라 오르는 누적 둘(lifetimeBlox · lifeBlox)
+Schema.CURRENCY_FIELDS = { "blox", "lifetimeBlox", "lifeBlox", "strength", "rebirths", "coins" }
+
+-- 음수인 재화를 0으로 맞추고 맞춘 필드 이름을 돌려준다(없으면 빈 표). BigNum 꼴이 아닌 값은 건드리지 않는다(validate가 손상으로 잡는다)
+function Schema.clampNegativeCurrencies(data: any): { string }
+	local fixed: { string } = {}
+	if type(data) ~= "table" then
+		return fixed
+	end
+	for _, field in ipairs(Schema.CURRENCY_FIELDS) do
+		local v = data[field]
+		if Schema.isBigNum(v) and v.m < 0 then
+			data[field] = newBigNum(0, 0)
+			table.insert(fixed, field)
+		end
+	end
+	return fixed
+end
+
 local function deepCopy(value: any): any
 	if type(value) ~= "table" then
 		return value

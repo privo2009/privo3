@@ -327,6 +327,29 @@ do
 	)
 end
 
+-- 14. 결과가 음수인 변경은 거부(#39 사람 결정 "음수 블럭스를 조인다" — 바뀌기 전 관문) --------------------------
+
+do
+	-- 이미 음수인 잔액(불러올 때 0으로 맞추지만 관문도 막는다): add로 더해도 음수로 남으면 거부 · 값 그대로
+	local data = freshData()
+	data.blox = BigNum.new(-5, 3)
+	local before = data.blox
+	local okAdd, updates = pure.applyAdd("blox", data, BigNum.new(1, 0))
+	local applied, err = false, nil
+	if okAdd and updates ~= nil then
+		applied, err = pure.applyUpdatesWithRollback(data, updates)
+	end
+	check("음수 잔액 + add 결과가 음수 → 적용 거부 · 잔액 · 누적 그대로(롤백)", applied == false and BigNum.eq(data.blox, before)
+		and type(err) == "string" and string.find(err :: string, "음수", 1, true) ~= nil, tostring(err))
+
+	-- 정상 흐름(0 이상 잔액 + 양수)은 그대로 통과한다
+	local data2 = freshData()
+	data2.blox = BigNum.new(0, 0)
+	local ok2, up2 = pure.applyAdd("blox", data2, BigNum.new(3, 0))
+	local applied2 = ok2 and up2 ~= nil and pure.applyUpdatesWithRollback(data2, up2)
+	check("0 잔액 + add(3) → 3(정상 흐름은 그대로)", applied2 == true and BigNum.eq(data2.blox, BigNum.new(3, 0)))
+end
+
 print(string.format("[CurrencyServiceTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[CurrencyServiceTests] %d test(s) failed", failed))
