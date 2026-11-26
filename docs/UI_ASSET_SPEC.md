@@ -469,10 +469,10 @@ PNG 필요    없음
 아래 로블록스 규격은 전부 공식 문서에서 읽은 값이다(2026-11-24 확인 — 페이지에 갱신 날짜 없음). 기억으로 적지 않는다.
 못 찾은 것은 **"확인 못 함"**으로 둔다 — 만들기 전에 그 줄부터 다시 확인한다.
 
-### 6-0. AI 사용 (2026-11-24 사람 결정 — 지시서 #29)
+### 6-0. AI 사용 (2026-11-24 사람 결정 — 지시서 #29 · 2026-11-26 #41에서 UI 그림 추가)
 
 ```
-쓸 수 있음   3D 모델 · 애니메이션 · 이펙트 텍스처 · 아이콘에 AI를 써도 된다
+쓸 수 있음   3D 모델 · 애니메이션 · 이펙트 텍스처 · 아이콘 · UI 그림(틀 · 버튼 · 판 · 칸 등 — 9절 키트 그림 칸)에 AI를 써도 된다
 사람이 함    업로드 · 에셋 ID 기록(AssetConfig) · 최종 확인(이 절 검수 + 화면에서 눈으로)
 하지 않음    알려진 게임 · 캐릭터의 모양을 따라 하지 않는다(이름 · 실루엣 · 배색 · 로고를 흉내 내는 프롬프트 금지)
 ```
@@ -482,6 +482,8 @@ AI 조건 문장(프롬프트 앞에 붙인다 — 초안):
  2-3 flat colors, no logos, no text, not resembling any existing game or character"
 3D면 덧붙임:  "single mesh, under 20,000 triangles, watertight, pivot at grip point"
 텍스처면:     "seamless where tiled, transparent background, PNG"
+UI 그림이면:  "flat game UI frame, even border width, plain center for 9-slice, transparent background, PNG"
+              (9-slice 값 · 크기는 9절 표 그대로 — 테두리 두께가 고르지 않으면 늘릴 때 깨진다. 새 관문은 docs/UI.md "UI 키트")
 ```
 ⚠️ Studio MCP의 생성 · 업로드 도구(generate_mesh · generate_material · upload_image 등)는 쓰지 않는다(CLAUDE.md 절대 규칙 8).
 
