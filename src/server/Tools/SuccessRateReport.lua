@@ -179,6 +179,10 @@ local MODEL = {
 	PET_POLICY = "e11",
 	-- 환생 직전 펫에 쓰는 몫 (E11 — 15%, 아우라를 쓰고 난 뒤 보유 블럭스 기준)
 	PET_REBIRTH_SHARE = 0.15,
+
+	-- 잠수 몫(지시서 #43 4부 — 플레이어 유형 비교 줄 전용 · 기본 0 = 결과 그대로). 노는 시간의 이 몫을 런 사이에 가만히 있는다
+	-- (클릭 · 런 없음 — 시간만 흐른다. 접속 중이라 자동 제작은 그 시간에도 돈다 — EconomyReport 제작 시계가 경과 시간으로 따라온다)
+	IDLE_SHARE = 0,
 }
 SuccessRateReport.MODEL = MODEL
 
@@ -1106,6 +1110,10 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 			observer("run_start", p, seen, nil)
 		end
 		local reached = runOnce(p, rng, firstTry, seen, warpTo)
+		if MODEL.IDLE_SHARE > 0 and MODEL.IDLE_SHARE < 1 then
+			-- 잠수(#43 4부 유형 비교): 이번 런에 쓴 시간에 비례해 가만히 있는다. 다음 런 전에 흐르므로 제작 시계가 그만큼 따라온다
+			p.elapsedSec += (p.elapsedSec - before) * MODEL.IDLE_SHARE / (1 - MODEL.IDLE_SHARE)
+		end
 		if observer ~= nil then
 			observer("run_end", p, seen, reached)
 		end

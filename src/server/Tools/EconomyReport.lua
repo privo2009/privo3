@@ -136,7 +136,8 @@ EconomyReport.GOAL = {
 	legendChance = 0.1, -- 3시간 안 확률 전설 기대 횟수
 	horizonMin = 180,
 }
--- run() 모드: "full"(재현 + 후보 묶음 + 정책 비교 + 참고 측정) · "explore"(재현 + EXPLORE 목록만) · "gym"(운동기구 선택지 GYM_OPTIONS만 — #41 · docs/GYM_OPTIONS.md)
+-- run() 모드: "full"(재현 + 후보 묶음 + 정책 비교 + 참고 측정) · "explore"(재현 + EXPLORE 목록만) · "gym"(운동기구 선택지 GYM_OPTIONS만 — #41 · docs/GYM_OPTIONS.md) ·
+-- "types"(플레이어 유형 TYPE_OPTIONS만 — #43 4부 · docs/TUNING.md 12절)
 EconomyReport.MODE = "full"
 
 export type Policy = {
@@ -160,6 +161,8 @@ export type Bundle = { label: string, set: { [string]: any }?, policy: Policy?, 
 	gymUnlock: ((any) -> number)?, -- 열린 기구 수 고르는 식(nil이면 게임과 같은 GymConfig.getUnlockedCount(환생 수))
 	gymTrainSec: number?, -- MODEL.GYM_TRAIN_SEC(막힌 런 뒤 기구에서 클릭하는 초 — 0 = 기구 안 씀)
 	ownsVoid: boolean?, -- MODEL.OWNS_VOID_ZONE(공허 구매자 비교 줄)
+	-- 플레이어 유형(지시서 #43 4부 — 측정만. Config는 그대로 · 결정 모델 값만 묶음 동안 바꾼다): SuccessRateReport.MODEL 키 → 값
+	model: { [string]: any }?,
 }
 
 -- ===== 묶음 깔기(언제나 되돌린다) =====================================================================================
@@ -265,6 +268,11 @@ local function withBundle(b: Bundle, fn: () -> ())
 	if b.ownsVoid ~= nil then
 		MODEL.OWNS_VOID_ZONE = b.ownsVoid
 	end
+	local savedModel: { [string]: any } = {}
+	for k, v in pairs(b.model or {}) do
+		savedModel[k] = MODEL[k]
+		MODEL[k] = v
+	end
 	local savedSRR = {
 		train = SRR.trainAtGym,
 		econ = SRR.ECON,
@@ -297,6 +305,9 @@ local function withBundle(b: Bundle, fn: () -> ())
 		table.insert(GymConfig.TIERS, t)
 	end
 	MODEL.GYM_TRAIN_SEC, MODEL.OWNS_VOID_ZONE = savedTrain, savedVoid
+	for k, v in pairs(savedModel) do
+		MODEL[k] = v
+	end
 	SRR.trainAtGym = savedSRR.train
 	world.hpGrowthSegments = savedHp
 	world.bloxGrowthSegments = savedBloxSeg
@@ -764,7 +775,7 @@ function EconomyReport.collect(players: number, maxStage: number, st: ((any) -> 
 					if stage == maxStage and st ~= nil then
 						local s = st(p)
 						s.at25 = true
-						cur.at25 = { n = s.n, blox = log10Big(p.blox), rebirthAt = table.clone(s.rebirthAt), pet = SuccessRateReport.petMult(p),
+						cur.at25 = { n = s.n, blox = log10Big(p.blox), coins = log10Big(s.coins), rebirthAt = table.clone(s.rebirthAt), pet = SuccessRateReport.petMult(p),
 							owned = #s.kthAt, pick = EconomyV2Logic.equippedMult(s.picks), enh = s.picks.owned[s.picks.equipped].enh }
 					end
 				end
@@ -938,6 +949,7 @@ end
 
 function EconomyReport.report(b: Bundle, players: number): any
 	local r = measureV2(b, players)
+	EconomyReport._lastResult = r -- 유형 비교(#43 4부)가 같은 결과로 한 줄 더 뽑는다
 	local sm = EconomyReport.summarize(r)
 	local m = r.metrics
 	local seg = m.segments
@@ -1276,6 +1288,53 @@ local function byStage(stages: { number }): (any) -> number
 	end
 end
 local NOW8 = { { 1, 1.2 }, { 2, 1.5 }, { 3, 2 }, { 5, 2.5 }, { 7, 3 }, { 9, 4 }, { 12, 5 }, { 15, 8 } }
+-- ===== 플레이어 유형(지시서 #43 4부 — 측정만 · Config는 그대로. 2월 밸런스 참고 — docs/TUNING.md 12절) ======================
+-- 무과금 행동 유형은 결정 모델(SuccessRateReport.MODEL) 값만 바꾼다. 유료는 이미 있는 정책(policy) 칸 · 기구 해금 식으로 흉내 낸다.
+-- "매일 30분"은 따로 돌리지 않는다 — 접속 중에만 도는 것(자동 제작 · 런)뿐이라 표준 줄의 노는 시간과 같고, 날짜만 나눈다(일일 보상은 시뮬레이터에 없다)
+local function allGyms(_p: any): number
+	return GymConfig.getRebirthTierCount()
+end
+EconomyReport.TYPE_OPTIONS = {
+	{ label = "표준(클릭 6~10 · 무과금)", set = {} },
+	{ label = "클릭 빠름(9~10 — 수동 상한)", set = {}, model = { CLICK_RATE_MIN = 9, CLICK_RATE_MAX = 10 } },
+	{ label = "클릭 느림(2~4)", set = {}, model = { CLICK_RATE_MIN = 2, CLICK_RATE_MAX = 4 } },
+	{ label = "잠수 많음(노는 시간 50% 가만히 · 자동 제작은 돈다)", set = {}, model = { IDLE_SHARE = 0.5 } },
+	{ label = "유료 자동 진행", set = {}, policy = { pickup = "auto" } },
+	{ label = "유료 2배 데미지", set = {}, policy = { damagePass = 2 } },
+	{ label = "유료 2배 블럭스", set = {}, policy = { bloxPass = 2 } },
+	{ label = "유료 큰 가방", set = {}, policy = { bagPass = Config.BIG_BAG_MULT } },
+	{ label = "유료 즉시 제작(연출 생략)", set = {}, policy = { craftSkip = true } },
+	{ label = "유료 선해금 기구(환생 기구 전부)", set = {}, gymUnlock = allGyms },
+	{ label = "유료 전부(위 6개)", set = {}, gymUnlock = allGyms,
+		policy = { pickup = "auto", damagePass = 2, bloxPass = 2, bagPass = Config.BIG_BAG_MULT, craftSkip = true } },
+}
+-- 유형 한 줄: 25층 · 15종 · 25층까지 환생 · 막히는 층(첫 도달 간격이 가장 긴 두 곳) · 25층 때 남은 블럭스 · 코인(중앙 — 10의 지수)
+function EconomyReport.typeLine(label: string, sm: any): string
+	local r = EconomyReport._lastResult
+	local gaps = {}
+	for stage = 1, r.maxStage - 1 do
+		local a, b2 = firstMin(r, stage), firstMin(r, stage + 1)
+		if a ~= nil and b2 ~= nil then
+			table.insert(gaps, { stage = stage, d = b2 - a })
+		end
+	end
+	table.sort(gaps, function(x, y)
+		return x.d > y.d
+	end)
+	local cliff = {}
+	for i = 1, math.min(2, #gaps) do
+		table.insert(cliff, string.format("%d→%d %.0f분", gaps[i].stage, gaps[i].stage + 1, gaps[i].d))
+	end
+	local blox = at25Med(r, function(a)
+		return a.blox
+	end)
+	local coins = at25Med(r, function(a)
+		return a.coins
+	end)
+	return string.format("[ECON2] 유형 %s | 25층 %s분 · 15종 %s분 · 환생 %s회 · 막힘 %s · 25층 때 블럭스 10^%s · 코인 10^%s", label, fmt(sm.t25),
+		fmt(sm.k15), fmt(sm.n25, "%.0f"), table.concat(cliff, " · "), fmt(blox, "%.1f"), fmt(coins, "%.1f"))
+end
+
 EconomyReport.GYM_OPTIONS = {
 	-- #42: A2 채택 — "지금"이 A2다(게임 GymConfig). 예전 8기구(G0)는 비교 줄로 남긴다. 지금 = 아래 A2 줄과 같은 값이어야 한다
 	{ label = "지금 A2(GymConfig · 12기구 · 환생 1~15 · ×1.2~×8)", set = {} },
@@ -1298,6 +1357,24 @@ function EconomyReport.run()
 	local E = EconomyReport
 	local t0 = os.clock()
 	print(string.format("[ECON2] ===== 새 경제 5차 측정 (지시서 #33 — 점수 표 · 드롭 0.5 이상 · 등급별 강화 · 추천까지만) · 모드 %s =====", E.MODE))
+	if E.MODE == "types" then -- 플레이어 유형(#43 4부) — 재현 없이 유형만 · 끝에 요약 줄을 한 번 더 모아 찍는다
+		local lines = {}
+		local std: any = nil
+		for _, b in ipairs(E.TYPE_OPTIONS) do
+			local sm = E.report(b, E.PLAYERS)
+			std = std or sm
+			table.insert(lines, E.typeLine(b.label, sm))
+			print(lines[#lines])
+			print(string.format("[ECON2]   · %.0f초", os.clock() - t0))
+		end
+		if std ~= nil then
+			table.insert(lines, string.format("[ECON2] 유형 매일 30분(표준 줄을 날짜로) | 25층 %s일 · 15종 %s일 — 일일 보상은 시뮬레이터에 없다(실제는 조금 빠르다)",
+				fmt(if std.t25 ~= nil then std.t25 / 30 else nil, "%.1f"), fmt(if std.k15 ~= nil then std.k15 / 30 else nil, "%.1f")))
+		end
+		print("[ECON2] 유형 요약" .. string.char(10) .. table.concat(lines, string.char(10))) -- 한 줄로(로그 보관 상한에 앞줄이 밀려도 남는다)
+		print(string.format("[ECON2] ===== 끝 · %.0f초 =====", os.clock() - t0))
+		return
+	end
 	if E.MODE == "gym" then -- 운동기구 개편 선택지(#41 4부) — 재현 없이 선택지만
 		for _, b in ipairs(E.GYM_OPTIONS) do
 			E.report(b, E.PLAYERS)
