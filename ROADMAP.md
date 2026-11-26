@@ -1,6 +1,6 @@
 # 개발 로드맵
 
-문서 갱신: 2026-11-26 (지시서 #42 — 이름 번역 규칙 · 정수 표시 · 운동기구 개편 A2 · 테스트 4983 · 사람 작업 운동기구 상품)
+문서 갱신: 2026-11-27 (지시서 #43 — 자동 플레이 봇 · 이동 검사 · 전체 리뷰 · 유형별 측정 · 테스트 5048)
 
 ## 원칙
 - 아래에서 위로 쌓는다. BigNum이 흔들리면 전부 무너진다
@@ -13,8 +13,9 @@
 
 ```
 지금 위치   코드 기반 끝 — 새 경제(#37) · 리모트 보안 · 데이터 안전(#38) · UI 키트 · 미리보기(#39) · 6개 언어(#40) · 마무리(#41) ·
-            이름 번역 규칙 · 정수 표시 · 운동기구 A2(#42 — 시험 전 마지막)
-            테스트 4983 / 0 failed(서버 83행 3402 · 클라 46행 1581 — 아래 "테스트 현황") · 시각 요소(모델 · UI 그림 · 맵)는 아직 임시 도형
+            이름 번역 규칙 · 정수 표시 · 운동기구 A2(#42) · 자동 플레이 봇 · 이동 검사 · 리뷰 · 유형별 측정(#43 — 시험 기간 혼자)
+            테스트 5048 / 0 failed(서버 85행 3467 · 클라 46행 1581 — 아래 "테스트 현황") · 시각 요소(모델 · UI 그림 · 맵)는 아직 임시 도형
+점검 도구   모델 · UI를 갈아 끼운 뒤 · 2월 테스트 전: Bootstrap TEST_AUTOPLAY = "fresh" · "min30" · "hour2"(CLAUDE.md "자동 플레이 봇")
 다시 시작   HANDOFF 가장 최근 날짜 파일의 "시험 뒤 다시 시작하는 법" 한 쪽부터(세션 기록) · 남은 일 원본은 docs/PENDING.md
 ```
 
@@ -66,7 +67,7 @@
 | `Systems/SpeedRequestServiceTests.server.lua` | 32 | 요청 빈도 상한·폐기·로그 억제·응답 payload |
 | `Systems/RebirthServiceTests.server.lua` | 71 | 거부 시 부작용 0·순서·누적·부분 실패·패드 되돌리기(11단계) ※ |
 | `Systems/WarpServiceTests.server.lua` | 84 | 거부 시 차감 0·차감이 런 시작보다 먼저·부분 실패 3종·W1 런 중 거부·W2 차감→이동→시작 순서·캐릭터 없음 거부·이동 실패에도 런 시작 ※ |
-| `Systems/AttackServiceTests.server.lua` | 92 | 반경 밖 미호출·이중 계산 방지·경계(float32 이웃)·방향 독립·데미지 업그레이드 한 번만 곱함·플레이어별 펀치 주기(틱 · 몰아치기 없음) · 앞 항이 없어도 뒤 항이 곱해진다(#12) |
+| `Systems/AttackServiceTests.server.lua` | 92 | 반경 밖 미호출·이중 계산 방지·경계(float32 이웃)·방향 독립·데미지 업그레이드 한 번만 곱함·플레이어별 펀치 주기(틱 · 몰아치기 없음) · 앞 항이 없어도 뒤 항이 곱해진다(#12) · 결과 코드 8개(move_suspect — #43 이동 검사) |
 | `Tests/UiThemeTests.server.lua` | 72 | 색 역할 8종 존재·밝은/기본/어두운 3단계·Color3 타입 · 희귀도 6단계(역할 hex 재사용 금지 · 서로 다름 · 채도 증가 · 밝기 비감소) |
 | `Tests/AssetRegistryTests.server.lua` | 125 | 24종 등록·source/scaleType/placeholderRole 검증·resolve() 도착·미도착 판정 ※ |
 | `Tests/AssetImageTests.server.lua` | 16 | 미도착→Frame·도착→ImageLabel·SliceCenter·UIStroke 3px |
@@ -176,7 +177,9 @@
 | `Data/ProfileManagerTests.server.lua` | 18 | 데이터 안전(#38 — 가짜 저장소) — 저장소 없음 · 세션 잠금 실패 · 로딩 중 나감 · 버전 오류 · 손상 → 킥 키 · 세션 닫음 · 킥 문구 en · ko · 세션 끝 경고 구분 · 서버 종료 12명 저장 기다림 · 상한 · 프로필 크기(3시간 · 최악 vs 4,194,304) · 음수 재화 → 0 · 경고(#39) |
 | `Tests/AnalyticsFunnelTests.server.lua` | 25 | 분석 #38 — 한도 · 온보딩 9단계 이름 · 지난 단계 계산(줄지 않는 값 · 차례) · 처음 온 사람 · 돌아온 사람 · 중복 없음 · 곡괭이 종 수 · 코인 경제(모아 보내기 · Sink · 자원 따로) · 나가면 지움 |
 | `Tests/UiKitTests.client.lua` | 53 | UI 키트(#39) — 역할 이름(role · grade · rarity · text · 모르는 이름 오류) · 스킨 기본값 = #39 이전 숫자 · UiSkin 빈 표 · 덮기 · 되돌리기 · styleText · card · skinImage · tab · gauge · toastRow · oddsRow · currencyChip · modalPanel · dim · 틀 여백(0이면 이전 식 · 두께만큼 안으로 · Panel.create) · 미리보기 게이트(flagOn · 커밋 nil · STUDIO_FLAGS) · 창 전부 예시로 만들어짐 · 등급 5종 · AssetSlots UI 칸 · 긴 문장 |
-| **합계** | **4983** | 서버 83행 3402 · 클라 46행 1581 — 2026-11-26 #42 Play 2번 실측(Studio 플래그 전부 nil · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
+| `Tests/AutoplayLogicTests.server.lua` | 43 | 자동 플레이 봇(#43 1부) — TEST_AUTOPLAY 커밋 값 nil · STUDIO_FLAGS · 켜는 판정(꺼짐 · Studio 아님 · 모르는 구간 · 글 아님 · 프리셋 다름 · 구간 3개) · 구간 프리셋 · 목표 층 실재 · 봇 자리 반경 안 · 실패 줄 반경 밖 · 클릭 ≤ 수동 상한 · 요청 간격 · 최소 런 ≥ 실패 주기 · 진행/수령 4 · 실패 섞기 2 · 환생 · 워프 3 · 음수 3 · 가방 2(넘친 채 그대로 통과 — #43 3부) · 수령 · 실패 · 런 끝 5 · 제작 5 · 루프 상한 · 모음 2 · 봇 줄 빼기 |
+| `Tests/MovementGuardTests.server.lua` | 22 | 이동 검사(#43 2부) — 정상 걷기 · 높은 레벨 달리기 · 점프 · 낙하 · 복제 흔들림 통과 / 순간이동(HOLD 동안 믿지 않음) · 3배 속도(레벨 0 · 상한 60) · 위로 순간이동 걸림 · dt 0 / 게임 순간이동 유예(옛 자리 · 새 자리 섞임) · 유예 뒤 다시 잼 · 리스폰 기준점 · 공개 sample · isTrusted · 나간 플레이어 표 안 만듦(#43 3부) / 공격 move_suspect · 줍기 건너뜀 / 설정에서 읽음 2 |
+| **합계** | **5048** | 서버 85행 3467 · 클라 46행 1581 — 2026-11-27 #43 Play 2번 실측(Studio 플래그 전부 nil · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -204,7 +207,18 @@
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-11-26 Studio Play 런타임 실측 (전량, 지시서 #42 — 이름 번역 규칙 · 정수 표시 · 운동기구 A2 · 플래그 전부 nil Play 2번 + 작업 중 1번).**
+최근 갱신: **2026-11-27 Studio Play 런타임 실측 (전량, 지시서 #43 — 자동 플레이 봇 · 이동 검사 · 리뷰 고침 · 플래그 전부 nil Play 2번 + 작업 중 2번).**
+131개 행 전부가 같은 개수로 찍혔다. **5048 passed / 0 failed** — 서버 3467(85행) + 클라 1581(46행). 끝 표시 `server 85/85 files · 3467` ·
+`client 46/46 files · 1581`. 시작 기준 Play는 #42 최종과 같았다(4983).
+
+```
+새 행   AutoplayLogicTests     43   자동 플레이 봇 순수 로직 · 설정 관계 (c5f580f 42 · b8879e3 +1 가방)
+새 행   MovementGuardTests     22   이동 검사 (704738b 21 · b8879e3 +1 나간 플레이어)
+기대만  AttackServiceTests     92   결과 코드 목록 7 → 8개(move_suspect — 개수 그대로)
+대조    4983 + 새 행 65 = 5048
+```
+
+이전 갱신: **2026-11-26 Studio Play 런타임 실측 (전량, 지시서 #42 — 이름 번역 규칙 · 정수 표시 · 운동기구 A2 · 플래그 전부 nil Play 2번 + 작업 중 1번).**
 129개 행 전부가 같은 개수로 찍혔다. **4983 passed / 0 failed** — 서버 3402(83행) + 클라 1581(46행). 끝 표시 `server 83/83 files · 3402` ·
 `client 46/46 files · 1581`. 시작 기준 Play는 #41 최종과 같았다(4959).
 
@@ -2002,6 +2016,10 @@ x2 Rebirths 판매 중지(체크리스트 30 — 지금 바로) · 게임 아바
 [결정]  ✅ #42 이름 번역 규칙(희준) — UI 확정 전 고유 이름은 en · ko만 · 스킨 관문 언어 en · ko + LONG · 운동기구 A2
 [코드]  ✅ #42 이름 키 102개 4개 언어에서 지움(NameKeys.lua 한 곳 · check_strings 예외) · 정수 표시(Formatter.formatCount) ·
         운동기구 A2(12기구 · 3줄 × 5열 · 선해금 12종 — 9 ~ 12 ID nil · 모델 자리 13 · EconomyReport A2 값 같음)
+[코드]  ✅ #43 자동 플레이 봇(TEST_AUTOPLAY — fresh · min30 · hour2 · 실제 경로 · 서버 검사 · 창 11개) · 이동 검사(MovementGuard —
+        순간이동 · 스피드핵이면 줍기 · 공격 틱 무시 · 킥 없음 · 봇 오탐 0) · 전체 리뷰(고침 2 · 남긴 것 PENDING "#43 남은 것") ·
+        EconomyReport "types"(유형 11줄 — docs/TUNING.md 12절)
+[수동]  #43 사람이 정할 것 4 — 즉시 제작 패스 효과 · 잔재(VERIFY_CHALLENGE) 지우기 · 클리어 전 밟기 경고 · 환생 직전 프리셋(PENDING "#43 남은 것")
 [수동]  #42 대시보드 선해금 새 4개 등록(ID → GYM_UNLOCK_NEW_IDS) · 기존 7개 가격 바꾸기 — docs/DASHBOARD_PRODUCTS.md 5절
 [수동]  #42 4개 언어 이름 번역 · 화면 확인 — 1월 말(UI · 이름 확정 뒤 · NameKeys.ENGLISH_ONLY 끄기 — docs/LOCALIZATION.md "이름 번역 규칙")
 [수동]  #40 번역 — 원어민 검수는 출시 전 필수 아님(#41 희준): 1월 GPT 교차 검토 · 2월 테스터 의견 · 출시 뒤 많은 언어부터 · 상품 번역은 체크리스트 35

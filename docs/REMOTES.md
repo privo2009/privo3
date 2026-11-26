@@ -1,6 +1,6 @@
 # 리모트 목록 (클라 → 서버 입구)
 
-문서 작성: 2026-11-25 (지시서 #38 — 출시 전 리모트 보안 점검)
+문서 작성: 2026-11-25 (지시서 #38 — 출시 전 리모트 보안 점검) · 2026-11-27 #43 2부 이동 검사(5절)
 
 이 문서는 **목록과 규칙**이다. 이름 원본은 `Shared/Remotes.lua`, 공통 문은 `Server/Systems/RemoteGuard.lua`,
 입구마다의 검사는 각 서비스 코드다. 상한 수치는 그 원본을 본다(여기 적힌 수는 #38 시점 값 — 어긋나면 코드가 맞다).
@@ -70,3 +70,21 @@ SyncRequest 초당 2 · 몰림 10(접속 직후 수신부 여러 개가 한꺼�
 2. 인자는 서비스 안에서 다시 읽는다(타입 · 범위 · 정수) — 결과값(보상 · 가격)을 payload에 싣지 않는다
 3. 빈도가 높게 오는 입구면 `RemoteGuard.POLICIES`에 통 크기를 적는다
 4. `RemoteGuardTests` "목록"의 inbound 표에 한 줄 · 흔들기 spec 하나 · 이 문서 표에 한 줄
+
+## 5. 이동 검사 — 순간이동 · 스피드핵 (지시서 #43 2부 · 2026-11-27)
+
+리모트가 아니지만 같은 성격(클라가 보낸 값을 서버가 다시 잰다)이라 여기 둔다. 원본 `Server/Systems/MovementGuard` ·
+숫자 `Shared/Config/MovementGuardConfig`(전부 TEMP) · 원칙 `DESIGN.md` "13. 서버 권위 — 근처 확인" N3.
+
+| 무엇 | 어떻게 |
+|---|---|
+| 왜 | 캐릭터 물리는 클라 소유 — 서버가 읽는 HumanoidRootPart 위치는 클라가 보낸 값이다. 줍기(거리 폴링) · 근접 자동 공격이 그 위치를 믿는다 |
+| 기록 | 서버 단일 루프가 `SAMPLE_SEC`마다 플레이어 위치를 적고 앞 표본과 비교한다 |
+| 허용 | 수평 ≤ (레벨 이동 속도 상한 `SpeedService.getMaxSpeed` + `SPEED_MARGIN`) × dt + `SLACK_STUDS` · 오르기 ≤ `UP_SPEED_MAX` · 떨어지기 ≤ `FALL_SPEED_MAX` |
+| 걸리면 | `HOLD_SEC` 동안 그 플레이어의 줍기 틱 · 펀치 틱을 건너뛴다(공격 결과 코드 `move_suspect` — 값은 아무것도 바꾸지 않는다) · warn 한 줄(LogFold로 접음). **킥 없음** |
+| 예외 | 게임이 옮긴 순간 — `ArenaService.returnToSpawn`(수령 · 실패 · 환생 뒤) · `moveToStageEntrance`(워프 · 자동 진행) · 리스폰(CharacterAdded) — 은 `markTeleport`로 `TELEPORT_GRACE_SEC` 동안 재지 않고 기준점만 다시 잡는다 |
+| 자동 진행 보유자 | 줍기는 거리를 안 보므로(전부 줍기) 이동 검사도 줍기에 안 건다 |
+| 테스트 | `MovementGuardTests`(정상 걷기 · 점프 · 낙하 · 복제 흔들림 통과 / 순간이동 · 3배 속도 걸림 / 게임 순간이동 직후 통과 / 공격 · 줍기 건너뜀 / 설정에서 읽음) |
+| 오탐 실측 | 자동 플레이 봇 3구간(fresh · min30 · hour2 — 워프 · 수령 뒤 스폰 · 시간 초과 · 점프 포함)에서 `[MovementGuard]` 경고 0 |
+
+새로 캐릭터를 옮기는 서버 코드를 쓰면 옮기기 **직전에** `MovementGuard.markTeleport(player)`를 부른다(무-yield).

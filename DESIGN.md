@@ -2661,7 +2661,10 @@ https://create.roblox.com/docs/physics/network-ownership) 순간 이동한 위�
     막지 못하는 것: 26 studs 안의 순간 이동(최고 속도로 0.3초 거리 — 걷기 이득이 그만큼으로 줄어든다)
 - 거부: 사유 코드 `no_character` · `no_root` · `far`만 로그(LogFold로 접음). 유저 안내 · 킥 없음
 - **N2** 서버가 직접 부르는 경로(자동 진행 advance · cashout, 워프 · 환생 · 수령 뒤 순간 이동)는 Touched를 거치지 않으므로 검사도 없다
-- **N3** 속도 기반 순간 이동 검출은 넣지 않는다. 수동 클릭 상한 10회/초는 그대로(#22 R3)
+- **N3** ~~속도 기반 순간 이동 검출은 넣지 않는다~~ → **#43 2부(2026-11-27 지시서)에서 넣었다 — 줍기 · 공격만.**
+  서버가 위치를 주기마다 적고 허용 속도(레벨 이동 속도 상한 + 여유 — TEMP)를 넘으면 잠깐 그 플레이어의 줍기 · 펀치 틱을 건너뛰고 warn 한 줄.
+  **킥 없음**(오탐으로 정상 유저가 피해 보면 안 된다). 게임이 옮긴 순간(스폰 복귀 · 층 입구 · 리스폰)은 유예. Touched 근처 확인(N1)은 그대로다.
+  원본 `Server/Systems/MovementGuard` · 숫자 `Shared/Config/MovementGuardConfig` · 표 `docs/REMOTES.md` 5절. 수동 클릭 상한 10회/초는 그대로(#22 R3)
 
 ---
 

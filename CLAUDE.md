@@ -1,6 +1,6 @@
 # privo3 — Roblox 방치형 블록 파괴 게임
 
-문서 갱신: 2026-11-26 (지시서 #42 — 이름 번역 규칙)
+문서 갱신: 2026-11-27 (지시서 #43 — 자동 플레이 봇)
 
 ## 개요
 힘을 키워 거대 블록을 부수고, 20초 챌린지로 블럭스를 획득하는
@@ -59,12 +59,12 @@ ServerPackages/ → Wally 패키지 (직접 수정 금지)
 | `docs/UI_HANDOFF.md` | 인계 절차, 배치 명세 템플릿, 검증 관문 G1~G4 |
 | `docs/PENDING.md` | 전달 대기 · 미결 · 잔재의 누적 큐 |
 | `docs/DASHBOARD_PRODUCTS.md` | 대시보드에 만들 로벅스 상품 목록 · 등록 절차 · ID 넣는 자리 (가격 원본은 `ShopConfig` · 이름 · 설명 원본은 `Strings`) |
-| `docs/TUNING.md` | 사람이 혼자 값을 바꾸고 결과를 읽는 순서 · 손잡이 목록 · 테스트 프리셋 사용법 |
+| `docs/TUNING.md` | 사람이 혼자 값을 바꾸고 결과를 읽는 순서 · 손잡이 목록 · 테스트 프리셋 사용법 · 플레이어 유형별 측정(12) · 자동 플레이 봇 읽는 법 · 지난 결과(13) |
 | `docs/LOCALIZATION.md` | 다국어 구조(Strings + 유럽 4개 언어 Lang 파일 → CSV → 로블록스 현지화 표) · 새 문장(6개 언어) · 이름 번역 규칙(고유 이름 en · ko만 — 꼴 목록 `Localization/NameKeys.lua` · 다시 켜는 법) · 새 언어 추가 순서 · 언어별 용어집 · 검수 상태 (언어 결정 원본은 `DESIGN.md` "12. 언어") |
 | `docs/ASSET_ORDER.md` | 새 경제 에셋 주문서(곡괭이 · 광석 · 연출 · 이펙트 · 대장간 · 펫 · 토큰 · 맵) — 크기 · 개수 · 우선순위 · 넣는 법(교체 방식 원본은 `DESIGN.md` 16장) · 자리 목록 원본은 `Shared/AssetSlots` |
 | `docs/POLICY_CHECK.md` | 유료 랜덤 상품(행운 · 롤 충전) 정책 점검 — 공식 요구 · 상품 × 화면 점검표 · 남은 위험 · 다시 볼 순서 (상품을 새로 만들면 표에 한 줄) |
 | `docs/GYM_OPTIONS.md` | 운동기구 개편 선택지(지시서 #41) — ✅ A2 채택(#42). 고를 때의 비교 기록 · 선택지별 측정 · 다시 재는 법(EconomyReport gym 모드). 지금 규칙 원본은 `DESIGN.md` "운동기구" |
-| `docs/REMOTES.md` | 클라 → 서버 리모트 목록 · 입구마다 검사 · 연타 상한 · 실패 응답 · 공통 문 RemoteGuard 규칙 (새 입구를 만들면 표에 한 줄) |
+| `docs/REMOTES.md` | 클라 → 서버 리모트 목록 · 입구마다 검사 · 연타 상한 · 실패 응답 · 공통 문 RemoteGuard 규칙 (새 입구를 만들면 표에 한 줄) · 이동 검사 MovementGuard(5절 — 캐릭터를 옮기는 서버 코드는 markTeleport) |
 
 ⚠️ **화면 개수 · 색값 · 규격 수치를 이 문서로 복사하지 말 것.**
 원본 한 곳만 고치면 되도록 참조로 둔다. 복사본은 반드시 어긋난다 —
@@ -243,6 +243,13 @@ return table.concat(out, "\n")
 - 쓰는 곳: 출력 꼬리 관측 (Bootstrap 검증 줄 등)
 - `[TRUNCATED DUE TO LENGTH LIMIT]`이 보이면 앞부분은 없는 것으로 다룬다.
   보이지 않는 줄을 "안 찍혔다"로 판단하지 않는다
+
+### 자동 플레이 봇 — 게임 전체 점검 (지시서 #43)
+모델 · UI를 갈아 끼운 뒤나 테스트 전에 쓴다. Bootstrap `TEST_AUTOPLAY`에 구간 이름(`"fresh"` · `"min30"` · `"hour2"` —
+`Shared/Config/AutoplayConfig`)을 적고 Play하면 그 구간의 Mock 프리셋으로 시작해 클라 봇이 실제 경로로 논다(걷기 · 리모트 · 창).
+`TEST_PRESET`은 nil로 둔다. 구간마다 몇 분(상한 `limitSec`) 뒤 `[AUTOPLAY] ===== 서버 끝 … 서버 검사 통과|실패 N` ·
+`… 클라 끝 …` 줄이 찍힌다(경고 · 오류 · 음수 · 가방 · 제작 · 서버 루프 · 창 11개). 켠 Play로 테스트 개수를 세지 않는다(플래그 줄이 실패한다).
+커밋 전에 `TEST_AUTOPLAY = nil`. 읽는 법 · 지난 결과 → `docs/TUNING.md` "13. 자동 플레이 봇"
 
 ### Rojo 연결 확인은 MCP로 대신하지 않는다
 Rojo 플러그인 창의 Connect 상태는 MCP로 읽을 수 없고,
