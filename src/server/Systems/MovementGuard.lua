@@ -105,7 +105,11 @@ local function stateOf(player: Player): State
 end
 
 -- 게임이 캐릭터를 옮겼다(스폰 복귀 · 층 입구 · 리스폰). 가짜 Player 테이블(테스트)도 받는다. yield 없음
+-- 나간 플레이어(Parent 없음 — 나가는 중 사망 · 포기 경로)는 표를 다시 만들지 않는다(PlayerRemoving이 지운 뒤 새로 생겨 남는 것을 막는다 — #43 3부)
 function MovementGuard.markTeleport(player: Player)
+	if typeof(player) == "Instance" and player.Parent == nil then
+		return
+	end
 	markTeleportState(stateOf(player), os.clock())
 end
 

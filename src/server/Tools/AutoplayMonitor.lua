@@ -115,6 +115,7 @@ function AutoplayMonitor.run(segmentName: string)
 	local strengthBefore = BigNum.new(data.strength.m, data.strength.e)
 	local maxBag = 0
 	local runActive = false
+	local prevBag = 0
 
 	-- 1. 경고 · 오류(이 구간 동안 · 봇 자신의 줄은 뺀다)
 	local logConn = LogService.MessageOut:Connect(function(message: string, kind: Enum.MessageType)
@@ -234,9 +235,10 @@ function AutoplayMonitor.run(segmentName: string)
 		end
 		local used = OreDropService.bagUsed(player)
 		maxBag = math.max(maxBag, used)
-		for _, prob in ipairs(AutoplayLogic.bagProblems(used, OreDropService.capacityOf(player))) do
+		for _, prob in ipairs(AutoplayLogic.bagProblems(used, OreDropService.capacityOf(player), prevBag)) do
 			AutoplayLogic.add(bags, "cap", prob)
 		end
+		prevBag = used
 		if bestFloor >= seg.targetFloor and counts.start >= AutoplayConfig.MIN_RUNS and not runActive then
 			reason = "target"
 			break

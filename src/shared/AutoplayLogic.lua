@@ -131,9 +131,10 @@ function AutoplayLogic.negativeProblems(data: any, oreCount: number): { string }
 	return out
 end
 
--- 가방 상한
-function AutoplayLogic.bagProblems(used: number, cap: number): { string }
-	if used > cap then
+-- 가방 상한. 런 중 낮은 곡괭이로 바꾸면 든 광석은 그대로 두고 용량만 줄어 넘칠 수 있다(#34 — EconomyV2Logic.addToBag) —
+-- 그래서 "넘친 채로 더 늘었나"만 문제다(prevUsed = 앞 검사 때 수 · 처음이면 0). #43 3부에서 고침(처음엔 넘치기만 해도 문제로 셌다)
+function AutoplayLogic.bagProblems(used: number, cap: number, prevUsed: number?): { string }
+	if used > cap and used > (prevUsed or 0) then
 		return { string.format("bag %d>%d", used, cap) }
 	end
 	return {}

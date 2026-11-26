@@ -133,6 +133,10 @@ do
 	check("공개 sample: 순간이동이면 의심 수 +1", MovementGuard.suspectCount() == before + 1)
 	MovementGuard._reset(fp)
 	check("공개 isTrusted: 기록이 없으면 믿는다", MovementGuard.isTrusted(fp))
+	-- 나간 플레이어(Parent 없는 인스턴스)에 markTeleport가 와도 표를 다시 만들지 않는다(나가기 경쟁 — #43 3부)
+	local gone = Instance.new("Folder")
+	MovementGuard.markTeleport(gone :: any)
+	check("나간 플레이어: markTeleport가 표를 다시 만들지 않는다", MovementGuard._state(gone :: any) == nil)
 end
 
 -- 4. 의심 동안 공격 · 줍기를 건너뛴다 ----------------------------------------------------------------------------

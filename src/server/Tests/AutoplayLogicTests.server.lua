@@ -128,7 +128,9 @@ do
 	bad.tokens = { rare = 1.5 }
 	check("음수: 블럭스 · 광석 · 토큰(소수) 셋 다 잡는다", #AutoplayLogic.negativeProblems(bad, ORES) == 3)
 	check("음수: 데이터가 없으면 문제", #AutoplayLogic.negativeProblems(nil, ORES) == 1)
-	check("가방: 상한 이하 통과 · 넘치면 문제", #AutoplayLogic.bagProblems(10, 10) == 0 and #AutoplayLogic.bagProblems(11, 10) == 1)
+	check("가방: 상한 이하 통과 · 넘치면 문제", #AutoplayLogic.bagProblems(10, 10, 9) == 0 and #AutoplayLogic.bagProblems(11, 10, 10) == 1)
+	check("가방: 낮은 곡괭이로 바꿔 넘친 채 그대로면 통과 · 넘친 채 늘면 문제(#34 규칙)",
+		#AutoplayLogic.bagProblems(15, 10, 15) == 0 and #AutoplayLogic.bagProblems(14, 10, 15) == 0 and #AutoplayLogic.bagProblems(16, 10, 15) == 1)
 
 	local bag = inv({ [1] = 2, [3] = 1 })
 	local before = inv({ [1] = 5 })
