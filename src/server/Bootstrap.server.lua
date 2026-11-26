@@ -161,6 +161,10 @@ SpeedService.init()
 local SpeedRequestService = require(script.Parent.Systems.SpeedRequestService)
 SpeedRequestService.init()
 
+-- 이동 검사(지시서 #43 2부 — 순간이동 · 스피드핵 대비). 위치를 주기마다 적고 허용 속도를 넘으면 잠깐 줍기 · 공격을 무시한다(킥 없음).
+-- ⚠️ 순서: SpeedService.init() 뒤(허용 속도 = 레벨 이동 속도 상한). 게임이 옮기는 곳(ArenaService)은 markTeleport로 알린다
+require(script.Parent.Systems.MovementGuard).init()
+
 -- AttackService가 몇 번 때리는지 지켜보는 시간(초). VERIFY_CHALLENGE 전용이다.
 -- 펀치 주기(0.5초)보다 넉넉해야 몇 대는 들어간 뒤에 클리어 여부를 본다.
 local ATTACK_OBSERVE_SEC = 3
@@ -678,6 +682,7 @@ if VERIFY_CHALLENGE then
 			-- 지면(Y=0) 위에 세운다. PivotTo는 모델 중심을 맞추므로 절반을 올린다 —
 			-- 높이는 아바타마다 달라서 상수로 박지 않는다(ArenaService.returnToSpawn과 같은 이유).
 			local extents = character:GetExtentsSize()
+			require(script.Parent.Systems.MovementGuard).markTeleport(player) -- 게임이 옮긴다(#43 이동 검사 예외)
 			character:PivotTo(CFrame.new(Vector3.new(startX, extents.Y / 2, 0)))
 		end)
 		if not ok then

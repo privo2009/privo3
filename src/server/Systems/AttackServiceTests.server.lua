@@ -640,6 +640,7 @@ do
 		AttackService.RESULT_NO_STRENGTH,
 		AttackService.RESULT_OUT_OF_RANGE,
 		AttackService.RESULT_NO_CHANGES,
+		AttackService.RESULT_MOVE_SUSPECT,
 	}
 	local seen: { [string]: boolean } = {}
 	local unique = true
@@ -650,7 +651,7 @@ do
 		seen[code] = true
 	end
 	-- 코드가 겹치면 Bootstrap VERIFY가 원인을 가르지 못한다. 그게 이 코드들의 유일한 용도다.
-	check("결과 코드 7개가 전부 다른 비어있지 않은 문자열", unique)
+	check("결과 코드 8개가 전부 다른 비어있지 않은 문자열", unique)
 end
 
 -- ===== 판정 원점이 스테이지를 따라간다 (4-2-a2b) =======================================

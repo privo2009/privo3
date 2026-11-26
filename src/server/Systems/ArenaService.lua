@@ -24,6 +24,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
 local UiTheme = require(ReplicatedStorage.Shared.Config.UiTheme)
+-- 게임이 캐릭터를 옮길 때 이동 검사에 알린다(지시서 #43 2부). MovementGuard는 이 파일을 require하지 않는다(순환 없음)
+local MovementGuard = require(script.Parent.MovementGuard)
 
 local ArenaService = {}
 
@@ -283,6 +285,7 @@ function ArenaService.returnToSpawn(player: Player): boolean
 
 	local ok, err = pcall(function()
 		local extents = character:GetExtentsSize()
+		MovementGuard.markTeleport(player) -- 게임이 옮긴다(지시서 #43 2부 — 이동 검사 예외 · yield 없음)
 		character:PivotTo(CFrame.new(computeReturnTarget(spawnPosition, spawnSize, extents.Y)))
 	end)
 
@@ -320,6 +323,7 @@ function ArenaService.moveToStageEntrance(player: Player, stage: number): boolea
 		local extents = character:GetExtentsSize()
 		local x = ArenaConfig.getStageEntranceX(stage)
 		local position = Vector3.new(x, extents.Y / 2, 0)
+		MovementGuard.markTeleport(player) -- 게임이 옮긴다(워프 · 자동 진행 — 이동 검사 예외 · yield 없음)
 		character:PivotTo(CFrame.lookAt(position, position + Vector3.new(1, 0, 0)))
 	end)
 	if not ok then

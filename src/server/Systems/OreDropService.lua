@@ -166,6 +166,8 @@ export type Deps = {
 	ownsAutoAdvance: (Player) -> boolean,
 	ownsBigBag: (Player) -> boolean,
 	rootPosition: (Player) -> Vector3?,
+	-- 위치를 믿어도 되나(지시서 #43 2부 — MovementGuard.isTrusted). 없으면 믿는다(기록용 deps · 예전 테스트)
+	isMoveTrusted: ((Player) -> boolean)?,
 	send: (Player, any) -> (),
 	rand: () -> number,
 }
@@ -201,6 +203,7 @@ local function liveDeps(): Deps
 		rootPosition = function(player)
 			return (Proximity.rootPosition(player))
 		end,
+		isMoveTrusted = require(script.Parent.MovementGuard).isTrusted,
 		send = function(player, payload)
 			if typeof(player) == "Instance" and player:IsA("Player") then
 				channels.economyEvent:FireClient(player, payload)
@@ -349,6 +352,10 @@ function OreDropService.pickupTick(player: Player)
 	local all = d.ownsAutoAdvance(player)
 	local root = if all then nil else d.rootPosition(player)
 	if not all and root == nil then
+		return
+	end
+	-- 이동 의심(순간이동 · 스피드핵 — MovementGuard) 동안은 그 위치로 줍지 않는다(이 틱을 건너뛴다). 자동 진행 보유자는 거리를 안 본다
+	if not all and d.isMoveTrusted ~= nil and not d.isMoveTrusted(player) then
 		return
 	end
 	local wasEmpty = bagUsed(state.bag) == 0

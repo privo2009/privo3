@@ -69,6 +69,8 @@ local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local AuraService = require(script.Parent.AuraService)
 -- 로벅스 효과(지시서 #16 S5): 2배 데미지 게임패스 · 데미지 포션.
 local ShopEffects = require(script.Parent.ShopEffects)
+-- 이동 의심(지시서 #43 2부). MovementGuard는 이 파일을 require하지 않는다(순환 없음).
+local MovementGuard = require(script.Parent.MovementGuard)
 
 type BigNumber = BigNum.BigNumber
 
@@ -87,6 +89,7 @@ AttackService.RESULT_NO_CHARACTER = "no_character"
 AttackService.RESULT_NO_STRENGTH = "no_strength"
 AttackService.RESULT_OUT_OF_RANGE = "out_of_range"
 AttackService.RESULT_NO_CHANGES = "no_changes"
+AttackService.RESULT_MOVE_SUSPECT = "move_suspect" -- 이동 의심(지시서 #43 2부 — MovementGuard) 동안 그 틱은 치지 않는다
 
 local RESULT_OK = AttackService.RESULT_OK
 local RESULT_NO_RUN = AttackService.RESULT_NO_RUN
@@ -95,6 +98,7 @@ local RESULT_NO_CHARACTER = AttackService.RESULT_NO_CHARACTER
 local RESULT_NO_STRENGTH = AttackService.RESULT_NO_STRENGTH
 local RESULT_OUT_OF_RANGE = AttackService.RESULT_OUT_OF_RANGE
 local RESULT_NO_CHANGES = AttackService.RESULT_NO_CHANGES
+local RESULT_MOVE_SUSPECT = AttackService.RESULT_MOVE_SUSPECT
 
 -- 블록 클러스터의 중심. 위 "판정 원점" 참고.
 --
@@ -210,6 +214,8 @@ export type Deps = {
 	applyDamage: (Player, Vector3, BigNumber) -> any,
 	-- 펀치 데미지 업그레이드 배수(1 이상). 0레벨이면 1
 	getDamageMultiplier: (Player) -> number,
+	-- 위치를 믿어도 되나(지시서 #43 2부 — MovementGuard.isTrusted). 없으면 믿는다(기록용 deps · 예전 테스트)
+	isMoveTrusted: ((Player) -> boolean)?,
 }
 
 -- 펀치 한 번. 순서는 아래 주석의 번호가 곧 계약이다.
@@ -235,6 +241,11 @@ local function runPunch(deps: Deps, player: Player): PunchOutcome
 	local position = deps.getPosition(player)
 	if position == nil then
 		return { result = RESULT_NO_CHARACTER }
+	end
+
+	-- 3b. 이동 의심(순간이동 · 스피드핵 — MovementGuard). 그 위치를 믿지 않고 이 틱을 건너뛴다(값은 아무것도 바꾸지 않는다 · 킥 없음).
+	if deps.isMoveTrusted ~= nil and not deps.isMoveTrusted(player) then
+		return { result = RESULT_MOVE_SUSPECT }
 	end
 
 	-- 4. 거리 판정. ⚠️ 비교를 직접 쓰지 않는다 — 경계 규약은 AttackConfig가 소유한다.
@@ -311,6 +322,7 @@ local REAL: Deps = {
 	applyDamage = function(player: Player, position: Vector3, damage: BigNumber)
 		return ChallengeService.applyDamage(player, position, damage)
 	end,
+	isMoveTrusted = MovementGuard.isTrusted,
 	getDamageMultiplier = function(player: Player)
 		local passMult, potionMult = ShopEffects.damage(player)
 		return combineDamageMultiplier({
