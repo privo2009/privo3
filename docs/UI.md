@@ -177,11 +177,11 @@ kit_<칸>   키트 그림 11칸(card · cardSelected · tab · tabSelected · ga
 켜기      src/client/UI/WindowBoot.client.lua  local TEST_UI_PREVIEW: boolean? = true  → Play
           ⚠️ 커밋 값은 nil(tools/check_test_gate.py · UiKitTests가 잡는다). Studio가 아니면 켜도 돌지 않는다(TestGate.flagOn)
 목록      화면 왼쪽 띠 — Forge · Equipment · Pet · Title · Aura · Shop · Rebirth · Warp · AutoAdvance · Settings · Code ·
-          Daily · Result · RebirthNotice · Toast · Hatch · KIT(키트 견본) · en/ko · LONG
+          Daily · Result · RebirthNotice · Toast · Hatch · KIT(키트 견본) · LANG · LONG
 예시 데이터 창마다 실물 창 모듈의 create()를 예시 Store(Store.new) · 예시 새 경제 값으로 따로 만든다 — 곡괭이 등급 5종 · 광석 10 · 토큰 ·
           펫 전부 · 칭호 절반 · 아우라 1팩 · 부스트 · 일일 3일째. 요청 · 구매는 아무 데도 안 나간다(빈 함수) · 프로필을 건드리지 않는다
 KIT       버튼 6색 · 눌림 · 비활성 · 탭 · 게이지 · 장비 등급 6칸 · 희귀도 6칸 · 확률 표 줄 · 토스트
-en/ko     지금 언어를 바꾸고 보던 창을 다시 만든다. ⚠️ 모듈을 불러올 때 정해지는 문장(창 제목 상수 등 61곳)은 접속 언어 그대로 —
+LANG      지금 언어를 다음 지원 언어로 바꾸고(en → ko → es → pt → fr → de — #40) 보던 창을 다시 만든다. ⚠️ 모듈을 불러올 때 정해지는 문장(창 제목 상수 등 61곳)은 접속 언어 그대로 —
           전부 보려면 Bootstrap TEST_LOCALE도 같이 켠다
 LONG      모든 문장을 두 번 이어 붙인다(Locale._setStretch) — 넘침 · 줄어든 글자 확인
 쓰는 법    스킨(UiSkin)을 바꾼다 → 플래그 켜고 Play → 목록을 차례로 눌러 본다 → 플래그 nil로 되돌리고 커밋
@@ -732,6 +732,8 @@ TextScaled        켜 둔다 — 긴 문장은 글자가 작아진다
 - 영어가 한국어보다 많이 긴 문장(2배 이상) 목록은 `docs/PENDING.md` "#L1 완료 보고"에 있다. #L2가 그 화면부터 본다
 - 넘치면 문장을 줄인다(영어 · 한국어 각자). 칸을 키우는 것은 세이프존 예산을 다시 보는 일이라 따로 정한다
 - 새 문장을 쓸 때는 영어 · 한국어 둘 다 그 칸에서 읽히는지 본다(`docs/LOCALIZATION.md` "새 문장을 추가하는 법")
+- 유럽 4개 언어(#40)는 영어보다 길어지기 쉽다. 폰 틀 넘침 테스트(창 · 띠 · 토스트)가 그 Play의 언어를 재므로 `TEST_LOCALE`을 언어마다 바꿔 Play한다.
+  긴 번역 목록은 `python3 -I tools/check_strings.py --long`, 언어별 상태는 `docs/LOCALIZATION.md` "6. 유럽 4개 언어"
 
 ---
 

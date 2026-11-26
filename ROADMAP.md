@@ -1,6 +1,6 @@
 # 개발 로드맵
 
-문서 갱신: 2026-11-26 (지시서 #39 — UI 키트 · 스킨 한 표 · UI 미리보기 · 음수 재화 조이기 · 테스트 4931)
+문서 갱신: 2026-11-26 (지시서 #40 — 다국어 확장 es · pt · fr · de · 테스트 4959)
 
 ## 원칙
 - 아래에서 위로 쌓는다. BigNum이 흔들리면 전부 무너진다
@@ -126,6 +126,7 @@
 | `Tests/WindowProductTests.client.lua` | 30 | 창별 상품 버튼 — 아우라 로벅스 탭 · 롤 사용 · 펫 로벅스 탭 · ×3 부화 · 칭호 10배 행운 버튼 · 운동기구 프롬프트 · 선해금 표시 · 폰 705×338 넘침 0 · 11px(#17) |
 | `Tests/AutoAdvanceWindowTests.client.lua` | 28 | 자동 진행 UI — 창 값 = 서버 요약 · 목표층 범위 · 기본 = 안전층 · 버튼 색 · 글자(안전층 경계) · 요청 한 번만 · 켜지면 닫힘 · HUD 세 상태 · 상태 줄 · 사유 · 워프 · 환생 auto_active 문구 · 17키 en · ko · 폰 705×338(#18) |
 | `Tests/LocaleTests.server.lua` | 39 | 다국어 표 · 고르기(#L1) — 모든 키에 en · 자리 표시 집합 = en · 없는 키 "?" + WARN · ko 없으면 en · 치환 · 언어 고르기(K2) · TEST_LOCALE 관문(Studio 전용) · Config id → 이름 키(K6) · 커밋된 TEST_LOCALE = nil · K11 신호 기다리기(바로 · 늦게 · 상한) · 서버가 LocaleReady를 세운다(#L2) |
+| `Tests/LocaleLangTests.server.lua` | 28 | 유럽 4개 언어(#40) — 지원 언어 6 · Lang 파일 목록 · 언어 판별(es-mx · pt-pt · fr-ca · 대문자 · 밑줄 · 그 밖 en) · 고아 키 0 · 언어마다 모든 키 · 자리 표시 = en · 줄바꿈 = en · 없거나 빈 번역 → en · 메뉴 라벨 8자 · TEST_LOCALE de · Kick 안내문 |
 | `Tests/LocaleClientTests.client.lua` | 27 | K10 우리 GUI 루트 전수 AutoLocalize = false(예외: Freecam · 플레이스 StarterGui 복사본) · K11 지금 언어 = TEST_LOCALE 또는 계정 언어 · 첫 언어는 서버 신호 뒤 · 신호 전 기억 없는 호출 0 · 토스트 setLimit · 알림층 폰 705×338 틀(런 안내 3 · 오류 · 로딩 · 환생 안내 · 가장 긴 칭호 · 아우라 · 펫 토스트 · 결과 모달 — 넘침 0 · 11px · 그 Play의 언어) · 토스트 폰 예외(2개 · 두 줄)(#L2) · 글자 전부 UiTheme.FONT · 힘 블록 환생 배수 라벨 폰 한 줄 · 값 · 힘 수치와 안 겹침(#17 F1 · F2) · K10 화면이 상한 15초 안에 섰다(#26 +1) · **방식 변경(#26):** K11 Studio 전용 2개는 Studio 밖이면 건너뜀 2개로 센다 · 모달 등장 연출은 자기 판만 끝낸다(#27 — finishAll 경합 · 개수 그대로) |
 | `Systems/RewardServiceTests.server.lua` | 19 | 무료 보상 지급 R1 — 형식(포션 힘 · 데미지만 · bloxScaled · 펫) · bloxScaled 양(maxStage 0 · 9 · 25 · 상한) · 세 형식 지급 · 전부 아니면 0(틀린 항목 · 보관함 가득 · 블럭스 거부 · 프로필 없음) · PetService.grant(uid · 자동 장착 · 새 펫 저장 · 가득)(#20) |
 | `Systems/DailyServiceTests.server.lua` | 35 | 일일 보상 D1 ~ D5 · T1 — UTC 일 번호 경계 · 판정(처음 · 연속 · 끊김 · 오늘 · 7일 뒤 · 깨진 값) · 받기 · 같은 날 두 번 · 7일째 리미티드 · 보관함 가득 거부 후 같은 날 성공 · 날이 바뀌면 1일 · 요청 채널 · 리미티드(알 표에 없음 · 크래프팅) · 보상표 · TEST_DAY_OFFSET 관문 · 커밋 nil · PlayerState daily(#20) |
@@ -146,7 +147,7 @@
 | `Data/ProfileManagerTests.server.lua` | 18 | 데이터 안전(#38 — 가짜 저장소) — 저장소 없음 · 세션 잠금 실패 · 로딩 중 나감 · 버전 오류 · 손상 → 킥 키 · 세션 닫음 · 킥 문구 en · ko · 세션 끝 경고 구분 · 서버 종료 12명 저장 기다림 · 상한 · 프로필 크기(3시간 · 최악 vs 4,194,304) · 음수 재화 → 0 · 경고(#39) |
 | `Tests/AnalyticsFunnelTests.server.lua` | 25 | 분석 #38 — 한도 · 온보딩 9단계 이름 · 지난 단계 계산(줄지 않는 값 · 차례) · 처음 온 사람 · 돌아온 사람 · 중복 없음 · 곡괭이 종 수 · 코인 경제(모아 보내기 · Sink · 자원 따로) · 나가면 지움 |
 | `Tests/UiKitTests.client.lua` | 53 | UI 키트(#39) — 역할 이름(role · grade · rarity · text · 모르는 이름 오류) · 스킨 기본값 = #39 이전 숫자 · UiSkin 빈 표 · 덮기 · 되돌리기 · styleText · card · skinImage · tab · gauge · toastRow · oddsRow · currencyChip · modalPanel · dim · 틀 여백(0이면 이전 식 · 두께만큼 안으로 · Panel.create) · 미리보기 게이트(flagOn · 커밋 nil · STUDIO_FLAGS) · 창 전부 예시로 만들어짐 · 등급 5종 · AssetSlots UI 칸 · 긴 문장 |
-| **합계** | **4931** | 서버 82행 3353 · 클라 46행 1578 — 2026-11-26 #39 Play 2번 실측(Studio 플래그 전부 nil · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
+| **합계** | **4959** | 서버 83행 3381 · 클라 46행 1578 — 2026-11-26 #40 Play 2번 실측(Studio 플래그 전부 nil · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -174,7 +175,18 @@
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-11-26 Studio Play 런타임 실측 (전량, 지시서 #39 — UI 키트 · 창 이관 · 미리보기 · 음수 재화 · 플래그 전부 nil Play 2번).**
+최근 갱신: **2026-11-26 Studio Play 런타임 실측 (전량, 지시서 #40 — 다국어 확장 · 플래그 전부 nil Play 2번).**
+129개 행 전부가 두 Play 모두에 같은 개수로 찍혔다. **4959 passed / 0 failed** — 서버 3381(83행) + 클라 1578(46행). 끝 표시 `server 83/83 files · 3381` ·
+`client 46/46 files · 1578`. 기준은 #39 최종(서버 82/82 3353 · 클라 46/46 1578).
+
+```
+신설   LocaleLangTests          28   유럽 4개 언어 — 판별 · 키 · 자리 표시 · 줄바꿈 · en 대체 · 메뉴 8자 (26710be)
+바뀐 줄 LocaleTests 39 그대로 — 기대 2줄만(es-es → en을 es로 · 모르는 TEST_LOCALE 예 fr을 ja로. fr은 이제 지원 언어)
+그대로 클라 46행 전부(넘침 테스트는 그 Play 언어 — 언어별 TEST_LOCALE Play 4번에서도 넘침 0으로 맞췄다. 그 Play들은 개수에 안 쓴다)
+대조   서버 3353 + 28(신설) = 3381 · 클라 1578 그대로 · 합 4931 + 28 = 4959
+```
+
+그 전 갱신: **2026-11-26 Studio Play 런타임 실측 (전량, 지시서 #39 — UI 키트 · 창 이관 · 미리보기 · 음수 재화 · 플래그 전부 nil Play 2번).**
 128개 행 전부가 두 Play 모두에 같은 개수로 찍혔다. **4931 passed / 0 failed** — 서버 3353(82행) + 클라 1578(46행). 끝 표시 `server 82/82 files · 3353` ·
 `client 46/46 files · 1578`. 시작 기준 Play는 #38 최종과 같았다(서버 82/82 3349 · 클라 45/45 1525).
 
@@ -1935,6 +1947,8 @@ x2 Rebirths 판매 중지(체크리스트 30 — 지금 바로) · 게임 아바
 [코드]  ✅ #38 테스트 프리셋 새 경제로(fresh · min10 · min30 · hour1 · hour2 · hour3)
 [코드]  ✅ #39 UI 키트 · 스킨 한 표(Config/UiSkin) · 창 이관(모양 그대로) · UI 미리보기(TEST_UI_PREVIEW) — 1월 UI 템플릿 준비(docs/UI.md "UI 키트")
 [코드]  ✅ #39 음수 재화 조이기 — CurrencyService 결과 음수 거부 · 불러올 때 0 + 경고(Schema.validate는 그대로)
+[코드]  ✅ #40 다국어 확장 — es · pt(브라질) · fr · de 528키씩(AI 번역 · 원어민 검수 전 — docs/LOCALIZATION.md 6절)
+[수동]  #40 유럽 4개 언어 원어민 검수 · 대시보드 상품 번역(4개 언어) — docs/PENDING.md "#40 남은 것"
 [코드]  Analytics (D1/D7/D30 리텐션 측정) → 경제 · 커스텀 이벤트 래퍼(#23 A1 ~ A5 — DESIGN 14장) + ✅ #38 온보딩 퍼널 9단계 · 코인 · pickaxe_kinds(14-2). 리텐션 차트는 대시보드 몫
 [수동]  비공개 테스트 → 밸런싱 조정
 ```

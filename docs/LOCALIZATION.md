@@ -1,6 +1,6 @@
 # 다국어 (사람용 한 장)
 
-문서 갱신: 2026-10-25 (지시서 #L1)
+문서 갱신: 2026-11-26 (지시서 #40 — 스페인어 · 포르투갈어(브라질) · 프랑스어 · 독일어 · 언어별 용어집 · 긴 문장 목록)
 
 게임 언어 결정은 `DESIGN.md` "12. 언어"가 원본이다. 이 문서는 **어떻게 돌아가고, 무엇을 어떻게 고치는지**만 둔다.
 
@@ -10,6 +10,7 @@
 
 ```
 src/shared/Localization/Strings.lua      원본. 키 → { en = 영어, ko = 한국어 }
+src/shared/Localization/Lang/<코드>.lua   유럽 4개 언어(es · pt · fr · de — #40). 한 줄에 ["키"] = "문장" — Strings가 불러올 때 합친다
         │
         ├─ 게임 안   Locale.t(키, 자리 표시)  →  화면 글자
         │            (src/shared/Localization/Locale.lua — 언어 고르기 · 없는 번역 처리 · 자리 표시 채우기)
@@ -20,7 +21,9 @@ src/shared/Localization/Strings.lua      원본. 키 → { en = 영어, ko = 한
 
 - **원본은 저장소의 Strings 하나다.** 클라우드 표는 내보내기다. 클라우드 표에서 직접 고친 번역은 다음 내보내기 때
   덮일 수 있으니, 고칠 것은 Strings에 고치고 다시 올린다
-- 언어 고르기: 로블록스 계정 언어(`Player.LocaleId`)가 `ko`로 시작하면 한국어, 그 밖은 전부 영어
+- 언어 고르기: 로블록스 계정 언어(`Player.LocaleId`)의 앞 두 글자가 지원 언어(`Locale.SUPPORTED` — en · ko · es · pt · fr · de)면 그 언어,
+  그 밖은 전부 영어(#40). 예: `es-es` · `es-mx` → es, `pt-br` · `pt-pt` → pt, `fr-fr` · `fr-ca` → fr, `de-de` → de
+  (언어 코드 · Locale ID 표: 공식 문서 language-codes — 2026-11-26 확인)
 - 번역이 없거나 빈 키는 영어로 보인다. 영어도 없으면 `?`가 보이고 출력 창에 WARN이 찍힌다(키 이름은 화면에 안 나간다)
 
 ### 화면 이름 (칭호 · 아우라 · 펫 · 알 · 업그레이드 · 상품)
@@ -37,7 +40,7 @@ Config 파일에는 id만 있다. 화면 이름은 id로 키를 만들어 String
 
 ### Studio에서 언어 바꿔 보기 — TEST_LOCALE
 
-`src/server/Bootstrap.server.lua`의 `TEST_LOCALE`에 `"en"` 또는 `"ko"`를 적고 Play하면 그 언어로 보인다(Studio 전용).
+`src/server/Bootstrap.server.lua`의 `TEST_LOCALE`에 `"en"` · `"ko"` · `"es"` · `"pt"` · `"fr"` · `"de"` 중 하나를 적고 Play하면 그 언어로 보인다(Studio 전용).
 ⚠️ 커밋할 때는 반드시 `nil`로 되돌린다. `LocaleTests`가 커밋 값이 nil인지 잰다 — 켠 Play에서는 그 줄이 실패하니 그 Play로 테스트 개수를 세지 않는다.
 
 **K11 (#L2, 2026-10-29 사람 결정) — 첫 프레임부터 그 언어.** 서버 `LocaleGate.init`이 TEST_LOCALE을 정한 뒤 ReplicatedStorage 속성
@@ -67,6 +70,8 @@ Config 파일에는 id만 있다. 화면 이름은 id로 키를 만들어 String
    - 영어: 짧게. 버튼은 명령형(`Hatch` · `Equip` · `Claim`). 문장 끝 마침표 없음(안내문만 마침표)
    - 한국어: 지금 화면 말투(해요체) 그대로
    - 용어는 아래 "4. 용어집"을 따른다
+   - 유럽 4개 언어도 같은 키로 `Lang/es.lua` · `pt.lua` · `fr.lua` · `de.lua`에 한 줄씩 넣는다(#40). 빠지면 그 언어에서 영어가 보이고
+     `check_strings`가 "번역 없음"으로 실패한다. 자리 표시 · 줄바꿈은 영어와 똑같이
 2. 바뀌는 값은 자리 표시 `{이름}`으로 둔다. 영어 · 한국어 둘 다 **같은 자리 표시 집합**이어야 한다(검사가 잰다)
    ```
    ["aura.pack.info"] = { en = "Pack {pack} · {cost} Blox per roll", ko = "팩 {pack} · 1회 {cost} 블럭스" },
@@ -92,8 +97,11 @@ Config 파일에는 id만 있다. 화면 이름은 id로 키를 만들어 String
 ```
 가. 로블록스 자동 번역  Strings는 en · ko 그대로. 클라우드 표에 CSV를 올리고 그 언어 자동 번역을 켠다
                        → 런타임이 클라우드 표를 읽어야 보인다(아래 "5. 런타임 연결" 나중 방식)
-나. 직접 번역           Strings에 그 언어 열을 추가한다(예: es = "..."). Locale.SUPPORTED에 언어 코드를 넣는다
+나. 직접 번역           Lang/<코드>.lua를 만들고(es.lua 꼴) Strings.LANG_FILES · Locale.SUPPORTED · check_strings LANG_FILES ·
+                       export_localization_csv LANGS에 코드를 넣는다
 ```
+
+**유럽 4개 언어(es · pt · fr · de)는 나.로 넣었다(지시서 #40 — AI 번역 · ⚠️ 원어민 검수 전).** 상태 · 남은 일은 아래 "6. 유럽 4개 언어".
 
 가.의 절차(처음 한 번):
 1. Creator Hub → 게임 → **Audience → Localization**에서 원본 언어(Source Language)를 **English**로 둔다
@@ -154,6 +162,48 @@ Strings 상단 주석에 같은 표가 있다. 바꿀 때는 둘 다 바꾼다(�
 ```
 Strings 키: `ore.name.<1 ~ 10>` · `pickaxe.name.<id>`(id = `EconomyV2Config.PICKAXES`). 설정의 `nameKey`가 키를 가리킨다.
 
+### 언어별 용어집 (지시서 #40 — 언어마다 한 번만 정하고 모든 문장에서 이 낱말)
+
+핵심 14개(지시서 #40이 정한 목록). 동사 · 명사 꼴은 같은 낱말 집안으로 본다(Renacer / renacimiento).
+```
+한국어 · 영어           es(스페인어)       pt(브라질)          fr(프랑스어)        de(독일어)
+블럭스 Blox             Blox               Blox                Blox                Blox
+코인 Coin               Monedas            Moedas              Pièces              Münzen
+힘 Power                Poder              Poder               Force               Kraft
+환생 Rebirth            Renacer            Renascer            Renaître            Rebirth
+대장간 Forge            Forja              Forja               Forge               Schmiede
+곡괭이 Pickaxe          Pico               Picareta            Pioche              Spitzhacke
+광석 Ore                Mineral            Minério             Minerai             Erz
+토큰 Token              Ficha              Ficha               Jeton               Token
+게이지 Gauge            Medidor            Medidor             Jauge               Leiste
+별 Star                 Estrella           Estrela             Étoile              Stern
+강화 Enhance            Reforzar           Aprimorar           Renforcer           Verstärken
+가방 Bag                Mochila            Mochila             Sac                 Tasche
+수령 Claim              Cobrar             Coletar             Encaisser           Einsammeln
+진행 Advance            Avanzar            Avançar             Avancer             Weiter
+```
+그 밖에 같이 맞춘 낱말:
+```
+층 Floor                Piso               Andar               Étage               Etage
+런 Run                  Ronda              Rodada              Partie              Runde
+펫 Pet                  Mascota            Pet                 Animal              Pet
+알 Egg · 부화 Hatch     Huevo · Abrir      Ovo · Chocar        Œuf · Éclore        Ei · Brüten
+제작 · 크래프팅 Craft   Fabricar           Criar               Fabriquer           Herstellen
+교환 Exchange           Intercambio        Troca               Échange             Tausch
+행운 Luck · 뽑기 Roll   Suerte · Tirada    Sorte · Giro        Chance · Tirage     Glück · Wurf
+업그레이드 Upgrade      Mejora             Melhoria            Amélioration        Upgrade
+운동기구 Gym            Gimnasio           Academia            Gym                 Gym
+워프 Warp               Viajar             Viajar              Voyager             Reisen
+자동 진행 Auto Advance  Auto avance        Avanço automático   Avance auto         Auto-Weiter
+                                           (HUD 칸만 Auto avanço)
+설정 Settings           Ajustes            Ajustes             Réglages            Optionen
+```
+- 말투: es tú(vosotros 안 씀 — 중남미에서도 어색하지 않게) · pt você(브라질) · fr tu · de du
+- 고른 까닭(#40): de 환생은 독일어 게임 화면에서 흔한 "Rebirth"(Wiedergeburt는 메뉴 8자 규칙에 안 들어간다) ·
+  fr 힘은 처음 Puissance였다가 폰 넘침 4곳 때문에 Force로 바꿨다 · 메뉴 라벨은 모두 8자 이하(MenuRailTests · LocaleLangTests)
+- 광석 · 곡괭이 이름은 4개 언어도 **임시 이름**이다(Lang 파일 줄 끝 `-- 임시 이름` 그대로). 확정되면 다섯 언어 다 바꾼다
+- 게임 이름은 Strings에 없다(번역하지 않는다)
+
 - 상품 이름은 대시보드 이름과 같은 표기를 쓴다: `x2 Power` · `Auto Clicker` · `Lucky Roll x5` 꼴(배수가 앞, 횟수가 뒤)
 - 아우라 · 펫 · 알 개별 영어 이름은 #L1에서 Claude가 한국어 뜻을 살려 지었다 — 바꾸려면 Strings에서 바꾼다
 
@@ -162,10 +212,10 @@ Strings 키: `ore.name.<1 ~ 10>` · `pickaxe.name.<id>`(id = `EconomyV2Config.PI
 ## 5. 런타임 연결 — 지금 방식 / 나중 방식
 
 ```
-지금    Strings만 쓴다. en · ko는 게임 안 표에서 바로 고른다. 클라우드 표를 읽지 않는다
+지금    Strings만 쓴다. SUPPORTED(en · ko · es · pt · fr · de)는 게임 안 표에서 바로 고른다. 클라우드 표를 읽지 않는다
         Locale.CLOUD_TRANSLATOR_ENABLED = false (커밋 값)
 
-나중    en · ko 밖의 언어 플레이어에게만 클라우드 표의 번역을 쓴다
+나중    SUPPORTED 밖의 언어 플레이어에게만 클라우드 표의 번역을 쓴다
         LocalizationService:GetTranslatorForPlayerAsync(플레이어)로 Translator를 한 번 받고,
         Locale.t가 Translator:FormatByKey(키, 자리 표시)를 먼저 해 본다. 실패 · 없음이면 영어(Strings)
         Translator를 받기 전(비동기)에는 영어로 보인다
@@ -194,3 +244,25 @@ Strings 키: `ore.name.<1 ~ 10>` · `pickaxe.name.<id>`(id = `EconomyV2Config.PI
 - 자동 번역 · 자동 텍스트 캡처 · 원본 언어 가정 — https://create.roblox.com/docs/production/localization/automatic-translations
 - `Player.LocaleId`(게임 콘텐츠 현지화에 쓰는 계정 언어) — https://create.roblox.com/docs/reference/engine/classes/Player#LocaleId
 - 언어 코드(한국어 `ko` · `ko-kr`) — https://create.roblox.com/docs/production/localization/language-codes
+
+---
+
+## 6. 유럽 4개 언어 — 상태 (지시서 #40, 2026-11-26)
+
+```
+언어        파일                   키      상태
+es          Lang/es.lua            528     AI 번역 · 원어민 검수 전 (중남미에서도 쓰는 표현)
+pt          Lang/pt.lua            528     AI 번역 · 원어민 검수 전 (브라질)
+fr          Lang/fr.lua            528     AI 번역 · 원어민 검수 전
+de          Lang/de.lua            528     AI 번역 · 원어민 검수 전
+```
+- 검사: `python3 -I tools/check_strings.py` — 4개 언어 키 누락 · 빈 문자열 · 자리 표시 ≠ en · 줄바꿈 수 ≠ en · 표에 없는 키(고아)가 실패다.
+  Play에서는 `LocaleLangTests`가 같은 규칙과 언어 판별 · en 대체 · 메뉴 8자를 잰다
+- 길이: `python3 -I tools/check_strings.py --long` — 영어보다 글자 수 1.4배 이상인 번역 목록(`[짧은]` = 영어 12자 이하 버튼 · 라벨).
+  2026-11-26 309개(es 91 · pt 61 · fr 90 · de 67) — 대부분 짧은 낱말(Buy → Comprar 꼴)이라 칸 문제는 아니다
+- 화면: TEST_LOCALE로 언어마다 Play해 폰 틀(705×338) 넘침 검사(창 · 띠 · 토스트 테스트)를 0으로 맞췄다. 그 과정에서 줄인 키는
+  es 8 · pt 4 · fr 6(+ 힘 낱말 Force로) · de 10. 스크린샷(언어마다 HUD · 대장간 · 장비 · 펫 · 상점 · 환생 · 아우라 · 일일 보상)은
+  세션 기록 `HANDOFF/40/screens`
+- 상품 이름 · 설명의 대시보드 번역(게임패스 · 개발자 상품)은 ko와 같이 **사람이 대시보드에서 넣는다**(3절 "대시보드 상품 이름의 번역").
+  게임 안 상점 문장(Strings)과 같게 넣는다 — 할 일은 `docs/PENDING.md` "#40 남은 것"
+- 원어민 검수가 끝나면 이 표의 상태를 바꾸고, 고친 문장은 Lang 파일에서 고친다(클라우드 표가 아니라)

@@ -9,7 +9,7 @@
 `docs/UI_HANDOFF.md`와 합치지 않는다. 그것은 인계 절차와 검증 관문 문서이고
 이것은 대기 큐다. 성격이 다르다.
 
-문서 갱신: 2026-11-26 (지시서 #39 — "#39 남은 것" 절 · #38 판단 확정 · #38 사람 확인 4건 나눠 옮김 · 음수 재화 해소)
+문서 갱신: 2026-11-26 (지시서 #40 — "#40 남은 것" 절: 유럽 4개 언어 검수 · 대시보드 상품 번역 · #41 화면 확인 목록)
 
 ---
 
@@ -302,6 +302,46 @@ PlayerState 바뀐 필드만   한 명이 받는 양의 98%(0.2초마다 약 1 K
 **테스트 흔들림(#38 실측 — 고침)**: DupeTests 가방 줄이 hour2 Play 1번 실패 — OreDropServiceTests가 잠깐 가짜 경제 고리를 끼운 사이에
 돌았다. 실물 고리가 걸릴 때까지 기다리게 고침(`4f5da3f`). 다른 테스트가 바꿔 끼우는 모듈 값(_deps · economyHooks)을 쓰는 새 테스트는
 같은 방식으로 실물이 돌아올 때까지 기다리고, 그 뒤로는 yield하지 않는다
+
+### #40 남은 것 — 유럽 4개 언어 (2026-11-26)
+
+구조 · 용어집 · 상태 → `docs/LOCALIZATION.md` 4 · 6절. 언어마다 스크린샷 `HANDOFF/40/screens`(세션 기록 — 집 PC에서 해서 #41 1부는 건너뛴다).
+
+**사람이 정할 것**
+```
+1  원어민 검수 — 누구에게 · 언제(출시 전에 꼭 할지). 지금 4개 언어 전부 AI 번역이다(LOCALIZATION 6절 "원어민 검수 전")
+```
+
+**사람 할 일**
+```
+대시보드 상품 번역   게임패스 · 개발자 상품 이름 · 설명을 es · pt · fr · de로(Localization → Translate → Products).
+                     넣을 문장은 Lang/<코드>.lua의 shop.<키>.name · .desc — 게임 안 상점과 같게(LOCALIZATION 3절)
+```
+
+**Claude 판단(확인 필요)**
+```
+구조           언어마다 파일 따로(Localization/Lang/<코드>.lua) — Strings 한 줄에 6개 언어를 넣으면 줄이 너무 길어 검수자에게 줄 수 없다
+판별           Locale ID 앞 두 글자(es-mx → es · pt-pt → pt · fr-ca → fr). 스페인어는 중남미 · 포르투갈어는 브라질 표현 하나로
+용어           de 환생 = Rebirth(번역 안 함) · fr 힘 = Force(Puissance는 폰에서 넘침) · fr 펫 = Animal · pt · de 펫 = Pet
+상품 이름      ko처럼 게임 안에서 번역했다(x2 Poder 꼴 — 배수가 앞 규칙 유지)
+줄인 이름      폰 토스트 넘침 때문에 뜻이 조금 바뀐 이름: es Genio del Monte · Gusano Cristal / pt Gênio do Monte /
+               fr Briseur(칭호 Destroyer) · Ruine(아우라 Collapse) · Ver Cristal / de Schwarzloch · Baumriese
+제목 줄임      es · fr 새 펫 알림 머리 "¡Nueva!" · "Nouveau !"(펫 낱말 없이 — 토스트 폭)
+```
+
+**#41에서 화면으로 볼 것**(테스트는 통과 — 눈으로만 남은 것)
+```
+de 장비 칸     Sternenschmied-Spitzhacke가 아주 작게 줄어든다(11px 이상이지만 읽기 어렵다) — 이름이 임시라 확정 때 같이 본다
+de 건너뛰기    Überspringen(안내 띠 · 제작 연출 버튼)
+펫 ×3 부화     작은 버튼 글자(4개 언어 · 영어 모두 작다)
+3D 안내판      수령 발판 · 진행 벽 · 클릭 패드 · 기구 안내(BillboardGui — 폰 넘침 테스트 밖)
+안 찍은 창     칭호 · 워프 · 자동 진행 · 설정 · 코드 · 결과 모달 · 환생 알림 · 부화 연출
+접속 끊김 안내  Kick 문장(화면으로 못 띄운다 — 표만 확인)
+긴 번역 목록    tools/check_strings.py --long 309개(대부분 짧은 낱말) — 위 넘침 테스트가 못 보는 칸만 골라 본다
+```
+
+**관측**: 언어별 Play(플래그 켬) 한 번에서 `UiFxTests` "누름" 1줄 실패 — 그 직전 Play에서 MCP 마우스로 목록을 눌렀다(#33 · #34와 같은 실제 입력 간섭으로 본다).
+플래그 nil 개수 Play 2번에서는 0. 다시 나오면 그때 본다.
 
 ### #39 남은 것 — UI 키트 · 미리보기 · 1월 템플릿 준비 (2026-11-26)
 
