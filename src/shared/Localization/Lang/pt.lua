@@ -299,7 +299,7 @@ return {
 	["pickaxe.name.pick_m1"] = "Picareta da Tempestade", -- 임시 이름
 	["pickaxe.name.pick_m2"] = "Picareta de Magma", -- 임시 이름
 	["pickaxe.name.pick_m3"] = "Picareta de Geada", -- 임시 이름
-	["pickaxe.name.pick_l1"] = "Picareta Forja-Estelar", -- 임시 이름
+	["pickaxe.name.pick_l1"] = "Picareta Estelar", -- 임시 이름
 	-- 새 경제 HUD · 알림
 	["econ.coins.label"] = "Moedas",
 	["econ.bag.label"] = "Mochila",

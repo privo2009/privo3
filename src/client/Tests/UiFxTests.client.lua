@@ -184,23 +184,37 @@ end
 
 do
 	local root, hit = freeButton()
+	-- #41(흔들림 근본 수정): 비교 기준을 "맨 처음 잰 가운데 숫자"가 아니라 같은 자리 · 크기의 투명한 기준 틀로 둔다.
+	-- 접속 직후 화면 윗줄(GuiInset) · 창 크기가 늦게 바뀌면 버튼과 기준 틀이 함께 움직이므로 결과가 흔들리지 않는다
+	-- (#40 de Play에서 "누름" 1줄 실패 — 실제 입력은 #34에서 끊었으니 남은 바깥 의존은 화면 크기 · 전역 설정뿐이었다)
+	local ghost = Instance.new("Frame")
+	ghost.Name = "UiFxGhost"
+	ghost.BackgroundTransparency = 1
+	ghost.AnchorPoint, ghost.Position, ghost.Size = root.AnchorPoint, root.Position, root.Size
+	ghost.Parent = gui
+	local function c0(): Vector2
+		return center(ghost)
+	end
 	task.wait()
-	local pos0, anchor0, c0, size0 = root.Position, root.AnchorPoint, center(root), root.AbsoluteSize
+	local pos0, anchor0 = root.Position, root.AnchorPoint
 	-- #34: 실제 커서 위치에 흔들리지 않게 실제 입력을 끊고 _debug.fire로만 넣는다(커서가 이 버튼 자리에 있으면 "누름"이 실패했다)
-	local h = ButtonFx.attach(hit, { realInput = false }) :: ButtonFx.Handle
+	-- #41: 전역 연출 설정(FxPrefs.global — 프로필 설정이 늦게 와서 바뀔 수 있다)에도 기대지 않게 따로 노는 설정을 쓴다
+	local h = ButtonFx.attach(hit, { realInput = false, prefs = FxPrefs.new() }) :: ButtonFx.Handle
 	check("붙이기: UIScale 하나(이름 ButtonFxScale) · Size · Position 그대로 · 쉬는 동안 1", h ~= nil and h.scale.Name == ButtonFx.SCALE_NAME
 		and h.scale.Scale == 1 and root.Position == pos0 and root.Size == UDim2.fromScale(0.2, 0.1))
 	h._debug.fire("enter", false, true)
 	h._debug.settle()
 	task.wait()
 	check("올림: hover · Scale = HOVER_SCALE", h.state() == "hover" and checkClose(h.scale.Scale, UIFxConfig.HOVER_SCALE))
-	check("올림: 가운데 기준으로 커진다(AnchorPoint (0,0)이어도 — 가운데 1px 안 · 크기 = 원래 × HOVER)", (center(root) - c0).Magnitude <= 1
-		and math.abs(root.AbsoluteSize.X - size0.X * UIFxConfig.HOVER_SCALE) <= 1, string.format("c0=%s c=%s", tostring(c0), tostring(center(root))))
+	check("올림: 가운데 기준으로 커진다(AnchorPoint (0,0)이어도 — 가운데 1px 안 · 크기 = 원래 × HOVER)", (center(root) - c0()).Magnitude <= 1
+		and math.abs(root.AbsoluteSize.X - ghost.AbsoluteSize.X * UIFxConfig.HOVER_SCALE) <= 1,
+		string.format("c0=%s c=%s", tostring(c0()), tostring(center(root))))
 	h._debug.fire("down", false, true)
 	h._debug.settle()
 	task.wait()
 	check("누름: pressed · Scale = PRESS_SCALE · 가운데 그대로", h.state() == "pressed" and checkClose(h.scale.Scale, UIFxConfig.PRESS_SCALE)
-		and (center(root) - c0).Magnitude <= 1)
+		and (center(root) - c0()).Magnitude <= 1,
+		string.format("state=%s scale=%.4f c0=%s c=%s", h.state(), h.scale.Scale, tostring(c0()), tostring(center(root))))
 	h._debug.fire("up", false, true)
 	check("뗌(위에 있음): hover로", h.state() == "hover" and checkClose(h._debug.goal(), UIFxConfig.HOVER_SCALE))
 	h._debug.fire("down", false, true)
@@ -218,6 +232,7 @@ do
 	hit.Active = true
 	check("이미 붙인 HitArea에 다시 붙이면 같은 손잡이", ButtonFx.attach(hit) == h)
 	local before = h._debug.connections()
+	ghost:Destroy()
 	root:Destroy()
 	task.wait()
 	check("파괴: 연결 · 트윈 정리(연결 0) · 목록에서 빠짐", before > 0 and h._debug.connections() == 0 and ButtonFx.get(hit) == nil)

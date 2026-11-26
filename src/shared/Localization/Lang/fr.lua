@@ -299,7 +299,7 @@ return {
 	["pickaxe.name.pick_m1"] = "Pioche de Tempête", -- 임시 이름
 	["pickaxe.name.pick_m2"] = "Pioche de Magma", -- 임시 이름
 	["pickaxe.name.pick_m3"] = "Pioche de Givre", -- 임시 이름
-	["pickaxe.name.pick_l1"] = "Pioche Forge-Étoile", -- 임시 이름
+	["pickaxe.name.pick_l1"] = "Pioche Stellaire", -- 임시 이름
 	-- 새 경제 HUD · 알림
 	["econ.coins.label"] = "Pièces",
 	["econ.bag.label"] = "Sac",

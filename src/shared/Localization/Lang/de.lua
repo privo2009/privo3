@@ -299,7 +299,7 @@ return {
 	["pickaxe.name.pick_m1"] = "Sturmspitzhacke", -- 임시 이름
 	["pickaxe.name.pick_m2"] = "Magmaspitzhacke", -- 임시 이름
 	["pickaxe.name.pick_m3"] = "Frostspitzhacke", -- 임시 이름
-	["pickaxe.name.pick_l1"] = "Sternenschmied-Spitzhacke", -- 임시 이름
+	["pickaxe.name.pick_l1"] = "Sternspitzhacke", -- 임시 이름
 	-- 새 경제 HUD · 알림
 	["econ.coins.label"] = "Münzen",
 	["econ.bag.label"] = "Tasche",

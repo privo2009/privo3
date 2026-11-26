@@ -212,20 +212,37 @@ local function build(name: string, store: any, gui: ScreenGui): Built?
 	elseif name == "Result" then
 		local w = require(Screens.Overlay.ResultModal).create()
 		return { root = w.root, open = function()
+			-- 실제 문장 키로(지시서 #41 — 언어별 화면 확인에 쓰려고. 가장 긴 펫 이름 쪽)
 			local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
-			w.show({ heading = Locale.t("pet.hatching"), name = "Legendary Sample", rarityTier = 6, detail = "x3.5" })
+			local Names = require(ReplicatedStorage.Shared.Localization.Names)
+			w.show({ heading = Locale.t("pet.modal.new"), name = Names.pet("egg2_legendary"), rarityTier = 4,
+				detail = Locale.t("pet.modal.detail", { rarity = Names.rarity(4), gain = Locale.t("pet.gain", { gain = "0.96" }) }) })
 		end, close = w.hide }
 	elseif name == "RebirthNotice" then
 		local BigNum = require(ReplicatedStorage.Shared.BigNum)
 		local w = require(Screens.Overlay.RebirthNotice).create()
 		return { root = w.root, open = function()
-			w.show({ title = "Rebirth!", change = "x1.5 → x2.0", reset = "Blox · Floor", before = BigNum.new(1.5, 0), after = BigNum.new(2, 0) })
+			local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
+			w.show({ title = Locale.t("feedback.rebirth.title"), change = Locale.t("feedback.rebirth.change", { before = "1.50", after = "2.00" }),
+				reset = Locale.t("feedback.rebirth.reset"), before = BigNum.new(1.5, 0), after = BigNum.new(2, 0) })
 		end }
 	elseif name == "Toast" then
 		local w = require(Screens.Overlay.ToastStack).create()
 		return { root = w.root, open = function()
-			for tier = 1, 6 do
-				w.push({ text = "Tier " .. tier .. " sample toast", tier = tier })
+			-- 실제 알림 문장(지시서 #41) — 칭호 · 아우라 · 펫 · 구매 · 자동 진행 사유 · 안내 끝. 등급 색은 1 ~ 6 차례
+			local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
+			local Names = require(ReplicatedStorage.Shared.Localization.Names)
+			local texts = {
+				Locale.t("title.toast", { name = Names.title("breaker"), mult = "×1.10" }),
+				Locale.t("common.toast.result", { heading = Locale.t("aura.modal.new"), name = Names.aura("pack4_epic"), detail = "×3.29" }),
+				Locale.t("common.toast.result", { heading = Locale.t("pet.modal.new"), name = Names.pet("egg2_epic"),
+					detail = Locale.t("pet.modal.detail", { rarity = Names.rarity(3), gain = Locale.t("pet.gain", { gain = "0.68" }) }) }),
+				Locale.t("shop.purchased", { name = Names.product("voidTrainingZone") }),
+				Locale.t("auto.reason.character_lost"),
+				Locale.t("onboarding.done", { reward = "+100" }),
+			}
+			for tier, text in ipairs(texts) do
+				w.push({ text = text, tier = tier })
 			end
 		end }
 	elseif name == "Hatch" then

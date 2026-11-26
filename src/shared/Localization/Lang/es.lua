@@ -299,7 +299,7 @@ return {
 	["pickaxe.name.pick_m1"] = "Pico de Tormenta", -- 임시 이름
 	["pickaxe.name.pick_m2"] = "Pico de Magma", -- 임시 이름
 	["pickaxe.name.pick_m3"] = "Pico de Escarcha", -- 임시 이름
-	["pickaxe.name.pick_l1"] = "Pico Forjaestrellas", -- 임시 이름
+	["pickaxe.name.pick_l1"] = "Pico Estelar", -- 임시 이름
 	-- 새 경제 HUD · 알림
 	["econ.coins.label"] = "Monedas",
 	["econ.bag.label"] = "Mochila",
