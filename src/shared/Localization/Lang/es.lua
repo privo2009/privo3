@@ -2,6 +2,7 @@
 -- 스페인어(es) 화면 문장 (지시서 #40) — ⚠️ AI 번역 · 원어민 검수 전. 중남미에서도 어색하지 않게(tú · vosotros 안 씀).
 -- 키 · 자리 표시 · 줄 꼴 규칙은 Strings.lua와 같다. 이 표는 Strings가 불러와 Entries[키].es로 합친다.
 -- 용어집(언어마다 한 번만 정한 낱말) → docs/LOCALIZATION.md "4. 용어집". 한 줄에 항목 하나 — tools/check_strings.py가 줄 단위로 읽는다.
+-- 고유 이름(광석 · 곡괭이 · 펫 · 알 · 칭호 · 아우라 · 토큰 · 상품 · 구역)은 UI 확정 전까지 이 파일에 두지 않는다 — 영어 이름이 보인다(지시서 #42 · 꼴 목록 Localization/NameKeys.lua).
 
 return {
 	-- 공통
@@ -26,7 +27,7 @@ return {
 	["auto.stopped"] = "Auto avance desactivado",
 	["auto.reason.run_active"] = "Termina primero tu ronda actual",
 	["auto.reason.character_lost"] = "Auto avance detenido: sin personaje",
-	["auto.reason.not_owned"] = "Necesitas Auto avance",
+	["auto.reason.not_owned"] = "Necesitas {name}",
 	["auto.reason.invalid_target"] = "Elige un piso del 1 al {max}",
 	-- 이름
 	["rarity.common"] = "Común",
@@ -34,109 +35,41 @@ return {
 	["rarity.epic"] = "Épico",
 	["rarity.legendary"] = "Legendario",
 	["rarity.limited"] = "Limitado",
-	["title.name.novice"] = "Novato",
-	["title.name.apprentice"] = "Aprendiz",
-	["title.name.breaker"] = "Destructor",
-	["title.name.champion"] = "Campeón",
-	["title.name.legend"] = "Leyenda",
-	["title.name.mythic"] = "Mítico",
-	["aura.name.pack1_common"] = "Destello",
-	["aura.name.pack1_rare"] = "Llama",
-	["aura.name.pack1_epic"] = "Relámpago",
-	["aura.name.pack1_legendary"] = "Aurora",
-	["aura.name.pack2_common"] = "Ráfaga",
-	["aura.name.pack2_rare"] = "Glaciar",
-	["aura.name.pack2_epic"] = "Lava",
-	["aura.name.pack2_legendary"] = "Cometa",
-	["aura.name.pack3_common"] = "Nebulosa",
-	["aura.name.pack3_rare"] = "Eclipse",
-	["aura.name.pack3_epic"] = "Supernova",
-	["aura.name.pack3_legendary"] = "Agujero Negro",
-	["aura.name.pack4_common"] = "Grieta",
-	["aura.name.pack4_rare"] = "Distorsión",
-	["aura.name.pack4_epic"] = "Colapso",
-	["aura.name.pack4_legendary"] = "Singularidad",
-	["aura.name.pack5_common"] = "Génesis",
-	["aura.name.pack5_rare"] = "Apocalipsis",
-	["aura.name.pack5_epic"] = "Eternidad",
-	["aura.name.pack5_legendary"] = "Absoluto",
-	["egg.name.1"] = "Huevo de Madera",
-	["egg.name.2"] = "Huevo de Piedra",
-	["egg.name.3"] = "Huevo de Hierro",
-	["pet.name.egg1_common"] = "Bellota",
-	["pet.name.egg1_rare"] = "Ardilla",
-	["pet.name.egg1_epic"] = "Búho",
-	["pet.name.egg1_legendary"] = "Ent Ancestral",
-	["pet.name.egg2_common"] = "Guijarro",
-	["pet.name.egg2_rare"] = "Golem Bebé",
-	["pet.name.egg2_epic"] = "Gusano Cristal",
-	["pet.name.egg2_legendary"] = "Genio del Monte",
-	["pet.name.egg3_common"] = "Rata Engranaje",
-	["pet.name.egg3_rare"] = "Halcón Mecánico",
-	["pet.name.egg3_epic"] = "Draco de Acero",
-	["pet.name.egg3_legendary"] = "Dios Máquina",
-	["pet.name.limited_dawn"] = "Fénix del Alba",
 	["pet.level.1"] = "Normal",
 	["pet.level.2"] = "Oro",
 	["pet.level.3"] = "Diamante",
 	["pet.level.4"] = "Arcoíris",
-	["world.name.1"] = "Madera",
 	["upgrade.name.punchSpeed"] = "Velocidad de golpe",
 	["upgrade.name.bloxGain"] = "Ganancia de Blox",
 	["upgrade.name.titleLuck"] = "Suerte de Título",
 	["upgrade.name.auraLuck"] = "Suerte de Aura",
 	["upgrade.name.petSlots"] = "Espacios de mascota",
 	["upgrade.name.petLuck"] = "Suerte de Mascota",
-	["boost.strength.name"] = "Poción de Poder",
-	["boost.damage.name"] = "Poción de Daño",
-	["boost.luck.name"] = "Poción de Suerte",
 	["boost.strength.short"] = "Poder",
 	["boost.damage.short"] = "Daño",
 	["boost.luck.short"] = "Suerte",
 	-- 상점 상품
-	["shop.autoClicker.name"] = "Autoclic",
 	["shop.autoClicker.desc"] = "Hace 15 clics por segundo mientras está activo",
-	["shop.autoClickerOP.name"] = "Autoclic OP",
 	["shop.autoClickerOP.desc"] = "Hace 30 clics por segundo mientras está activo",
-	["shop.hatch3x.name"] = "Apertura Triple",
 	["shop.hatch3x.desc"] = "Abre 3 huevos a la vez (costo x3)",
-	["shop.petLuck2x.name"] = "x2 Suerte de Mascota",
 	["shop.petLuck2x.desc"] = "x2 suerte al abrir huevos",
-	["shop.petStorage100.name"] = "+100 Espacio de Mascotas",
 	["shop.petStorage100.desc"] = "Guarda 100 mascotas más",
-	["shop.damage2x.name"] = "x2 Daño",
 	["shop.damage2x.desc"] = "x2 daño por golpe",
-	["shop.petSlots3.name"] = "+3 Espacios de Mascota",
 	["shop.petSlots3.desc"] = "Equipa 3 mascotas más",
-	["shop.blox2x.name"] = "x2 Blox",
 	["shop.blox2x.desc"] = "x2 Blox al cobrar",
-	["shop.auraLuck10x.name"] = "x10 Suerte de Aura",
 	["shop.auraLuck10x.desc"] = "x10 suerte en tiradas de Aura",
-	["shop.titleLuck10x.name"] = "x10 Suerte de Título",
 	["shop.titleLuck10x.desc"] = "x10 suerte en tiradas de Título",
-	["shop.voidTrainingZone.name"] = "Zona de Entrenamiento del Vacío",
 	["shop.voidTrainingZone.desc"] = "Desbloquea el Gimnasio más fuerte",
-	["shop.autoAdvance.name"] = "Auto avance",
 	["shop.autoAdvance.desc"] = "Sigue avanzando hasta tu piso objetivo",
-	["shop.strengthTier.name"] = "x{mult} Poder",
 	["shop.strengthTier.desc"] = "x{mult} Poder por clic (solo cuenta tu nivel más alto)",
-	["shop.luckyRoll5.name"] = "Tirada de Suerte x5",
 	["shop.luckyRoll5.desc"] = "5 tiradas de Aura · Suerte x5 · sin Blox",
-	["shop.luckyRoll15.name"] = "Tirada de Suerte x15",
 	["shop.luckyRoll15.desc"] = "15 tiradas de Aura · Suerte x5 · sin Blox",
-	["shop.superRoll5.name"] = "Súper Tirada x5",
 	["shop.superRoll5.desc"] = "5 tiradas de Aura · Suerte x100 · sin Blox",
-	["shop.superRoll15.name"] = "Súper Tirada x15",
 	["shop.superRoll15.desc"] = "15 tiradas de Aura · Suerte x100 · sin Blox",
-	["shop.strengthPotion.name"] = "Poción de Poder",
 	["shop.strengthPotion.desc"] = "Poder x2 durante 15 minutos",
-	["shop.damagePotion.name"] = "Poción de Daño",
 	["shop.damagePotion.desc"] = "Daño de golpe x2 durante 15 minutos",
-	["shop.luckPotion.name"] = "Poción de Suerte",
 	["shop.luckPotion.desc"] = "Suerte de Título · Aura · Mascota x2 durante 15 minutos",
-	["shop.potionBundle.name"] = "Paquete de Pociones",
 	["shop.potionBundle.desc"] = "99 de cada una: Poder · Daño · Suerte",
-	["shop.gymUnlock.name"] = "Desbloquear Gimnasio {n}",
 	["shop.gymUnlock.desc"] = "Desbloquea el Gimnasio {n} sin importar tus renacimientos",
 	-- HUD
 	["hud.menu.shop"] = "Tienda",
@@ -274,32 +207,6 @@ return {
 	["rebirth.v2.reason.not_enough_blox"] = "Necesitas {cost} Blox para renacer",
 	["rebirth.v2.reset.blox"] = "Blox → se paga el costo (el resto se queda)",
 	["rebirth.v2.keeps"] = "Conservas: multiplicador de renacer (sube) · Gimnasios · Blox totales · Mejoras · Picos · Minerales",
-	-- 광석 · 곡괭이 이름(임시)
-	["ore.name.1"] = "Cobre", -- 임시 이름
-	["ore.name.2"] = "Estaño", -- 임시 이름
-	["ore.name.3"] = "Hierro", -- 임시 이름
-	["ore.name.4"] = "Plata", -- 임시 이름
-	["ore.name.5"] = "Oro", -- 임시 이름
-	["ore.name.6"] = "Jade", -- 임시 이름
-	["ore.name.7"] = "Rubí", -- 임시 이름
-	["ore.name.8"] = "Zafiro", -- 임시 이름
-	["ore.name.9"] = "Amatista", -- 임시 이름
-	["ore.name.10"] = "Piedra Estelar", -- 임시 이름
-	["pickaxe.name.pick_c1"] = "Pico de Madera", -- 임시 이름
-	["pickaxe.name.pick_c2"] = "Pico de Piedra", -- 임시 이름
-	["pickaxe.name.pick_c3"] = "Pico de Cobre", -- 임시 이름
-	["pickaxe.name.pick_r1"] = "Pico de Hierro", -- 임시 이름
-	["pickaxe.name.pick_r2"] = "Pico de Plata", -- 임시 이름
-	["pickaxe.name.pick_r3"] = "Pico de Oro", -- 임시 이름
-	["pickaxe.name.pick_r4"] = "Pico de Jade", -- 임시 이름
-	["pickaxe.name.pick_e1"] = "Pico de Rubí", -- 임시 이름
-	["pickaxe.name.pick_e2"] = "Pico de Zafiro", -- 임시 이름
-	["pickaxe.name.pick_e3"] = "Pico de Amatista", -- 임시 이름
-	["pickaxe.name.pick_e4"] = "Pico de Cristal", -- 임시 이름
-	["pickaxe.name.pick_m1"] = "Pico de Tormenta", -- 임시 이름
-	["pickaxe.name.pick_m2"] = "Pico de Magma", -- 임시 이름
-	["pickaxe.name.pick_m3"] = "Pico de Escarcha", -- 임시 이름
-	["pickaxe.name.pick_l1"] = "Pico Estelar", -- 임시 이름
 	-- 새 경제 HUD · 알림
 	["econ.coins.label"] = "Monedas",
 	["econ.bag.label"] = "Mochila",
@@ -346,11 +253,6 @@ return {
 	["grade.mythic"] = "Mítico",
 	["grade.legendary"] = "Legendario",
 	["grade.next"] = "???",
-	["token.rare"] = "Ficha Rara",
-	["token.epic"] = "Ficha Épica",
-	["token.mythic"] = "Ficha Mítica",
-	["token.legendary"] = "Ficha Legendaria",
-	["token.next"] = "Ficha ???",
 	-- 펫 코인 부화 · 새 게임패스
 	["pet.egg.infoCoins"] = "{egg} · {cost} monedas por huevo",
 	["pet.hatchCostCoins"] = "Abrir · {cost} monedas",
@@ -362,13 +264,9 @@ return {
 	["pet.auto.stopped"] = "Auto abrir detenido: {reason}",
 	["pet.auto.big"] = "¡Salió {name}!",
 	["pet.hatching"] = "Abriendo...",
-	["shop.bigBag.name"] = "Mochila Grande",
 	["shop.bigBag.desc"] = "Capacidad de mochila ×2",
-	["shop.instantCraft.name"] = "Fabricación Instantánea",
 	["shop.instantCraft.desc"] = "Sin animación — fabrica cada 1 s",
-	["shop.tripleCraft.name"] = "Fabricación Triple",
 	["shop.tripleCraft.desc"] = "Fabrica 3 a la vez (usa 15 minerales)",
-	["shop.instantHatch.name"] = "Apertura Instantánea",
 	["shop.instantHatch.desc"] = "Sin animación — abre cada 1 s",
 	-- 장비
 	["equip.title"] = "Equipo",
@@ -539,7 +437,7 @@ return {
 	["shop.potion.title"] = "{name}  Tienes {n}",
 	["shop.potion.use"] = "Usar",
 	["shop.potion.used"] = "{name} activa (+{min} min)",
-	["shop.reason.auto_owned_higher"] = "Ya tienes Autoclic OP",
+	["shop.reason.auto_owned_higher"] = "Ya tienes {name}",
 	["shop.reason.restricted"] = "Este artículo no está disponible en tu región",
 	["shop.reason.invalid_key"] = "Este artículo no se puede comprar",
 	["shop.reason.prompt_failed"] = "No se pudo abrir la ventana de compra",

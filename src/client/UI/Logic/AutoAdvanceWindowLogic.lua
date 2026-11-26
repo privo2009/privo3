@@ -12,6 +12,7 @@ local AutoAdvanceLogic = require(ReplicatedStorage.Shared.AutoAdvanceLogic)
 local AutoAdvanceConfig = require(ReplicatedStorage.Shared.Config.AutoAdvanceConfig)
 local ShopEffectsLogic = require(ReplicatedStorage.Shared.ShopEffectsLogic)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
 
 local AutoAdvanceWindowLogic = {}
 
@@ -111,7 +112,7 @@ function AutoAdvanceWindowLogic.reasonText(code: string): string
 	elseif code == "character_lost" then
 		return Locale.t("auto.reason.character_lost")
 	elseif code == "not_owned" then
-		return Locale.t("auto.reason.not_owned")
+		return Locale.t("auto.reason.not_owned", { name = Names.product("autoAdvance") }) -- 이름은 자리 표시(#42)
 	elseif code == "invalid_target" then
 		return Locale.t("auto.reason.invalid_target", { max = AutoAdvanceLogic.maxTarget() })
 	elseif code == "no_character" then

@@ -352,7 +352,7 @@ function RobuxShopLogic.reasonText(code: string): string
 	elseif code == ShopConfig.REASON_LADDER_OWNED_HIGHER then
 		return Locale.t("shop.reason.ladder_owned_higher")
 	elseif code == ShopConfig.REASON_AUTO_OWNED_HIGHER then
-		return Locale.t("shop.reason.auto_owned_higher")
+		return Locale.t("shop.reason.auto_owned_higher", { name = Names.product("autoClickerOP") }) -- 이름은 자리 표시(#42)
 	elseif code == "restricted" then
 		return Locale.t("shop.reason.restricted")
 	elseif code == "rate_limited" then

@@ -30,6 +30,8 @@
 --   es · pt(브라질) · fr · de 문장은 언어마다 따로 있다: Localization/Lang/<코드>.lua — 한 줄에 ["키"] = "문장",
 --   이 파일을 불러올 때 Entries[키][코드]로 합친다(아래 맨 끝). 그래서 Locale · 검사 · 내보내기는 한 표만 본다.
 --   새 키를 여기에 넣으면 Lang 네 파일에도 한 줄씩 넣는다(없으면 en이 보인다 — check_strings가 "번역 없음"으로 알린다).
+--   예외(지시서 #42 이름 번역 규칙): 고유 이름 키(꼴 목록 Localization/NameKeys.lua)는 UI 확정 전까지 en · ko만 — Lang 파일에 넣지 않는다.
+--   이름이 든 문장은 이름을 직접 적지 않고 자리 표시({name})로 넣는다.
 --   언어별 용어집은 docs/LOCALIZATION.md "4. 용어집" 둘째 표.
 
 local Strings = {}
@@ -61,7 +63,7 @@ Strings.Entries = {
 	["auto.stopped"] = { en = "Auto Advance off", ko = "자동 진행을 껐어요" },
 	["auto.reason.run_active"] = { en = "Finish your current run first", ko = "지금 런이 끝난 뒤에 시작할 수 있어요" },
 	["auto.reason.character_lost"] = { en = "Auto Advance stopped: character lost", ko = "캐릭터가 없어져 자동 진행을 껐어요" },
-	["auto.reason.not_owned"] = { en = "You need Auto Advance", ko = "자동 진행이 필요해요" },
+	["auto.reason.not_owned"] = { en = "You need {name}", ko = "{name}이 필요해요" }, -- {name} = 상품 이름 Auto Advance(#42 이름 규칙)
 	["auto.reason.invalid_target"] = { en = "Pick a floor from 1 to {max}", ko = "1 ~ {max}층 중에서 골라 주세요" },
 	-- ===== 이름 (K6 — Config id → 키. 만드는 곳은 Shared/Localization/Names) ==============================
 	-- 희귀도(아우라 등급 · 펫 종 희귀도 공통)
@@ -590,7 +592,7 @@ Strings.Entries = {
 	["shop.potion.title"] = { en = "{name}  Owned {n}", ko = "{name}  보유 {n}" },
 	["shop.potion.use"] = { en = "Use", ko = "켜기" },
 	["shop.potion.used"] = { en = "{name} on (+{min} min)", ko = "{name} 켬 (+{min}분)" },
-	["shop.reason.auto_owned_higher"] = { en = "You already own OP Auto Clicker", ko = "OP 자동 클리커를 이미 가지고 있어요" },
+	["shop.reason.auto_owned_higher"] = { en = "You already own {name}", ko = "{name}를 이미 가지고 있어요" }, -- {name} = 상품 이름 OP Auto Clicker(#42)
 	["shop.reason.restricted"] = { en = "This item isn't available in your region", ko = "이 지역에서는 살 수 없는 상품이에요" },
 	["shop.reason.invalid_key"] = { en = "This item can't be bought", ko = "살 수 없는 상품이에요" },
 	["shop.reason.prompt_failed"] = { en = "Couldn't open the purchase window", ko = "구매 창을 열지 못했어요" },

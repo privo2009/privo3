@@ -13,12 +13,17 @@
   5. (알림만) 어디서도 안 부르는 키
   6. 유럽 4개 언어(Localization/Lang/<코드>.lua — 지시서 #40): 키마다 문장이 있다(누락 · 빈 문자열 = 실패) ·
      자리 표시 집합 = en(3번과 같은 검사) · 줄바꿈(\n) 개수 = en · 표에 없는 키(고아) 없음 · 키 중복 없음
+  7. 이름 번역 규칙(지시서 #42 — 이름 키 목록은 Localization/NameKeys.lua 한 곳): ENGLISH_ONLY = true면 고유 이름 키는
+     4개 언어에서 비어 있어도 된다(en이 보인다 — "번역 없음"으로 치지 않는다). 대신 Lang 파일에 있으면 실패(규칙: en · ko만).
+     false로 바꾸면 6번처럼 모든 키에 번역을 요구한다(4개 언어 이름을 다시 넣을 때). 꼴마다 맞는 키가 하나 이상 있어야 한다
 """
 import os
 import re
 import sys
 
 sys.dont_write_bytecode = True  # tools/__pycache__를 만들지 않는다
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="replace")  # 콘솔 코드 페이지(cp949)에 없는 글자(— · á 등)로 멈추지 않게(지시서 #42)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from luau_lex import tokens  # noqa: E402
 
@@ -26,6 +31,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STRINGS = os.path.join(ROOT, "src", "shared", "Localization", "Strings.lua")
 LANG_DIR = os.path.join(ROOT, "src", "shared", "Localization", "Lang")
 LANG_FILES = ["es", "pt", "fr", "de"]  # Strings.LANG_FILES와 같은 목록(지시서 #40)
+NAME_KEYS = os.path.join(ROOT, "src", "shared", "Localization", "NameKeys.lua")  # 고유 이름 키 꼴(지시서 #42)
 LANG_ENTRY = re.compile(r'^\s*\["([^"]+)"\]\s*=\s*"((?:[^"\\]|\\.)*)",?\s*(--.*)?$')
 
 ENTRY = re.compile(r'^\s*\["([^"]+)"\]\s*=\s*\{(.*)\},?\s*(--.*)?$')
@@ -58,6 +64,35 @@ def load_entries(path=STRINGS):
         fields = {k: unescape(v) for k, v in FIELD.findall(m.group(2))}
         entries.append((m.group(1), fields, n))
     return entries, errors
+
+
+def load_name_rules(path=NAME_KEYS):
+    """(english_only, [(앞, 뒤)], errors) — NameKeys.lua(지시서 #42). 꼴은 PATTERNS 표 안 "앞*뒤" 한 줄에 하나."""
+    text = open(path, encoding="utf-8").read()
+    errors = []
+    flag = re.search(r"^NameKeys\.ENGLISH_ONLY\s*=\s*(true|false)\s*(--.*)?$", text, re.M)
+    if not flag:
+        errors.append("NameKeys.lua: ENGLISH_ONLY = true|false 줄을 읽지 못했다")
+    block = re.search(r"^NameKeys\.PATTERNS\s*=\s*\{\n(.*?)^\}", text, re.M | re.S)
+    patterns = []
+    if not block:
+        errors.append("NameKeys.lua: PATTERNS 표를 읽지 못했다")
+    else:
+        for line in block.group(1).splitlines():
+            st = line.strip()
+            if not st or st.startswith("--"):
+                continue
+            m = re.match(r'^"([^"*]*)\*([^"*]*)",\s*(--.*)?$', st)
+            if not m:
+                errors.append(f"NameKeys.lua: 꼴 줄을 읽지 못했다(\"앞*뒤\", 한 줄에 하나): {st[:60]}")
+                continue
+            patterns.append((m.group(1), m.group(2)))
+    return (flag is not None and flag.group(1) == "true"), patterns, errors
+
+
+def is_name_key(key, patterns):
+    """고유 이름 키인가 — NameKeys.isName과 같은 규칙(앞으로 시작 · 뒤로 끝남)."""
+    return any(len(key) >= len(h) + len(t) and key.startswith(h) and key.endswith(t) for h, t in patterns)
 
 
 def load_lang(code):
@@ -183,6 +218,12 @@ def length_report(entries):
 def main():
     entries, errors, orphans = load_all()
     errors += orphans
+    english_only, name_patterns, name_errors = load_name_rules()
+    errors += name_errors
+    name_keys = {key for key, _, _ in entries if is_name_key(key, name_patterns)}
+    for h, t in name_patterns:
+        if not any(is_name_key(key, [(h, t)]) for key, _, _ in entries):
+            errors.append(f"NameKeys.lua: 꼴 {h}*{t}에 맞는 키가 표에 없다(낡은 꼴)")
     keys = {}
     for key, fields, n in entries:
         if key in keys:
@@ -202,7 +243,10 @@ def main():
             if text.count("\n") != en.count("\n"):
                 errors.append(f"Strings.lua:{n}: {key} — {lang} 줄바꿈 {text.count(chr(10))}개 ≠ en {en.count(chr(10))}개")
         for lang in LANG_FILES:
-            if lang not in fields:
+            if english_only and key in name_keys:
+                if lang in fields:
+                    errors.append(f"Lang/{lang}.lua: {key} — 고유 이름은 UI 확정 전 en · ko만(NameKeys.ENGLISH_ONLY, 지시서 #42)")
+            elif lang not in fields:
                 errors.append(f"Lang/{lang}.lua: {key} — 번역 없음(en이 보인다)")
             elif fields[lang] == "":
                 errors.append(f"Lang/{lang}.lua: {key} — 빈 문자열")
@@ -243,6 +287,9 @@ def main():
             print(f"  {code} {key}  ×{ratio:.2f}{' [짧은]' if short else ''}  en={en!r}  {code}={tr!r}")
     counts = {code: sum(1 for _, f, _ in entries if f.get(code)) for code in ["ko"] + LANG_FILES}
     print("언어별 키 수: en " + str(len(keys)) + " · " + " · ".join(f"{c} {counts[c]}" for c in counts))
+    print(f"고유 이름 키 {len(name_keys)}(꼴 {len(name_patterns)}): "
+          + ("4개 언어는 영어 이름(NameKeys.ENGLISH_ONLY = true, 지시서 #42)" if english_only
+             else "4개 언어도 번역(NameKeys.ENGLISH_ONLY = false)"))
     if "--keys" in sys.argv:
         for k in sorted(keys):
             print(k)

@@ -2,6 +2,7 @@
 -- 프랑스어(fr) 화면 문장 (지시서 #40) — ⚠️ AI 번역 · 원어민 검수 전. 반말(tu).
 -- 키 · 자리 표시 · 줄 꼴 규칙은 Strings.lua와 같다. 이 표는 Strings가 불러와 Entries[키].fr로 합친다.
 -- 용어집(언어마다 한 번만 정한 낱말) → docs/LOCALIZATION.md "4. 용어집". 한 줄에 항목 하나 — tools/check_strings.py가 줄 단위로 읽는다.
+-- 고유 이름(광석 · 곡괭이 · 펫 · 알 · 칭호 · 아우라 · 토큰 · 상품 · 구역)은 UI 확정 전까지 이 파일에 두지 않는다 — 영어 이름이 보인다(지시서 #42 · 꼴 목록 Localization/NameKeys.lua).
 
 return {
 	-- 공통
@@ -26,7 +27,7 @@ return {
 	["auto.stopped"] = "Avance auto désactivée",
 	["auto.reason.run_active"] = "Termine d'abord ta partie en cours",
 	["auto.reason.character_lost"] = "Avance auto arrêtée : personnage perdu",
-	["auto.reason.not_owned"] = "Il te faut l'Avance auto",
+	["auto.reason.not_owned"] = "Il te faut {name}",
 	["auto.reason.invalid_target"] = "Choisis un étage de 1 à {max}",
 	-- 이름
 	["rarity.common"] = "Commun",
@@ -34,109 +35,41 @@ return {
 	["rarity.epic"] = "Épique",
 	["rarity.legendary"] = "Légendaire",
 	["rarity.limited"] = "Limité",
-	["title.name.novice"] = "Novice",
-	["title.name.apprentice"] = "Apprenti",
-	["title.name.breaker"] = "Briseur",
-	["title.name.champion"] = "Champion",
-	["title.name.legend"] = "Légende",
-	["title.name.mythic"] = "Mythique",
-	["aura.name.pack1_common"] = "Étincelle",
-	["aura.name.pack1_rare"] = "Flamme",
-	["aura.name.pack1_epic"] = "Éclair",
-	["aura.name.pack1_legendary"] = "Aurore",
-	["aura.name.pack2_common"] = "Rafale",
-	["aura.name.pack2_rare"] = "Glacier",
-	["aura.name.pack2_epic"] = "Lave",
-	["aura.name.pack2_legendary"] = "Comète",
-	["aura.name.pack3_common"] = "Nébuleuse",
-	["aura.name.pack3_rare"] = "Éclipse",
-	["aura.name.pack3_epic"] = "Supernova",
-	["aura.name.pack3_legendary"] = "Trou Noir",
-	["aura.name.pack4_common"] = "Faille",
-	["aura.name.pack4_rare"] = "Distorsion",
-	["aura.name.pack4_epic"] = "Ruine",
-	["aura.name.pack4_legendary"] = "Singularité",
-	["aura.name.pack5_common"] = "Genèse",
-	["aura.name.pack5_rare"] = "Apocalypse",
-	["aura.name.pack5_epic"] = "Éternité",
-	["aura.name.pack5_legendary"] = "Absolu",
-	["egg.name.1"] = "Œuf de Bois",
-	["egg.name.2"] = "Œuf de Pierre",
-	["egg.name.3"] = "Œuf de Fer",
-	["pet.name.egg1_common"] = "Gland",
-	["pet.name.egg1_rare"] = "Écureuil",
-	["pet.name.egg1_epic"] = "Hibou",
-	["pet.name.egg1_legendary"] = "Ent Ancien",
-	["pet.name.egg2_common"] = "Caillou",
-	["pet.name.egg2_rare"] = "Bébé Golem",
-	["pet.name.egg2_epic"] = "Ver Cristal",
-	["pet.name.egg2_legendary"] = "Esprit du Mont",
-	["pet.name.egg3_common"] = "Rat Rouage",
-	["pet.name.egg3_rare"] = "Faucon Méca",
-	["pet.name.egg3_epic"] = "Draco d'Acier",
-	["pet.name.egg3_legendary"] = "Dieu Machine",
-	["pet.name.limited_dawn"] = "Phénix de l'Aube",
 	["pet.level.1"] = "Normal",
 	["pet.level.2"] = "Or",
 	["pet.level.3"] = "Diamant",
 	["pet.level.4"] = "Arc-en-ciel",
-	["world.name.1"] = "Bois",
 	["upgrade.name.punchSpeed"] = "Vitesse de frappe",
 	["upgrade.name.bloxGain"] = "Gain de Blox",
 	["upgrade.name.titleLuck"] = "Chance de Titre",
 	["upgrade.name.auraLuck"] = "Chance d'Aura",
 	["upgrade.name.petSlots"] = "Places d'Animal",
 	["upgrade.name.petLuck"] = "Chance d'Animal",
-	["boost.strength.name"] = "Potion de Force",
-	["boost.damage.name"] = "Potion de Dégâts",
-	["boost.luck.name"] = "Potion de Chance",
 	["boost.strength.short"] = "Force",
 	["boost.damage.short"] = "Dégâts",
 	["boost.luck.short"] = "Chance",
 	-- 상점 상품
-	["shop.autoClicker.name"] = "Auto-clic",
 	["shop.autoClicker.desc"] = "Clique 15 fois par seconde quand il est activé",
-	["shop.autoClickerOP.name"] = "Auto-clic OP",
 	["shop.autoClickerOP.desc"] = "Clique 30 fois par seconde quand il est activé",
-	["shop.hatch3x.name"] = "Éclosion Triple",
 	["shop.hatch3x.desc"] = "Fais éclore 3 œufs d'un coup (coût x3)",
-	["shop.petLuck2x.name"] = "x2 Chance d'Animal",
 	["shop.petLuck2x.desc"] = "x2 chance aux éclosions",
-	["shop.petStorage100.name"] = "+100 Places d'Animaux",
 	["shop.petStorage100.desc"] = "Garde 100 animaux de plus",
-	["shop.damage2x.name"] = "x2 Dégâts",
 	["shop.damage2x.desc"] = "x2 dégâts par coup",
-	["shop.petSlots3.name"] = "+3 Places d'Animal",
 	["shop.petSlots3.desc"] = "Équipe 3 animaux de plus",
-	["shop.blox2x.name"] = "x2 Blox",
 	["shop.blox2x.desc"] = "x2 Blox quand tu encaisses",
-	["shop.auraLuck10x.name"] = "x10 Chance d'Aura",
 	["shop.auraLuck10x.desc"] = "x10 chance aux tirages d'Aura",
-	["shop.titleLuck10x.name"] = "x10 Chance de Titre",
 	["shop.titleLuck10x.desc"] = "x10 chance aux tirages de Titre",
-	["shop.voidTrainingZone.name"] = "Zone d'Entraînement du Néant",
 	["shop.voidTrainingZone.desc"] = "Débloque la Gym la plus forte",
-	["shop.autoAdvance.name"] = "Avance auto",
 	["shop.autoAdvance.desc"] = "Continue d'avancer jusqu'à ton étage visé",
-	["shop.strengthTier.name"] = "x{mult} Force",
 	["shop.strengthTier.desc"] = "x{mult} Force par clic (seul ton palier max compte)",
-	["shop.luckyRoll5.name"] = "Tirage Chanceux x5",
 	["shop.luckyRoll5.desc"] = "5 tirages d'Aura · Chance x5 · sans Blox",
-	["shop.luckyRoll15.name"] = "Tirage Chanceux x15",
 	["shop.luckyRoll15.desc"] = "15 tirages d'Aura · Chance x5 · sans Blox",
-	["shop.superRoll5.name"] = "Super Tirage x5",
 	["shop.superRoll5.desc"] = "5 tirages d'Aura · Chance x100 · sans Blox",
-	["shop.superRoll15.name"] = "Super Tirage x15",
 	["shop.superRoll15.desc"] = "15 tirages d'Aura · Chance x100 · sans Blox",
-	["shop.strengthPotion.name"] = "Potion de Force",
 	["shop.strengthPotion.desc"] = "Force x2 pendant 15 minutes",
-	["shop.damagePotion.name"] = "Potion de Dégâts",
 	["shop.damagePotion.desc"] = "Dégâts des coups x2 pendant 15 minutes",
-	["shop.luckPotion.name"] = "Potion de Chance",
 	["shop.luckPotion.desc"] = "Chance Titre · Aura · Animal x2 pendant 15 minutes",
-	["shop.potionBundle.name"] = "Lot de Potions",
 	["shop.potionBundle.desc"] = "99 de chaque : Force · Dégâts · Chance",
-	["shop.gymUnlock.name"] = "Débloquer Gym {n}",
 	["shop.gymUnlock.desc"] = "Débloque la Gym {n} sans condition de renaissances",
 	-- HUD
 	["hud.menu.shop"] = "Boutique",
@@ -274,32 +207,6 @@ return {
 	["rebirth.v2.reason.not_enough_blox"] = "Il te faut {cost} Blox pour renaître",
 	["rebirth.v2.reset.blox"] = "Blox → coût payé (le reste est gardé)",
 	["rebirth.v2.keeps"] = "Tu gardes : multiplicateur de renaissance (monte) · Gyms · Blox cumulés · Améliorations · Pioches · Minerais",
-	-- 광석 · 곡괭이 이름(임시)
-	["ore.name.1"] = "Cuivre", -- 임시 이름
-	["ore.name.2"] = "Étain", -- 임시 이름
-	["ore.name.3"] = "Fer", -- 임시 이름
-	["ore.name.4"] = "Argent", -- 임시 이름
-	["ore.name.5"] = "Or", -- 임시 이름
-	["ore.name.6"] = "Jade", -- 임시 이름
-	["ore.name.7"] = "Rubis", -- 임시 이름
-	["ore.name.8"] = "Saphir", -- 임시 이름
-	["ore.name.9"] = "Améthyste", -- 임시 이름
-	["ore.name.10"] = "Pierre Étoilée", -- 임시 이름
-	["pickaxe.name.pick_c1"] = "Pioche en Bois", -- 임시 이름
-	["pickaxe.name.pick_c2"] = "Pioche en Pierre", -- 임시 이름
-	["pickaxe.name.pick_c3"] = "Pioche en Cuivre", -- 임시 이름
-	["pickaxe.name.pick_r1"] = "Pioche en Fer", -- 임시 이름
-	["pickaxe.name.pick_r2"] = "Pioche en Argent", -- 임시 이름
-	["pickaxe.name.pick_r3"] = "Pioche en Or", -- 임시 이름
-	["pickaxe.name.pick_r4"] = "Pioche en Jade", -- 임시 이름
-	["pickaxe.name.pick_e1"] = "Pioche en Rubis", -- 임시 이름
-	["pickaxe.name.pick_e2"] = "Pioche en Saphir", -- 임시 이름
-	["pickaxe.name.pick_e3"] = "Pioche en Améthyste", -- 임시 이름
-	["pickaxe.name.pick_e4"] = "Pioche de Cristal", -- 임시 이름
-	["pickaxe.name.pick_m1"] = "Pioche de Tempête", -- 임시 이름
-	["pickaxe.name.pick_m2"] = "Pioche de Magma", -- 임시 이름
-	["pickaxe.name.pick_m3"] = "Pioche de Givre", -- 임시 이름
-	["pickaxe.name.pick_l1"] = "Pioche Stellaire", -- 임시 이름
 	-- 새 경제 HUD · 알림
 	["econ.coins.label"] = "Pièces",
 	["econ.bag.label"] = "Sac",
@@ -346,11 +253,6 @@ return {
 	["grade.mythic"] = "Mythique",
 	["grade.legendary"] = "Légendaire",
 	["grade.next"] = "???",
-	["token.rare"] = "Jeton Rare",
-	["token.epic"] = "Jeton Épique",
-	["token.mythic"] = "Jeton Mythique",
-	["token.legendary"] = "Jeton Légendaire",
-	["token.next"] = "Jeton ???",
 	-- 펫 코인 부화 · 새 게임패스
 	["pet.egg.infoCoins"] = "{egg} · {cost} pièces par éclosion",
 	["pet.hatchCostCoins"] = "Éclore · {cost} pièces",
@@ -362,13 +264,9 @@ return {
 	["pet.auto.stopped"] = "Éclosion auto arrêtée : {reason}",
 	["pet.auto.big"] = "{name} a éclos !",
 	["pet.hatching"] = "Éclosion...",
-	["shop.bigBag.name"] = "Grand Sac",
 	["shop.bigBag.desc"] = "Capacité du sac ×2",
-	["shop.instantCraft.name"] = "Fabrication Instantanée",
 	["shop.instantCraft.desc"] = "Sans animation — fabrique toutes les 1 s",
-	["shop.tripleCraft.name"] = "Fabrication Triple",
 	["shop.tripleCraft.desc"] = "Fabrique 3 d'un coup (15 minerais)",
-	["shop.instantHatch.name"] = "Éclosion Instantanée",
 	["shop.instantHatch.desc"] = "Sans animation — éclot toutes les 1 s",
 	-- 장비
 	["equip.title"] = "Équipement",
@@ -539,7 +437,7 @@ return {
 	["shop.potion.title"] = "{name}  Possédé {n}",
 	["shop.potion.use"] = "Utiliser",
 	["shop.potion.used"] = "{name} activée (+{min} min)",
-	["shop.reason.auto_owned_higher"] = "Tu as déjà l'Auto-clic OP",
+	["shop.reason.auto_owned_higher"] = "Tu as déjà {name}",
 	["shop.reason.restricted"] = "Cet article n'est pas disponible dans ta région",
 	["shop.reason.invalid_key"] = "Cet article ne peut pas être acheté",
 	["shop.reason.prompt_failed"] = "Impossible d'ouvrir la fenêtre d'achat",

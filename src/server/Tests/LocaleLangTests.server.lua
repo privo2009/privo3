@@ -4,6 +4,8 @@
 --   3. 언어마다 모든 키에 문장이 있다 · 고아 키 0   4. 언어마다 자리 표시 집합 = en · 줄바꿈 수 = en
 --   5. 없거나 빈 번역 → en(지금 규칙 유지)         6. 메뉴 라벨 8자 이하(MenuRailTests의 영어 쪽 규칙 — 그 Play 언어만 재는 것을 표 전체로)
 --   7. TEST_LOCALE · Kick 안내문이 새 언어로도 고른다
+--   8. 이름 번역 규칙(지시서 #42 — 꼴 목록 Localization/NameKeys.lua): ENGLISH_ONLY면 고유 이름 키는 4개 언어 Lang에 없고(영어가 보인다)
+--      3번 "모든 키에 문장"에서 뺀다 · 4개 언어에서 이름은 영어, 이름이 든 문장은 그 언어(자리 표시로 영어 이름이 들어간다)
 -- 개수는 언어 · 키 수와 상관없이 같다(언어마다 한 줄씩 — 지시서 #26).
 
 if not require(game:GetService("ReplicatedStorage").Shared.TestGate).shouldRun() then return end -- Studio 전용(지시서 #27 T1)
@@ -12,6 +14,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Strings = require(ReplicatedStorage.Shared.Localization.Strings)
 local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
+local NameKeys = require(ReplicatedStorage.Shared.Localization.NameKeys)
+local Names = require(ReplicatedStorage.Shared.Localization.Names)
+local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 
 local passed = 0
 local failed = 0
@@ -75,10 +80,16 @@ end
 do
 	check("고아 키 0(Lang 파일에만 있는 키)", #Strings.Orphans == 0, table.concat(Strings.Orphans, ", "))
 	for _, code in ipairs(LANGS) do
-		local missing, badPh, badNl = {}, {}, {}
+		local missing, badPh, badNl, namesIn = {}, {}, {}, {}
 		for key, entry in pairs(Strings.Entries) do
 			local text = (entry :: any)[code]
-			if type(text) ~= "string" or text == "" then
+			local nameOnlyEn = NameKeys.ENGLISH_ONLY and NameKeys.isName(key) -- #42: 고유 이름은 en · ko만
+			if nameOnlyEn and text ~= nil then
+				table.insert(namesIn, key)
+			end
+			if nameOnlyEn then
+				-- 비어 있어도 된다(영어가 보인다) — 아래 8번이 영어로 보이는지 잰다
+			elseif type(text) ~= "string" or text == "" then
 				table.insert(missing, key)
 			elseif type(entry.en) == "string" then
 				if not sameSet(Locale.placeholders(text), Locale.placeholders(entry.en)) then
@@ -92,7 +103,9 @@ do
 		table.sort(missing)
 		table.sort(badPh)
 		table.sort(badNl)
-		check(code .. ": 모든 키에 문장이 있다(빈 문자열 없음)", #missing == 0, table.concat(missing, ", "))
+		table.sort(namesIn)
+		check(code .. ": 모든 키에 문장이 있다(빈 문자열 없음 · 고유 이름 키 빼고 — #42)", #missing == 0, table.concat(missing, ", "))
+		check(code .. ": 고유 이름 키가 Lang 파일에 없다(UI 확정 전 en · ko만 — #42)", #namesIn == 0, table.concat(namesIn, ", "))
 		check(code .. ": 자리 표시 집합 = en", #badPh == 0, table.concat(badPh, ", "))
 		check(code .. ": 줄바꿈 수 = en", #badNl == 0, table.concat(badNl, ", "))
 	end
@@ -145,6 +158,45 @@ do
 		allKick = allKick and Locale.tFor(c, "kick.loadFailed") ~= Locale.tFor("en", "kick.loadFailed")
 	end
 	check("Kick 안내문 4개 언어로 고른다(영어와 다름)", allKick)
+end
+
+-- 8. 이름 번역 규칙 (지시서 #42) -------------------------------------------------------------------
+do
+	-- 꼴마다 맞는 키가 있다(낡은 꼴 없음) · 이름 키 수
+	local names, stale = 0, {}
+	for _, pattern in ipairs(NameKeys.PATTERNS) do
+		local hit = false
+		for key in pairs(Strings.Entries) do
+			if NameKeys.matches(pattern, key) then
+				hit = true
+				break
+			end
+		end
+		if not hit then
+			table.insert(stale, pattern)
+		end
+	end
+	for key in pairs(Strings.Entries) do
+		if NameKeys.isName(key) then
+			names += 1
+		end
+	end
+	check("이름 꼴마다 맞는 키가 있다 · 이름 키가 있다(" .. names .. "개)", #stale == 0 and names > 0, table.concat(stale, ", "))
+	-- 언어마다: 이름(곡괭이 · 광석 · 펫 · 상품 · 포션 · 토큰)은 영어, 이름이 든 문장(구매 알림)은 그 언어 + 영어 이름
+	local pick = EconomyV2Logic.pickaxeNameKey("pick_l1")
+	local ore = EconomyV2Logic.oreNameKey(1)
+	local product = Names.productKeys("blox2x")[1]
+	for _, code in ipairs(LANGS) do
+		local sameNames = Locale.tFor(code, pick) == Locale.tFor("en", pick) and Locale.tFor(code, ore) == Locale.tFor("en", ore)
+			and Locale.tFor(code, "pet.name.egg2_legendary") == Locale.tFor("en", "pet.name.egg2_legendary")
+			and Locale.tFor(code, product) == Locale.tFor("en", product) and Locale.tFor(code, "boost.strength.name") == Locale.tFor("en", "boost.strength.name")
+			and Locale.tFor(code, "token.mythic") == Locale.tFor("en", "token.mythic")
+		local enName = Locale.tFor("en", product)
+		local bought = Locale.tFor(code, "shop.purchased", { name = enName })
+		local sentence = bought ~= Locale.tFor("en", "shop.purchased", { name = enName }) and string.find(bought, enName, 1, true) ~= nil
+			and Locale.tFor(code, "econ.coins.label") ~= Locale.tFor("en", "econ.coins.label")
+		check(code .. ": 이름은 영어 · 이름이 든 문장은 " .. code .. "(구매 알림에 영어 상품 이름)", sameNames and sentence)
+	end
 end
 
 print(string.format("[LocaleLangTests] %d passed, %d failed", passed, failed))
