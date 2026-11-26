@@ -229,6 +229,7 @@ N2   새 게임패스 4개(Big Bag 99 · Instant Craft 79 · Triple Craft 99 · 
      그전까지 ID nil(상점 줄 · 효과 없음 — docs/DASHBOARD_PRODUCTS.md 4절)
 N3   운동기구 개편(사람 결정) — 해금 환생 수는 새 경제 TEMP 값 하나(GymConfig). 기구 수 · 배수 · 공허 구역 자리는 그대로 미룸
      → #41 선택지 4개 · 측정 · 추천(A2 12기구 환생 1 ~ 15 촘촘히): docs/GYM_OPTIONS.md — 희준이 고른다
+     ✅ 2026-11-26 희준 결정: A2(지시서 #42 3부에서 구현)
 등급 색 적용   UiTheme.EquipGrade(일반 회색 · 희귀 파랑 · 에픽 보라 · 신화 빨강 · 전설 금색)는 장비 · 대장간 창 테두리 · 이름에 붙었다.
      지환 에셋(곡괭이 · 토큰 아이콘 테두리)이 오면 같은 색으로 맞춘다(ASSET_ORDER 공통 규칙) · 토스트는 기존 tier 색 그대로
 에셋          ASSET_ORDER "정해야 함" 줄은 12/18 이후 사람 · GPT(#37 결정). 펫 모델(PetConfig.VISUALS) · 토큰 아이콘(TOKEN_VISUALS) 자리 연결됨(#37)
@@ -336,6 +337,7 @@ PlayerState 바뀐 필드만   한 명이 받는 양의 98%(0.2초마다 약 1 K
 판별           Locale ID 앞 두 글자(es-mx → es · pt-pt → pt · fr-ca → fr). 스페인어는 중남미 · 포르투갈어는 브라질 표현 하나로
 용어           de 환생 = Rebirth(번역 안 함) · fr 힘 = Force(Puissance는 폰에서 넘침) · fr 펫 = Animal · pt · de 펫 = Pet
 상품 이름      ko처럼 게임 안에서 번역했다(x2 Poder 꼴 — 배수가 앞 규칙 유지)
+               ↪ #42 이름 번역 규칙으로 대체 — UI 확정 전 고유 이름(상품 포함)은 en · ko만(docs/LOCALIZATION.md "이름 번역 규칙")
 줄인 이름      폰 토스트 넘침 때문에 뜻이 조금 바뀐 이름: es Genio del Monte · Gusano Cristal / pt Gênio do Monte /
                fr Briseur(칭호 Destroyer) · Ruine(아우라 Collapse) · Ver Cristal / de Schwarzloch · Baumriese
 제목 줄임      es · fr 새 펫 알림 머리 "¡Nueva!" · "Nouveau !"(펫 낱말 없이 — 토스트 폭)
@@ -344,6 +346,7 @@ PlayerState 바뀐 필드만   한 명이 받는 양의 98%(0.2초마다 약 1 K
 **#41 화면 확인 결과(2026-11-26 — 스크린샷 `HANDOFF/41/screens` 35장)**
 ```
 de 장비 칸      ✅ 고침 — 별대장간 곡괭이(임시 이름) 4개 언어 줄임: es Pico Estelar · pt Picareta Estelar · fr Pioche Stellaire · de Sternspitzhacke
+                ↪ #42 이름 번역 규칙으로 대체 — 4개 언어 곡괭이 이름을 지웠다(영어 Starforge Pickaxe가 보인다)
 de 건너뛰기     ✅ 그대로 — Überspringen이 안내 띠 버튼에 들어간다(넘침 테스트 통과 · 화면 확인)
 펫 ×3 부화      ↪ 2월 플레이 테스트(작은 버튼 글자 — 모든 언어 · 영어도 같다. 테스트 11px 이상 통과)
 3D 안내판       ✅ 로비 기구 · 클릭 패드 · 게이트(es · de 화면) / ↪ 수령 발판 · 진행 벽은 런 중에만 보여 2월 플레이 테스트로
