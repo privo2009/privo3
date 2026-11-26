@@ -63,6 +63,7 @@ ServerPackages/ → Wally 패키지 (직접 수정 금지)
 | `docs/LOCALIZATION.md` | 다국어 구조(Strings + 유럽 4개 언어 Lang 파일 → CSV → 로블록스 현지화 표) · 새 문장(6개 언어) · 새 언어 추가 순서 · 언어별 용어집 · 검수 상태 (언어 결정 원본은 `DESIGN.md` "12. 언어") |
 | `docs/ASSET_ORDER.md` | 새 경제 에셋 주문서(곡괭이 · 광석 · 연출 · 이펙트 · 대장간 · 펫 · 토큰 · 맵) — 크기 · 개수 · 우선순위 · 넣는 법(교체 방식 원본은 `DESIGN.md` 16장) · 자리 목록 원본은 `Shared/AssetSlots` |
 | `docs/POLICY_CHECK.md` | 유료 랜덤 상품(행운 · 롤 충전) 정책 점검 — 공식 요구 · 상품 × 화면 점검표 · 남은 위험 · 다시 볼 순서 (상품을 새로 만들면 표에 한 줄) |
+| `docs/GYM_OPTIONS.md` | 운동기구 개편 선택지(지시서 #41) — 지금 상태 · 선택지별 배치 · 해금 · 상품 · 에셋 · EconomyReport 측정 · 추천(결정은 희준 — 고르면 PENDING N3) |
 | `docs/REMOTES.md` | 클라 → 서버 리모트 목록 · 입구마다 검사 · 연타 상한 · 실패 응답 · 공통 문 RemoteGuard 규칙 (새 입구를 만들면 표에 한 줄) |
 
 ⚠️ **화면 개수 · 색값 · 규격 수치를 이 문서로 복사하지 말 것.**
