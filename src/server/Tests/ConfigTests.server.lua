@@ -937,17 +937,19 @@ end)
 -- 막힌다" 같은 모양으로만 나타난다. 아래는 파생이 실제로 도는지를 재는 절이다.
 
 check("ArenaConfig: 확정 구조의 좌표가 그대로 나온다", function()
-	-- 확정값을 여기 박는 것이 맞다. 이 절은 "구조가 바뀌지 않았는가"를 재는 자리이고,
-	-- 파생식으로 다시 쓰면 식이 틀려도 자기 자신과 일치해서 통과한다.
 	-- 2026-10-23 지시서 #8(맵 템포): 폭 148 · 띠 24 · 스폰 -200 (이전 160 · 40 · -400).
-	return ArenaConfig.getStagePitch() == 172
+	-- 지시서 #46: 숫자는 배율(ArenaScale)에서 온다 — 배율 1.0의 확정값(148 · 24 · -200 …)은 ArenaScaleTests "배율 1.0 = 옛 배치"가 박아 재고,
+	-- 여기서는 파트를 놓는 함수가 배치표(layoutAt — 지금 배율)를 구조대로 내는지 잰다(폭 W · 띠 G: 주기 W+G · 발판 W/2+G/2 · 벽 W/2+G · 입구 -W/2)
+	local L = ArenaConfig.layoutAt(require(game:GetService("ReplicatedStorage").Shared.Config.ArenaScale).ARENA_SCALE)
+	local W, G = L.stageWidth, L.gapWidth
+	return ArenaConfig.getStagePitch() == W + G
 		and ArenaConfig.getStageCenterX(1) == 0
-		and ArenaConfig.getStageCenterX(2) == 172
-		and ArenaConfig.getCashoutX(1) == 86
-		and ArenaConfig.getAdvanceX(1) == 98
-		and ArenaConfig.getEntranceX() == -74
-		and ArenaConfig.SPAWN_X == -200
-		and ArenaConfig.getSpawnToEntrance() == 126
+		and ArenaConfig.getStageCenterX(2) == W + G
+		and ArenaConfig.getCashoutX(1) == W / 2 + G / 2
+		and ArenaConfig.getAdvanceX(1) == W / 2 + G
+		and ArenaConfig.getEntranceX() == -W / 2
+		and ArenaConfig.SPAWN_X == L.spawnX
+		and math.abs(ArenaConfig.getSpawnToEntrance() - ArenaConfig.BASE.SPAWN_TO_ENTRANCE * L.scale) < 1e-6
 end)
 
 check("ArenaConfig: 스테이지 폭을 흔들면 주기·발판·벽이 전부 따라온다 (유도가 실제로 돈다)", function()
@@ -974,15 +976,16 @@ check("ArenaConfig: 스테이지 폭을 흔들면 주기·발판·벽이 전부 
 	end
 
 	local r = result :: any
-	-- 폭 148 → 296이면 주기 172 → 320, 발판 86 → 160, 벽 98 → 172, 입구 -74 → -148.
-	-- 2층 입구는 320 - 148 = 172 — 벽과 같은 자리다(벽을 통과하면 다음 층 시작 면).
-	return r.pitch == 320
-		and r.center2 == 320
-		and r.cashout == 160
-		and r.advance == 172
-		and r.entrance == -148
-		and r.entrance2 == 172
-		and ArenaConfig.getStagePitch() == 172 -- 복구 확인
+	-- 폭 W → 2W이면 주기 2W+G, 발판 W+G/2, 벽 W+G, 입구 -W(배율 1.0: 148 → 296 · 주기 320 · 발판 160 · 벽 172 · 입구 -148).
+	-- 2층 입구는 주기 - 2W/2 = W+G — 벽과 같은 자리다(벽을 통과하면 다음 층 시작 면). #46: 숫자는 지금 폭 · 띠에서 계산한다
+	local W, G = original, ArenaConfig.GAP_WIDTH
+	return r.pitch == 2 * W + G
+		and r.center2 == 2 * W + G
+		and r.cashout == W + G / 2
+		and r.advance == W + G
+		and r.entrance == -W
+		and r.entrance2 == W + G
+		and ArenaConfig.getStagePitch() == W + G -- 복구 확인
 end)
 
 check("ArenaConfig: 스테이지 N의 입구 X가 중심을 따라 움직인다", function()
@@ -991,10 +994,11 @@ check("ArenaConfig: 스테이지 N의 입구 X가 중심을 따라 움직인다"
 	-- 재현된다. 어긋나면 스테이지 2에서만 out_of_range가 뜨고 원인이 안 보인다.
 	local stageEdge = ArenaConfig.STAGE_WIDTH / 2
 
-	-- 확정값. 주기 172, 폭 148이면 1층 -74, 2층 98, 3층 270이다.
-	local fixedOk = ArenaConfig.getStageEntranceX(1) == -74
-		and ArenaConfig.getStageEntranceX(2) == 98
-		and ArenaConfig.getStageEntranceX(3) == 270
+	-- 주기 P, 폭 W이면 1층 -W/2, 2층 P - W/2, 3층 2P - W/2(배율 1.0: -74 · 98 · 270). #46: 지금 폭 · 주기에서 계산한다
+	local P = ArenaConfig.getStagePitch()
+	local fixedOk = ArenaConfig.getStageEntranceX(1) == -stageEdge
+		and ArenaConfig.getStageEntranceX(2) == P - stageEdge
+		and ArenaConfig.getStageEntranceX(3) == 2 * P - stageEdge
 
 	-- 상대 위치가 층과 무관하게 같은가. 이것이 dist 재현의 근거다.
 	local relativeOk = true
@@ -1024,11 +1028,12 @@ check("ArenaConfig: 패드 24장이 스폰 구역 안 · 챌린지 입구 앞에
 	local last = positions[count].X
 
 	-- 지시서 #8 M1: 패드는 통로 옆 2줄이고 스폰 바로 뒤(-220)에서 시작해 게이트 앞(-88)에서 끝난다.
+	-- #46: 첫 · 마지막 열은 배치표(layoutAt — 배율 1.0이면 -220 · -88)
 	return first < ArenaConfig.SPAWN_X
 		and first > ArenaConfig.SPAWN_ZONE_X_MIN
 		and last < ArenaConfig.getEntranceX()
-		and first == -220
-		and last == -88
+		and math.abs(first - ArenaConfig.LIVE.padFirstX) < 1e-6
+		and math.abs(last - ArenaConfig.LIVE.padLastX) < 1e-6
 end)
 
 check("LevelConfig: 수령 발판이 깊이 소스에 등록돼 있다", function()

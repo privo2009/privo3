@@ -139,6 +139,7 @@ EconomyReport.GOAL = {
 -- run() 모드: "full"(재현 + 후보 묶음 + 정책 비교 + 참고 측정) · "explore"(재현 + EXPLORE 목록만) · "gym"(운동기구 선택지 GYM_OPTIONS만 — #41 · docs/GYM_OPTIONS.md) ·
 -- "types"(플레이어 유형 TYPE_OPTIONS만 — #43 4부 · docs/TUNING.md 12절) · "botcompare"(봇 vs 시뮬 — #44 3부 · TUNING 14절)
 -- "retune"(#45 — 걷기 · 로비 넣은 모델에서 GOAL 가운데에 맞는 후보 값만 찾는다 · 커밋 값은 그대로 · TUNING 15절)
+-- "scale"(#46 — 지금 ArenaScale 배율에서 표준 · 2시간 시점 걷기 : 공격 · 24→25 · 자동 진행 차이를 한 줄로 · TUNING 16절)
 EconomyReport.MODE = "full"
 
 export type Policy = {
@@ -1429,6 +1430,46 @@ function EconomyReport.run()
 			fmt(old.t25), fmt(old.k15), fmt(old.n25, "%.0f"), fmt(walkOnly.t25), fmt(walkOnly.k15), fmt(lobbyHi.t25), fmt(lobbyHi.k15),
 			fmt(sm.t25), fmt(sm.k15), fmt(sm.n25, "%.0f")))
 		print(string.format("[ECON2] 봇비교 25층 %s분 · 15종 %s분 · ===== 끝 · %.0f초 =====", fmt(sm.t25), fmt(sm.k15), os.clock() - t0))
+		return
+	end
+	if E.MODE == "scale" then
+		local AC = require(game:GetService("ReplicatedStorage").Shared.Config.ArenaConfig)
+		local L = AC.LIVE
+		local sm = E.report({ label = string.format("배율 %.2f 표준", L.scale), set = {} }, E.PLAYERS)
+		local list = {}
+		local seen: { [any]: boolean } = {}
+		E.snapshots(E.PLAYERS, function(pl: any, st: any, _open: boolean)
+			if not seen[pl] and pl.elapsedSec >= 7200 then
+				seen[pl] = true
+				table.insert(list, { split = table.clone(pl.split or {}), best = math.max(st.maxEver or 0, pl.bestThisLife or 0), n = st.n })
+			end
+		end)
+		local function med(fn: (any) -> number): number?
+			local xs = {}
+			for _, x in ipairs(list) do
+				table.insert(xs, fn(x))
+			end
+			return median(xs)
+		end
+		local walk = med(function(x)
+			return (x.split.walk_advance or 0) + (x.split.walk_cashout or 0)
+		end)
+		local attack = med(function(x)
+			return (x.split.attack or 0) + (x.split.attack_fail or 0)
+		end)
+		local pickup = med(function(x)
+			return x.split.pickup or 0
+		end)
+		local auto = E.report({ label = string.format("배율 %.2f 유료 자동 진행", L.scale), set = {}, policy = { pickup = "auto" } }, E.PLAYERS)
+		print(string.format("[ECON2] 배율줄 %.2f | 블록 %.1f · 스테이지 %.1f + 띠 %d · 반경 %.1f · 스폰→입구 %.1f | 25층 %s · 15종 %s · 환생 %s · 24→25 %s분 | "
+			.. "2시간 걷기 %s초 · 공격 %s초 · 걷기/공격 %s · 줍기 %s초 · 최고 층 %s | 자동 진행 25층 %s · 15종 %s(무과금 대비 %s%%)",
+			L.scale, L.blockSpan, L.stageWidth, L.gapWidth, L.radius, L.entranceX - L.spawnX, fmt(sm.t25), fmt(sm.k15), fmt(sm.n25, "%.0f"), fmt(sm.gap),
+			fmt(walk, "%.0f"), fmt(attack, "%.0f"), fmt(if walk ~= nil and attack ~= nil and attack > 0 then walk / attack else nil, "%.2f"),
+			fmt(pickup, "%.0f"), fmt(med(function(x)
+				return x.best
+			end), "%.0f"), fmt(auto.t25), fmt(auto.k15),
+			fmt(if auto.t25 ~= nil and sm.t25 ~= nil then (auto.t25 / sm.t25 - 1) * 100 else nil, "%.0f")))
+		print(string.format("[ECON2] ===== 끝 · %.0f초 =====", os.clock() - t0))
 		return
 	end
 	if E.MODE == "retune" then

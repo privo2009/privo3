@@ -91,7 +91,7 @@ do
 	local inZone = true
 	local half = PadLayout.PAD_SIZE / 2
 	for _, p in ipairs(positions) do
-		if math.abs(p.Z) - half.Z < 24 then
+		if math.abs(p.Z) - half.Z < ArenaConfig.getLobbyCorridorHalf() then -- #46: 24 → 통로 반폭(설정에서)
 			clearOfPath = false
 		end
 		if p.X + half.X >= ArenaConfig.getEntranceX() then
@@ -101,7 +101,7 @@ do
 			inZone = false
 		end
 	end
-	check("M1: 패드가 가운데 통로 밖 (|Z| 가장자리 24 이상)", clearOfPath)
+	check("M1: 패드가 가운데 통로 밖 (|Z| 가장자리 ≥ 통로 반폭)", clearOfPath)
 	check("M1: 패드가 전부 입장 게이트 앞", beforeGate)
 	check("M1: 패드가 전부 스폰 구역 안", inZone)
 	check("M1: 패드가 한쪽 옆(-Z)", positions[1].Z < 0 and positions[PAD_COUNT].Z < 0)

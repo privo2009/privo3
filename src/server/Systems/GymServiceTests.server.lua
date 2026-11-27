@@ -161,7 +161,7 @@ do
 	local clearOfPath, oppositeSide = true, true
 	local maxX = -math.huge
 	for _, p in ipairs(positions) do
-		if math.abs(p.Z) - GymLayout.SIZE.Z / 2 < 24 then
+		if math.abs(p.Z) - GymLayout.SIZE.Z / 2 < ArenaConfig.getLobbyCorridorHalf() then -- #46: 24 → 통로 반폭(설정에서)
 			clearOfPath = false
 		end
 		if p.Z <= 0 then

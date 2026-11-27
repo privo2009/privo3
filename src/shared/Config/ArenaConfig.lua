@@ -212,6 +212,18 @@ ArenaConfig.BASE = {
 	DROP_SCATTER = 2.5, -- 블록 하나 드롭이 흩어지는 반경
 }
 
+-- 수령 발판이 판정 반경 밖에 있어야 한다(지시서 #46 — "걸어가서 고르는 선택을 유지"). 발판의 가장 가까운 모서리
+-- (진행축 폭/2 + 띠/2 − 발판 깊이/2 · 옆 CASHOUT_LATERAL_OFFSET − 발판 폭/2)가 반경 + 이 여유보다 멀어지도록 띠를 넓힌다(24 아래로는
+-- 안 좁힌다 — 발판 · 벽 깊이). ⚠️ 배율 1.0 옛 배치(#8 M2 · 주기 172)는 이 규칙을 어겼다 — 발판 모서리 81 < 반경 92.8.
+-- 지금 배율(0.53 이하)에서는 24 그대로 성립하고, 배율을 올리면 띠가 자동으로 넓어진다
+ArenaConfig.PAD_RADIUS_CLEARANCE = 0.5
+
+-- 로비 가운데 통로 반폭(지시서 #46): 통로 한가운데(Z = 0)로 걸어도 옆 패드 · 기구를 밟지 않는 폭. 수령 발판 안쪽 모서리와 같은 근거 —
+-- 캐릭터 반폭 2 + 고속 이동 여유 12 = CASHOUT_LATERAL_OFFSET − 발판 폭/2(14). 배율을 안 따른다(캐릭터). 패드 · 기구 안쪽 줄은 이보다 바깥
+function ArenaConfig.getLobbyCorridorHalf(): number
+	return ArenaConfig.CASHOUT_LATERAL_OFFSET - ArenaConfig.CASHOUT_PAD_SIZE.Z / 2
+end
+
 export type Layout = {
 	scale: number,
 	blockSpan: number,
@@ -243,8 +255,9 @@ export type Layout = {
 	dropScatter: number,
 }
 
--- 배율 scale의 배치(순수 — 지금 배율과 상관없이 아무 배율이나 계산한다. 후보 비교 · 테스트가 부른다)
-function ArenaConfig.layoutAt(scale: number): Layout
+-- 배율 scale의 배치(순수 — 지금 배율과 상관없이 아무 배율이나 계산한다. 후보 비교 · 테스트가 부른다).
+-- legacyGap = true면 발판 반경 규칙을 끈다(띠 24 고정 — "배율 1.0 = 옛 배치" 테스트 전용)
+function ArenaConfig.layoutAt(scale: number, legacyGap: boolean?): Layout
 	assert(type(scale) == "number" and scale > 0 and scale <= 1, "ArenaConfig.layoutAt: scale은 0 초과 1 이하")
 	local B = ArenaConfig.BASE
 	local snap = ArenaScale.snap
@@ -253,13 +266,21 @@ function ArenaConfig.layoutAt(scale: number): Layout
 	local radius = AttackConfig.radiusAtSpan(span)
 	local stageWidth = snap(2 * (face + ArenaConfig.ADVANCE_WALL_DEPTH / 2 + B.STAGE_EDGE_CLEARANCE * scale))
 	local gapWidth = ArenaConfig.GAP_WIDTH_BASE
+	local padLat = ArenaConfig.CASHOUT_LATERAL_OFFSET - ArenaConfig.CASHOUT_PAD_SIZE.Z / 2
+	local want = radius + ArenaConfig.PAD_RADIUS_CLEARANCE
+	if not legacyGap and want > padLat then
+		-- 폭/2 + 띠/2 − 발판 깊이/2 = √(want² − padLat²)를 푼 띠(정수로 올림)
+		local need = 2 * (math.sqrt(want * want - padLat * padLat) - stageWidth / 2 + ArenaConfig.CASHOUT_PAD_SIZE.X / 2)
+		gapWidth = math.max(gapWidth, math.ceil(need))
+	end
 	local entranceX = -stageWidth / 2
 	local spawnX = snap(entranceX - B.SPAWN_TO_ENTRANCE * scale)
 
 	local padSize = ArenaConfig.LOBBY_PAD_SIZE
 	local padPitch = ArenaScale.pitch(B.PAD_PITCH, padSize, ArenaScale.PAD_MIN_GAP, scale)
 	local padRowPitch = ArenaScale.pitch(B.PAD_ROW_PITCH, padSize, ArenaScale.PAD_MIN_GAP, scale)
-	local padLaneZ = -ArenaScale.scaled(B.PAD_LANE_Z, scale)
+	local corridor = ArenaConfig.getLobbyCorridorHalf()
+	local padLaneZ = -ArenaScale.snap(math.max(B.PAD_LANE_Z * scale, corridor + padSize / 2))
 	local padColumns = math.ceil(ArenaConfig.LOBBY_PAD_COUNT / ArenaConfig.LOBBY_PAD_ROWS)
 	local padLastX = snap(entranceX - B.PAD_END_MARGIN * scale - padSize / 2)
 	local padFirstX = snap(padLastX - (padColumns - 1) * padPitch)
@@ -268,7 +289,7 @@ function ArenaConfig.layoutAt(scale: number): Layout
 	local gymSize = ArenaConfig.LOBBY_GYM_SIZE
 	local gymPitch = ArenaScale.pitch(B.GYM_PITCH, gymSize, ArenaScale.GYM_MIN_GAP, scale)
 	local gymRowPitch = ArenaScale.pitch(B.GYM_ROW_PITCH, gymSize, ArenaScale.GYM_MIN_GAP, scale)
-	local gymLaneZ = ArenaScale.scaled(B.GYM_LANE_Z, scale)
+	local gymLaneZ = ArenaScale.snap(math.max(B.GYM_LANE_Z * scale, corridor + gymSize / 2))
 	local gymColumns = math.ceil(ArenaConfig.LOBBY_GYM_COUNT / ArenaConfig.LOBBY_GYM_ROWS)
 	local gymLastX = snap(entranceX - B.GYM_END_MARGIN * scale - gymSize / 2)
 	local gymFirstX = snap(gymLastX - (gymColumns - 1) * gymPitch)

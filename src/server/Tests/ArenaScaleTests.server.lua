@@ -59,7 +59,7 @@ end)())
 
 -- 2. 배율 1.0 = 옛 배치(#45까지의 숫자 — 1부에서 배율을 넣기 전 값을 그대로 적었다. 줄인 뒤에도 이 줄은 그대로 맞아야 한다)
 do
-	local L = ArenaConfig.layoutAt(1.0)
+	local L = ArenaConfig.layoutAt(1.0, true)
 	local d = diff({
 		blockSpan = 16,
 		stageWidth = 148,
@@ -163,6 +163,15 @@ local function relationProblems(L: ArenaConfig.Layout): { string }
 	if not (half + L.gapWidth - wallHalf > L.radius) then
 		table.insert(bad, "진행 벽이 반경 안")
 	end
+	-- 수령 발판 가장 가까운 모서리가 반경 밖(#46 — 걸어 나가 고른다) · 발판 뒷면이 벽 앞면보다 앞(띠 안에서 안 겹침)
+	local padNearX = half + L.gapWidth / 2 - ArenaConfig.CASHOUT_PAD_SIZE.X / 2
+	local padNearZ = ArenaConfig.CASHOUT_LATERAL_OFFSET - ArenaConfig.CASHOUT_PAD_SIZE.Z / 2
+	if not (math.sqrt(padNearX * padNearX + padNearZ * padNearZ) > L.radius) then
+		table.insert(bad, "수령 발판이 반경 안")
+	end
+	if not (half + L.gapWidth / 2 + ArenaConfig.CASHOUT_PAD_SIZE.X / 2 < half + L.gapWidth - wallHalf) then
+		table.insert(bad, "발판과 벽이 겹침")
+	end
 	-- 통로: 블록 · 수령 발판 바깥이 통로 안 · 스폰 구역이 통로보다 넓다
 	local padOuter = ArenaConfig.CASHOUT_LATERAL_OFFSET + ArenaConfig.CASHOUT_PAD_SIZE.Z / 2
 	if not (L.challengeZHalf > L.clusterFace and L.challengeZHalf > padOuter and L.spawnZoneZHalf >= L.challengeZHalf) then
@@ -199,8 +208,9 @@ local function relationProblems(L: ArenaConfig.Layout): { string }
 		if a[2] > L.entranceX - ArenaConfig.ADVANCE_WALL_DEPTH / 2 then
 			pastGate += 1
 		end
-		if i > 1 and a[3] < spawnHalf * 2 and a[4] > -spawnHalf * 2 then
-			inCorridor += 1 -- 통로(스폰 발판 폭의 두 배) 안에 물체
+		local corridor = ArenaConfig.getLobbyCorridorHalf()
+		if i > 1 and a[3] < corridor and a[4] > -corridor then
+			inCorridor += 1 -- 가운데 통로(±getLobbyCorridorHalf) 안에 물체
 		end
 	end
 	if overlaps + outside + pastGate + inCorridor > 0 then
@@ -222,6 +232,13 @@ check("배치 관계: 지금 배율 · 후보 0.4 ~ 0.7마다 블록 · 입구 �
 	end
 	return #all == 0, table.concat(all, " / ")
 end)())
+
+check("발판 반경 규칙: 옛 배치(1.0 · 띠 24)는 발판 모서리가 반경 안이었다 → 규칙을 켜면 1.0의 띠가 넓어진다 · 지금 배율은 규칙 그대로",
+	(function()
+		local old, new = ArenaConfig.layoutAt(1.0, true), ArenaConfig.layoutAt(1.0)
+		return old.gapWidth == ArenaConfig.GAP_WIDTH_BASE and new.gapWidth > old.gapWidth and #relationProblems(new) == 0
+			and ArenaConfig.LIVE.gapWidth == ArenaConfig.layoutAt(ArenaScale.ARENA_SCALE).gapWidth
+	end)())
 
 -- 6. 걷는 길이가 배율을 따라 줄어든다(이동 속도는 그대로 — 걷는 시간이 이 비율로 준다)
 check("걷는 길이: 배율이 작을수록 층 주기 · 스폰 → 입구가 짧다(1.0보다 짧고 후보끼리 차례)", (function()

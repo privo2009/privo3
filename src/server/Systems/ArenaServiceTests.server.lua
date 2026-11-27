@@ -466,11 +466,12 @@ do
 	check("M3: 모든 파트 각 축 ≤ MAX_PART_SIZE (ArenaConfig.validate, 마지막 층까지)", okValidate, tostring(err))
 
 	-- M2: 기본 이동 속도 · 업그레이드 0 · 레벨 0 기준 목표 시간. ≈ 는 ±1초로 본다.
+	-- #46(희준 결정 — 블록 · 맵을 줄인다): M2 목표(4초 · 5초)는 이제 위 끝이다 — 배율로 줄어든 걷기가 그보다 길지 않은가(+1초 안)
 	local base = LevelConfig.getMaxSpeed(BigNum.new(0, 0))
 	local lobbySec = ArenaConfig.getSpawnToEntrance() / base
 	local stageSec = ArenaConfig.getStagePitch() / base -- 클리어 지점(그 층 시작 면) → 그 층 진행 벽 = 한 주기
-	check("M2: 스폰 → 입장 게이트 ≈ 4초", math.abs(lobbySec - 4) <= 1, string.format("%.2f초 (%.0f studs ÷ %.0f)", lobbySec, ArenaConfig.getSpawnToEntrance(), base))
-	check("M2: 층 시작 면 → 진행 벽 ≈ 5초", math.abs(stageSec - 5) <= 1, string.format("%.2f초 (%.0f studs ÷ %.0f)", stageSec, ArenaConfig.getStagePitch(), base))
+	check("M2: 스폰 → 입장 게이트 ≤ 4초 + 1(#46 배율)", lobbySec > 0 and lobbySec <= 4 + 1, string.format("%.2f초 (%.0f studs ÷ %.0f)", lobbySec, ArenaConfig.getSpawnToEntrance(), base))
+	check("M2: 층 시작 면 → 진행 벽 ≤ 5초 + 1(#46 배율)", stageSec > 0 and stageSec <= 5 + 1, string.format("%.2f초 (%.0f studs ÷ %.0f)", stageSec, ArenaConfig.getStagePitch(), base))
 	check("M3: 기본 속도가 MAX_WALK_SPEED 아래 (상한은 안 바꾼다)", base < LevelConfig.getMaxWalkSpeed(), string.format("%.0f / %.0f", base, LevelConfig.getMaxWalkSpeed()))
 end
 
