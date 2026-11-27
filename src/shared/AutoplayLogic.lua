@@ -6,6 +6,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local AutoplayConfig = require(ReplicatedStorage.Shared.Config.AutoplayConfig)
+local BigNum = require(ReplicatedStorage.Shared.BigNum)
 
 local AutoplayLogic = {}
 
@@ -193,6 +194,84 @@ function AutoplayLogic.craftProblems(oresBefore: { number }, oresAfter: { number
 		if d ~= (planned[key] or 0) then
 			table.insert(out, string.format("token_%s +%d≠+%d", key, d, planned[key] or 0))
 		end
+	end
+	return out
+end
+
+-- 환생 한 번 앞뒤(#44 pre_rebirth). 스냅숏 꼴 = AutoplayMonitor.snapshot(환생 수 number · 블럭스 · 코인 · 힘 · lifeBlox BigNum ·
+-- 광석 · 토큰 · 곡괭이 표 · 장착 · 펫 "uid:petId" 정렬 목록 · 열린 기구 수 · 최고 층). ctx = { cost · multRatio(뒤 / 앞 힘 배수) · multBase ·
+-- gymsExpected · strengthStart · analytics(환생 분석 호출 수) }
+local function sameCounts(a: { [any]: any }, b: { [any]: any }): boolean
+	for k, v in pairs(a) do
+		if b[k] ~= v then
+			return false
+		end
+	end
+	for k, v in pairs(b) do
+		if a[k] ~= v then
+			return false
+		end
+	end
+	return true
+end
+
+local function bigClose(a: any, b: any): boolean
+	if a.m == 0 or b.m == 0 then
+		return a.m == b.m
+	end
+	local ra = math.log10(math.abs(a.m)) + a.e
+	local rb = math.log10(math.abs(b.m)) + b.e
+	return math.abs(ra - rb) < 1e-9 and (a.m > 0) == (b.m > 0)
+end
+
+function AutoplayLogic.rebirthProblems(before: any, after: any, ctx: any): { string }
+	local out = {}
+	if after.rebirths ~= before.rebirths + 1 then
+		table.insert(out, string.format("rebirths %d→%d", before.rebirths, after.rebirths))
+	end
+	-- 블럭스 = 앞 − 비용(나머지는 남는다 — REBIRTH_KEEP_REMAINDER)
+	local want = if BigNum.gt(before.blox, ctx.cost) then BigNum.sub(before.blox, ctx.cost) else BigNum.new(0, 0)
+	if not bigClose(after.blox, want) then
+		table.insert(out, "blox≠before−cost")
+	end
+	if not bigClose(after.coins, before.coins) then
+		table.insert(out, "coins")
+	end
+	if not sameCounts(after.ores, before.ores) then
+		table.insert(out, "ores")
+	end
+	if not sameCounts(after.tokens, before.tokens) then
+		table.insert(out, "tokens")
+	end
+	local picksSame = true
+	for id, o in pairs(before.pickaxes) do
+		local p = after.pickaxes[id]
+		if p == nil or p.count ~= o.count or p.stars ~= o.stars or p.enh ~= o.enh then
+			picksSame = false
+		end
+	end
+	for id in pairs(after.pickaxes) do
+		if before.pickaxes[id] == nil then
+			picksSame = false
+		end
+	end
+	if not picksSame or after.equipped ~= before.equipped then
+		table.insert(out, "pickaxes")
+	end
+	if table.concat(after.pets, ",") ~= table.concat(before.pets, ",") then
+		table.insert(out, "pets")
+	end
+	if after.gyms ~= ctx.gymsExpected or after.gyms < before.gyms then
+		table.insert(out, string.format("gyms %d→%d(want %d)", before.gyms, after.gyms, ctx.gymsExpected))
+	end
+	if math.abs(ctx.multRatio - ctx.multBase) > 1e-6 then
+		table.insert(out, string.format("mult ×%.6f≠×%g", ctx.multRatio, ctx.multBase))
+	end
+	if not bigClose(after.strength, ctx.strengthStart) or after.maxStage ~= 1 or after.lifeBlox.m ~= 0 then
+		table.insert(out, "reset(strength · maxStage · lifeBlox)")
+	end
+	if ctx.analytics ~= 1 then
+		table.insert(out, string.format("analytics %d", ctx.analytics))
 	end
 	return out
 end

@@ -5,7 +5,7 @@
 
 local AutoplayConfig = {}
 
-export type Segment = { preset: string, targetFloor: number, limitSec: number, label: string }
+export type Segment = { preset: string, targetFloor: number, limitSec: number, label: string, rebirthFirst: boolean?, minRuns: number? }
 
 -- 구간 이름 = TEST_AUTOPLAY 값. preset = 그 구간이 여는 Mock 프로필(Shared/Config/TestPresets 이름).
 -- 목표 층을 깨고 런이 MIN_RUNS 이상 · 지금 런이 없으면(마지막 가방까지 검사) 또는 limitSec이 지나면 끝난다
@@ -14,10 +14,16 @@ AutoplayConfig.SEGMENTS = {
 	fresh = { preset = "fresh", targetFloor = 10, limitSec = 480, label = "fresh → 10층" },
 	min30 = { preset = "min30", targetFloor = 17, limitSec = 360, label = "min30 → 17층 근처" },
 	hour2 = { preset = "hour2", targetFloor = 25, limitSec = 420, label = "hour2 → 24 · 25층 도전" },
+	-- 환생 길(#44): 환생 직전 프리셋 → 환생 창 열기 · 다음 비용 확인 → 환생(실제 리모트 · Mock) → 환생 뒤 상태 검사 → 1 ~ 3층 다시.
+	-- 런 1번이면 끝(minRuns) — 환생 뒤 첫 런으로 1 ~ 3층을 다시 밟는 것까지가 이 구간이다
+	pre_rebirth = { preset = "pre_rebirth", targetFloor = 3, limitSec = 240, label = "pre_rebirth → 환생 · 1 ~ 3층 다시",
+		rebirthFirst = true, minRuns = 1 },
 } :: { [string]: Segment }
-AutoplayConfig.ORDER = { "fresh", "min30", "hour2" }
--- 목표 층에 닿아도 런이 이만큼은 돌아야 끝난다 — 실패 섞기(FAIL_EVERY_RUNS) 런이 한 번은 들어가게
+AutoplayConfig.ORDER = { "fresh", "min30", "hour2", "pre_rebirth" }
+-- 목표 층에 닿아도 런이 이만큼은 돌아야 끝난다 — 실패 섞기(FAIL_EVERY_RUNS) 런이 한 번은 들어가게(구간에 minRuns가 있으면 그 값)
 AutoplayConfig.MIN_RUNS = 4
+-- 환생 뒤 안내(RebirthNotice) · 상태가 들어오기를 기다리는 상한(초)
+AutoplayConfig.REBIRTH_WAIT_SEC = 4
 
 -- 시작: 서버 테스트 끝 줄([TestRunDone] server)을 본 뒤 이만큼 더 기다린다(클라 테스트 · 접속 안내가 가라앉게). 끝 줄 대기 상한
 AutoplayConfig.START_DELAY_SEC = 8

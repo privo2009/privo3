@@ -43,7 +43,7 @@ do
 			allListed = false
 		end
 	end
-	check("NAMES = Presets 키 (6개)", allListed and n == 6, tostring(n))
+	check("NAMES = Presets 키 (7개 — #44 pre_rebirth)", allListed and n == 7, tostring(n))
 end
 
 for _, name in ipairs(TestPresets.NAMES) do
@@ -85,7 +85,7 @@ for _, name in ipairs(TestPresets.NAMES) do
 				end)())
 	end
 end
-check("#38 새 경제 필드: 6개 전부 곡괭이 id가 Config에 · 장착 곡괭이는 보유 · 광석 칸 수 · 10분부터 대장간 열림 · 시간 순으로 환생이 늘어난다", (function()
+check("#38 새 경제 필드: 7개 전부 곡괭이 id가 Config에 · 장착 곡괭이는 보유 · 광석 칸 수 · 10분부터 대장간 열림 · 시간 순으로 환생이 늘어난다", (function()
 	local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 	local EconomyV2Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
 	local prevRebirths = -1
@@ -109,7 +109,27 @@ check("#38 새 경제 필드: 6개 전부 곡괭이 id가 Config에 · 장착 �
 		end
 		prevRebirths = r
 	end
-	return TestPresets.NAMES[1] == "fresh" and #TestPresets.NAMES == 6
+	return TestPresets.NAMES[1] == "fresh" and #TestPresets.NAMES == 7
+end)())
+check("pre_rebirth(#44) = hour1에서 블럭스만 다음 환생 비용 이상 · 1.2배 미만 · 환생 · 곡괭이 · 펫 · 코인 · 광석 그대로 · lifeBlox · lifetimeBlox는 같은 만큼 더함", (function()
+	local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
+	local a, b = TestPresets.Presets.hour1, TestPresets.Presets.pre_rebirth
+	if a == nil or b == nil then
+		return false
+	end
+	local cost = EconomyV2Logic.rebirthCost(b.rebirths)
+	local same = BigNum.eq(a.rebirths, b.rebirths) and BigNum.eq(a.strength, b.strength) and BigNum.eq(a.coins, b.coins)
+		and a.equippedPickaxe == b.equippedPickaxe and #a.pets == #b.pets and a.maxStage == b.maxStage and a.padIndex == b.padIndex
+	for k = 1, #a.ores do
+		same = same and a.ores[k] == b.ores[k]
+	end
+	-- lifeBlox · lifetimeBlox는 블럭스와 같은 만큼 오른다(환생 나머지가 넘어와 블럭스 > lifeBlox인 것은 hour1부터 그대로 — 불변식이 아니다)
+	local dBlox = BigNum.sub(b.blox, a.blox)
+	local function sameDelta(x: any, y: any): boolean
+		return math.abs(BigNum.toRatio(BigNum.sub(x, y), dBlox) - 1) < 1e-4
+	end
+	return same and EconomyV2Logic.canRebirth(b.blox, b.rebirths) and BigNum.lt(b.blox, BigNum.mul(cost, BigNum.fromNumber(1.2)))
+		and sameDelta(b.lifeBlox, a.lifeBlox) and sameDelta(b.lifetimeBlox, a.lifetimeBlox)
 end)())
 check("fresh = 신규 프로필과 같은 재화(시뮬레이터 시작 상태 = Schema.new)", (function()
 	local data = TestPresetGate.buildData("fresh")

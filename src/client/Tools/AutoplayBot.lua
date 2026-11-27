@@ -22,6 +22,7 @@ local EconomyV2Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
 local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 local GymLayout = require(ReplicatedStorage.Shared.GymLayout)
+local Formatter = require(ReplicatedStorage.Shared.Formatter)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local StageConfig = require(ReplicatedStorage.Shared.Config.StageConfig)
@@ -84,6 +85,17 @@ function AutoplayBot.run()
 	local stats = { runs = 0, floors = 0, advances = 0, cashouts = 0, fails = 0, failRuns = 0, warps = 0, rebirths = 0, crafts = 0,
 		exchanges = 0, equips = 0, enhances = 0, stars = 0, hatches = 0, upgrades = 0, picked = 0, clicks = 0, daily = 0 }
 	local phase = "start"
+	-- 시간 나눔(#44 3부 — 봇 vs 시뮬): 단계마다 쓴 초 · 층 첫 도달(봇 시작부터 초)
+	local phaseSec: { [string]: number } = {}
+	local phaseAt = os.clock()
+	local function setPhase(name: string)
+		local now = os.clock()
+		phaseSec[phase] = (phaseSec[phase] or 0) + (now - phaseAt)
+		phaseAt = now
+		phase = name
+	end
+	local firstReach: { [number]: number } = {}
+	local cashoutFloors: { number } = {}
 
 	local logConn = LogService.MessageOut:Connect(function(message: string, kind: Enum.MessageType)
 		if kind ~= Enum.MessageType.MessageWarning and kind ~= Enum.MessageType.MessageError then
@@ -106,6 +118,10 @@ function AutoplayBot.run()
 		end
 		run = if payload.active == true then payload.state else nil
 		runSeq += 1
+		if run ~= nil and (payload.reason == "start" or payload.reason == "advance") and type(run.stage) == "number"
+			and firstReach[run.stage] == nil then
+			firstReach[run.stage] = os.clock() - t0
+		end
 	end)
 	local drops: { [number]: Vector3 } = {}
 	local results: { [string]: any } = {}
@@ -227,7 +243,7 @@ function AutoplayBot.run()
 
 	-- ===== 창 열기 · 닫기 ====================================================================================
 	local function checkWindows(label: string)
-		phase = "windows_" .. label
+		setPhase("windows_" .. label)
 		for _, name in ipairs(AutoplayConfig.WINDOWS) do
 			local ok, err = pcall(ScreenController.open, name)
 			task.wait(AutoplayConfig.WINDOW_WAIT_SEC)
@@ -275,7 +291,7 @@ function AutoplayBot.run()
 	end
 
 	local function train(sec: number)
-		phase = "gym"
+		setPhase("gym")
 		local _, center = bestGym()
 		if center ~= nil then
 			local reached, stuck = walkTo(Vector3.new(center.X, 0, center.Z), 15, 2)
@@ -304,7 +320,7 @@ function AutoplayBot.run()
 		if not v.forgeOpen then
 			return
 		end
-		phase = "forge"
+		setPhase("forge")
 		for _ = 1, AutoplayConfig.CRAFTS_PER_VISIT do
 			if EconomyV2Logic.bestCombo(econ.get().ores) == nil then
 				break
@@ -339,7 +355,7 @@ function AutoplayBot.run()
 			end
 		end
 		-- 장비: 가장 좋은 곡괭이 장착 · 별 · 강화(되는 만큼 한 번씩)
-		phase = "equipment"
+		setPhase("equipment")
 		v = econ.get()
 		local picks = EconomyV2Logic.picksFromSave(v.equipment, v.equipped)
 		local best = EconomyV2Logic.bestOwned(picks)
@@ -370,7 +386,7 @@ function AutoplayBot.run()
 	end
 
 	local function petVisit()
-		phase = "pet"
+		setPhase("pet")
 		local s = snap()
 		local eggs = PetConfig.getUnlockedEggs(s.lifetimeBlox, s.pets.world)
 		local egg = eggs[#eggs]
@@ -389,7 +405,7 @@ function AutoplayBot.run()
 	end
 
 	local function upgradeVisit()
-		phase = "upgrade"
+		setPhase("upgrade")
 		for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
 			local s = snap()
 			local level = s.upgrades[name] or 0
@@ -430,10 +446,11 @@ function AutoplayBot.run()
 
 	-- 한 층: 클리어 될 때까지 블록 곁에서 드롭을 줍는다. 클리어면 true(런이 끝났으면 false)
 	local function fightFloor(stage: number): boolean
-		phase = "floor"
+		setPhase("approach")
 		walkTo(stagePoint(stage, 0), 8, 3, function()
 			return run == nil or run.cleared == true
 		end)
+		setPhase("attack")
 		while run ~= nil and run.stage == stage and run.cleared ~= true and not done() do
 			local target = if not bagFull() then nearestDrop() else nil
 			if target ~= nil then
@@ -453,6 +470,7 @@ function AutoplayBot.run()
 			return false
 		end
 		-- 클리어 뒤 남은 드롭(가방이 차거나 없거나 상한 시간까지)
+		setPhase("pickup")
 		local start = os.clock()
 		while os.clock() - start < AutoplayConfig.PICKUP_CHASE_SEC and not bagFull() and not done() do
 			local target = nearestDrop()
@@ -476,7 +494,7 @@ function AutoplayBot.run()
 		if failRun then
 			stats.failRuns += 1
 		end
-		phase = "enter"
+		setPhase("enter")
 		if viaWarp ~= nil then
 			local r = request(channels.warpRequest, { stage = viaWarp }, "warpResult")
 			if r == nil or r.ok ~= true then
@@ -515,7 +533,7 @@ function AutoplayBot.run()
 			if view == nil then
 				break
 			end
-			phase = "decide"
+			setPhase("decide")
 			local wallX = ArenaConfig.getAdvanceX(stage)
 			if failRun and AutoplayLogic.failHere(cleared) and view.canAdvance == true then
 				-- 실패 섞기: 반경 밖 줄(Z = FAIL_STAND_Z)로 벽을 지나 다음 층에 들어가 가만히 서서 시간 초과로 진다(가방을 잃는 길)
@@ -528,7 +546,7 @@ function AutoplayBot.run()
 				end, 3) then
 					addFlow("fail_advance_no", string.format("%d층", stage))
 				end
-				phase = "fail_wait"
+				setPhase("fail_wait")
 				waitUntil(function()
 					return run == nil
 				end, timer + 3)
@@ -537,6 +555,7 @@ function AutoplayBot.run()
 			end
 			local choice = AutoplayLogic.afterClear(view, timer, seg.targetFloor)
 			if choice == "advance" then
+				setPhase("to_wall")
 				walkTo(Vector3.new(wallX + 10, 0, 0), 12, 2, function()
 					return run ~= nil and run.stage ~= stage
 				end)
@@ -548,6 +567,8 @@ function AutoplayBot.run()
 				end
 				stats.advances += 1
 			else
+				setPhase("to_pad")
+				table.insert(cashoutFloors, stage)
 				walkTo(Vector3.new(ArenaConfig.getCashoutX(stage), 0, ArenaConfig.CASHOUT_LATERAL_OFFSET), 12, 1.5, function()
 					return run == nil
 				end)
@@ -562,6 +583,7 @@ function AutoplayBot.run()
 			end
 		end
 		-- 서버가 스폰으로 돌려보낼 때까지(런 끝 → returnToSpawn)
+		setPhase("return")
 		waitUntil(function()
 			return run == nil
 		end, timer + 3)
@@ -574,7 +596,7 @@ function AutoplayBot.run()
 	closeDaily()
 	local s0 = snap()
 	if s0.daily.canClaim then
-		phase = "daily"
+		setPhase("daily")
 		local r = request(channels.dailyRequest, { action = "claim" }, "dailyResult") -- OverlayBoot와 같은 꼴
 		if r ~= nil and r.ok == true then
 			stats.daily += 1
@@ -582,6 +604,61 @@ function AutoplayBot.run()
 			addFlow("daily_failed", tostring(r and r.reason))
 		end
 		closeDaily()
+	end
+	-- 환생 길(#44 pre_rebirth): 환생 창 열기 · 다음 비용이 창에 보이나 → 환생(실제 리모트 · 서버가 Mock 확인 뒤에만 이 봇이 돈다) →
+	-- 환생 안내(RebirthNotice)가 뜨나 · 클라 상태(환생 +1 · 최고 층 1 · 가장 좋은 열린 기구가 바뀌나). 서버 앞뒤 검사는 AutoplayMonitor
+	if seg.rebirthFirst then
+		setPhase("rebirth_first")
+		-- snap()은 읽을 때마다 지금 값이다 — 앞 값은 요청 전에 꺼내 둔다(#44 첫 돌림에서 "13 → 14"로 잘못 찍혔다)
+		local beforeRebirths: any = snap().rebirths
+		local beforeBlox: any = snap().blox
+		local cost = EconomyV2Logic.rebirthCost(beforeRebirths)
+		local gymBefore = bestGym()
+		pcall(ScreenController.open, "Rebirth")
+		task.wait(AutoplayConfig.WINDOW_WAIT_SEC)
+		local shown = false
+		local want = Formatter.format(cost)
+		for _, d in ipairs(player.PlayerGui:GetDescendants()) do
+			if d:IsA("TextLabel") and d.Visible and d.Text == want then
+				shown = true
+				break
+			end
+		end
+		if not shown then
+			addFlow("rebirth_cost_not_shown", want)
+		end
+		if not EconomyV2Logic.canRebirth(beforeBlox, beforeRebirths) then
+			addFlow("rebirth_cannot", BigNum.tostring(beforeBlox) .. "<" .. want)
+		end
+		local r = request(channels.rebirthRequest, {}, "rebirthResult")
+		pcall(ScreenController.close, "Rebirth")
+		if r == nil or r.ok ~= true then
+			addFlow("rebirth_failed", tostring(r and r.reason))
+		else
+			stats.rebirths += 1
+			local wantRebirths = EconomyV2Logic.rebirthCount(beforeRebirths) + 1
+			if not waitUntil(function()
+				return EconomyV2Logic.rebirthCount(snap().rebirths) == wantRebirths and snap().maxStage == 1
+			end, AutoplayConfig.REBIRTH_WAIT_SEC) then
+				addFlow("rebirth_state", string.format("환생 %d · 최고 층 %d", EconomyV2Logic.rebirthCount(snap().rebirths), snap().maxStage))
+			end
+			local notice = false
+			waitUntil(function()
+				local n = player.PlayerGui:FindFirstChild("RebirthNotice", true)
+				notice = n ~= nil and n:IsA("GuiObject") and n.Visible
+				return notice
+			end, AutoplayConfig.REBIRTH_WAIT_SEC)
+			if not notice then
+				addFlow("rebirth_notice", "안내가 안 보임")
+			end
+			local gymAfter = bestGym()
+			local opensMore = GymConfig.getUnlockedCount(BigNum.fromNumber(wantRebirths)) > GymConfig.getUnlockedCount(beforeRebirths)
+			if opensMore and (gymAfter or 0) <= (gymBefore or 0) then
+				addFlow("rebirth_gym", string.format("기구 %s → %s", tostring(gymBefore), tostring(gymAfter)))
+			end
+			line("환생 %d → %d · 비용 %s(창에 %s) · 안내 %s · 가장 좋은 기구 %s → %s", wantRebirths - 1, wantRebirths, want,
+				if shown then "보임" else "안 보임", if notice then "뜸" else "안 뜸", tostring(gymBefore), tostring(gymAfter))
+		end
 	end
 	local bestSeen = snap().maxStage
 	local staleRuns = 0
@@ -593,7 +670,7 @@ function AutoplayBot.run()
 		upgradeVisit()
 		local s = snap()
 		if AutoplayLogic.shouldRebirth(staleRuns, EconomyV2Logic.canRebirth(s.blox, s.rebirths)) then
-			phase = "rebirth"
+			setPhase("rebirth")
 			local r = request(channels.rebirthRequest, {}, "rebirthResult")
 			if r ~= nil and r.ok == true then
 				stats.rebirths += 1
@@ -641,7 +718,7 @@ function AutoplayBot.run()
 			staleRuns += 1
 		end
 	end
-	phase = "end"
+	setPhase("end")
 	local h, r = body()
 	if h ~= nil and r ~= nil then
 		h:MoveTo(r.Position)
@@ -656,6 +733,29 @@ function AutoplayBot.run()
 	line("검사 경고·오류 %s", AutoplayLogic.tallyLine(warnings, 80))
 	line("검사 창 %d개 × 2번 %s · 흐름 %s", #AutoplayConfig.WINDOWS, AutoplayLogic.tallyLine(windows, 40), AutoplayLogic.tallyLine(flow, 40))
 	line("관찰 이동 막힘 %s", AutoplayLogic.tallyLine(moves, 80))
+	-- #44 3부(봇 vs 시뮬): 층 첫 도달(분 — 봇 시작부터) · 단계마다 쓴 초 · 수령한 층
+	setPhase("end")
+	local reach = {}
+	for k = 1, 30 do
+		if firstReach[k] ~= nil then
+			table.insert(reach, string.format("%d:%.1f", k, firstReach[k] / 60))
+		end
+	end
+	line("관찰 층 첫 도달(분) %s", table.concat(reach, " "))
+	local order = { "windows_start", "daily", "forge", "equipment", "pet", "upgrade", "rebirth_first", "rebirth", "gym", "enter",
+		"approach", "attack", "pickup", "decide", "to_wall", "to_pad", "fail_wait", "return", "windows_end" }
+	local parts = {}
+	for _, k in ipairs(order) do
+		if phaseSec[k] ~= nil and phaseSec[k] >= 0.5 then
+			table.insert(parts, string.format("%s %.0f", k, phaseSec[k]))
+		end
+	end
+	line("관찰 시간 나눔(초) %s", table.concat(parts, " · "))
+	local cf = {}
+	for _, f in ipairs(cashoutFloors) do
+		table.insert(cf, tostring(f))
+	end
+	line("관찰 수령한 층 %s", table.concat(cf, " · "))
 	line("===== 끝 %s · 클라 검사 %s", segmentName, if failed == 0 then "통과" else string.format("실패 %d", failed))
 end
 

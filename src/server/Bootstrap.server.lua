@@ -19,7 +19,7 @@ local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
 
 -- ── 테스트 프리셋: TEST_PRESET (Studio 전용, 지시서 #13 3단계) ──────────────────────────
 -- 이름을 적고 Play하면 그 시점 상태의 **Mock 프로필**로 시작한다(실제 데이터에는 읽기도 쓰기도 하지 않는다 — TestPresetGate).
--- 이름: fresh · min10 · min30 · hour1 · hour2 · hour3 (#38 새 경제) (값 · 출처는 Shared/Config/TestPresets)
+-- 이름: fresh · min10 · min30 · hour1 · pre_rebirth(#44 — hour1 + 다음 환생 비용만큼 블럭스) · hour2 · hour3 (#38 새 경제) (값 · 출처는 Shared/Config/TestPresets)
 -- Studio가 아니면 무시하고 ERROR 로그를 남긴다. ⚠️ 커밋 값은 언제나 nil이다(TestPresetGateTests가 잰다 — 켠 Play에서는 그 줄이 실패한다).
 local TEST_PRESET: string? = nil
 

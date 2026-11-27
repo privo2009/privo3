@@ -57,7 +57,7 @@ do
 		local sa2, sb2 = AutoplayLogic.resolve(name, AutoplayConfig.SEGMENTS[name].preset, true)
 		okAll = okAll and sa == name and sb == AutoplayConfig.SEGMENTS[name].preset and slv == "print" and sa2 == name and sb2 == sb
 	end
-	check("resolve: 구간 3개 전부 → 그 구간의 프리셋(TEST_PRESET이 nil이거나 같으면)", okAll)
+	check("resolve: 구간 전부(4개 — #44 pre_rebirth) → 그 구간의 프리셋(TEST_PRESET이 nil이거나 같으면)", okAll and #AutoplayConfig.ORDER == 4)
 end
 
 -- 2. 설정 관계 -------------------------------------------------------------------------------------------
@@ -152,6 +152,32 @@ do
 	check("제작: 조합이 CRAFT_INPUT개가 아니면 문제", #AutoplayLogic.craftProblems(o0, o0, {}, 1, IN, {}, {}, {}, ORES) >= 1)
 	check("제작: 세 번(트리플) = 조합 × 3",
 		#AutoplayLogic.craftProblems(inv({ [1] = 15 }), inv({}), { 1, 1, 1, 1, 1 }, 3, IN, {}, {}, {}, ORES) == 0)
+
+	-- 환생 앞뒤(#44 pre_rebirth)
+	local function snapOf(r: number, bloxM: number, bloxE: number): any
+		return { rebirths = r, blox = BigNum.new(bloxM, bloxE), coins = BigNum.new(4, 5), strength = BigNum.new(5, 9),
+			lifeBlox = BigNum.new(1, 10), ores = inv({ [4] = 9 }), tokens = { rare = 3 }, pickaxes = { pick_m1 = { count = 1, stars = 0, enh = 5 } },
+			equipped = "pick_m1", pets = { "1:egg1_common", "2:egg2_rare" }, gyms = 10, maxStage = 19 }
+	end
+	local b0 = snapOf(12, 1.845494, 10)
+	local cost = BigNum.new(1.6777216, 10)
+	local a0 = snapOf(13, 1.6777216 * 0.1, 10)
+	a0.blox = BigNum.sub(b0.blox, cost)
+	a0.gyms, a0.maxStage, a0.strength, a0.lifeBlox = 11, 1, BigNum.new(0, 0), BigNum.new(0, 0)
+	local ctx = { cost = cost, multRatio = 1.25, multBase = 1.25, gymsExpected = 11, strengthStart = BigNum.new(0, 0), analytics = 1 }
+	check("환생 검사: 정상 환생(+1 · 블럭스 = 앞 − 비용 · 나머지 그대로 · 기구 · ×1.25 · 초기화 · 분석 1)은 문제 0",
+		#AutoplayLogic.rebirthProblems(b0, a0, ctx) == 0, table.concat(AutoplayLogic.rebirthProblems(b0, a0, ctx), " / "))
+	local a1 = table.clone(a0)
+	a1.blox = BigNum.new(0, 0)
+	a1.pets = { "1:egg1_common" }
+	check("환생 검사: 나머지 블럭스를 잃거나 펫이 사라지면 잡는다", #AutoplayLogic.rebirthProblems(b0, a1, ctx) == 2)
+	local ctx2 = table.clone(ctx)
+	ctx2.multRatio, ctx2.analytics, ctx2.gymsExpected = 1.0, 0, 12
+	check("환생 검사: 배수 · 분석 이벤트 · 기구 갱신이 틀리면 잡는다", #AutoplayLogic.rebirthProblems(b0, a0, ctx2) == 3)
+	local seg = AutoplayConfig.SEGMENTS.pre_rebirth
+	check("pre_rebirth 구간: 환생 먼저 · 런 1번 · 목표 층 실재 · 프리셋이 환생 비용에 닿는다", seg ~= nil and seg.rebirthFirst == true
+		and seg.minRuns == 1 and StageConfig.hasStage(seg.targetFloor) and TestPresets.Presets[seg.preset] ~= nil
+		and require(ReplicatedStorage.Shared.EconomyV2Logic).canRebirth(TestPresets.Presets[seg.preset].blox, TestPresets.Presets[seg.preset].rebirths))
 
 	check("서버 루프 상한: 5%(50 ms/초)", AutoplayLogic.loopBudgetOk(49) and not AutoplayLogic.loopBudgetOk(51))
 	local t = AutoplayLogic.newTally()

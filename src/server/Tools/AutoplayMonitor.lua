@@ -17,6 +17,8 @@ local AutoplayConfig = require(ReplicatedStorage.Shared.Config.AutoplayConfig)
 local AutoplayLogic = require(ReplicatedStorage.Shared.AutoplayLogic)
 local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local EconomyV2Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
+local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
+local GymConfig = require(ReplicatedStorage.Shared.Config.GymConfig)
 
 local AutoplayMonitor = {}
 
@@ -108,6 +110,8 @@ function AutoplayMonitor.run(segmentName: string)
 	local bags = AutoplayLogic.newTally()
 	local runEnds = AutoplayLogic.newTally()
 	local crafts = AutoplayLogic.newTally()
+	local rebirthChecks = AutoplayLogic.newTally()
+	local rebirthDone = 0
 	local counts = { start = 0, advance = 0, cleared = 0, cashout = 0, timeout = 0, abandon = 0, crafts = 0, craftOres = 0 }
 	local startFloorMax = data.progress.maxStage
 	local bestFloor = 0
@@ -185,6 +189,74 @@ function AutoplayMonitor.run(segmentName: string)
 		AutoplayLogic.add(crafts, "no_seam", "ForgeService._deps.craft")
 	end
 
+	-- 3b. 환생(#44 pre_rebirth): 실제 경로(RebirthRequest → RebirthRequestService → RebirthService.rebirth)를 감싸 앞뒤를 잰다 —
+	--     환생 +1 · 블럭스 = 앞 − 비용 · 곡괭이 · 광석 · 토큰 · 코인 · 펫 그대로 · 열린 기구 갱신 · 힘 배수 ×1.25 · 초기화 · 분석 이벤트 1번
+	local RebirthService = require(Systems.RebirthService)
+	local Analytics = require(Systems.Analytics)
+	local ClickService = require(Systems.ClickService)
+	local Schema = require(script.Parent.Parent.Data.Schema)
+	local analyticsRebirths = 0
+	local analyticsOrig = Analytics.rebirth
+	Analytics.rebirth = function(...)
+		analyticsRebirths += 1
+		return analyticsOrig(...)
+	end
+	local function snapshot(): any
+		local d = profile.Data
+		local picks = {}
+		for id, o in pairs(d.equipment.pickaxe) do
+			picks[id] = { count = o.count, stars = o.stars, enh = o.enh }
+		end
+		local pets = {}
+		for uid, pet in pairs(d.pets.owned) do
+			table.insert(pets, uid .. ":" .. tostring(pet.petId))
+		end
+		table.sort(pets)
+		return {
+			rebirths = EconomyV2Logic.rebirthCount(d.rebirths),
+			blox = BigNum.new(d.blox.m, d.blox.e),
+			coins = BigNum.new(d.coins.m, d.coins.e),
+			strength = BigNum.new(d.strength.m, d.strength.e),
+			lifeBlox = BigNum.new(d.lifeBlox.m, d.lifeBlox.e),
+			ores = table.clone(d.ores),
+			tokens = table.clone(d.tokens),
+			pickaxes = picks,
+			equipped = d.equipped.pickaxe,
+			pets = pets,
+			gyms = GymConfig.getUnlockedCount(d.rebirths),
+			maxStage = d.progress.maxStage,
+			mult = ClickService.strengthMultiplierOf(player),
+		}
+	end
+	local rebirthOrig = RebirthService.rebirth
+	RebirthService.rebirth = function(p: Player, source: string?)
+		if p ~= player then
+			return rebirthOrig(p, source)
+		end
+		local before = snapshot()
+		local cost = EconomyV2Logic.rebirthCost(profile.Data.rebirths)
+		local calls0 = analyticsRebirths
+		local ok, value = rebirthOrig(p, source)
+		if ok then
+			rebirthDone += 1
+			local after = snapshot()
+			for _, prob in ipairs(AutoplayLogic.rebirthProblems(before, after, {
+				cost = cost,
+				multRatio = BigNum.toRatio(after.mult, before.mult),
+				multBase = EconomyV2Config.REBIRTH_MULT_BASE,
+				gymsExpected = GymConfig.getUnlockedCount(BigNum.fromNumber(before.rebirths + 1)),
+				strengthStart = Schema.new().strength,
+				analytics = analyticsRebirths - calls0,
+			})) do
+				AutoplayLogic.add(rebirthChecks, "rebirth", prob)
+			end
+			line("환생 %d → %d · 비용 %s · 블럭스 %s → %s · 열린 기구 %d → %d · 힘 배수 ×%.4f", before.rebirths, after.rebirths,
+				BigNum.tostring(cost), BigNum.tostring(before.blox), BigNum.tostring(after.blox), before.gyms, after.gyms,
+				BigNum.toRatio(after.mult, before.mult))
+		end
+		return ok, value
+	end
+
 	-- 4. 런 끝: 수령이면 가방 → 인벤토리 · 아니면 가방 비움. 듣는 쪽은 endRun의 통지에서 **고리(onRunEnded)보다 먼저** 동기로 불린다 —
 	--    그때 가방 · 인벤토리를 찍고, task.defer로 고리가 끝난 뒤를 잰다
 	ChallengeService.onRunEvent(function(p: Player, reason: string, stage: number)
@@ -239,7 +311,8 @@ function AutoplayMonitor.run(segmentName: string)
 			AutoplayLogic.add(bags, "cap", prob)
 		end
 		prevBag = used
-		if bestFloor >= seg.targetFloor and counts.start >= AutoplayConfig.MIN_RUNS and not runActive then
+		if bestFloor >= seg.targetFloor and counts.start >= (seg.minRuns or AutoplayConfig.MIN_RUNS) and not runActive
+			and (not seg.rebirthFirst or rebirthDone > 0) then
 			reason = "target"
 			break
 		end
@@ -259,9 +332,14 @@ function AutoplayMonitor.run(segmentName: string)
 	if fdeps ~= nil and craftOrig ~= nil then
 		fdeps.craft = craftOrig
 	end
+	RebirthService.rebirth = rebirthOrig
+	Analytics.rebirth = analyticsOrig
+	if seg.rebirthFirst and rebirthDone == 0 then
+		AutoplayLogic.add(rebirthChecks, "no_rebirth", "환생 구간인데 환생이 없었다")
+	end
 
 	local msPerSec = acc.ms / math.max(elapsed, 1e-6)
-	local failed = warnings.count + negatives.count + bags.count + runEnds.count + crafts.count
+	local failed = warnings.count + negatives.count + bags.count + runEnds.count + crafts.count + rebirthChecks.count
 	if not AutoplayLogic.loopBudgetOk(msPerSec) then
 		failed += 1
 	end
@@ -275,6 +353,7 @@ function AutoplayMonitor.run(segmentName: string)
 	line("검사 경고·오류 %s", AutoplayLogic.tallyLine(warnings, 80))
 	line("검사 음수 %s · 가방 상한 %s", AutoplayLogic.tallyLine(negatives, 40), AutoplayLogic.tallyLine(bags, 40))
 	line("검사 런 끝 가방 %s · 제작 %s", AutoplayLogic.tallyLine(runEnds, 40), AutoplayLogic.tallyLine(crafts, 40))
+	line("검사 환생 %d번 %s", rebirthDone, AutoplayLogic.tallyLine(rebirthChecks, 70))
 	line("검사 서버 루프 %.3f ms/초(상한 %.0f) · 호출 %d · Heartbeat 최대 %.0f ms · 0.1초 넘는 프레임 %d", msPerSec,
 		1000 * AutoplayConfig.SERVER_LOOP_BUDGET_SHARE, acc.calls, maxFrame * 1000, slowFrames)
 	line("===== 끝 %s · 서버 검사 %s", segmentName, if failed == 0 then "통과" else string.format("실패 %d", failed))

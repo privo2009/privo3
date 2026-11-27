@@ -48,7 +48,7 @@ export type Preset = {
 local TestPresets = {}
 
 -- Bootstrap TEST_PRESET에 적는 이름(시점 순서).
-TestPresets.NAMES = { "fresh", "min10", "min30", "hour1", "hour2", "hour3" }
+TestPresets.NAMES = { "fresh", "min10", "min30", "hour1", "pre_rebirth", "hour2", "hour3" } -- pre_rebirth = hour1 + 블럭스만(#44 — 환생 길)
 
 TestPresets.Presets = {
 	fresh = {
@@ -133,6 +133,36 @@ TestPresets.Presets = {
 		blox = { m = 3.065184, e = 9 },
 		lifeBlox = { m = 5.973071, e = 8 },
 		lifetimeBlox = { m = 8.730668, e = 9 },
+		rebirths = { m = 1.2, e = 1 },
+		padIndex = 17, maxStage = 19,
+		upgrades = { auraLuck = 0, bloxGain = 109, petLuck = 0, petSlots = 1, punchSpeed = 20, titleLuck = 0 },
+		title = "legend", aura = "pack2_legendary",
+		pets = {
+			{ petId = "egg2_common", tier = 3 }, { petId = "egg2_common", tier = 3 }, { petId = "egg2_epic", tier = 2 }, { petId = "egg3_epic", tier = 1 },
+			{ petId = "egg2_rare", tier = 2 }, { petId = "egg1_rare", tier = 4 }, { petId = "egg3_common", tier = 1 }, { petId = "egg1_epic", tier = 3 },
+			{ petId = "egg2_rare", tier = 1 }, { petId = "egg1_common", tier = 4 }, { petId = "egg1_common", tier = 4 }, { petId = "egg1_legendary", tier = 1 },
+			{ petId = "egg1_legendary", tier = 1 }, { petId = "egg1_common", tier = 3 }, { petId = "egg1_rare", tier = 2 }, { petId = "egg1_epic", tier = 1 },
+			{ petId = "egg1_epic", tier = 1 }, { petId = "egg1_common", tier = 2 }, { petId = "egg1_common", tier = 2 }, { petId = "egg1_rare", tier = 1 },
+		},
+		equipped = { 1, 2, 3 },
+		coins = { m = 1.681940, e = 5 },
+		ores = { 0, 0, 0, 9, 21, 18, 17, 0, 0, 0 },
+		tokens = { rare = 224, epic = 64, mythic = 2, legendary = 0, next = 0 },
+		pickaxes = {
+			pick_c1 = { count = 106, stars = 5, enh = 0 }, pick_c2 = { count = 31, stars = 5, enh = 0 }, pick_c3 = { count = 13, stars = 5, enh = 0 },
+			pick_e1 = { count = 4, stars = 2, enh = 1 }, pick_e2 = { count = 1, stars = 2, enh = 4 }, pick_e3 = { count = 3, stars = 1, enh = 0 },
+			pick_e4 = { count = 1, stars = 1, enh = 0 }, pick_m1 = { count = 1, stars = 0, enh = 5 }, pick_r1 = { count = 27, stars = 5, enh = 0 },
+			pick_r2 = { count = 4, stars = 4, enh = 0 }, pick_r3 = { count = 1, stars = 4, enh = 5 }, pick_r4 = { count = 3, stars = 3, enh = 4 },
+		},
+		equippedPickaxe = "pick_m1", forgeOpen = true,
+	},
+	pre_rebirth = {
+		label = "환생 직전(1시간 + 블럭스만 다음 환생 비용 × 1.1)",
+		source = "hour1에서 블럭스만 다음 환생 비용(1000 × 4^12 = 1.68e10)의 1.1배로 · lifeBlox · lifetimeBlox도 같은 만큼 더함(#44 — 봇 환생 구간 pre_rebirth)",
+		strength = { m = 4.937557, e = 9 },
+		blox = { m = 1.845494, e = 10 },
+		lifeBlox = { m = 1.598706, e = 10 },
+		lifetimeBlox = { m = 2.412042, e = 10 },
 		rebirths = { m = 1.2, e = 1 },
 		padIndex = 17, maxStage = 19,
 		upgrades = { auraLuck = 0, bloxGain = 109, petLuck = 0, petSlots = 1, punchSpeed = 20, titleLuck = 0 },
