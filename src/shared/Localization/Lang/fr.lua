@@ -265,7 +265,6 @@ return {
 	["pet.auto.big"] = "{name} a éclos !",
 	["pet.hatching"] = "Éclosion...",
 	["shop.bigBag.desc"] = "Capacité du sac ×2",
-	["shop.instantCraft.desc"] = "Sans animation — fabrique toutes les 1 s",
 	["shop.tripleCraft.desc"] = "Fabrique 3 d'un coup (15 minerais)",
 	["shop.instantHatch.desc"] = "Sans animation — éclot toutes les 1 s",
 	-- 장비

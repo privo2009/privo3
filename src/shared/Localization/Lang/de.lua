@@ -265,7 +265,6 @@ return {
 	["pet.auto.big"] = "{name} geschlüpft!",
 	["pet.hatching"] = "Brütet...",
 	["shop.bigBag.desc"] = "Taschenplatz ×2",
-	["shop.instantCraft.desc"] = "Ohne Animation — stellt jede 1 s her",
 	["shop.tripleCraft.desc"] = "Stellt 3 auf einmal her (15 Erze)",
 	["shop.instantHatch.desc"] = "Ohne Animation — brütet jede 1 s",
 	-- 장비

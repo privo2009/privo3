@@ -203,7 +203,7 @@ ShopConfig.GAMEPASS_ORDER = {
 -- (랜덤의 재료 · 횟수를 로벅스로 늘린다 — EconomyV2Config.RESTRICTED_RANDOM_PASSES). 이름 · 설명은 Strings "shop.<키>.name" · ".desc"
 ShopConfig.V2_GAMEPASS_IDS = {
 	bigBag = nil :: number?, -- Big Bag · 99 R$ (사람 등록 대기)
-	instantCraft = nil :: number?, -- Instant Craft · 79 R$ (사람 등록 대기)
+	instantCraft = nil :: number?, -- Instant Craft · 49 R$ (사람 등록 대기 · #44 희준 가격 결정 79 → 49)
 	tripleCraft = nil :: number?, -- Triple Craft · 99 R$ (사람 등록 대기)
 	instantHatch = nil :: number?, -- Instant Hatch · 49 R$ (사람 등록 대기)
 }
@@ -211,7 +211,7 @@ ShopConfig.V2_PASS_ORDER = { "bigBag", "instantCraft", "tripleCraft", "instantHa
 -- 가격 · 효과(등록 여부와 상관없이 읽을 수 있다 — 문서 · 테스트)
 ShopConfig.V2_PASSES = {
 	bigBag = { priceRobux = 99, effect = { type = "bigBag", mult = 2 } },
-	instantCraft = { priceRobux = 79, effect = { type = "instantCraft" } },
+	instantCraft = { priceRobux = 49, effect = { type = "instantCraft" } }, -- #44 희준 결정(유형 측정 — 시간 효과 거의 없음 · TUNING 12)
 	tripleCraft = { priceRobux = 99, effect = { type = "tripleCraft", count = 3 } },
 	instantHatch = { priceRobux = 49, effect = { type = "instantHatch" } },
 } :: { [string]: { priceRobux: number, effect: { [string]: any } } }

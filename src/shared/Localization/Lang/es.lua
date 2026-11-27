@@ -265,7 +265,6 @@ return {
 	["pet.auto.big"] = "¡Salió {name}!",
 	["pet.hatching"] = "Abriendo...",
 	["shop.bigBag.desc"] = "Capacidad de mochila ×2",
-	["shop.instantCraft.desc"] = "Sin animación — fabrica cada 1 s",
 	["shop.tripleCraft.desc"] = "Fabrica 3 a la vez (usa 15 minerales)",
 	["shop.instantHatch.desc"] = "Sin animación — abre cada 1 s",
 	-- 장비

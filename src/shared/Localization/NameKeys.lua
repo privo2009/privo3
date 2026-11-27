@@ -24,6 +24,7 @@ NameKeys.PATTERNS = {
 	"world.name.*", -- 구역(월드)
 	"shop.*.name", -- 상품 이름(게임패스 · 개발자 상품 — 운동기구 선해금 Gym {n} Unlock · 공허 훈련 구역 포함)
 	"boost.*.name", -- 포션 이름(상품 이름과 같은 낱말 — 일일 보상 · 코드 보상 · 온보딩 보상 줄)
+	"shop.instantCraft.desc*", -- 즉시 제작 설명(문장 — #44 희준 결정: 효과를 사실대로 새로 쓰고 이름 규칙대로 en · ko만. 4개 언어는 1월 말 이름과 같이)
 }
 
 local function matches(pattern: string, key: string): boolean

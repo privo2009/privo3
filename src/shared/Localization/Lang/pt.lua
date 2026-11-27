@@ -265,7 +265,6 @@ return {
 	["pet.auto.big"] = "Chocou {name}!",
 	["pet.hatching"] = "Chocando...",
 	["shop.bigBag.desc"] = "Capacidade da mochila ×2",
-	["shop.instantCraft.desc"] = "Sem animação — cria a cada 1 s",
 	["shop.tripleCraft.desc"] = "Cria 3 de uma vez (usa 15 minérios)",
 	["shop.instantHatch.desc"] = "Sem animação — choca a cada 1 s",
 	-- 장비

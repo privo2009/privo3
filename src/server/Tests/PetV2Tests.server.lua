@@ -191,8 +191,8 @@ do
 	end
 	check("새 패스: 커밋 ID nil(사람 등록 대기) · 상품 표 · 상점 순서에 없음", nilAll and absent)
 	local v = ShopConfig.V2_PASSES
-	check("새 패스: 가격 Big Bag 99 · Instant Craft 79 · Triple Craft 99 · Instant Hatch 49 · 가방 ×2",
-		v.bigBag.priceRobux == 99 and v.instantCraft.priceRobux == 79 and v.tripleCraft.priceRobux == 99 and v.instantHatch.priceRobux == 49
+	check("새 패스: 가격 Big Bag 99 · Instant Craft 49(#44) · Triple Craft 99 · Instant Hatch 49 · 가방 ×2",
+		v.bigBag.priceRobux == 99 and v.instantCraft.priceRobux == 49 and v.tripleCraft.priceRobux == 99 and v.instantHatch.priceRobux == 49
 		and v.bigBag.effect.mult == Config.BIG_BAG_MULT)
 	check("새 패스: 효과 자리 = ShopConfig ID(큰 가방 · 즉시 제작 · 트리플 제작 · 즉시 부화)", Config.BIG_BAG_PASS_ID == ShopConfig.V2_GAMEPASS_IDS.bigBag
 		and Config.CRAFT_SKIP_PASS_ID == ShopConfig.V2_GAMEPASS_IDS.instantCraft and Config.TRIPLE_CRAFT_PASS_ID == ShopConfig.V2_GAMEPASS_IDS.tripleCraft

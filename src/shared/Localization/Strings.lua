@@ -416,7 +416,7 @@ Strings.Entries = {
 	["shop.bigBag.name"] = { en = "Big Bag", ko = "큰 가방" },
 	["shop.bigBag.desc"] = { en = "Bag capacity ×2", ko = "가방 용량 ×2" },
 	["shop.instantCraft.name"] = { en = "Instant Craft", ko = "즉시 제작" },
-	["shop.instantCraft.desc"] = { en = "Skip craft animations — craft every 1s", ko = "제작 연출 생략 · 1초마다 제작" },
+	["shop.instantCraft.desc"] = { en = "No craft animation — see results right away", ko = "제작 연출 없이 바로 결과" }, -- #44: 효과 그대로(속도 · 진행을 앞당긴다고 쓰지 않는다) · en · ko만(NameKeys)
 	["shop.tripleCraft.name"] = { en = "Triple Craft", ko = "트리플 제작" },
 	["shop.tripleCraft.desc"] = { en = "Craft 3 at once (uses 15 ores)", ko = "한 번에 3회 제작(광석 15개)" },
 	["shop.instantHatch.name"] = { en = "Instant Hatch", ko = "즉시 부화" },
