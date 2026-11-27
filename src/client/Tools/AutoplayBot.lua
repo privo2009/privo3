@@ -106,7 +106,7 @@ function AutoplayBot.run()
 		end
 		local head = string.match(message, "^%[([%w_]+)%]") or "?"
 		AutoplayLogic.add(warnings, (if kind == Enum.MessageType.MessageError then "E:" else "W:") .. head .. "@" .. phase,
-			string.sub(message, 1, 50))
+			AutoplayLogic.clip(message, 50))
 	end)
 
 	-- ===== 서버 신호 받기 ==================================================================================
@@ -248,14 +248,14 @@ function AutoplayBot.run()
 			local ok, err = pcall(ScreenController.open, name)
 			task.wait(AutoplayConfig.WINDOW_WAIT_SEC)
 			if not ok then
-				AutoplayLogic.add(windows, "open_error", name .. ":" .. string.sub(tostring(err), 1, 40))
+				AutoplayLogic.add(windows, "open_error", name .. ":" .. AutoplayLogic.clip(tostring(err), 40))
 			elseif not ScreenController.isOpen(name) then
 				AutoplayLogic.add(windows, "not_open", name)
 			end
 			local ok2, err2 = pcall(ScreenController.close, name)
 			task.wait(AutoplayConfig.WINDOW_WAIT_SEC)
 			if not ok2 then
-				AutoplayLogic.add(windows, "close_error", name .. ":" .. string.sub(tostring(err2), 1, 40))
+				AutoplayLogic.add(windows, "close_error", name .. ":" .. AutoplayLogic.clip(tostring(err2), 40))
 			elseif ScreenController.isOpen(name) then
 				AutoplayLogic.add(windows, "not_closed", name)
 			end
@@ -291,7 +291,7 @@ function AutoplayBot.run()
 	end
 
 	local function train(sec: number)
-		setPhase("gym")
+		setPhase("gym_walk") -- #45: 기구까지 걷기(로비 시간)와 기구 위 클릭(운동 시간 — 시뮬 GYM_TRAIN_SEC)을 나눠 잰다
 		local _, center = bestGym()
 		if center ~= nil then
 			local reached, stuck = walkTo(Vector3.new(center.X, 0, center.Z), 15, 2)
@@ -300,6 +300,7 @@ function AutoplayBot.run()
 			end
 		end
 		-- 클릭은 뒤의 클릭 루프가 줄곧 보낸다(기구 위에 서 있으면 기구 배수 — 서버가 클릭 순간의 위치로 판정)
+		setPhase("gym")
 		local start = os.clock()
 		while os.clock() - start < sec and not done() do
 			task.wait(0.25)
@@ -385,12 +386,13 @@ function AutoplayBot.run()
 		end
 	end
 
+	-- 펫(#45): 자동 부화가 꺼져 있고 코인이 닿으면 손으로 한 번 깐다(손 부화 경로 점검) · 그 뒤 자동 부화가 코인이 닿는 만큼 깐다(keepAutoOn)
 	local function petVisit()
 		setPhase("pet")
 		local s = snap()
 		local eggs = PetConfig.getUnlockedEggs(s.lifetimeBlox, s.pets.world)
 		local egg = eggs[#eggs]
-		if egg == nil then
+		if egg == nil or econ.get().autoHatchOn then
 			return
 		end
 		local cost = EconomyV2Logic.eggCoinCost(egg)
@@ -404,16 +406,45 @@ function AutoplayBot.run()
 		end
 	end
 
+	-- 자동 제작 · 자동 부화는 켜 둔다(#45 — 시뮬 표준은 제작 · 부화를 시계로 센다: 사람은 켜 놓고 논다). 꺼져 있으면 켠다
+	-- (광석 · 코인이 모자라 서버가 껐으면 다시 닿을 때). 부화 알 = 열린 알 중 가장 높은 것
+	local function keepAutoOn()
+		local v = econ.get()
+		if v.forgeOpen and not v.autoOn and EconomyV2Logic.bestCombo(v.ores) ~= nil then
+			setPhase("forge")
+			request(channels.forgeRequest, { action = "auto", on = true, fill = true }, "auto_state")
+		end
+		local s = snap()
+		local eggs = PetConfig.getUnlockedEggs(s.lifetimeBlox, s.pets.world)
+		local egg = eggs[#eggs]
+		if egg ~= nil and not econ.get().autoHatchOn then
+			local cost = EconomyV2Logic.eggCoinCost(egg)
+			if cost ~= nil and BigNum.gte(econ.get().coins, cost) then
+				setPhase("pet")
+				request(channels.petAutoRequest, { on = true, egg = egg }, "auto_hatch_state")
+				request(channels.petRequest, { action = "equipBest" }, "petResult")
+			end
+		end
+	end
+
 	local function upgradeVisit()
 		setPhase("upgrade")
-		for _, name in ipairs(UpgradeConfig.SHOP_ORDER) do
-			local s = snap()
-			local level = s.upgrades[name] or 0
-			if UpgradeConfig.isExposed(name) and UpgradeConfig.canBuy(name, level, s.blox) then
-				local r = request(channels.upgradeRequest, { name = name }, "upgradeResult")
-				if r ~= nil and r.ok == true then
-					stats.upgrades += 1
+		-- 살 수 있는 만큼(한 바퀴에 대상마다 1레벨씩 · 더 못 사면 끝 · 상한 30번)
+		for _ = 1, 30 do
+			local bought = false
+			for _, name in ipairs(AutoplayConfig.UPGRADE_TARGETS) do
+				local s = snap()
+				local level = s.upgrades[name] or 0
+				if UpgradeConfig.isExposed(name) and UpgradeConfig.canBuy(name, level, s.blox) then
+					local r = request(channels.upgradeRequest, { name = name }, "upgradeResult")
+					if r ~= nil and r.ok == true then
+						stats.upgrades += 1
+						bought = true
+					end
 				end
+			end
+			if not bought or done() then
+				break
 			end
 		end
 	end
@@ -662,12 +693,14 @@ function AutoplayBot.run()
 	end
 	local bestSeen = snap().maxStage
 	local staleRuns = 0
-	local autoTried = false
+	-- 업그레이드는 환생 뒤 남는 블럭스로만(시뮬 S5' — #45. 첫 환생 전에 사면 환생 비용을 못 모은다 — #44 봇 vs 시뮬)
+	local upgradeNext = stats.rebirths > 0
 	while not done() do
-		-- 로비 한 바퀴: 대장간 · 장비 · 펫 · 업그레이드 · (막혔으면) 환생 · 운동 → 런
+		-- 로비 한 바퀴(#45 — 시뮬 표준 플레이어처럼): 대장간(제작 1번 · 교환 · 장비) · 펫 · 자동 제작 · 부화 켜 두기 ·
+		-- 살 수 있으면 바로 환생(시뮬 eager) → 그 뒤 업그레이드 · 막힌 런 뒤에만 운동기구 → 런
 		forgeVisit()
 		petVisit()
-		upgradeVisit()
+		keepAutoOn()
 		local s = snap()
 		if AutoplayLogic.shouldRebirth(staleRuns, EconomyV2Logic.canRebirth(s.blox, s.rebirths)) then
 			setPhase("rebirth")
@@ -676,28 +709,21 @@ function AutoplayBot.run()
 				stats.rebirths += 1
 				staleRuns = 0
 				bestSeen = 0
+				upgradeNext = true
 			else
 				addFlow("rebirth_failed", tostring(r and r.reason))
 			end
 		end
+		if upgradeNext then
+			upgradeVisit()
+			upgradeNext = false
+		end
 		if done() then
 			break
 		end
-		-- 자동 제작 · 자동 부화를 한 번씩 켜 본다(운동하는 동안 서버 루프가 돈다 — 끄고 런에 간다)
-		local autoOn = false
-		if not autoTried and econ.get().forgeOpen and EconomyV2Logic.bestCombo(econ.get().ores) ~= nil then
-			autoTried = true
-			autoOn = true
-			request(channels.forgeRequest, { action = "auto", on = true, fill = true }, "auto_state")
-			local eggs = PetConfig.getUnlockedEggs(s.lifetimeBlox, s.pets.world)
-			if eggs[1] ~= nil then
-				request(channels.petAutoRequest, { on = true, egg = eggs[1] }, "auto_hatch_state")
-			end
-		end
-		train(if staleRuns > 0 then AutoplayConfig.STALL_TRAIN_SEC else AutoplayConfig.GYM_TRAIN_SEC)
-		if autoOn then
-			request(channels.forgeRequest, { action = "auto", on = false }, "auto_state")
-			request(channels.petAutoRequest, { on = false }, "auto_hatch_state")
+		local trainSec = if staleRuns > 0 then AutoplayConfig.STALL_TRAIN_SEC else AutoplayConfig.GYM_TRAIN_SEC
+		if trainSec > 0 then
+			train(trainSec)
 		end
 		if done() then
 			break
@@ -709,12 +735,14 @@ function AutoplayBot.run()
 			end
 			return BigNum.toRatio(WarpConfig.cost(stage), s.blox)
 		end)
+		local failMix = AutoplayLogic.isFailRun(stats.runs + 1) -- 이번 런이 일부러 실패 섞는 런인가(playRun이 stats.runs를 올린다)
 		playRun(warpTo)
 		local now = snap().maxStage
 		if now > bestSeen then
 			bestSeen = now
 			staleRuns = 0
-		else
+		elseif not failMix then
+			-- 일부러 실패한 런은 막힌 런으로 세지 않는다(#45 — 점검용 실패가 운동 30초 · 환생 판단을 끌어오면 시뮬과 비교가 어긋난다)
 			staleRuns += 1
 		end
 	end
@@ -742,7 +770,7 @@ function AutoplayBot.run()
 		end
 	end
 	line("관찰 층 첫 도달(분) %s", table.concat(reach, " "))
-	local order = { "windows_start", "daily", "forge", "equipment", "pet", "upgrade", "rebirth_first", "rebirth", "gym", "enter",
+	local order = { "windows_start", "daily", "forge", "equipment", "pet", "upgrade", "rebirth_first", "rebirth", "gym_walk", "gym", "enter",
 		"approach", "attack", "pickup", "decide", "to_wall", "to_pad", "fail_wait", "return", "windows_end" }
 	local parts = {}
 	for _, k in ipairs(order) do
@@ -751,6 +779,8 @@ function AutoplayBot.run()
 		end
 	end
 	line("관찰 시간 나눔(초) %s", table.concat(parts, " · "))
+	line("관찰 런 사이 로비 %.1f초/런(%s · 런 %d — 시뮬 MODEL.LOBBY_SEC_PER_RUN)", AutoplayLogic.lobbySecPerRun(phaseSec, stats.runs),
+		table.concat(AutoplayConfig.LOBBY_PHASES, "+"), stats.runs)
 	local cf = {}
 	for _, f in ipairs(cashoutFloors) do
 		table.insert(cf, tostring(f))

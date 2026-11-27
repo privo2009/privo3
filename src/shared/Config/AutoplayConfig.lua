@@ -30,22 +30,26 @@ AutoplayConfig.START_DELAY_SEC = 8
 AutoplayConfig.TEST_WAIT_MAX_SEC = 90
 
 -- ===== 봇 행동(정책) — SuccessRateReport MODEL의 "보통 플레이어"를 흉내 낸다 ==================================
--- 진행: 클리어했을 때 남은 시간이 타이머의 이 몫 이상이면 다음 층(MODEL.ADVANCE_THRESHOLD_MIN과 같은 0.5) · 아니면 수령
-AutoplayConfig.ADVANCE_TIME_SHARE = 0.5
+-- 진행: 클리어했을 때 남은 시간이 타이머의 이 몫 이상이면 다음 층 · 아니면 수령.
+-- #45: 시뮬 표준 문턱(MODEL.ADVANCE_THRESHOLD_MIN ~ MAX = 0.5 ~ 0.9 균등)의 가운데 0.7(#43은 0.5)
+AutoplayConfig.ADVANCE_TIME_SHARE = 0.7
 -- 실패 섞기: 런 번호가 이 수의 배수면 둘째 층(못 가면 첫 층)에서 반경 밖에 서서 시간 초과로 진다 — 가방을 잃는 길을 지난다
 AutoplayConfig.FAIL_EVERY_RUNS = 4
--- 환생: 최고 층이 이만큼 런 동안 안 오르고 블럭스가 비용 이상이면(SRR SIM.REBIRTH_PATIENCE_RUNS와 같은 3)
-AutoplayConfig.REBIRTH_PATIENCE_RUNS = 3
--- 로비 운동: 런 사이에 가장 좋은 열린 기구에서 이만큼 클릭한다. 지난 런이 새 층을 못 열었으면 STALL_TRAIN_SEC
-AutoplayConfig.GYM_TRAIN_SEC = 12
+-- 환생: 최고 층이 이만큼 런 동안 안 오르고 블럭스가 비용 이상이면. #45: 0 = 살 수 있으면 바로(새 경제 시뮬 표준 eager — #29 결론)
+AutoplayConfig.REBIRTH_PATIENCE_RUNS = 0
+-- 로비 운동: 런 사이에 가장 좋은 열린 기구에서 이만큼 클릭한다. 지난 런이 새 층을 못 열었으면 STALL_TRAIN_SEC.
+-- #45: 시뮬 표준과 같게 — 막힌 런 뒤에만 30초(MODEL.GYM_TRAIN_SEC) · 평소 0(#43은 로비마다 12초)
+AutoplayConfig.GYM_TRAIN_SEC = 0
 AutoplayConfig.STALL_TRAIN_SEC = 30
 -- 클릭: 0.2초마다 이만큼 = 초당 10번(ClickService 수동 상한과 같다 — 넘기면 서버가 자른다)
 AutoplayConfig.CLICK_PERIOD_SEC = 0.2
 AutoplayConfig.CLICKS_PER_BATCH = 2
+-- 업그레이드: 환생 뒤 남는 블럭스로 이 순서대로 살 수 있는 만큼(#45 — 시뮬 S5' 새 경제 대상: 펀치 속도 · 블럭스 획득 · 펫 슬롯)
+AutoplayConfig.UPGRADE_TARGETS = { "punchSpeed", "bloxGain", "petSlots" }
 -- 요청 간격: RemoteGuard 기본 통(0.15초) · ForgeService 연타 상한(0.15초)보다 넉넉히
 AutoplayConfig.REQUEST_GAP_SEC = 0.35
--- 대장간 한 번 들를 때 제작 상한 · 결과 기다림 상한
-AutoplayConfig.CRAFTS_PER_VISIT = 4
+-- 대장간 한 번 들를 때 손 제작 상한(#45: 1 — 손 제작 경로 점검만. 제작은 켜 둔 자동 제작이 한다) · 결과 기다림 상한
+AutoplayConfig.CRAFTS_PER_VISIT = 1
 AutoplayConfig.RESULT_WAIT_SEC = 3
 -- 워프: 최고 층 − WARP_BACK 층으로, 비용이 보유 블럭스의 WARP_BUDGET_SHARE 이하일 때만(아니면 게이트로 1층부터)
 AutoplayConfig.WARP_BACK = 3
@@ -56,13 +60,17 @@ AutoplayConfig.STUCK_SEC = 1.5
 AutoplayConfig.STUCK_STUDS = 1
 -- 실패 런: 층 중심에서 Z로 이만큼 떨어진 곳(공격 반경 밖 · 챌린지 구역 안)에 서서 기다린다 — AttackConfig 반경보다 커야 한다(AutoplayLogicTests)
 AutoplayConfig.FAIL_STAND_Z = 97
--- 줍기: 층마다 드롭을 따라가는 상한(초) — 클리어 뒤에는 가방이 차거나 드롭이 없거나 이 시간이 지나면 결정한다
-AutoplayConfig.PICKUP_CHASE_SEC = 6
+-- 줍기: 층마다 드롭을 따라가는 상한(초) — 클리어 뒤에는 가방이 차거나 드롭이 없거나 이 시간이 지나면 결정한다(#45: 6 → 2)
+AutoplayConfig.PICKUP_CHASE_SEC = 2
 
 -- ===== 검사 상한 ===========================================================================================
 -- 서버 루프 합 = 서버 1초의 이 몫 이하(docs/TUNING.md 11 "서버 성능(#38)" — 12명 기준 5%. 봇은 1명이라 넉넉해야 정상)
 AutoplayConfig.SERVER_LOOP_BUDGET_SHARE = 0.05
 AutoplayConfig.CHECK_PERIOD_SEC = 0.5
+-- 로비 시간으로 세는 단계(#45 — 시뮬 MODEL.LOBBY_SEC_PER_RUN 실측). 런과 런 사이에 클릭 없이 흐르는 시간:
+-- 일일 · 대장간 · 장비 · 펫 · 업그레이드 · 환생 · 기구까지 걷기 · 수령 뒤 스폰 복귀. 빼는 것: 창 11개 점검(windows_*) · 환생 길 점검(rebirth_first) ·
+-- 일부러 실패한 런 기다림(fail_wait) — 봇 도구 몫이다. 기구 위 클릭(gym)은 시뮬 GYM_TRAIN_SEC가 따로 센다
+AutoplayConfig.LOBBY_PHASES = { "daily", "forge", "equipment", "pet", "upgrade", "rebirth", "gym_walk", "return" }
 -- 창 열기 · 닫기 확인: 미리보기 목록(Client/Tools/UiPreview.WINDOWS) 중 ScreenController에 등록된 창
 AutoplayConfig.WINDOWS = { "Forge", "Equipment", "Pet", "Title", "Aura", "Shop", "Rebirth", "Warp", "AutoAdvance", "Settings", "Code" }
 AutoplayConfig.WINDOW_WAIT_SEC = 0.6

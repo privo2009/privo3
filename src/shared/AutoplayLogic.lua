@@ -312,13 +312,42 @@ function AutoplayLogic.tallyLine(t: Tally, maxLen: number): string
 		table.insert(parts, string.format("%s×%d(%s)", kind, k.n, k.example))
 	end
 	local s = string.format("%d — %s", t.count, table.concat(parts, " · "))
-	if utf8.len(s) ~= nil and (utf8.len(s) :: number) > maxLen then
+	if utf8.len(s) == nil then
+		s = (string.gsub(s, "[\128-\255]", "?")) -- 깨진 예시가 섞였으면(바깥에서 바이트로 자른 문장) 깨진 바이트를 ?로 — 줄 전체가 깨지지 않게
+	end
+	if (utf8.len(s) :: number) > maxLen then
 		local cut = utf8.offset(s, maxLen - 1)
 		if cut ~= nil then
 			s = string.sub(s, 1, cut - 1) .. "…"
 		end
 	end
 	return s
+end
+
+-- 런 하나당 로비 초(#45): LOBBY_PHASES 단계 초 합 ÷ 런 수(런 0이면 0)
+function AutoplayLogic.lobbySecPerRun(phaseSec: { [string]: number }, runs: number): number
+	if runs <= 0 then
+		return 0
+	end
+	local sum = 0
+	for _, k in ipairs(AutoplayConfig.LOBBY_PHASES) do
+		sum += phaseSec[k] or 0
+	end
+	return sum / runs
+end
+
+-- 앞에서 n자만(글자 단위 — utf8 안전). 바이트로 자르면 한글 한가운데가 잘려 깨진 줄이 되고, 깨진 줄은 MCP 읽기를 멈춰 세운다(#45 실측).
+-- 깨진 문자열이 들어오면 바이트 128 이상을 "?"로 바꿔 돌려준다
+function AutoplayLogic.clip(s: string, n: number): string
+	local len = utf8.len(s)
+	if len == nil then
+		return (string.gsub(string.sub(s, 1, n), "[\128-\255]", "?"))
+	end
+	if len <= n then
+		return s
+	end
+	local cut = utf8.offset(s, n + 1) :: number
+	return string.sub(s, 1, cut - 1)
 end
 
 -- 줄 앞 머리로 봇 자신의 줄인가(경고 · 오류 집계에서 뺀다)

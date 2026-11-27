@@ -88,8 +88,9 @@ end
 do
 	local T = StageConfig.CHALLENGE_TIMER_SEC
 	check("afterClear: 진행 벽이 닫혔으면 수령", AutoplayLogic.afterClear({ canAdvance = false, timeLeft = T, stage = 1 }, T, 10) == "cashout")
-	check("afterClear: 시간이 넉넉하면 진행", AutoplayLogic.afterClear({ canAdvance = true, timeLeft = T * 0.6, stage = 3 }, T, 10) == "advance")
-	check("afterClear: 시간이 모자라면 수령", AutoplayLogic.afterClear({ canAdvance = true, timeLeft = T * 0.4, stage = 3 }, T, 10) == "cashout")
+	local share = AutoplayConfig.ADVANCE_TIME_SHARE
+	check("afterClear: 시간이 넉넉하면 진행", AutoplayLogic.afterClear({ canAdvance = true, timeLeft = T * (share + 0.05), stage = 3 }, T, 10) == "advance")
+	check("afterClear: 시간이 모자라면 수령", AutoplayLogic.afterClear({ canAdvance = true, timeLeft = T * (share - 0.05), stage = 3 }, T, 10) == "cashout")
 	check("afterClear: 목표 층을 깼으면 수령", AutoplayLogic.afterClear({ canAdvance = true, timeLeft = T, stage = 10 }, T, 10) == "cashout")
 	local every = AutoplayConfig.FAIL_EVERY_RUNS
 	check("실패 섞기: 런 번호가 배수일 때만", AutoplayLogic.isFailRun(every) and AutoplayLogic.isFailRun(every * 2)
@@ -187,6 +188,23 @@ do
 	end
 	local s = AutoplayLogic.tallyLine(t, 40)
 	check("모음: 개수 · 종류 · 길이 상한(utf8)", t.count == 30 and #t.order == 3 and utf8.len(s) ~= nil and (utf8.len(s) :: number) <= 40, s)
+	-- #45: 바이트로 자른 한글이 깨진 줄을 만들었다(MCP 읽기가 멈춤) — 글자 단위로 자르고 · 깨진 예시가 섞여도 줄은 온전
+	local ko = string.rep("가", 30)
+	local c = AutoplayLogic.clip(ko, 10)
+	local broken = string.sub(ko, 1, 7) -- 가 2자 + 1바이트
+	local t2 = AutoplayLogic.newTally()
+	AutoplayLogic.add(t2, "W:x", broken)
+	check("자르기: 글자 단위(utf8 온전) · 짧으면 그대로 · 깨진 문장도 온전한 줄로", utf8.len(c) == 10 and AutoplayLogic.clip("ab", 10) == "ab"
+		and utf8.len(AutoplayLogic.clip(broken, 50)) ~= nil and utf8.len(AutoplayLogic.tallyLine(t2, 80)) ~= nil)
+	local ph: { [string]: number } = { gym = 100, windows_start = 50, fail_wait = 40 }
+	local want = 0
+	for i, k in ipairs(AutoplayConfig.LOBBY_PHASES) do
+		ph[k] = i
+		want += i
+	end
+	check("로비 초/런: LOBBY_PHASES만 · 운동 · 창 점검 · 실패 기다림 빼고 · 런 0이면 0", AutoplayLogic.lobbySecPerRun(ph, 4) == want / 4
+		and AutoplayLogic.lobbySecPerRun(ph, 0) == 0 and table.find(AutoplayConfig.LOBBY_PHASES, "gym") == nil
+		and table.find(AutoplayConfig.LOBBY_PHASES, "fail_wait") == nil)
 	check("봇 자신의 줄은 경고 집계에서 뺀다", AutoplayLogic.isOwnLine(AutoplayConfig.TAG .. " 서버 x") and not AutoplayLogic.isOwnLine("[ChallengeService] x"))
 end
 

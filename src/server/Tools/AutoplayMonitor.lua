@@ -130,7 +130,7 @@ function AutoplayMonitor.run(segmentName: string)
 			return
 		end
 		local head = string.match(message, "^%[([%w_]+)%]") or "?"
-		AutoplayLogic.add(warnings, (if kind == Enum.MessageType.MessageError then "E:" else "W:") .. head, string.sub(message, 1, 60))
+		AutoplayLogic.add(warnings, (if kind == Enum.MessageType.MessageError then "E:" else "W:") .. head, AutoplayLogic.clip(message, 60))
 	end)
 
 	-- 2. 서버 루프 시간(감싸서 잰다 — 끝나면 되돌린다)
