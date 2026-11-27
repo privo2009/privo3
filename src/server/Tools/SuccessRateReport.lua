@@ -183,6 +183,11 @@ local MODEL = {
 	-- 잠수 몫(지시서 #43 4부 — 플레이어 유형 비교 줄 전용 · 기본 0 = 결과 그대로). 노는 시간의 이 몫을 런 사이에 가만히 있는다
 	-- (클릭 · 런 없음 — 시간만 흐른다. 접속 중이라 자동 제작은 그 시간에도 돈다 — EconomyReport 제작 시계가 경과 시간으로 따라온다)
 	IDLE_SHARE = 0,
+
+	-- 층을 깬 뒤 진행 벽 · 수령 발판까지 걷는 거리(studs — 지시서 #44 3부 봇 비교 줄 전용 · 기본 0 = 결과 그대로).
+	-- 게임에서는 층 입구 쪽(공격 자리)에서 진행 벽(층 중심 + 98)까지 약 166 studs를 걸어야 다음 층이다(타이머는 멈춰 있다 — 벽시계만 흐른다).
+	-- 표준 모델은 이 걷기를 세지 않는다(줍기 pickSec만 — 마지막 블록 왕복). 0보다 크면 깬 층마다 이 거리 ÷ 그때 이동 속도를 더한다
+	WALK_ACROSS_STUDS = 0,
 }
 SuccessRateReport.MODEL = MODEL
 
@@ -764,6 +769,17 @@ end
 
 -- 운동기구에서 sec초 클릭한다. 환생 수로 열린 기구 중 가장 좋은 것을 쓴다(공허를 샀으면 공허).
 -- 쓴 기구 번호(0 = 안 씀).
+-- 시간 나눔(지시서 #44 3부 — 봇 vs 시뮬 비교용 · 관측만): 플레이어가 어디에 초를 썼나(gate · attack · attack_fail · pickup · gym · idle)
+local function addSplit(p: any, key: string, sec: number)
+	local t = p.split
+	if t == nil then
+		t = {}
+		p.split = t
+	end
+	t[key] = (t[key] or 0) + sec
+end
+SuccessRateReport.addSplit = addSplit
+
 function SuccessRateReport.trainAtGym(p: Player, sec: number): number
 	if sec <= 0 then
 		return 0
@@ -777,6 +793,7 @@ function SuccessRateReport.trainAtGym(p: Player, sec: number): number
 	end
 	addClicks(p, math.floor(p.clickRate * sec), SuccessRateReport.gymMultiplier(index))
 	p.elapsedSec += sec
+	addSplit(p, "gym", sec)
 	SuccessRateReport.spendAutoRolls(p, sec)
 	return index
 end
@@ -789,6 +806,7 @@ function SuccessRateReport.walkToGate(p: Player): number
 		addClicks(p, math.floor(p.clickRate * sec))
 	end
 	p.elapsedSec += sec
+	addSplit(p, "gate", sec)
 	return sec
 end
 
@@ -827,6 +845,7 @@ function SuccessRateReport.simulateStage(p: Player, stage: number, outOfRadiusSe
 		punches += 1
 		if BigNum.lte(remaining, zero) then
 			p.elapsedSec += t
+			addSplit(p, "attack", t)
 			return { cleared = true, timeLeft = timer - t, punches = punches }
 		end
 		nextPunch += interval
@@ -836,6 +855,7 @@ function SuccessRateReport.simulateStage(p: Player, stage: number, outOfRadiusSe
 	clickCarry += runClickRate * (timer - t)
 	addClicks(p, math.floor(clickCarry))
 	p.elapsedSec += timer
+	addSplit(p, "attack_fail", timer)
 	return { cleared = false, timeLeft = 0, punches = punches }
 end
 
@@ -916,12 +936,22 @@ function SuccessRateReport.runOnce(
 			return best -- 실패: 보상 0, 스폰 복귀
 		end
 		best = stage
+		addSplit(p, "clears", 1) -- 깬 층 수(초가 아니라 횟수 — #44 봇 비교: 층마다 벽 · 발판까지 걷는 시간을 시뮬은 안 센다)
+		if MODEL.WALK_ACROSS_STUDS > 0 then
+			local across = MODEL.WALK_ACROSS_STUDS / LevelConfig.getMaxSpeed(p.strength)
+			if MODEL.CLICK_WHILE_WALKING then
+				addClicks(p, math.floor(p.clickRate * across))
+			end
+			p.elapsedSec += across
+			addSplit(p, "walk_across", across)
+		end
 		if econ ~= nil then
 			-- 드롭 줍기(후보 모델). 걷는 동안 런 중 클릭 속도로 클릭한다 — 타이머는 이미 멈췄다(cleared)
 			local pickSec = econ.onStageClear(p, stage)
 			if pickSec > 0 then
 				addClicks(p, math.floor(p.clickRate * MODEL.RUN_CLICK_FACTOR * pickSec))
 				p.elapsedSec += pickSec
+				addSplit(p, "pickup", pickSec)
 			end
 		end
 		if walked then
@@ -1112,7 +1142,9 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 		local reached = runOnce(p, rng, firstTry, seen, warpTo)
 		if MODEL.IDLE_SHARE > 0 and MODEL.IDLE_SHARE < 1 then
 			-- 잠수(#43 4부 유형 비교): 이번 런에 쓴 시간에 비례해 가만히 있는다. 다음 런 전에 흐르므로 제작 시계가 그만큼 따라온다
-			p.elapsedSec += (p.elapsedSec - before) * MODEL.IDLE_SHARE / (1 - MODEL.IDLE_SHARE)
+			local idle = (p.elapsedSec - before) * MODEL.IDLE_SHARE / (1 - MODEL.IDLE_SHARE)
+			p.elapsedSec += idle
+			addSplit(p, "idle", idle)
 		end
 		if observer ~= nil then
 			observer("run_end", p, seen, reached)

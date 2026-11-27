@@ -137,7 +137,7 @@ EconomyReport.GOAL = {
 	horizonMin = 180,
 }
 -- run() 모드: "full"(재현 + 후보 묶음 + 정책 비교 + 참고 측정) · "explore"(재현 + EXPLORE 목록만) · "gym"(운동기구 선택지 GYM_OPTIONS만 — #41 · docs/GYM_OPTIONS.md) ·
--- "types"(플레이어 유형 TYPE_OPTIONS만 — #43 4부 · docs/TUNING.md 12절)
+-- "types"(플레이어 유형 TYPE_OPTIONS만 — #43 4부 · docs/TUNING.md 12절) · "botcompare"(봇 vs 시뮬 — #44 3부 · TUNING 14절)
 EconomyReport.MODE = "full"
 
 export type Policy = {
@@ -1357,6 +1357,71 @@ function EconomyReport.run()
 	local E = EconomyReport
 	local t0 = os.clock()
 	print(string.format("[ECON2] ===== 새 경제 5차 측정 (지시서 #33 — 점수 표 · 드롭 0.5 이상 · 등급별 강화 · 추천까지만) · 모드 %s =====", E.MODE))
+	if E.MODE == "botcompare" then -- 봇 vs 시뮬(#44 3부): 표준 플레이어(fresh 시작)의 층 첫 도달 · 8분 · 10분 때 상태 · 시간 나눔(중앙)
+		local sm = E.report({ label = "표준(봇 비교)", set = {} }, E.PLAYERS)
+		local r = E._lastResult
+		local reach = {}
+		for stage = 1, 10 do
+			table.insert(reach, string.format("%d:%s", stage, fmt(firstMin(r, stage), "%.1f")))
+		end
+		print("[ECON2] 봇비교 층 첫 도달(분 · 중앙) " .. table.concat(reach, " "))
+		local at: { [number]: { any } } = { [480] = {}, [600] = {}, [3600] = {}, [7572] = {} }
+		local seen: { [any]: { [number]: boolean } } = {}
+		E.snapshots(E.PLAYERS, function(pl: any, st: any, _open: boolean)
+			local mark = seen[pl] or {}
+			seen[pl] = mark
+			for T, list in pairs(at) do
+				if not mark[T] and pl.elapsedSec >= T then
+					mark[T] = true
+					table.insert(list, { best = math.max(st.maxEver or 0, pl.bestThisLife or 0), n = st.n, runs = pl.runCount,
+						split = table.clone(pl.split or {}), t = pl.elapsedSec, pet = SuccessRateReport.petMult(pl), title = pl.titleIndex or 0,
+						punch = (pl.upgrades or {}).punchSpeed or 0, coins = log10Big(st.coins) })
+				end
+			end
+		end)
+		for _, T in ipairs({ 480, 600, 3600, 7572 }) do
+			local list = at[T]
+			local function med(fn: (any) -> number): number?
+				local xs = {}
+				for _, x in ipairs(list) do
+					table.insert(xs, fn(x))
+				end
+				return median(xs)
+			end
+			local parts = {}
+			for _, k in ipairs({ "gate", "attack", "attack_fail", "pickup", "gym", "idle", "clears" }) do
+				table.insert(parts, string.format("%s %s", k, fmt(med(function(x)
+					return x.split[k] or 0
+				end), "%.0f")))
+			end
+			print(string.format("[ECON2] 봇비교 %d분 배수: 펫 ×%s · 칭호 번호 %s · 펀치 속도 업그레이드 %s · 코인 10^%s", T // 60,
+				fmt(med(function(x)
+					return x.pet
+				end), "%.2f"), fmt(med(function(x)
+					return x.title
+				end), "%.0f"), fmt(med(function(x)
+					return x.punch
+				end), "%.0f"), fmt(med(function(x)
+					return x.coins
+				end), "%.1f")))
+			print(string.format("[ECON2] 봇비교 %d분(다음 런 시작 %s초) · 최고 층 %s · 환생 %s · 런 %s · 시간 나눔(초) %s · %d명", T // 60,
+				fmt(med(function(x)
+					return x.t
+				end), "%.0f"), fmt(med(function(x)
+					return x.best
+				end), "%.0f"), fmt(med(function(x)
+					return x.n
+				end), "%.0f"), fmt(med(function(x)
+					return x.runs
+				end), "%.0f"), table.concat(parts, " · "), #list))
+		end
+		-- 모델 고칠 제안 재기(#44): 깬 층마다 벽 · 발판까지 걷기(166 studs ÷ 이동 속도)를 더하면 25층 · 15종이 얼마나 늦어지나
+		local walk = E.report({ label = "표준 + 깬 층마다 벽까지 걷기 166 studs(#44 제안)", set = {}, model = { WALK_ACROSS_STUDS = 166 } }, E.PLAYERS)
+		print(string.format("[ECON2] 봇비교 걷기 더함: 25층 %s분 · 15종 %s분 · 환생 %s회(표준 %s · %s)", fmt(walk.t25), fmt(walk.k15), fmt(walk.n25, "%.0f"),
+			fmt(sm.t25), fmt(sm.k15)))
+		print(string.format("[ECON2] 봇비교 25층 %s분 · 15종 %s분 · ===== 끝 · %.0f초 =====", fmt(sm.t25), fmt(sm.k15), os.clock() - t0))
+		return
+	end
 	if E.MODE == "types" then -- 플레이어 유형(#43 4부) — 재현 없이 유형만 · 끝에 요약 줄을 한 번 더 모아 찍는다
 		local lines = {}
 		local std: any = nil
