@@ -1,6 +1,6 @@
 # 개발 로드맵
 
-문서 갱신: 2026-11-27 (지시서 #43 — 자동 플레이 봇 · 이동 검사 · 전체 리뷰 · 유형별 측정 · 테스트 5048)
+문서 갱신: 2026-11-27 (지시서 #44 — 봇 환생 구간 · 잔재 정리 · 봇 vs 시뮬(실제 25층 다시 추정) · 즉시 제작 49 R$ · 테스트 5058)
 
 ## 원칙
 - 아래에서 위로 쌓는다. BigNum이 흔들리면 전부 무너진다
@@ -14,15 +14,16 @@
 ```
 지금 위치   코드 기반 끝 — 새 경제(#37) · 리모트 보안 · 데이터 안전(#38) · UI 키트 · 미리보기(#39) · 6개 언어(#40) · 마무리(#41) ·
             이름 번역 규칙 · 정수 표시 · 운동기구 A2(#42) · 자동 플레이 봇 · 이동 검사 · 리뷰 · 유형별 측정(#43 — 시험 기간 혼자)
-            테스트 5048 / 0 failed(서버 85행 3467 · 클라 46행 1581 — 아래 "테스트 현황") · 시각 요소(모델 · UI 그림 · 맵)는 아직 임시 도형
-점검 도구   모델 · UI를 갈아 끼운 뒤 · 2월 테스트 전: Bootstrap TEST_AUTOPLAY = "fresh" · "min30" · "hour2"(CLAUDE.md "자동 플레이 봇")
+            테스트 5058 / 0 failed(서버 85행 3477 · 클라 46행 1581 — 아래 "테스트 현황") · 시각 요소(모델 · UI 그림 · 맵)는 아직 임시 도형
+점검 도구   모델 · UI를 갈아 끼운 뒤 · 2월 테스트 전: Bootstrap TEST_AUTOPLAY = "fresh" · "min30" · "hour2" · "pre_rebirth"(CLAUDE.md "자동 플레이 봇")
+주의(#44)   시뮬 25층 126분은 층마다 진행 벽까지 걷기를 안 센다 — 넣으면 190분(TUNING 14). 2월에 실제 25층 시간을 잰다
 다시 시작   HANDOFF 가장 최근 날짜 파일의 "시험 뒤 다시 시작하는 법" 한 쪽부터(세션 기록) · 남은 일 원본은 docs/PENDING.md
 ```
 
 시험 뒤 순서:
 ```
 1  사람 작업(시험 끝나면 바로)
-   - 대시보드에 새 게임패스 4개 등록(Big Bag 99 · Instant Craft 79 · Triple Craft 99 · Instant Hatch 49 R$) → ID 전달(PENDING N2)
+   - 대시보드에 새 게임패스 4개 등록(Big Bag 99 · Instant Craft 49(#44) · Triple Craft 99 · Instant Hatch 49 R$) → ID 전달(PENDING N2)
    - x2 Rebirths(2054058093) 판매 중지(대시보드)
    - Studio 설정 2개: 아바타 R15 고정 · Workspace.PlayerCharacterDestroyBehavior 켜짐 확인
    - 계정 요건(구독 또는 수수료) 12/20 전에 결정(출시 체크리스트 31)
@@ -122,10 +123,10 @@
 | `Tests/UpgradeConfigTests.server.lua` | 57 | 노출 7종(칭호 #10 · 아우라 행운 #11 · 펫 슬롯 · 펫 행운 #12 · 이동 속도 삭제 L3 #13) · 비노출 없음 · 펫 슬롯 최대 1레벨 · 스키마 7키 · 효과 선형(S1) · 펀치 속도 증가량 유도 · 최대 레벨 = 상한(S2) · 최대 속도는 레벨로만(L2 · L3 — moveSpeed 구매 invalid · 되살리면 validate 거부) · 비용 단조 증가 · canBuy 사유 3종 · validate 거부 |
 | `Systems/UpgradeServiceTests.server.lua` | 34 | 구매 거부 경로(잘못된 항목 · 최대 레벨 · 블럭스 부족 · 프로필 없음) 부작용 0 · 차감 → 레벨 → 통지 순서 · 부분 실패 · 저장값 읽기 · 환생 경로가 업그레이드를 안 건드림 · moveSpeed 요청 거부(L3 — #13) · 환생이 2배 환생 배수를 읽기만(#16) |
 | `Systems/UpgradeRequestServiceTests.server.lua` | 13 | 구매 요청 payload 위생 · 서버 거부 사유 그대로 · 성공 결과 형태 · 빈도 상한(중복 요청) · 퇴장 정리 |
-| `Data/TestPresetGateTests.server.lua` | 42 | 테스트 프리셋 — 이름 = 뽑기 도구 시점 목록 · 6종 스키마 검증 · 값 = 프리셋 · id가 Config에 있다 · 장착 ≤ 슬롯 · Studio가 아니면 무시 + ERROR · 없는 이름 무시 · 켜지면 새 스토어 .Mock만(실제 스토어 호출 0) · ProfileStore Mock 실물 왕복(UserMockStore에만) · 커밋된 TEST_PRESET = nil(#13) · 일일 보상 시드(커밋 nil · Mock 템플릿 daily) · 첫 접속 안내 fresh만(#20) · #38 새 경제 필드(곡괭이 id · 장착 보유 · 광석 칸 · 대장간 · 시간 순 환생) |
+| `Data/TestPresetGateTests.server.lua` | 47 | 테스트 프리셋 — 이름 = 뽑기 도구 시점 목록 · 6종 스키마 검증 · 값 = 프리셋 · id가 Config에 있다 · 장착 ≤ 슬롯 · Studio가 아니면 무시 + ERROR · 없는 이름 무시 · 켜지면 새 스토어 .Mock만(실제 스토어 호출 0) · ProfileStore Mock 실물 왕복(UserMockStore에만) · 커밋된 TEST_PRESET = nil(#13) · 일일 보상 시드(커밋 nil · Mock 템플릿 daily) · 첫 접속 안내 fresh만(#20) · #38 새 경제 필드(곡괭이 id · 장착 보유 · 광석 칸 · 대장간 · 시간 순 환생) · #44 pre_rebirth(프리셋 7개 · 블럭스만 다음 환생 비용 이상 · 나머지 hour1 그대로 · lifeBlox 같은 만큼) |
 | `Tests/UpgradeShopTests.client.lua` | 45 | 상점 표시 값(UpgradeConfig 원본) · 잠김(MAX · 블럭스 부족) · 사유 문구 · 요청 한 번만(결과 대기 · 시간 뒤 풀림 · 잠긴 줄) · 로벅스 자리 숨김 · 창 규격 · 행운 줄 문구(#11) · 8줄 스크롤 목록 · 줄 높이 유지 · 펫 슬롯 · 펫 행운 문구(#12) · 7줄(이동 속도 삭제 · '최대 속도 도달' 없음 — #13) · RobuxSlot 삭제 · 처음 탭 업그레이드(#16) |
 | `Tests/FeedbackTests.client.lua` | 46 | 클릭 팝업 증가분 · 문구 · 진행, HUD 환생 배수(서버와 같은 함수), 환생 안내(×이전 → ×이후 · 알림층 · 상단 띠 안), 운동기구 3D 표시 역할 · 문구, 패드 · 기구 본체 색 · 필요 환생 수 정수 · 기구 모델 얹기(#42) |
-| `Systems/LogFoldTests.server.lua` | 11 | 첫 줄은 찍는다 · 창 안 반복은 접는다 · 창 뒤 'N번 더' 요약 + 새 줄 · 키(플레이어 · 사유)별 · ChallengeService 판정은 그대로 |
+| `Systems/LogFoldTests.server.lua` | 12 | 첫 줄은 찍는다 · 창 안 반복은 접는다 · 창 뒤 'N번 더' 요약 + 새 줄 · 키(플레이어 · 사유)별 · ChallengeService 판정은 그대로 · #44 걷다 나는 거부 3종 print · 이상은 warn(rejectLevel) |
 | `Systems/RollLogicTests.server.lua` | 26 | 순차 판정 — 높은 등급 우선 · p 경계 · 행운 · p ≥ 1 확정 · 폴백(난수 안 씀) · 합 > 1 · 깨진 입력 · 분포 · seed 결정성 · 표본 |
 | `Systems/RollServiceTests.server.lua` | 28 | 행운 체인 G14 · 행운 업그레이드 1 + 증가량 × 레벨(G13) · 롤 상품은 아우라만 · 깨진 배수 · RNG 주입 · 복구 · seed · 결과 코드 · 앞 항이 없어도 뒤 항이 곱해진다(#12) |
 | `Systems/TitleServiceTests.server.lua` | 52 | 거부 경로 부작용 0 · 잔액 미리 보기 · 차감 → 롤 순서 · 신규 / 중복 · 자동 장착 · 저장 1회 · 롤 시계(수동 · 자동 공용) · 자동 루프 틱 · 장착 · 토글 · 행운 전달 · 요약 · 배수 힘 · 블럭스 한 번씩 |
@@ -177,9 +178,9 @@
 | `Data/ProfileManagerTests.server.lua` | 18 | 데이터 안전(#38 — 가짜 저장소) — 저장소 없음 · 세션 잠금 실패 · 로딩 중 나감 · 버전 오류 · 손상 → 킥 키 · 세션 닫음 · 킥 문구 en · ko · 세션 끝 경고 구분 · 서버 종료 12명 저장 기다림 · 상한 · 프로필 크기(3시간 · 최악 vs 4,194,304) · 음수 재화 → 0 · 경고(#39) |
 | `Tests/AnalyticsFunnelTests.server.lua` | 25 | 분석 #38 — 한도 · 온보딩 9단계 이름 · 지난 단계 계산(줄지 않는 값 · 차례) · 처음 온 사람 · 돌아온 사람 · 중복 없음 · 곡괭이 종 수 · 코인 경제(모아 보내기 · Sink · 자원 따로) · 나가면 지움 |
 | `Tests/UiKitTests.client.lua` | 53 | UI 키트(#39) — 역할 이름(role · grade · rarity · text · 모르는 이름 오류) · 스킨 기본값 = #39 이전 숫자 · UiSkin 빈 표 · 덮기 · 되돌리기 · styleText · card · skinImage · tab · gauge · toastRow · oddsRow · currencyChip · modalPanel · dim · 틀 여백(0이면 이전 식 · 두께만큼 안으로 · Panel.create) · 미리보기 게이트(flagOn · 커밋 nil · STUDIO_FLAGS) · 창 전부 예시로 만들어짐 · 등급 5종 · AssetSlots UI 칸 · 긴 문장 |
-| `Tests/AutoplayLogicTests.server.lua` | 43 | 자동 플레이 봇(#43 1부) — TEST_AUTOPLAY 커밋 값 nil · STUDIO_FLAGS · 켜는 판정(꺼짐 · Studio 아님 · 모르는 구간 · 글 아님 · 프리셋 다름 · 구간 3개) · 구간 프리셋 · 목표 층 실재 · 봇 자리 반경 안 · 실패 줄 반경 밖 · 클릭 ≤ 수동 상한 · 요청 간격 · 최소 런 ≥ 실패 주기 · 진행/수령 4 · 실패 섞기 2 · 환생 · 워프 3 · 음수 3 · 가방 2(넘친 채 그대로 통과 — #43 3부) · 수령 · 실패 · 런 끝 5 · 제작 5 · 루프 상한 · 모음 2 · 봇 줄 빼기 |
+| `Tests/AutoplayLogicTests.server.lua` | 47 | 자동 플레이 봇(#43 1부) — TEST_AUTOPLAY 커밋 값 nil · STUDIO_FLAGS · 켜는 판정(꺼짐 · Studio 아님 · 모르는 구간 · 글 아님 · 프리셋 다름 · 구간 3개) · 구간 프리셋 · 목표 층 실재 · 봇 자리 반경 안 · 실패 줄 반경 밖 · 클릭 ≤ 수동 상한 · 요청 간격 · 최소 런 ≥ 실패 주기 · 진행/수령 4 · 실패 섞기 2 · 환생 · 워프 3 · 음수 3 · 가방 2(넘친 채 그대로 통과 — #43 3부) · 수령 · 실패 · 런 끝 5 · 제작 5 · 루프 상한 · 모음 2 · 봇 줄 빼기 · #44 환생 검사 3(정상 0 · 블럭스 · 펫 / 배수 · 분석 · 기구) · pre_rebirth 구간 1 · 구간 4개 |
 | `Tests/MovementGuardTests.server.lua` | 22 | 이동 검사(#43 2부) — 정상 걷기 · 높은 레벨 달리기 · 점프 · 낙하 · 복제 흔들림 통과 / 순간이동(HOLD 동안 믿지 않음) · 3배 속도(레벨 0 · 상한 60) · 위로 순간이동 걸림 · dt 0 / 게임 순간이동 유예(옛 자리 · 새 자리 섞임) · 유예 뒤 다시 잼 · 리스폰 기준점 · 공개 sample · isTrusted · 나간 플레이어 표 안 만듦(#43 3부) / 공격 move_suspect · 줍기 건너뜀 / 설정에서 읽음 2 |
-| **합계** | **5048** | 서버 85행 3467 · 클라 46행 1581 — 2026-11-27 #43 Play 2번 실측(Studio 플래그 전부 nil · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
+| **합계** | **5058** | 서버 85행 3477 · 클라 46행 1581 — 2026-11-27 #44 Play 2번 실측(Studio 플래그 전부 nil · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -207,7 +208,18 @@
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-11-27 Studio Play 런타임 실측 (전량, 지시서 #43 — 자동 플레이 봇 · 이동 검사 · 리뷰 고침 · 플래그 전부 nil Play 2번 + 작업 중 2번).**
+최근 갱신: **2026-11-27 Studio Play 런타임 실측 (전량, 지시서 #44 — 환생 구간 · 잔재 정리 · 가격 · 플래그 전부 nil Play 2번 + 작업 중 2번).**
+131개 행 전부가 같은 개수로 찍혔다. **5058 passed / 0 failed** — 서버 3477(85행) + 클라 1581(46행). 시작 기준 Play는 #43 최종과 같았다(5048).
+
+```
+바뀐 행  LogFoldTests         11 → 12   걷다 나는 거부 print · 이상 warn (329b3cd)
+바뀐 행  AutoplayLogicTests   43 → 47   환생 검사 3 · pre_rebirth 구간 1 (91b6b8a)
+바뀐 행  TestPresetGateTests  42 → 47   프리셋마다 검사 4 × pre_rebirth · pre_rebirth 검사 1 (91b6b8a)
+기대만   PetV2Tests           18        Instant Craft 49 (83e497c — 개수 그대로)
+대조     5048 − 지운 행 0 + 바뀐 행 3(+10) + 새 행 0 = 5058
+```
+
+이전 갱신(#43): **2026-11-27 Studio Play 런타임 실측 (전량, 지시서 #43 — 자동 플레이 봇 · 이동 검사 · 리뷰 고침 · 플래그 전부 nil Play 2번 + 작업 중 2번).**
 131개 행 전부가 같은 개수로 찍혔다. **5048 passed / 0 failed** — 서버 3467(85행) + 클라 1581(46행). 끝 표시 `server 85/85 files · 3467` ·
 `client 46/46 files · 1581`. 시작 기준 Play는 #42 최종과 같았다(4983).
 
@@ -2019,7 +2031,9 @@ x2 Rebirths 판매 중지(체크리스트 30 — 지금 바로) · 게임 아바
 [코드]  ✅ #43 자동 플레이 봇(TEST_AUTOPLAY — fresh · min30 · hour2 · 실제 경로 · 서버 검사 · 창 11개) · 이동 검사(MovementGuard —
         순간이동 · 스피드핵이면 줍기 · 공격 틱 무시 · 킥 없음 · 봇 오탐 0) · 전체 리뷰(고침 2 · 남긴 것 PENDING "#43 남은 것") ·
         EconomyReport "types"(유형 11줄 — docs/TUNING.md 12절)
-[수동]  #43 사람이 정할 것 4 — 즉시 제작 패스 효과 · 잔재(VERIFY_CHALLENGE) 지우기 · 클리어 전 밟기 경고 · 환생 직전 프리셋(PENDING "#43 남은 것")
+[수동]  ✅ #43 사람이 정할 것 4 — #44에서 해소(즉시 제작 49 R$ · 잔재 VERIFY 지움 · 걷다 나는 거부 print · pre_rebirth 프리셋 · 봇 환생 구간)
+[코드]  ✅ #44 봇 환생 구간(pre_rebirth — 환생 실제 경로 · 앞뒤 검사) · 잔재 정리 · 봇 vs 시뮬 측정(EconomyReport "botcompare" — TUNING 14)
+[수동]  #44 사람이 정할 것 2 — 실제 25층 시간 대응(시뮬 + 걷기 190분) · 자동 진행과 무과금의 실제 차이(PENDING "#44 남은 것")
 [수동]  #42 대시보드 선해금 새 4개 등록(ID → GYM_UNLOCK_NEW_IDS) · 기존 7개 가격 바꾸기 — docs/DASHBOARD_PRODUCTS.md 5절
 [수동]  #42 4개 언어 이름 번역 · 화면 확인 — 1월 말(UI · 이름 확정 뒤 · NameKeys.ENGLISH_ONLY 끄기 — docs/LOCALIZATION.md "이름 번역 규칙")
 [수동]  #40 번역 — 원어민 검수는 출시 전 필수 아님(#41 희준): 1월 GPT 교차 검토 · 2월 테스터 의견 · 출시 뒤 많은 언어부터 · 상품 번역은 체크리스트 35

@@ -9,7 +9,7 @@
 `docs/UI_HANDOFF.md`와 합치지 않는다. 그것은 인계 절차와 검증 관문 문서이고
 이것은 대기 큐다. 성격이 다르다.
 
-문서 갱신: 2026-11-27 (지시서 #43 — #43 남은 것(사람이 정할 것 4 · 2월 볼 것 · Claude 판단) · 해소 기록 · 잔재 표 메모)
+문서 갱신: 2026-11-27 (지시서 #44 — #43 사람이 정할 것 4건 해소 · #44 남은 것 · 2월 목록 실제 25층 시간 · 후반 코인 · 잔재 VERIFY 해소) · #43 남은 것
 
 ---
 
@@ -47,7 +47,7 @@ cashout(ok=true) -> 증가분과 보상액 일치 -> 런 종료 여부 true
 | 위치 | 플래그 | 성격 |
 |---|---|---|
 | `HudBoot.client.lua` | `HUD_LAYOUT_REPORT_ENABLED` | ✅ **2026-10-22 `false`로 바뀌었다**(`c161109` — U3-8이 끝나 끈다는 지시서 #4 결정). 그 전에는 켠 채로 커밋돼 있었다 |
-| `Bootstrap.server.lua` | `VERIFY_CHALLENGE` | ✅ **2026-10-22 `false`로 바뀌었다**(`84a7c93` — 사람 결정 V1, 코드는 남긴다). 그 전에는 접속할 때마다 실제 런을 세우고 cashout으로 blox를 **실제 지급**했다(`source=bootstrap_verify`). 아래 "재개 첫 절차"가 대조하라는 cashout 정상 경로 로그의 출처가 이 블록이었다 |
+| `Bootstrap.server.lua` | `VERIFY_CHALLENGE` | ✅ **2026-10-22 `false`로 바뀌었다**(`84a7c93` — 사람 결정 V1, 코드는 남긴다). 그 전에는 접속할 때마다 실제 런을 세우고 cashout으로 blox를 **실제 지급**했다(`source=bootstrap_verify`). 아래 "재개 첫 절차"가 대조하라는 cashout 정상 경로 로그의 출처가 이 블록이었다 ✅ 2026-11-27 #44 블록째 지웠다 |
 
 (2026-10-22 정정) 둘 다 꺼졌으므로 **이제 Play 첫머리에 이 둘의 줄은 안 찍힌다.** 안 보이는 것이 정상이다.
 cashout 정상 경로 로그는 사람이(또는 MCP 입력으로) 실제로 발판을 밟을 때만 나온다.
@@ -225,7 +225,7 @@ ModuleScript **67개 중 아무도 require하지 않는 고아는
 
 ```
 N1   광석 10종 · 곡괭이 15종 이름(en · ko) — 임시 이름 적용됨(Strings ore.name.* · pickaxe.name.*), 확정은 사람
-N2   새 게임패스 4개(Big Bag 99 · Instant Craft 79 · Triple Craft 99 · Instant Hatch 49 R$) — 대시보드 등록 → ID를 희준에게.
+N2   새 게임패스 4개(Big Bag 99 · Instant Craft 49(#44 — 79에서) · Triple Craft 99 · Instant Hatch 49 R$) — 대시보드 등록 → ID를 희준에게.
      그전까지 ID nil(상점 줄 · 효과 없음 — docs/DASHBOARD_PRODUCTS.md 4절)
 N3   ✅ 해소(2026-11-26 #42 — 희준 결정 A2 · 구현 80ead84 · 해소 기록). 남은 사람 작업은 아래 "#42 남은 것"
 등급 색 적용   UiTheme.EquipGrade(일반 회색 · 희귀 파랑 · 에픽 보라 · 신화 빨강 · 전설 금색)는 장비 · 대장간 창 테두리 · 이름에 붙었다.
@@ -245,6 +245,10 @@ N3   ✅ 해소(2026-11-26 #42 — 희준 결정 A2 · 구현 80ead84 · 해소 
 알 해금              알 1 = 누적 블럭스 100 ≈ 6층 수령 한 번 — 무과금 시점은 재지 않았다
 운동기구(A2 · #42)    환생마다 거의 하나씩 열리는 게 보상으로 느껴지는가 · 기구에 실제로 얼마나 머무는지(측정 모델은 막힌 런 뒤 30초) ·
                      3줄 × 5열에서 안내판(최대 4개)이 겹쳐 안 읽히는 자리가 없는가(MCP는 위에서 본 한 장 · 뒤에서 본 한 장만)
+실제 25층 시간(#44)   무과금 테스터의 25층 · 15종 도달 시각을 잰다(분석 floor_first_clear · pickaxe_kinds). 시뮬 126 · 172분은 층마다 진행 벽까지
+                     걷기를 안 센다 — 넣으면 190 · 261분(TUNING 14). 실측이 어느 쪽인지 보고 시뮬 모델(WALK_ACROSS_STUDS)과 GOAL 손잡이를 정한다 ·
+                     런 사이 로비 시간(메뉴 · 대장간 · 펫 창)도 같이(런 시작 간격)
+후반 코인(밸런스)     25층 때 코인 약 40만이 남는다(모든 유형 — TUNING 12 · #43). 후반 코인 쓸 곳(알 · 부화 말고)이 필요한가 · 테스터가 코인을 어디에 쓰나
 ```
 
 **서버 · 기기**
@@ -324,31 +328,55 @@ PlayerState 바뀐 필드만   한 명이 받는 양의 98%(0.2초마다 약 1 K
 돌았다. 실물 고리가 걸릴 때까지 기다리게 고침(`4f5da3f`). 다른 테스트가 바꿔 끼우는 모듈 값(_deps · economyHooks)을 쓰는 새 테스트는
 같은 방식으로 실물이 돌아올 때까지 기다리고, 그 뒤로는 yield하지 않는다
 
+### #44 남은 것 — #43 결정 반영 · 환생 구간 · 봇 vs 시뮬 · 가격 (2026-11-27)
+
+봇 vs 시뮬 원인 · 다시 추정 · 제안 → `docs/TUNING.md` 14절. 환생 구간 → 13절 · `CLAUDE.md` "자동 플레이 봇".
+
+**사람이 정할 것**
+```
+1  실제 25층 시간 대응 — 시뮬은 층마다 진행 벽까지 걷기(약 166 studs)를 세지 않아 낙관적이다. 넣으면 무과금 25층 126 → 190분 · 15종
+   172 → 261분(GOAL 105 ~ 135 · 160 ~ 200 밖). 고를 것: (가) 2월 실측을 보고 정한다(추천 — 실측이 어느 쪽인지 먼저) ·
+   (나) 지금 시뮬 표준에 걷기를 넣고 GOAL 손잡이를 다시 맞춘다 · (다) 게임 쪽에서 걷기를 줄인다(진행 벽 위치 · 이동 속도 — 규칙 변경)
+2  자동 진행(유료)과 무과금의 실제 차이 — 자동 진행은 서버가 다음 층으로 옮겨 걷기가 없어 실제 약 108분 vs 무과금 약 190분(12절 표의
+   126 vs 108보다 크다). 이 차이가 의도한 크기인지(가격 · 효과 · 정책 — POLICY_CHECK 범위 밖의 "유료 이득" 판단)
+```
+
+**Claude 판단(#44 — 확인 필요)**
+```
+걷다 나는 거부      지시서 문구는 "클리어 전 진행 벽 · 수령 발판"이었는데 25층(마지막 층)에서 닫힌 벽에 닿는 거부도 같은 꼴이라 print로 같이 내렸다.
+                   "런 없음" · "지급 거부"는 이상(서버 호출 · 데이터)이라 warn 그대로. 사유 → 수준은 ChallengeService._pure.rejectLevel 한 곳
+SpeedInputBoot     VERIFY 블록 · print 둘만 지우고 파일은 남겼다 — SpeedInput을 require하는 곳이 이 파일뿐이라 지우면 SpeedApplied 받는 쪽이 없다
+                   (#43 메모 "HudBoot가 SpeedInput을 쓴다"는 틀렸다)
+안 쓰는 함수 남김    Kit.unshine(docs/UI.md 키트 표에 있는 1월 UI 템플릿 API) · UpgradeService.onLevelChanged(파일 주석 "이음매는 남겨 둔다")
+pre_rebirth 값      hour1에서 블럭스만 다음 환생 비용(1000 × 4^12)의 1.1배로 · lifeBlox · lifetimeBlox도 같은 만큼 더함(블럭스만 바꾸면 평생 벌이보다
+                   잔고가 많아진다). hour1을 고른 이유: 환생 12 → 13이면 기구 11이 열려 "기구 해금 갱신"을 볼 수 있다. NAMES에서 hour1 바로 뒤
+즉시 제작 설명      "No craft animation — see results right away" / "제작 연출 없이 바로 결과". 4개 언어는 NameKeys 꼴 "shop.instantCraft.desc*" 한 줄로
+                   이름 규칙에 묶었다(Lang 파일에서 지움 — 그 언어에서는 영어 설명). 1월 말 이름과 같이 번역
+봇 정책 그대로      봇이 시뮬보다 서툰 곳(로비마다 운동기구 · 첫 환생 전 업그레이드 · 알 하나씩 · 드롭 6초)은 고치지 않고 TUNING 14에 제안으로만 —
+                   지금 봇은 "안 깨지나" 점검 도구다. 고치면 봇 진행으로 실제 속도도 대략 볼 수 있다
+시뮬 계측           SuccessRateReport에 시간 나눔(split) · MODEL.WALK_ACROSS_STUDS(기본 0) · EconomyReport "botcompare"를 더했다 — 기본값으로는
+                   결과가 그대로(표준 126.2 · 171.5 같음)
+```
+
 ### #43 남은 것 — 자동 플레이 봇 · 이동 검사 · 전체 리뷰 · 유형별 측정 (2026-11-27)
 
 돌리는 법 · 읽는 법 → `CLAUDE.md` "자동 플레이 봇" · `docs/TUNING.md` 12 · 13절. 이동 검사 표 → `docs/REMOTES.md` 5절 · `DESIGN.md` 13 N3.
 
-**사람이 정할 것**
+**사람이 정할 것** — ✅ 4건 모두 해소(2026-11-27 지시서 #44 — 1 희준 가격 결정 · 2 ~ 4 Claude 결정)
 ```
-1  즉시 제작 패스(Instant Craft 79 R$) — 유형 측정에서 시간 효과가 거의 없다(25층 −1% · 15종 −1.5% · TUNING 12).
-   "편의" 설명으로 그대로 팔지 · 가격 · 효과를 다시 볼지(대시보드 등록 전에 — N2)
-2  잔재 지우기 조건 — Bootstrap VERIFY_CHALLENGE 블록(약 200줄 · 꺼짐)은 "대신 쓸 관측 경로를 정한 뒤"였다(아래 "잔재" 표).
-   자동 플레이 봇이 같은 길(게이트 → 공격 → 수령)을 매 구간 밟고 결과 줄을 남긴다 — 봇을 대신 관측 경로로 정하면 지울 수 있다.
-   SpeedInputBoot VERIFY_ENABLED도 조건 "Phase 6 UI 진입 후"는 이미 됐다(HudBoot가 SpeedInput을 쓴다 — #26에서 "지금 지우지 말 것" 보류)
-3  클리어 전에 진행 벽 · 수령 발판을 밟으면 ChallengeService가 warn(advance 거부 · cashout 거부 — 접힘)을 찍는다. 정상 플레이로 나는
-   경고라 #38 "출력 창 경고 0"과 어긋난다(봇은 클리어 뒤에만 밟아 0). 고치는 법 후보 — ChallengeService의 그 두 사유만 print로
-   (자동 진행 같은 서버 호출의 이상도 같이 조용해진다) · 또는 트리거가 cleared를 먼저 보기(주석 "판정처가 둘이 된다"와 부딪힌다)
-4  봇 환생 길 — 세 구간 모두 몇 분 안에 환생 비용에 못 닿아 봇 환생 0(fresh 블럭스 47 / 1000 · min30 1.8e7 / 2.6e8 · hour2 2.8e10 / 1.1e12).
-   환생 경로를 봇으로 보려면 "환생 직전" 프리셋(블럭스 ≥ 비용)을 TestPresets에 하나 더해야 한다(테스트 데이터 — 정하면 Claude가 만든다)
+1  ✅ 즉시 제작 패스 49 R$(희준) · 설명을 효과 그대로("제작 연출 없이 바로 결과" — en · ko만, NameKeys) — #44 4부
+2  ✅ VERIFY_CHALLENGE · CHALLENGE_REVERIFY_ON_RESPAWN · SpeedInputBoot VERIFY 지움(관측 = 자동 플레이 봇) — #44 1부.
+   ⚠️ #43에 적은 "HudBoot가 SpeedInput을 쓴다"는 틀렸다 — SpeedInput을 require하는 곳은 SpeedInputBoot뿐이라 파일은 남겼다(받는 쪽)
+3  ✅ 클리어 전 진행 벽 · 수령 발판 · 마지막 층 닫힌 벽 거부는 print(ChallengeService._pure.rejectLevel) — #44 1부
+4  ✅ 환생 직전 프리셋 pre_rebirth · 봇 구간 pre_rebirth(환생 실제 경로 · 앞뒤 검사) — #44 2부
 ```
 
 **2월 테스트 · 실서버에서 볼 것**
 ```
-봇 속도 vs 시뮬     봇(실제 경로)이 fresh 8분에 6층 · 환생 0. 시뮬 표준은 10분에 8층 · 환생 2(min10 프리셋). 원인 후보 — 봇 정책
-                   (창 확인 13초 × 2 · 드롭 쫓기 · 걷기) 또는 시뮬 낙관(걷기 · 게이트 · 줍기 시간). 실플레이 초반 10분 데이터와 같이 본다
+봇 속도 vs 시뮬     → #44 3부에서 원인을 쟀다(docs/TUNING.md 14절). 2월에 실제 25층 도달 시간을 잰다(2월 확인 목록)
 이동 검사 오탐      숫자 전부 TEMP(MovementGuardConfig). 실제 서버 지연에서 [MovementGuard] 경고가 정상 유저에게 나는지 — 나면 SLACK · 여유부터 늘린다
 느린 클릭           클릭 2~4/초 유형은 25층 +41%(TUNING 12) — 폰 유저 실제 클릭 속도
-후반 코인           모든 유형이 25층 때 코인 약 40만을 남긴다 — 코인 쓸 곳이 모자란가
+후반 코인           → 2월 플레이 테스트 확인 목록 "후반 코인(밸런스)"로 옮김(#44)
 ```
 
 **Claude 판단(#43 — 확인 필요)**
@@ -364,11 +392,9 @@ PlayerState 바뀐 필드만   한 명이 받는 양의 98%(0.2초마다 약 1 K
 이동 검사 범위      줍기 · 공격만. Touched 근처 확인(N1)은 그대로 · 기구 클릭 배수는 안 막음(열린 기구만 배수 — 이득이 걷기 시간뿐) ·
                    자동 진행 보유자 줍기는 거리를 안 보므로 검사도 안 건다 · 경고는 warn(정상 플레이 0이어야 — 봇 실측 0)
 유형 측정 "잠수"    노는 시간의 몫(IDLE_SHARE)만큼 런 사이에 가만히(시간만 흐름 — 접속 중이라 자동 제작은 돎). "매일 30분"은 표준 줄을 날짜로만
-리뷰 남긴 것        안 쓰는 공개 함수 — InventoryService.addTokens · takeTokens · grantEquipment · SpeedService.onStrengthChanged · Kit.unshine ·
-                   UpgradeService.onLevelChanged(파일 주석 "이음매는 남겨 둔다"). 지우지 않았다(API 짝 · 이음매 — 동작 무관)
-                   낡은 "Phase 6에서" 주석 · 로그 — ClickInput · SpeedInput(Boot) · Remotes · WarpService · WarpConfig · RebirthService.
-                   매 Play "[SpeedInput] … (UI는 Phase 6)" 줄이 찍힌다. 잔재(위 2)를 지울 때 같이
-                   HeldPickaxeService 임시 도형 자루 색 숫자(Color3) — 곡괭이 모델이 들어오면 안 쓰는 자리라 그대로
+리뷰 남긴 것        ✅ #44 1부에서 정리 — 안 쓰는 공개 함수 4개 지움(InventoryService.addTokens · takeTokens · grantEquipment ·
+                   SpeedService.onStrengthChanged) · 낡은 "Phase 6" 주석 · 로그(7파일) · 자루 색 → EconomyV2Config.HELD_PICKAXE_HANDLE_COLOR.
+                   남김: Kit.unshine(docs/UI.md 키트 표 — 1월 UI 템플릿 API) · UpgradeService.onLevelChanged(파일 주석 "이음매는 남겨 둔다")
 ```
 
 ### #42 남은 것 — 이름 번역 규칙 · 정수 표시 · 운동기구 A2 (2026-11-26)
@@ -2064,9 +2090,9 @@ Studio에서는 정상 동작해 드러나지 않는다. clone·롤백·Team Cre
 | 대상 | 삭제 가능 시점 |
 |---|---|
 | `ChunkBreakerDemo` | 수신부 검증 완료. **단 파편 연출 육안 확인 후** (아래 ⚠️) |
-| `SpeedInputBoot`의 `VERIFY_ENABLED` 블록 | Phase 6 UI 진입 후 |
+| ~~`SpeedInputBoot`의 `VERIFY_ENABLED` 블록~~ | ✅ 2026-11-27 #44에서 지웠다(파일은 SpeedApplied 받는 쪽으로 남김 — 아래 해소 기록) |
 | `Bootstrap`의 `SUCCESS_RATE_REPORT_ENABLED` 블록 (플래그·호출부만) | 4-2-f 종료 뒤. 위와 같은 성격(순수 계산, 오염 없음, 기본 false는 소음·계산 시간 때문) |
-| `Bootstrap`의 `VERIFY_CHALLENGE` 블록 | 미정 — 대신 쓸 관측 경로를 정한 뒤 (아래 ⚠️). 2026-10-22부터 `false`(V1). #43: 후보 = 자동 플레이 봇("#43 남은 것" 2 — 사람 결정) |
+| ~~`Bootstrap`의 `VERIFY_CHALLENGE` 블록~~ | ✅ 2026-11-27 #44에서 지웠다 — 관측 경로 = 자동 플레이 봇(TEST_AUTOPLAY). 아래 ⚠️ 두 문단은 기록 |
 
 ⚠️ **`ChunkBreakerDemo`는 파편 연출을 육안으로 확인하기 전에 지우지 말 것**
 (2026-08-29 조건 재정의). 파일은 `DEMO_ENABLED = false`로 꺼져 있고 코드 참조는 0건이지만,
@@ -2127,6 +2153,8 @@ RC Play는 2026-08-28에 끝났으므로 옛 조건은 **형식상 충족됐다.
 
 | 해소일 | 항목 | 커밋 |
 |---|---|---|
+| 2026-11-27 | 잔재 `VERIFY_CHALLENGE` · `CHALLENGE_REVERIFY_ON_RESPAWN`(Bootstrap 291줄) · `SpeedInputBoot` `VERIFY_ENABLED` · 적용값 print | #44 1부 — 관측은 자동 플레이 봇 |
+| 2026-11-27 | #43 사람이 정할 것 4건(즉시 제작 · 잔재 · 걷다 나는 거부 warn · 환생 프리셋) | #44 1 · 2 · 4부 |
 | 2026-11-27 | DESIGN 13 N3(#23) "속도 기반 순간 이동 검출은 넣지 않는다" → 지시서 #43 2부로 넣음(줍기 · 공격만 · 킥 없음) | `704738b` MovementGuard · `b8879e3` 나간 플레이어 표 |
 | 2026-11-27 | 게임 전체를 한 번에 밟아 보는 수단이 없었다(VERIFY_CHALLENGE는 1층 수령만 · 꺼짐) | `c5f580f` 자동 플레이 봇 TEST_AUTOPLAY — 잔재 지우기는 "#43 남은 것" 2(사람) |
 | 2026-11-26 | N3 운동기구 개편(사람 결정) | #42 희준 결정 A2 · `80ead84` 12기구 · 3줄 × 5열 · 선해금 12종(9 ~ 12 ID nil) · 모델 자리 13 · EconomyReport A2 값 같음(126.2 · 171.5) |

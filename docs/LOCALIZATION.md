@@ -1,6 +1,6 @@
 # 다국어 (사람용 한 장)
 
-문서 갱신: 2026-11-26 (지시서 #42 — 이름 번역 규칙)
+문서 갱신: 2026-11-27 (지시서 #44 — 즉시 제작 설명 en · ko만 · 4개 언어 425키) · 2026-11-26 (#42 — 이름 번역 규칙)
 
 게임 언어 결정은 `DESIGN.md` "12. 언어"가 원본이다. 이 문서는 **어떻게 돌아가고, 무엇을 어떻게 고치는지**만 둔다.
 
@@ -57,6 +57,9 @@ Lang 파일       4개 언어 파일에서 이름 키 102개씩 지웠다(es · 
 자리 표시로 바꾼 문장  shop.reason.auto_owned_higher("You already own {name}" — OP Auto Clicker) ·
                 auto.reason.not_owned("You need {name}" — Auto Advance). 기능 이름(자동 진행 창 제목 · HUD 줄 · 켬/끔 알림)은 일반 용어로 번역 유지
 새 이름 종류    NameKeys.PATTERNS에 한 줄 + Strings에 en · ko만
+en · ko만 둔 문장  shop.instantCraft.desc(#44 희준 결정 — 효과를 사실대로 새로 쓴 즉시 제작 설명 "제작 연출 없이 바로 결과" ·
+                꼴 "shop.instantCraft.desc*" 한 줄). 문장이지만 이름 규칙대로 4개 언어는 영어가 보이고 1월 말 이름과 같이 번역한다
+                → 지금 103키 · 꼴 11줄 · 4개 언어 각 425키
 ```
 
 **4개 언어 이름을 다시 넣을 때(1월 말 출시 준비 — UI · 이름 확정 뒤)**
@@ -285,12 +288,12 @@ Strings 키: `ore.name.<1 ~ 10>` · `pickaxe.name.<id>`(id = `EconomyV2Config.PI
 
 ```
 언어        파일                   키      상태
-es          Lang/es.lua            426     AI 번역 · 원어민 검수 전 (중남미에서도 쓰는 표현)
-pt          Lang/pt.lua            426     AI 번역 · 원어민 검수 전 (브라질)
-fr          Lang/fr.lua            426     AI 번역 · 원어민 검수 전
-de          Lang/de.lua            426     AI 번역 · 원어민 검수 전
+es          Lang/es.lua            425     AI 번역 · 원어민 검수 전 (중남미에서도 쓰는 표현)
+pt          Lang/pt.lua            425     AI 번역 · 원어민 검수 전 (브라질)
+fr          Lang/fr.lua            425     AI 번역 · 원어민 검수 전
+de          Lang/de.lua            425     AI 번역 · 원어민 검수 전
 ```
-키 수는 528 − 고유 이름 102(#42 이름 번역 규칙 — 4개 언어는 영어 이름). 이름 키는 1월 말 이름 확정 뒤 다시 넣는다(1절 "이름 번역 규칙").
+키 수는 528 − 고유 이름 102(#42 이름 번역 규칙 — 4개 언어는 영어 이름) − en · ko만 둔 문장 1(#44 즉시 제작 설명) = 425. 이름 키는 1월 말 이름 확정 뒤 다시 넣는다(1절 "이름 번역 규칙").
 - 검사: `python3 -I tools/check_strings.py` — 4개 언어 키 누락 · 빈 문자열 · 자리 표시 ≠ en · 줄바꿈 수 ≠ en · 표에 없는 키(고아)가 실패다.
   Play에서는 `LocaleLangTests`가 같은 규칙과 언어 판별 · en 대체 · 메뉴 8자를 잰다
 - 길이: `python3 -I tools/check_strings.py --long` — 영어보다 글자 수 1.4배 이상인 번역 목록(`[짧은]` = 영어 12자 이하 버튼 · 라벨).

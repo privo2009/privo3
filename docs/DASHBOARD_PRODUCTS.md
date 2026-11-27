@@ -11,7 +11,7 @@ Creator Dashboard에 만들 로벅스 상품 전부와, 만든 뒤 ID를 적을 
 한국어(Strings의 ko — 아래 표의 이름 · 설명)는 대시보드 번역 자리(Localization → Translate → 한국어 → Products 탭)에 사람이 넣는다
 (`docs/LOCALIZATION.md` 3절 "대시보드 상품 이름의 번역"). 영어 목록은 `python3 -I tools/export_localization_csv.py`의 `shop.` 줄로도 뽑을 수 있다.
 
-문서 갱신: 2026-11-26 (지시서 #42 — 운동기구 선해금 12종: 새 4개 등록 대기 · 2 ~ 8 가격 바꾸기)
+문서 갱신: 2026-11-27 (지시서 #44 — Instant Craft 49 R$ · 설명 효과 그대로) · 2026-11-26 (#42 — 운동기구 선해금 12종: 새 4개 등록 대기 · 2 ~ 8 가격 바꾸기)
 
 ---
 
@@ -98,10 +98,13 @@ strength1024x  x1024 Power   2052390076    699
 - **새 게임패스 4개(#35 — 사람 등록 대기)**. 코드 자리는 `ShopConfig.V2_GAMEPASS_IDS`(지금 nil — nil이면 상점 줄 없음 · 효과 없음).
   등록하면 받은 ID를 알려 준다 → 다음 지시서에서 넣는다. 4개 모두 제한 지역에서 숨긴다(랜덤의 재료 · 횟수를 로벅스로 늘린다 — POLICY_CHECK).
   트리플 부화는 Triple Hatch(2052474059) 재사용.
+- **#44(2026-11-27 희준 가격 결정)**: Instant Craft 79 → **49 R$**. 설명은 효과 그대로 "제작 연출 없이 바로 결과"(속도 · 진행을 앞당긴다고 쓰지 않는다 —
+  유형 측정에서 시간 효과가 25층 −1% · 15종 −1.5%, `docs/TUNING.md` 12절). 게임 문구는 en · ko만(이름 규칙 — 4개 언어는 1월 말).
+  운동기구 선해금은 지금 꼴 그대로(29 · 39 · 49 · 69 · 79 · 99 · 129 · 149 · 199 · 249 · 299 · 449 · 공허 799 — 5절 · 3절)
 ```
 키            대시보드 이름   R$   설명(영어 = 대시보드 · 한국어 = 게임 문구)                                  아이콘(임시)       ID
 bigBag        Big Bag         99   Bag capacity ×2 / 가방 용량 ×2                                         가방 실루엣       (빈칸 — 사람 등록 대기)
-instantCraft  Instant Craft   79   Skip craft animations — craft every 1s / 제작 연출 생략 · 1초마다 제작   망치 + 번개       (빈칸 — 사람 등록 대기)
+instantCraft  Instant Craft   49   No craft animation — see results right away / 제작 연출 없이 바로 결과   망치 + 번개       (빈칸 — 사람 등록 대기)
 tripleCraft   Triple Craft    99   Craft 3 at once (uses 15 ores) / 한 번에 3회 제작(광석 15개)            망치 ×3          (빈칸 — 사람 등록 대기)
 instantHatch  Instant Hatch   49   Skip hatch animations — hatch every 1s / 부화 연출 생략 · 1초마다 부화   알 + 번개        (빈칸 — 사람 등록 대기)
 ```
