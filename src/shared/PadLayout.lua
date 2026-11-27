@@ -24,6 +24,8 @@
 -- ===== 배치 상수는 초안값이다 ==========================================================
 --
 -- 지환 · 희준 파트가 들어오면 PAD_SIZE · 간격은 조정 대상이다. 축 · 스폰은 ArenaConfig가 원본이다.
+-- 지시서 #46: 크기 · 간격 · 줄 · 첫 열 값은 ArenaConfig.layoutAt(배율 — ArenaScale)이 정한다. 크기(8)는 캐릭터 크기라 배율을 안 따르고
+-- 간격 · 줄 · 여백만 줄어든다. 마지막 열이 입구 앞 PAD_END_MARGIN에서 끝나도록 게이트 쪽에서 거꾸로 놓는다(배율 1.0 = 아래 숫자).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -32,27 +34,27 @@ local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local PadLayout = {}
 
 -- 패드 한 장의 크기 (studs). 캐릭터가 밟고 지나갈 수 있는 폭 기준 초안.
-PadLayout.PAD_SIZE = Vector3.new(8, 1, 8)
+PadLayout.PAD_SIZE = Vector3.new(ArenaConfig.LOBBY_PAD_SIZE, 1, ArenaConfig.LOBBY_PAD_SIZE)
 
 -- 진행 축. 정본은 `ArenaConfig.AXIS`다 — 재공개일 뿐 두 번째 원본이 아니다
 -- (호출부 LevelConfig.depthAlong · PadServiceTests가 PadLayout.AXIS를 읽는다).
 PadLayout.AXIS = ArenaConfig.AXIS
 
 -- 열 간격 (진행축, studs). PAD_SIZE.X(8)의 1.5배 — 패드 사이로 걸어 다닐 틈.
-PadLayout.PITCH = 12
+PadLayout.PITCH = ArenaConfig.LIVE.padPitch
 
 -- 줄 수와 줄 간격 (Z, studs). 줄 간격 = PAD_SIZE.Z + 4 — 두 줄이 붙지 않게.
-PadLayout.ROWS = 2
-PadLayout.ROW_PITCH = 12
+PadLayout.ROWS = ArenaConfig.LOBBY_PAD_ROWS
+PadLayout.ROW_PITCH = ArenaConfig.LIVE.padRowPitch
 
 -- 안쪽 줄(통로에 가까운 줄)의 Z. 통로(Z = 0)에서 패드 가장자리까지 32 studs — 통로 한가운데로 걸으면
 -- 캐릭터 폭(약 4)과 고속 이동 보정을 넉넉히 넘는다(CASHOUT_LATERAL_OFFSET의 여유 근거와 같은 종류).
 -- 바깥쪽 줄은 -Z로 ROW_PITCH만큼 더 간다.
-PadLayout.LANE_Z = -36
+PadLayout.LANE_Z = ArenaConfig.LIVE.padLaneZ
 
 -- 첫 열이 스폰 지점보다 뒤(-X)로 들어간 거리. 스폰 바로 옆에서 시작해 게이트 쪽으로 뻗는다.
 -- 12열이면 마지막 열이 -220 + 11 × 12 = -88 — 입장 게이트(-74) 앞에서 끝난다(테스트가 잰다).
-PadLayout.START_BEHIND_SPAWN = 20
+PadLayout.START_BEHIND_SPAWN = ArenaConfig.SPAWN_X - ArenaConfig.LIVE.padFirstX
 
 -- 패드 아랫면이 지면(Y=0)에 닿도록 중심을 반 칸 띄운다.
 -- BlockLayout.GROUND_Y_OFFSET과 같은 계산이고 같은 이유다 (그대로 두면 절반이 바닥에 묻힌다).

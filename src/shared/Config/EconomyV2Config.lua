@@ -11,6 +11,7 @@
 
 local BigNum = require(script.Parent.Parent.BigNum)
 local ShopConfig = require(script.Parent.ShopConfig) -- 새 패스 ID 원본(#35 — ShopConfig.V2_GAMEPASS_IDS)
+local ArenaConfig = require(script.Parent.ArenaConfig) -- 줍기 반경 · 드롭 흩어짐 · 대장간 자리(지시서 #46 — 배율에서)
 
 type BigNumber = BigNum.BigNumber
 
@@ -47,12 +48,12 @@ EconomyV2Config.UPPER_ORE_DROP_MULT = 0.109
 -- #33 결정 N13: 모든 광석을 넉넉하게 — 광석 1 ~ 10 모두 ORE_DROP_MIN 이상(validate). 시간 조절은 점수 표 · 가방 · 확률표 · 강화가 맡는다
 EconomyV2Config.ORE_DROP_MIN = 0.5
 EconomyV2Config.ORE_DROP_BY_ORE = { 1, 1, 1, 1, 1, 0.8, 0.8, 0.5, 0.5, 0.5 } :: { [number]: number }?
--- 자동으로 줍는 반경(스터드 — 사람 결정 "약 12" · TEMP)
-EconomyV2Config.PICKUP_RADIUS = 12
+-- 자동으로 줍는 반경(스터드 — 사람 결정 "약 12" · TEMP). 지시서 #46: 12 × 배율(ArenaConfig.layoutAt — 블록과 함께 줄어든다)
+EconomyV2Config.PICKUP_RADIUS = ArenaConfig.LIVE.pickupRadius
 -- 줍기 판정 주기(초 — 서버 단일 폴링 루프 · OreDropService). 시각 튜닝값
 EconomyV2Config.PICKUP_POLL_SEC = 0.25
--- 블록 하나에서 떨어진 드롭이 흩어지는 반경(스터드 — 표시 · 줍기 위치. 시각 튜닝값)
-EconomyV2Config.DROP_SCATTER = 2.5
+-- 블록 하나에서 떨어진 드롭이 흩어지는 반경(스터드 — 표시 · 줍기 위치. 시각 튜닝값). 지시서 #46: 2.5 × 배율
+EconomyV2Config.DROP_SCATTER = ArenaConfig.LIVE.dropScatter
 
 -- 광석 표시(#32 — 임시 도형 + 에셋 자리). color = 광석 재질 색(등급 색은 미결 PENDING C1).
 -- modelId · iconId · effectId가 nil이면 임시 도형(작은 Part · 색 칸)을 쓴다 — 방학 때 ID만 넣으면 모델로 바뀐다.
@@ -233,9 +234,10 @@ EconomyV2Config.AUTO_CRAFT_LOG_MAX = 5
 -- 이 등급 이상이면 자동 제작 중에도 크게 알린다(토스트)
 EconomyV2Config.CRAFT_BIG_NOTICE_RARITY = "mythic"
 -- 로비 임시 대장간(#33 — 에셋 자리). modelId가 nil이면 임시 도형(블록 + 지붕). 위치 = 스폰 바닥 빈 자리(바닥 위 Y 0)
+-- 지시서 #46: 자리는 ArenaConfig.layoutAt(맨 뒤 패드 뒤 · 바깥 패드 줄 옆 — 배율 1.0 = (-235, -60)) · 크기는 배율을 안 따른다
 EconomyV2Config.FORGE_SITE = {
-	position = Vector3.new(-235, 0, -60),
-	size = Vector3.new(10, 7, 8),
+	position = Vector3.new(ArenaConfig.LIVE.forgeX, 0, ArenaConfig.LIVE.forgeZ),
+	size = ArenaConfig.FORGE_SIZE,
 	color = Color3.fromRGB(110, 80, 60),
 	modelId = nil :: number?,
 	iconId = nil :: number?,

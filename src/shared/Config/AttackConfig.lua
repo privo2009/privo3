@@ -110,6 +110,15 @@ function AttackConfig.getArenaRadius(): number
 	return BlockLayout.OUTER_RADIUS + BlockLayoutConfig.BLOCK_SPAN / 2
 end
 
+-- 블록 한 변(span)이 주어졌을 때의 바깥면 · 판정 반경(지시서 #46 — ArenaConfig.layoutAt이 배율 후보마다 부른다).
+-- 식은 위 getArenaRadius · getRadius와 같은 순서다(지금 BLOCK_SPAN을 넣으면 같은 수 — ArenaScaleTests가 잰다)
+function AttackConfig.arenaRadiusAtSpan(span: number): number
+	return span * BlockLayoutConfig.OUTER_RING_MULT + span / 2
+end
+function AttackConfig.radiusAtSpan(span: number): number
+	return span * BlockLayoutConfig.OUTER_RING_MULT + span / 2 + span * AttackConfig.RADIUS_MARGIN_MULT
+end
+
 -- 이 거리에서 펀치가 들어가는가. 경계는 **이하**다 —
 -- 정확히 반경에 서 있으면 들어간다 (WarpConfig.canWarp의 경계 규약과 같다).
 --

@@ -3,6 +3,9 @@
 -- 켜는 곳: Bootstrap TEST_AUTOPLAY(커밋 값 nil). 돌리는 법 · 읽는 법 → CLAUDE.md "자동 플레이 봇" · HANDOFF restart.
 -- 판정 · 보고 꼴은 Shared/AutoplayLogic(순수 — AutoplayLogicTests), 서버 검사는 Server/Tools/AutoplayMonitor, 조작은 Client/Tools/AutoplayBot.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
+
 local AutoplayConfig = {}
 
 export type Segment = { preset: string, targetFloor: number, limitSec: number, label: string, rebirthFirst: boolean?, minRuns: number? }
@@ -60,7 +63,8 @@ AutoplayConfig.MOVE_STEP_SEC = 6
 AutoplayConfig.STUCK_SEC = 1.5
 AutoplayConfig.STUCK_STUDS = 1
 -- 실패 런: 층 중심에서 Z로 이만큼 떨어진 곳(공격 반경 밖 · 챌린지 구역 안)에 서서 기다린다 — AttackConfig 반경보다 커야 한다(AutoplayLogicTests)
-AutoplayConfig.FAIL_STAND_Z = 97
+-- 지시서 #46: 배율을 따라 판정 반경과 통로 끝의 가운데(배율 1.0 = 96.4 — 예전 97)
+AutoplayConfig.FAIL_STAND_Z = (ArenaConfig.LIVE.radius + ArenaConfig.LIVE.challengeZHalf) / 2
 -- 줍기: 층마다 드롭을 따라가는 상한(초) — 클리어 뒤에는 가방이 차거나 드롭이 없거나 이 시간이 지나면 결정한다(#45: 6 → 2)
 AutoplayConfig.PICKUP_CHASE_SEC = 2
 

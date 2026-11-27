@@ -6,14 +6,26 @@
 -- 블록끼리 최대 62%까지 겹쳐 보이는 문제가 있었다 (BlockService는 반지름 6~14를
 -- 하드코딩, BlockModelGenerator는 격자 4×cubeSize 4=16 studs를 따로 하드코딩 — 서로 무관).
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ArenaScale = require(ReplicatedStorage.Shared.Config.ArenaScale)
+
 local BlockLayoutConfig = {}
 
 -- 블록 모델 크기. BlockModelGenerator가 실제로 만드는 격자와 반드시 같아야 한다.
 -- 근거(Phase 3-4 결정): 파편 동시 상한 200개(CLAUDE.md) 안에서 블록 3개가 동시에
 -- 완전파괴돼도(3×64=192) 풀 한계를 안 넘는 선 — BlockModelGenerator.lua 상단 참고.
-BlockLayoutConfig.GRID_SIZE = 4 -- 한 변당 큐브 개수 (4x4x4 = 64개)
-BlockLayoutConfig.CUBE_SIZE = 4 -- 큐브 한 변 길이 (studs)
-BlockLayoutConfig.BLOCK_SPAN = BlockLayoutConfig.GRID_SIZE * BlockLayoutConfig.CUBE_SIZE -- 블록 한 변 길이 = 16
+BlockLayoutConfig.GRID_SIZE = 4 -- 한 변당 큐브 개수 (4x4x4 = 64개 — 배율과 무관. 큐브 수 = 파편 · HP 비율 역산)
+-- 큐브 한 변 길이 = 기준(배율 1.0 — #45까지 4 studs) × ArenaScale.ARENA_SCALE(지시서 #46). 블록 배치 반지름 · 판정 반경 ·
+-- 스테이지 폭의 블록 몫이 전부 BLOCK_SPAN에서 나오므로 큐브 크기 하나가 챌린지 크기를 끌고 간다
+BlockLayoutConfig.CUBE_SIZE_BASE = 4
+function BlockLayoutConfig.cubeSizeAt(scale: number): number
+	return ArenaScale.scaled(BlockLayoutConfig.CUBE_SIZE_BASE, scale)
+end
+function BlockLayoutConfig.spanAt(scale: number): number
+	return BlockLayoutConfig.GRID_SIZE * BlockLayoutConfig.cubeSizeAt(scale)
+end
+BlockLayoutConfig.CUBE_SIZE = BlockLayoutConfig.cubeSizeAt(ArenaScale.ARENA_SCALE) -- 큐브 한 변 길이 (studs)
+BlockLayoutConfig.BLOCK_SPAN = BlockLayoutConfig.GRID_SIZE * BlockLayoutConfig.CUBE_SIZE -- 블록 한 변 길이(배율 1.0 = 16)
 
 -- ===== 배치 반지름 배율 ================================================================
 -- 전부 "BLOCK_SPAN × 배율" 형태로만 쓴다. BlockService.lua에 절대 studs 값을 직접 넣지 않는다.

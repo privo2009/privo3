@@ -49,7 +49,15 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
+-- ArenaConfig는 쓸 때 부른다(지시서 #46): ArenaConfig가 판정 반경(AttackConfig → BlockLayout)으로 띠 · 발판 자리를 정하므로
+-- 여기서 맨 위에 부르면 서로 부르는 고리가 된다. 처음 한 번 부른 뒤로는 캐시된 같은 모듈이다
+local ArenaConfigModule: any = nil
+local function arenaConfig(): any
+	if ArenaConfigModule == nil then
+		ArenaConfigModule = require(ReplicatedStorage.Shared.Config.ArenaConfig)
+	end
+	return ArenaConfigModule
+end
 local BlockLayoutConfig = require(ReplicatedStorage.Shared.Config.BlockLayoutConfig)
 
 local BlockLayout = {}
@@ -100,7 +108,7 @@ function BlockLayout.getStageOrigin(stage: number?): Vector3
 	if stage == nil then
 		return Vector3.zero
 	end
-	return Vector3.new(ArenaConfig.getStageCenterX(stage), 0, 0)
+	return Vector3.new(arenaConfig().getStageCenterX(stage), 0, 0)
 end
 
 -- count(1~16)에 맞는 고정 슬롯 풀에서 앞 count개만 잘라 반환한다.

@@ -17,6 +17,8 @@
 --
 -- ⚠️ 배치 상수는 초안값이다. 파트와 맵이 들어오면 SIZE · 간격은 조정 대상이다
 --    (PadLayout "배치 상수는 초안값이다"와 같다). 경계·축은 ArenaConfig가 원본이다.
+-- 지시서 #46: 크기 · 간격 · 줄 · 첫 열 값은 ArenaConfig.layoutAt(배율 — ArenaScale)이 정한다. 발판 크기(16)는 배율을 안 따르고
+-- 간격 · 줄 · 여백만 줄어든다. 마지막 열이 입구 앞 GYM_END_MARGIN에서 끝나도록 게이트 쪽에서 거꾸로 놓는다(배율 1.0 = 아래 숫자).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -30,19 +32,19 @@ type BigNumber = BigNum.BigNumber
 local GymLayout = {}
 
 -- 기구 하나의 발판 크기 (studs). 캐릭터가 올라서서 클릭하는 자리라 패드(8)보다 넓게 잡았다.
-GymLayout.SIZE = Vector3.new(16, 1, 16)
+GymLayout.SIZE = Vector3.new(ArenaConfig.LOBBY_GYM_SIZE, 1, ArenaConfig.LOBBY_GYM_SIZE)
 
 -- 열 간격(진행축) · 줄 간격(Z). SIZE + 8 — 기구 사이로 걸어 다닐 틈.
-GymLayout.PITCH = 24
-GymLayout.ROWS = 3 -- #42 A2: 13기구 = 3줄 × 5열(예전 2줄 — 7열이면 마지막 열이 게이트를 넘는다)
-GymLayout.ROW_PITCH = 24
+GymLayout.PITCH = ArenaConfig.LIVE.gymPitch
+GymLayout.ROWS = ArenaConfig.LOBBY_GYM_ROWS -- #42 A2: 13기구 = 3줄 × 5열(예전 2줄 — 7열이면 마지막 열이 게이트를 넘는다)
+GymLayout.ROW_PITCH = ArenaConfig.LIVE.gymRowPitch
 
 -- 첫 열이 스폰 지점보다 앞(+X)에 선 거리. 5열이면 마지막 열이 -192 + 4 × 24 = -96 — 게이트(-74) 앞에서 끝난다.
-GymLayout.START_AHEAD_OF_SPAWN = 8
+GymLayout.START_AHEAD_OF_SPAWN = ArenaConfig.LIVE.gymFirstX - ArenaConfig.SPAWN_X
 
 -- 안쪽 줄의 Z. 통로(Z = 0)에서 기구 가장자리까지 32 studs — 패드 안쪽 줄(PadLayout.LANE_Z = -36)과 대칭인 여유.
 -- 바깥쪽 줄은 +Z로 ROW_PITCH만큼씩 더 간다(40 · 64 · 88).
-GymLayout.LANE_Z = 40
+GymLayout.LANE_Z = ArenaConfig.LIVE.gymLaneZ
 
 -- 발판 윗면이 지면 위에 오게 중심을 반 칸 띄운다 (PadLayout.GROUND_Y_OFFSET과 같은 이유).
 GymLayout.GROUND_Y_OFFSET = GymLayout.SIZE.Y / 2

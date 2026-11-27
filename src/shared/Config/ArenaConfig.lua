@@ -26,6 +26,14 @@
 -- 그렇게 한다) 따라오지 않아서, 유도가 끊겨도 통과한다.
 -- (AttackConfig.getRadius가 상수 대신 함수인 것과 같은 이유)
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+-- 지시서 #46: 크기는 배율(ArenaScale) 하나에서 계산한다 — 블록 크기(BlockLayoutConfig)와 판정 반경(AttackConfig)도 읽는다.
+-- (예전에는 "다른 Config를 require하지 않는다"였다. 스테이지 폭 · 발판 자리가 블록 · 반경에서 나오게 되어 바꿨다 —
+-- BlockLayout은 이 모듈을 쓸 때 부르므로(지연 require) 고리가 없다)
+local ArenaScale = require(ReplicatedStorage.Shared.Config.ArenaScale)
+local BlockLayoutConfig = require(ReplicatedStorage.Shared.Config.BlockLayoutConfig)
+local AttackConfig = require(ReplicatedStorage.Shared.Config.AttackConfig)
+
 local ArenaConfig = {}
 
 -- ===== 진행 축 =======================================================================
@@ -61,12 +69,14 @@ ArenaConfig.AXIS = Vector3.new(1, 0, 0)
 -- 그쪽은 이 값을 참조하지 않는다 — 근거가 다르고 서로 끌려다니면 안 된다.
 -- ⚠️ 절반(74)이 블록 클러스터 바깥면(68.8) + 게이트 · 벽 깊이 절반(4)보다 커야 한다 — 아래로 내리면 블록이 띠로
 --    삐져나오고 입장 게이트 · 진행 벽이 블록과 겹친다(EntranceGateServiceTests "게이트 먼 면"이 잰다).
-ArenaConfig.STAGE_WIDTH = 148
+-- 지시서 #46: 값은 아래 layoutAt(배율)이 정한다 = 2 × (블록 바깥면 + 벽 깊이 절반 + 여유 1.2 × 배율). 배율 1.0 = 148
+-- (ArenaConfig.STAGE_WIDTH는 이 파일 아래 "배율에서 나온 지금 값"에서 채운다)
 
 -- 스테이지와 스테이지 사이 띠. 수령 발판과 진행 벽이 이 띠 안에 있다.
 -- 발판(깊이 12)은 띠 가운데, 벽(깊이 8)은 띠 끝 — 24면 둘 사이 틈이 2 studs다(validate가 잰다). 발판은 진행축에서
 -- 옆(CASHOUT_LATERAL_OFFSET)으로 비켜 있어 벽까지 걷는 길과 겹치지 않는다.
-ArenaConfig.GAP_WIDTH = 24
+-- 지시서 #46: 배율을 안 따른다 — 발판 · 벽 깊이(Touched 관통 하한 · 이동 속도 상한)에 묶인 폭이다. 값 = layoutAt
+ArenaConfig.GAP_WIDTH_BASE = 24
 
 -- 스폰 지점의 X. 패드도 아레나 경계도 복귀 경로도 이 값에서 시작한다.
 --
@@ -77,7 +87,7 @@ ArenaConfig.GAP_WIDTH = 24
 -- 지시서 #8 M1: 스폰은 게이트 가까운 쪽이다. 스폰 → 게이트 = 입구(-74) − (-200) = 126 ≈ 기본 속도 32 × 4초.
 -- 패드 · 기구는 통로 옆(±Z)에 있고 스폰 뒤쪽(-X)으로도 조금 뻗는다 — 나중 구역 공간은 뒤 · 옆에 남기고
 -- 스폰 → 게이트 거리는 늘리지 않는다.
-ArenaConfig.SPAWN_X = -200
+-- 지시서 #46: 값 = layoutAt — 챌린지 입구 − 126 × 배율(배율 1.0 = -200)
 
 -- 수령 발판이 진행축에서 옆으로 비키는 거리.
 --
@@ -117,12 +127,9 @@ ArenaConfig.CASHOUT_PAD_SIZE = Vector3.new(12, 1, 12)
 
 -- 스폰 구역의 X 범위. 패드 · 기구(스폰 뒤 -224부터)를 품고 챌린지 입구(-74)를 20 지나서 끝난다 —
 -- 이 20의 겹침이 스폰 구역과 챌린지 구간을 잇는 출입구다. 뒤쪽 -260 ~ -224는 나중 구역(상점 · 펫 등) 자리로 남긴다.
-ArenaConfig.SPAWN_ZONE_X_MIN = -260
-ArenaConfig.SPAWN_ZONE_X_MAX = -54
-
 -- Z 반폭. 스폰 구역이 더 넓다 — 통로 양옆에 패드 · 기구 줄이 서고, 그 바깥은 나중 구역 자리다.
-ArenaConfig.SPAWN_ZONE_Z_HALF = 120
-ArenaConfig.CHALLENGE_ZONE_Z_HALF = 100
+-- 지시서 #46: SPAWN_ZONE_X_MIN · X_MAX · Z_HALF · CHALLENGE_ZONE_Z_HALF 값 = layoutAt(배율 1.0 = -260 · -54 · 120 · 100).
+-- 스폰 구역은 패드 · 기구 · 대장간 줄에서 나온다(맨 뒤 패드 − 남김 36 × 배율 · 가장 바깥 줄 + 남김 24 × 배율)
 
 -- 경계 높이. 기본 점프가 약 7 studs이므로 넘어갈 수 없다.
 -- ⚠️ 이동속도가 올라가도 점프 높이는 안 변한다(JumpPower는 힘에서 파생되지 않는다).
@@ -167,6 +174,151 @@ ArenaConfig.MAX_PART_SIZE = 2048
 -- ⚠️ LevelConfig.DEPTH_SOURCES가 이 값을 읽어 이동속도 상한을 유도한다. 8 아래로
 -- 내리면 상한이 따라 내려간다 (CASHOUT_PAD_SIZE 주석과 같은 이유).
 ArenaConfig.ADVANCE_WALL_DEPTH = 8
+
+-- ===== 배율에서 나온 지금 값 (지시서 #46 — ArenaScale.ARENA_SCALE 하나) =========================================
+--
+-- layoutAt(배율)이 아레나 · 로비의 길이를 한 곳에서 계산한다. 1차 상수는 아래 BASE(배율 1.0 = #45까지의 배치)와
+-- 캐릭터 크기 물체(로비 패드 · 기구 · 대장간 크기)다. 무엇이 배율을 따르고 무엇이 안 따르는지는 ArenaScale 머리 주석.
+-- ⚠️ 배율 1.0이면 #45까지와 똑같다(ArenaScaleTests "배율 1.0 = 옛 배치").
+
+-- 로비 물체 — 캐릭터가 올라서는 크기라 배율을 안 따른다. PadLayout · GymLayout · EconomyV2Config.FORGE_SITE가 여기서 읽는다
+ArenaConfig.LOBBY_PAD_SIZE = 8 -- 클릭 패드 X · Z
+ArenaConfig.LOBBY_PAD_COUNT = 24 -- 월드 1 패드 수(줄 길이 계산 — ArenaScaleTests가 WorldConfig와 대조)
+ArenaConfig.LOBBY_PAD_ROWS = 2
+ArenaConfig.LOBBY_GYM_SIZE = 16 -- 운동기구 발판 X · Z
+ArenaConfig.LOBBY_GYM_COUNT = 13 -- GymConfig.getCount()와 대조
+ArenaConfig.LOBBY_GYM_ROWS = 3
+ArenaConfig.FORGE_SIZE = Vector3.new(10, 7, 8) -- 로비 임시 대장간(EconomyV2Config.FORGE_SITE.size)
+
+-- 배율 1.0 기준 길이(studs — × 배율). 이름 = 무엇에서 무엇까지
+ArenaConfig.BASE = {
+	STAGE_EDGE_CLEARANCE = 1.2, -- 블록 바깥면 + 벽 깊이 절반 → 스테이지 끝 여유
+	SPAWN_TO_ENTRANCE = 126, -- 스폰 → 챌린지 입구(게이트)
+	SPAWN_DOOR_OVERLAP = 20, -- 스폰 구역이 입구를 지나 겹치는 출입구
+	SPAWN_BACK_RESERVE = 36, -- 맨 뒤 패드 뒤로 남긴 나중 구역
+	SPAWN_SIDE_RESERVE = 24, -- 가장 바깥 줄 옆으로 남긴 나중 구역
+	CHALLENGE_Z_HALF = 100, -- 챌린지 통로 반폭
+	PAD_PITCH = 12, -- 패드 열 간격(크기 + PAD_MIN_GAP보다 작아지지 않는다)
+	PAD_ROW_PITCH = 12,
+	PAD_LANE_Z = 36, -- 통로 → 안쪽 패드 줄 중심(-Z)
+	PAD_END_MARGIN = 10, -- 게이트 쪽 마지막 패드 가장자리 → 입구
+	GYM_PITCH = 24,
+	GYM_ROW_PITCH = 24,
+	GYM_LANE_Z = 40, -- 통로 → 안쪽 기구 줄 중심(+Z)
+	GYM_END_MARGIN = 14, -- 게이트 쪽 마지막 기구 가장자리 → 입구
+	FORGE_BEHIND_PADS = 11, -- 맨 뒤 패드 가장자리 → 대장간 중심(-X)
+	FORGE_Z_GAP = 4, -- 바깥 패드 줄 가장자리 → 대장간 앞면(-Z)
+	PICKUP_RADIUS = 12, -- 드롭 자동 줍기 반경(사람 결정 "약 12" × 배율)
+	DROP_SCATTER = 2.5, -- 블록 하나 드롭이 흩어지는 반경
+}
+
+export type Layout = {
+	scale: number,
+	blockSpan: number,
+	clusterFace: number, -- 블록 클러스터 바깥면(중심에서)
+	radius: number, -- 근접 판정 반경(AttackConfig와 같은 식)
+	stageWidth: number,
+	gapWidth: number,
+	entranceX: number,
+	spawnX: number,
+	spawnZoneXMin: number,
+	spawnZoneXMax: number,
+	spawnZoneZHalf: number,
+	challengeZHalf: number,
+	padPitch: number,
+	padRowPitch: number,
+	padLaneZ: number, -- 안쪽 줄 중심(음수)
+	padFirstX: number,
+	padLastX: number,
+	padOuterZ: number, -- 바깥 줄 바깥 가장자리(음수)
+	gymPitch: number,
+	gymRowPitch: number,
+	gymLaneZ: number,
+	gymFirstX: number,
+	gymLastX: number,
+	gymOuterZ: number,
+	forgeX: number,
+	forgeZ: number,
+	pickupRadius: number,
+	dropScatter: number,
+}
+
+-- 배율 scale의 배치(순수 — 지금 배율과 상관없이 아무 배율이나 계산한다. 후보 비교 · 테스트가 부른다)
+function ArenaConfig.layoutAt(scale: number): Layout
+	assert(type(scale) == "number" and scale > 0 and scale <= 1, "ArenaConfig.layoutAt: scale은 0 초과 1 이하")
+	local B = ArenaConfig.BASE
+	local snap = ArenaScale.snap
+	local span = BlockLayoutConfig.spanAt(scale)
+	local face = AttackConfig.arenaRadiusAtSpan(span)
+	local radius = AttackConfig.radiusAtSpan(span)
+	local stageWidth = snap(2 * (face + ArenaConfig.ADVANCE_WALL_DEPTH / 2 + B.STAGE_EDGE_CLEARANCE * scale))
+	local gapWidth = ArenaConfig.GAP_WIDTH_BASE
+	local entranceX = -stageWidth / 2
+	local spawnX = snap(entranceX - B.SPAWN_TO_ENTRANCE * scale)
+
+	local padSize = ArenaConfig.LOBBY_PAD_SIZE
+	local padPitch = ArenaScale.pitch(B.PAD_PITCH, padSize, ArenaScale.PAD_MIN_GAP, scale)
+	local padRowPitch = ArenaScale.pitch(B.PAD_ROW_PITCH, padSize, ArenaScale.PAD_MIN_GAP, scale)
+	local padLaneZ = -ArenaScale.scaled(B.PAD_LANE_Z, scale)
+	local padColumns = math.ceil(ArenaConfig.LOBBY_PAD_COUNT / ArenaConfig.LOBBY_PAD_ROWS)
+	local padLastX = snap(entranceX - B.PAD_END_MARGIN * scale - padSize / 2)
+	local padFirstX = snap(padLastX - (padColumns - 1) * padPitch)
+	local padOuterZ = snap(padLaneZ - (ArenaConfig.LOBBY_PAD_ROWS - 1) * padRowPitch - padSize / 2)
+
+	local gymSize = ArenaConfig.LOBBY_GYM_SIZE
+	local gymPitch = ArenaScale.pitch(B.GYM_PITCH, gymSize, ArenaScale.GYM_MIN_GAP, scale)
+	local gymRowPitch = ArenaScale.pitch(B.GYM_ROW_PITCH, gymSize, ArenaScale.GYM_MIN_GAP, scale)
+	local gymLaneZ = ArenaScale.scaled(B.GYM_LANE_Z, scale)
+	local gymColumns = math.ceil(ArenaConfig.LOBBY_GYM_COUNT / ArenaConfig.LOBBY_GYM_ROWS)
+	local gymLastX = snap(entranceX - B.GYM_END_MARGIN * scale - gymSize / 2)
+	local gymFirstX = snap(gymLastX - (gymColumns - 1) * gymPitch)
+	local gymOuterZ = snap(gymLaneZ + (ArenaConfig.LOBBY_GYM_ROWS - 1) * gymRowPitch + gymSize / 2)
+
+	local forgeX = snap(padFirstX - padSize / 2 - B.FORGE_BEHIND_PADS * scale)
+	local forgeZ = snap(padOuterZ - B.FORGE_Z_GAP * scale - ArenaConfig.FORGE_SIZE.Z / 2)
+	local sideMax = math.max(gymOuterZ, -padOuterZ, -(forgeZ - ArenaConfig.FORGE_SIZE.Z / 2))
+
+	return {
+		scale = scale,
+		blockSpan = span,
+		clusterFace = face,
+		radius = radius,
+		stageWidth = stageWidth,
+		gapWidth = gapWidth,
+		entranceX = entranceX,
+		spawnX = spawnX,
+		spawnZoneXMin = snap(padFirstX - padSize / 2 - B.SPAWN_BACK_RESERVE * scale),
+		spawnZoneXMax = snap(entranceX + B.SPAWN_DOOR_OVERLAP * scale),
+		spawnZoneZHalf = snap(sideMax + B.SPAWN_SIDE_RESERVE * scale),
+		challengeZHalf = ArenaScale.scaled(B.CHALLENGE_Z_HALF, scale),
+		padPitch = padPitch,
+		padRowPitch = padRowPitch,
+		padLaneZ = padLaneZ,
+		padFirstX = padFirstX,
+		padLastX = padLastX,
+		padOuterZ = padOuterZ,
+		gymPitch = gymPitch,
+		gymRowPitch = gymRowPitch,
+		gymLaneZ = gymLaneZ,
+		gymFirstX = gymFirstX,
+		gymLastX = gymLastX,
+		gymOuterZ = gymOuterZ,
+		forgeX = forgeX,
+		forgeZ = forgeZ,
+		pickupRadius = ArenaScale.scaled(B.PICKUP_RADIUS, scale),
+		dropScatter = ArenaScale.scaled(B.DROP_SCATTER, scale),
+	}
+end
+
+-- 지금 배율의 배치. 아래 필드들은 예전 이름 그대로(파트를 놓는 쪽 · 테스트가 흔드는 자리) — 값만 layoutAt에서 온다
+ArenaConfig.LIVE = ArenaConfig.layoutAt(ArenaScale.ARENA_SCALE)
+ArenaConfig.STAGE_WIDTH = ArenaConfig.LIVE.stageWidth
+ArenaConfig.GAP_WIDTH = ArenaConfig.LIVE.gapWidth
+ArenaConfig.SPAWN_X = ArenaConfig.LIVE.spawnX
+ArenaConfig.SPAWN_ZONE_X_MIN = ArenaConfig.LIVE.spawnZoneXMin
+ArenaConfig.SPAWN_ZONE_X_MAX = ArenaConfig.LIVE.spawnZoneXMax
+ArenaConfig.SPAWN_ZONE_Z_HALF = ArenaConfig.LIVE.spawnZoneZHalf
+ArenaConfig.CHALLENGE_ZONE_Z_HALF = ArenaConfig.LIVE.challengeZHalf
 
 -- 열린 벽의 투명도. 닫힌 벽은 불투명(0)이다.
 ArenaConfig.ADVANCE_WALL_OPEN_TRANSPARENCY = 0.5
