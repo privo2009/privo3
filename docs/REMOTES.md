@@ -1,15 +1,15 @@
 # 리모트 목록 (클라 → 서버 입구)
 
-문서 작성: 2026-11-25 (지시서 #38 — 출시 전 리모트 보안 점검) · 2026-11-27 #43 2부 이동 검사(5절)
+문서 작성: 2026-11-25 (지시서 #38 — 출시 전 리모트 보안 점검) · 2026-11-27 #43 2부 이동 검사(5절) · 2026-11-28 #48 관리 도구(AdminRequest) · ServerNotice
 
 이 문서는 **목록과 규칙**이다. 이름 원본은 `Shared/Remotes.lua`, 공통 문은 `Server/Systems/RemoteGuard.lua`,
 입구마다의 검사는 각 서비스 코드다. 상한 수치는 그 원본을 본다(여기 적힌 수는 #38 시점 값 — 어긋나면 코드가 맞다).
 
 ## 0. 한눈에
 
-- 클라 → 서버 **RemoteEvent 22개**(연결 23 — `SyncRequest`는 상태 · 드롭 두 서비스가 듣는다). **RemoteFunction 0개 · InvokeClient 0회**
+- 클라 → 서버 **RemoteEvent 23개**(연결 24 — `SyncRequest`는 상태 · 드롭 두 서비스가 듣는다 · #48 `AdminRequest` 더함). **RemoteFunction 0개 · InvokeClient 0회**
   (서버가 클라 응답을 기다리다 멈추는 길이 없다 — `grep RemoteFunction|InvokeClient|OnServerInvoke` 0건)
-- 서버 → 클라 전용 채널(BlockDamaged · RunStateChanged · PlayerState · *Result · EconomyEvent 등)은 서버가 듣지 않는다
+- 서버 → 클라 전용 채널(BlockDamaged · RunStateChanged · PlayerState · *Result · EconomyEvent · #48 ServerNotice · AdminResult 등)은 서버가 듣지 않는다
 - 모든 입구는 `RemoteGuard.connect(remote, fn)`으로만 붙인다. `OnServerEvent:Connect`를 직접 쓰지 않는다
   (`RemoteGuardTests` "목록" 4줄이 Remotes 정의 ↔ 붙은 리모트를 대조한다 — 새 입구를 만들면 그 표에 한 줄)
 
@@ -55,12 +55,14 @@ SyncRequest 초당 2 · 몰림 10(접속 직후 수신부 여러 개가 한꺼�
 | EquipmentRequest | EconomyV2Boot | `{action, id?}` | 있는 곡괭이 · 보유 · 대장간 열림 · 광석 · 사본 수 | 0.15초 | EconomyEvent equipment_* |
 | PetAutoRequest | PetWindow | `{on, egg?}` | **알 번호 정수 1 ~ 알 수(#38)** · 틱마다 코인 · 간격 | 0.15초 | EconomyEvent auto_hatch_state |
 | OnboardingTipRequest | EconomyV2Boot | `{action = "sync"}` | sync만 | 0.5초 | EconomyEvent tips |
+| AdminRequest(#48) | AdminBoot(관리자에게만 있는 창) | `{action, target, kind, id, amount, text}`(빠진 필드 없이) | **관리자 판정이 먼저**(게임 주인 · 그룹 주인 · AdminConfig 목록 — 서버) · 아니면 조용히 버림(답 없음) · 행동 4종 · 대상 = 같은 서버 유저 UserId · 종류 6 · 개수 정수 1 ~ 상한(재화 1e15 · 광석 · 토큰 1만 · 곡괭이 · 펫 50) · id(광석 1 ~ 10 · 토큰 5종 · 있는 곡괭이 · 있는 펫 · 회수는 펫 uid) · 공지 120자 · 제어 문자 없음 · TextService 거름 실패면 안 보냄 · 지급 · 회수는 관문(CurrencyService · InventoryService · PetService — 사유 admin) | 기본 0.15초 | AdminResult(사유) · 쓸 때마다 [Admin] 로그 · admin_action 이벤트 |
 
 ## 3. 테스트
 
-- `RemoteGuardTests`: 모양 · 통 · 격리 · 나가면 지움 · 목록 대조 + 입구 19종 흔들기(`RemoteFuzz` 공통 도우미 —
+- `RemoteGuardTests`: 모양 · 통 · 격리 · 나가면 지움 · 목록 대조 + 입구 21종 흔들기(#48 관리 도구 지급 · 공지 — 관리자로 흔든다)(`RemoteFuzz` 공통 도우미 —
   통째로 잘못된 payload 15종 · 필드 하나씩 잘못(nil · NaN · inf · 음수 · 0 · 소수 · 1e308 · 2^53 · 빈 글 · 긴 글 · 틀린 타입) ·
   같은 요청 20번 1ms 간격 → **거부되고 바꾸는 deps 0회 · 처리 1번 이하 · 오류 0**)
+- `AdminServiceTests`(#48): 관리자 아님 4종 → 관문 · 답 · 로그 0 · 잘못된 값 16종 → 관문 0 · 공지는 거른 글만
 - `DupeTests`: 가짜 프로필로 수령 두 번 · 실패 뒤 수령 · 환생 중 수령 · 제작 · 교환 · 강화 · 별 연달아 · 대장간 · 장비 같은 시각 연타
 - `ProductServiceTests` · `ProductGrantsTests`: 같은 영수증 두 번 = 지급 1회 · 프로필 없음 → NotProcessedYet(상품 16종 전부)
 

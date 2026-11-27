@@ -2979,3 +2979,52 @@ data-stores/error-codes-and-limits. 한도: 커스텀 이벤트 이름 100 · �
 - **#34(N15 · N16 · N17)**: 10종째 기준(50 ~ 90분)은 푼다 — 대장간이 열리고 25분 안에 곡괭이가 쏟아지는 것은 첫 접속 손맛으로 본다(에픽 교환
   비용 그대로). 14종째 114분은 그대로(측정 흔들림 ±5분 안). 24 → 25층 약 20분은 "마지막 관문"으로 둔다(그동안 23 ~ 24층 광석으로 전설 토큰을
   모은다 — HP는 희준이 2월 플레이 테스트에서 판단). 확인은 PENDING "실플레이로 볼 것"
+
+## 17. 운영 — 업데이트 · 관리 도구 · 저사양 기기 (2026-11-28 지시서 #48)
+
+### 소프트 셧다운 — 업데이트 때 서버 재시작
+
+값 · 공식 문서 근거 원본은 `Shared/Config/SoftShutdownConfig` · 흐름은 `Server/Systems/SoftShutdown`.
+공식 문서(2026-11-28 확인): `docs/projects/update-games`("Restart Servers" — 지연 1 ~ 60분 · Roblox가 지연 뒤 스스로 새 버전 서버로 옮긴다 ·
+`DataModel.ServerRestartScheduled`가 먼저 온다) · `docs/projects/teleport`(TeleportAsync는 서버 전용 · pcall + 다시 시도 · 성공해도 마지막에
+실패할 수 있다 → TeleportInitFailed) · TeleportOptions.ShouldReserveServer(예약 서버).
+
+```
+트리거      ① 대시보드 Restart Servers(지연) → ServerRestartScheduled: 모두에게 "곧 재시작(N초)" 토스트 → Roblox가 옮기기 RESTART_LEAD_SEC(20초) 전에 시작
+            ② 서버 닫힘(Shut Down All · 지연 없는 재시작) → BindToClose: 바로 시작. 둘이 겹치면 두 번째는 busy(저장 · 순간이동을 두 번 걸지 않는다)
+순서        1 모두에게 "업데이트 중 — 잠시만 기다려 주세요" 화면(차단 · 맨 위 · 순간이동 화면도 같은 모양 — SetTeleportGui)
+            2 런 중이면 포기(ChallengeService.abandonRun) = "수령 없이 나가기"와 같다: 가방 광석 · 수령 전 블럭스를 잃는다(코인은 이미 들어왔다)
+            3 저장이 먼저: ProfileManager.closeAll(20초) — 세션을 끝내고 저장이 끝날 때까지 기다린다(#38 서버 종료 저장과 같은 함수 · EndSession 한 번)
+              그 뒤 새로 들어온 사람은 세션을 열지 않고 "업데이트 중 · 다시 접속" 안내
+            4 예약 서버(대기실)로 순간이동 — 다시 시도 5번(1초 · Flooded 15초 — 공식 예시) · 끝까지 실패면 "다시 접속" 안내(세션이 끝났으니 남겨 두지 않는다)
+            5 BindToClose는 사람이 다 나갈 때까지(최대 28초) 서버를 붙잡는다
+대기실      예약 서버(PrivateServerId ≠ "" · 주인 0)는 이 게임에서 소프트 셧다운에만 쓴다. 프로필을 열지 않는다 · 들어오면 같은 화면 →
+            HOLD_SEC(8초) 뒤 같은 플레이스 공개 서버(새 버전)로. 클라는 순간이동 데이터(표시 true)로 바로 화면을 띄운다(새 서버로 갈 때는 표시를 안 싣는다)
+Studio      순간이동은 하지 않는다(저장 · 화면까지 — 로그 한 줄). 흐름은 SoftShutdownTests가 가짜 순간이동으로 본다
+사람 확인    2월 비공개 서버에서 새 버전 게시 → Restart Servers · Shut Down All 둘 다(PENDING "#48 남은 것")
+```
+
+### 관리 도구 — 개발자 전용
+
+값 원본 `Shared/Config/AdminConfig` · 서버 `Server/Systems/AdminService` · 클라 `Client/UI/AdminBoot` · 입구 검사 `docs/REMOTES.md`.
+
+```
+누가        게임 주인(사용자 소유면 그 사용자 · 그룹 소유면 그룹 주인 — GroupService) + AdminConfig.ADMIN_USER_IDS(사람이 정한 값만 · 지금 비어 있다)
+            판정은 서버. 아니면 AdminRequest에 답하지 않고(조용히 버림) 클라는 관리 창을 만들지 않는다(서버가 관리자에게만 hello 한 번)
+무엇        지급 · 회수: 블럭스 · 코인(CurrencyService) · 광석 · 토큰 · 곡괭이(InventoryService) · 펫(PetService grant · 회수는 uid로 release) — 사유 "admin"
+            같은 서버에 있는 유저만(오프라인 수정 없음) · 한 번 상한(재화 1e15 · 광석 · 토큰 1만 · 곡괭이 · 펫 50) · 장착 중인 마지막 곡괭이는 회수 거부
+            상태 읽기(블럭스 · 코인 · 힘 · 환생 · 최고 층 · 광석 · 토큰 · 곡괭이 · 펫 uid) · 서버 공지(120자 · TextService로 거른 글만 · 실패면 안 보냄)
+기록        쓸 때마다 서버 로그 [Admin] 한 줄 + 분석 커스텀 이벤트 admin_action(행동 · 종류). reason admin은 경제 흐름 이벤트로 보내지 않는다
+화면        따로 된 ScreenGui(AdminGui) — 왼쪽 "관리" 버튼 · 키트 창 하나. HUD · 창 층(ScreenController)과 섞지 않는다
+```
+
+### 저사양 폰 모드
+
+값 원본 `Shared/Config/LowEndConfig` · 상태 `Client/UI/LowEndPrefs`. 설정 창 다섯째 줄.
+
+```
+저장        클라 세션 메모리만(새 서버 저장 필드 없음 — 지시서). 접속마다 기기 그래픽 품질로 첫 값:
+            UserGameSettings.SavedQualityLevel 1 ~ 3이면 켜짐 · Automatic(0) · 4 이상 · 못 읽음은 꺼짐
+켜면 줄인다  동시 파편 200 → 100 · 파편 솎기 절반(배치당 12 → 6) · 날아가는 코인 6 → 3 · 동시에 그리는 드롭 20개 · 드롭 반짝이 · 버튼 빛 띠 · 환생 번쩍임 끔
+그대로      연출 속도 · 서버 판정(줍기 · 가방 · 코인 양 · 공격) — 클라 그림만. 화면 흔들림은 이 게임에 없다
+```

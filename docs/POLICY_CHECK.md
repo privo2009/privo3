@@ -1,7 +1,41 @@
 # 유료 랜덤 상품 정책 점검 (사람용 한 장)
 
-처음 작성 2026-11-20 (지시서 #27 단계 2). 갱신 2026-11-24 (지시서 #28 — 칭호 · 펫 창 확률 보기). 상품을 새로 만들거나 뽑기 · 행운 식을 바꾸면 **이 표에 한 줄을 더하고** 아래 "다시 볼 때의 순서"를 돈다.
+처음 작성 2026-11-20 (지시서 #27 단계 2). 갱신 2026-11-24 (지시서 #28 — 칭호 · 펫 창 확률 보기) · 2026-11-28 (지시서 #48 — 새 경제 뒤 재점검 0절). 상품을 새로 만들거나 뽑기 · 행운 식을 바꾸면 **이 표에 한 줄을 더하고** 아래 "다시 볼 때의 순서"를 돈다.
 테스트 원본은 `src/client/Tests/PaidRandomPolicyTests.client.lua`(점검표 한 칸 = 검사 한 묶음). 상품 목록 · 가격 원본은 `Shared/Config/ShopConfig`.
+
+## 0. 새 경제 뒤 재점검 (2026-11-28 — 지시서 #48 2부)
+
+다시 읽은 공식 페이지(2026-11-28 · 모두 갱신 날짜 표시 없음): paid-random-items · ui/text-filtering · production/promotion/content-ratings ·
+monetization/developer-products · PolicyService 참조. 1절 R1 ~ R4는 그대로다. 새로 적어 둘 문장(원문 짧게):
+- 반올림: "round to four or more decimal places lower than the decimal place with the first non-zero number" + 안내문
+  "Probabilities are rounded; total of displayed individual probabilities may not equal 100%." — 아니면 보이는 합이 **정확히 100%**
+- 확률 수정 아이템 예: "Luck boosts" · "Pity systems" · **"Enhanced resource drops"** · "Rate-up scrolls" — 구매 전에 숫자로 설명 · 켜진 동안 갱신
+- 간접 구매: 로벅스로 산 것(열쇠 · 다시 굴리기 표 등)으로 랜덤을 굴리면 "disclose the odds … before they spend"
+- 글 거르기: 직접 통제하지 않는 글을 다른 사람에게 보이면 TextService(FilterStringAsync → GetNonChatStringForBroadcastAsync). 안 하면 게임이 내려간다
+
+```
+점검                               결과
+1 구매 전 모든 결과 · 합 100       아우라 · 칭호 · 펫: 통과(RollOdds 최대 나머지 — 보이는 합 정확히 100)
+                                  대장간 제작(간접 — 큰 가방 · 즉시 · 트리플 제작이 로벅스): 고침 — 줄마다 따로 반올림해 보이는 합이 칸 수마다
+                                  99.95 · 100.07 · 100.00 · 100.10 · 100.02 · 100.05%였다 → 표 전체를 한 자릿수로 맞춰 정확히 100(EconomyV2Logic.formatPctList)
+2 0%로 보이는 값                  0이 아닌 확률은 0%로 보이지 않는다(가장 작은 값이 유효 숫자 2자리 · 테스트). 진짜 0(그 칸 수에서 나올 수 없는
+                                  등급 — 0칸 신화 · 전설 · 1 ~ 3칸 전설)은 "0%"로 보인다 → 숨길지 판단(PENDING "#48 남은 것")
+3 행운 상품 숫자 · 켜진 동안 갱신   그대로 통과(2절 표 — #27 · #28)
+4 제한 지역 숨김 = 코드             Play(TEST_PAID_RANDOM_RESTRICTED · min30): 로벅스 탭 17 → 11줄(숨김 행운 포션 · 포션 번들 · Triple Hatch ·
+                                  x2 Pet Luck · x10 Aura Luck · x10 Title Luck — #37과 같음 · 새 패스 4개는 ID nil이라 누구에게도 없다)
+                                  고침: 펫 창 로벅스 칸에 Triple Hatch가 "구매"로 보였다(창 줄은 paidRandom만 봤다 · 서버는 거부) → 로벅스 탭과 같은 숨김
+5 재화를 로벅스로 파는 길           없음 — 상품 효과 종류 전부(ShopConfig): autoClick · hatchMulti · luckPass · petStorage · damageMult · petSlots · bloxMult ·
+                                  gymPass · autoAdvance · strengthTier · rollCredit(아우라 뽑기 횟수 — 유료 랜덤 · 공개) · potion · potionBundle · gymUnlock.
+                                  블럭스 · 코인 · 광석 · 토큰을 주는 효과가 없다(코드 보상 · 일일 보상은 무료)
+6 사람이 쓴 글을 남에게             채팅 = Roblox 기본(자동 거름) · 코드 입력 = 본인만(서버가 표와 대조 · 남에게 안 보임) · 펫 이름 붙이기 없음 ·
+                                  관리자 공지(#48 새로) = TextService로 거른 글만 · 거르기 실패면 안 보냄
+7 그 밖                            거래 없음(IsPaidItemTradingAllowed 해당 없음) · 현금화 보상 없음 · 도박 없음 · 다른 게임 개발자 상품 판매 없음
+                                  (2026-05-30부터 막힘 — 해당 없음)
+남은 위험                          "Enhanced resource drops": 자동 진행(199 R$)은 드롭을 전부 자동으로 줍는다 → 광석(제작 재료)이 는다. 제한 지역에서
+                                  안 숨기고 설명에 숫자가 없다(큰 가방은 숨김 + "가방 용량 ×2"). 4절 S14와 같은 종류 — 판단 PENDING "#48 남은 것"
+```
+
+확인한 방법: `ForgeServiceTests`(표 글자 합 · 0% 금지) · `PaidRandomPolicyTests`(창 로벅스 칸 숨김) · `RobuxShopTests` + Play 1번(위 4). 설문 답안 → `docs/LAUNCH_QUESTIONNAIRE.md`.
 
 ## 1. 공식 요구 (2026-11-20 다시 읽음)
 
