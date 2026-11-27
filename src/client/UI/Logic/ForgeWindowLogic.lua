@@ -1,7 +1,7 @@
 --!strict
 -- 대장간 창 순수 로직(지시서 #33 — 인스턴스 없음 · EconomyV2ClientTests가 부른다). 판정은 서버다 — 여기는 "무엇을 보여 줄까"만.
 --   광석 칸 5개(넣고 빼기 · 가진 개수 넘지 않기) · 게이지(정수 점수 → 칸) · 받을 토큰 글자 · 자동 채우기(공유 bestCombo) ·
---   확률표 줄(공유 oddsFor + formatPct — 0이 아닌 확률은 0%로 보이지 않는다) · 교환소 줄 · 거부 사유 글자
+--   확률표 줄(공유 oddsFor + formatPctList — 보이는 합 정확히 100% · 0이 아닌 확률은 0%로 보이지 않는다 · #48) · 교환소 줄 · 거부 사유 글자
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -103,9 +103,16 @@ export type OddsLine = { id: string, rarity: string, pct: number, text: string }
 
 -- 칸 수의 15종 확률 줄(rank 순서 · 글자는 0%로 보이지 않게)
 function ForgeWindowLogic.oddsLines(slots: number): { OddsLine }
+	-- 글자는 표 전체를 한 번에(보이는 합이 정확히 100% — 공식 정책 · #48 재점검. 줄마다 formatPct면 99.9 · 100.1%가 될 수 있었다)
+	local rows = EconomyV2Logic.oddsFor(slots)
+	local pcts = {}
+	for i, row in ipairs(rows) do
+		pcts[i] = row.pct
+	end
+	local texts = EconomyV2Logic.formatPctList(pcts)
 	local out = {}
-	for _, row in ipairs(EconomyV2Logic.oddsFor(slots)) do
-		table.insert(out, { id = row.id, rarity = row.rarity, pct = row.pct, text = EconomyV2Logic.formatPct(row.pct) })
+	for i, row in ipairs(rows) do
+		table.insert(out, { id = row.id, rarity = row.rarity, pct = row.pct, text = texts[i] })
 	end
 	return out
 end

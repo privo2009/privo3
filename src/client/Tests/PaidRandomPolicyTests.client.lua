@@ -16,6 +16,7 @@ local BigNum = require(ReplicatedStorage.Shared.BigNum)
 local RollOdds = require(ReplicatedStorage.Shared.RollOdds)
 local TextScale = require(ReplicatedStorage.Shared.Config.TextScale)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
+local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 local AuraConfig = require(ReplicatedStorage.Shared.Config.AuraConfig)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local TitleConfig = require(ReplicatedStorage.Shared.Config.TitleConfig)
@@ -153,6 +154,17 @@ do
 	local lucky = AuraWindowLogic.creditState(nil, BigNum.new(1, 30), shop(nil, true), 1, "lucky")
 	check("제한 유저: 상점 · 아우라 창 상품에 행운 상품 0줄 · 롤 사용 버튼 숨김 · 쓸 수 없음", not anyCredit and #auraWin == 0 and not lucky.visible and not lucky.canUse,
 		string.format("상점 행운 %s · 창 %d", tostring(anyCredit), #auraWin))
+	-- #48 정책 재점검: 창마다의 로벅스 칸도 로벅스 탭과 같은 숨김(행운 상품 + 숨김 목록 — 펫 창 Triple Hatch가 보이던 것을 고침)
+	local leaks = {}
+	for window in pairs(RobuxShopLogic.WINDOW_PRODUCTS) do
+		for _, r in ipairs(RobuxShopLogic.windowRows(window, shop(nil, true), {})) do
+			local def = ShopConfig.get(r.key)
+			if def ~= nil and (def.paidRandom or EconomyV2Logic.isRestrictedRandom(r.key)) then
+				table.insert(leaks, window .. ":" .. r.key)
+			end
+		end
+	end
+	check("제한 유저(#48): 창 로벅스 칸에도 행운 상품 · 숨김 목록(Triple Hatch 등) 0줄 — 로벅스 탭과 같다", #leaks == 0, table.concat(leaks, ","))
 end
 
 -- 2. 행운 게임패스(10배 아우라 · 10배 칭호 · 2배 펫) -----------------------------------------------------------

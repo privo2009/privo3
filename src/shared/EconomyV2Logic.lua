@@ -144,6 +144,67 @@ function EconomyV2Logic.formatPct(pct: number): string
 	return s .. "%"
 end
 
+-- 확률표 한 장의 표시 글자(지시서 #48 정책 재점검). 공식 정책(paid-random-items): 보이는 확률의 합이 정확히 100%이거나,
+-- 반올림했다면 안내문을 붙여야 한다. 줄마다 따로 formatPct로 자르면 합이 99.9 · 100.1%가 될 수 있다 → 표 전체를 한 자릿수로 잡고
+-- (0이 아닌 가장 작은 값이 유효 숫자 2자리) 최대 나머지 방식으로 맞춰 보이는 합을 정확히 100으로 만든다. 끝 0은 지운다(값은 같다).
+-- 0이 아닌 확률은 0%로 보이지 않는다(가장 작은 값이 유효 숫자 2자리 — 내림해도 10단위 이상). 진짜 0은 "0%"
+EconomyV2Logic.PCT_MAX_DECIMALS = 8
+function EconomyV2Logic.formatPctList(pcts: { number }): { string }
+	local d = 1
+	for _, p in ipairs(pcts) do
+		if p > 0 then
+			d = math.max(d, 1 - math.floor(math.log10(p)))
+		end
+	end
+	d = math.min(d, EconomyV2Logic.PCT_MAX_DECIMALS)
+	local unit = 10 ^ d
+	local units: { number } = {}
+	local order: { number } = {}
+	local used = 0
+	for i, p in ipairs(pcts) do
+		local fl = math.floor(math.max(0, p) * unit + 1e-7)
+		units[i] = fl
+		used += fl
+		order[i] = i
+	end
+	table.sort(order, function(a, b)
+		local ra = math.max(0, pcts[a]) * unit - units[a]
+		local rb = math.max(0, pcts[b]) * unit - units[b]
+		if math.abs(ra - rb) > 1e-9 then
+			return ra > rb
+		end
+		if pcts[a] ~= pcts[b] then
+			return pcts[a] > pcts[b]
+		end
+		return a < b
+	end)
+	local short = math.floor(100 * unit + 0.5) - used
+	local k = 1
+	while short > 0 and #order > 0 do
+		local i = order[((k - 1) % #order) + 1]
+		if pcts[i] > 0 then -- 진짜 0인 줄에는 더하지 않는다(나올 수 없는 결과가 0이 아닌 값으로 보이면 안 된다)
+			units[i] += 1
+			short -= 1
+		end
+		k += 1
+		if k > #order * 4 then
+			break
+		end
+	end
+	local out: { string } = {}
+	for i, u in ipairs(units) do
+		if u <= 0 then
+			out[i] = "0%"
+		else
+			local s = string.format("%." .. tostring(d) .. "f", u / unit)
+			s = string.gsub(s, "0+$", "")
+			s = string.gsub(s, "%.$", "")
+			out[i] = s .. "%"
+		end
+	end
+	return out
+end
+
 -- 광석 목록 → 칸 수. 정수 점수 합 ÷ GAUGE_UNIT 내림(실수로 더하지 않는다 — 3.9999 오차로 칸이 줄지 않게).
 function EconomyV2Logic.slotsOf(ores: { number }): number
 	-- (점수 = Config.ORE_POINTS — #33)

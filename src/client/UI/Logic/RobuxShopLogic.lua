@@ -277,7 +277,9 @@ function RobuxShopLogic.windowRows(window: string, shop: any, ctx: Context?): { 
 	local out: { Row } = {}
 	for _, key in ipairs(RobuxShopLogic.WINDOW_PRODUCTS[window] or {}) do
 		local def = ShopConfig.get(key) :: ShopConfig.ProductDef
-		if not (def.paidRandom and restricted) then
+		-- 제한 유저: 로벅스 탭(rows)과 같은 숨김 — 행운 상품 + 숨김 목록(#35 RESTRICTED_RANDOM_PASSES).
+		-- #48 정책 재점검에서 찾음: 펫 창 로벅스 칸은 paidRandom만 봐서 Triple Hatch가 "구매" 상태로 보였다(서버는 거부 — 화면만 어긋남)
+		if not ((def.paidRandom or EconomyV2Logic.isRestrictedRandom(key)) and restricted) then
 			table.insert(out, RobuxShopLogic.row(key, shop, ctx))
 		end
 	end

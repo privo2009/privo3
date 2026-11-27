@@ -522,8 +522,8 @@ do
 	local after = RollOdds.percentages(RollOdds.distribution(tiers, base * 100))
 	check("슈퍼 롤 줄: 확률 변화 = 지금 → ×100(RollOdds)", aura[3].detail == Locale.t("shop.oddsChange", { mult = "100", name = Names.aura(tiers[#tiers].id),
 		before = before[#tiers], after = after[#tiers] }), aura[3].detail) -- #27 배수 앞에
-	check("창 상품: 제한 유저는 아우라 0줄 · 칭호 0줄 · 펫 3줄(펫 행운 숨김)", #RobuxShopLogic.windowRows("aura", shop(nil, true)) == 0
-		and #RobuxShopLogic.windowRows("title", shop(nil, true)) == 0 and #RobuxShopLogic.windowRows("pet", shop(nil, true)) == 3)
+	check("창 상품: 제한 유저는 아우라 0줄 · 칭호 0줄 · 펫 2줄(펫 행운 · Triple Hatch 숨김 — #48)", #RobuxShopLogic.windowRows("aura", shop(nil, true)) == 0
+		and #RobuxShopLogic.windowRows("title", shop(nil, true)) == 0 and #RobuxShopLogic.windowRows("pet", shop(nil, true)) == 2)
 	local pet = RobuxShopLogic.windowRows("pet", shop({ "hatch3x" }, false))
 	check("펫 창 상품: 3배 부화 보유면 '보유 중' · 나머지는 구매", pet[1].key == "hatch3x" and pet[1].state == "owned" and pet[2].state == "buy")
 	-- HUD 부스트 표시를 누르면 포션 묶음(지시서 #17): 줄이 있을 때만 누르는 칸이 켜진다

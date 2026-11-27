@@ -78,6 +78,31 @@ do
 	end
 	check("확률 표시: 칸마다 15종 합 100%", sumOk)
 	check("확률 표시: 0이 아닌 확률은 0%로 보이지 않는다(전설 같은 아주 작은 값도 유효 숫자)", zeroOk)
+	-- #48 정책 재점검: 보이는 글자의 합이 정확히 100%(공식 — 합 100이거나 반올림 안내문). 글자를 같은 자릿수 정수로 더한다
+	local shownOk = true
+	local worst = ""
+	for s = 0, N do
+		local rows = L.oddsFor(s)
+		local pcts = {}
+		for i, row in ipairs(rows) do
+			pcts[i] = row.pct
+		end
+		local texts = L.formatPctList(pcts)
+		local units = 0
+		for i, t in ipairs(texts) do
+			local num = tonumber(string.sub(t, 1, -2)) or -1
+			units += math.floor(num * 10 ^ L.PCT_MAX_DECIMALS + 0.5)
+			if (pcts[i] > 0) ~= (t ~= "0%") then
+				shownOk = false
+				worst = string.format("%d칸 %d줄 %s", s, i, t)
+			end
+		end
+		if units ~= math.floor(100 * 10 ^ L.PCT_MAX_DECIMALS + 0.5) then
+			shownOk = false
+			worst = string.format("%d칸 합 %d", s, units)
+		end
+	end
+	check("확률 표시(#48): 표 글자 합이 칸마다 정확히 100% · 0이 아닌 값은 0%가 아니고 진짜 0만 0%", shownOk, worst)
 	check("확률 표시: 꼴(40% · 12.5% · 0.05% · 0.0033%)", L.formatPct(40) == "40%" and L.formatPct(12.5) == "12.5%" and L.formatPct(0.05) == "0.05%"
 		and L.formatPct(0.00333) == "0.0033%", L.formatPct(0.00333))
 end
