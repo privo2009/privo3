@@ -107,6 +107,14 @@ do
 	check("formatCount: 음수 · 소수 반올림(2.6 → 3)", F(-5) == "-5" and F(2.6) == "3", F(-5))
 end
 
+-- 10. 1보다 작은 값(지시서 #46 — 봇이 찾음: 코인 0.4999…에서 HUD가 "negative tier"로 멈췄다) -----------------------------------
+
+do
+	local f = Formatter.format
+	check("1 미만: 0.4999 → 0.50 · 0.004 → 0.00 · -0.25 → -0.25(단위 없이 소수 두 자리 · 오류 없음)",
+		f(BigNum.new(4.999, -1)) == "0.50" and f(BigNum.new(4, -3)) == "0.00" and f(BigNum.new(-2.5, -1)) == "-0.25", f(BigNum.new(4.999, -1)))
+end
+
 -- 결과 -------------------------------------------------------------------
 
 print(string.format("[FormatterTests] %d passed, %d failed", passed, failed))

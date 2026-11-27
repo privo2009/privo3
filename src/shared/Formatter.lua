@@ -59,6 +59,11 @@ function Formatter.format(value: BigNumber): string
 
 	local sign = value.m < 0 and "-" or ""
 	local m = math.abs(value.m)
+	-- 1보다 작은 값(지시서 #46 — 봇이 찾음: 코인은 블록마다 소수로 들어와 100짜리 알을 사면 0.4999…가 남는다 → HUD가 오류로 멈췄다).
+	-- 단위 없이 소수 두 자리로 보인다(0.50 · 0.00). 예전에는 "negative tier" assert로 멈췄다
+	if value.e < 0 then
+		return sign .. string.format("%.2f", m * (10 ^ value.e))
+	end
 	local tier = math.floor(value.e / 3)
 	local r = value.e - tier * 3
 	local displayM = m * (10 ^ r)
