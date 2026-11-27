@@ -141,6 +141,7 @@ EconomyReport.GOAL = {
 -- "retune"(#45 — 걷기 · 로비 넣은 모델에서 GOAL 가운데에 맞는 후보 값만 찾는다 · 커밋 값은 그대로 · TUNING 15절)
 -- "scale"(#46 — 지금 ArenaScale 배율에서 표준 · 2시간 시점 걷기 : 공격 · 24→25 · 자동 진행 차이를 한 줄로 · TUNING 16절)
 -- "check"(#46 3부 — 지금 TEMP 표준 한 묶음의 기준 줄: 25층 · 15종 · 환생 · 첫 환생 · 8층 · 전설 · k종째 · 견고함 · 남는 코인 · 블럭스)
+-- "coins"(#48 5부 — 25층 때 남는 코인의 원인(번 · 쓴 · 부화 · 시간 막힘 · 저장 막힘) · 선택지 가 · 나 · 다 — 측정만 · TUNING 17절)
 EconomyReport.MODE = "full"
 
 export type Policy = {
@@ -365,6 +366,8 @@ local function measureV2(b: Bundle, players: number): any
 					kthAt = { 0 }, expLegend = 0, legendByChance = 0, legendByToken = false, bagFullStage = nil, rebirthAt = {},
 					rebirthSpent = BigNum.new(0, 0), lostOre = 0, collected = 0, pickSec = 0, hatches = 0, combo = nil,
 					maxedAt = {}, switches = {}, lastEquipped = Config.START_PICKAXE,
+					-- #48 5부 코인 남음 원인: 쓴 코인 · 부화를 부른 수 · 그중 시간(연출)에 막힌 수 · 저장 상한에 막힌 수 · 열린 가장 높은 알
+					coinsSpent = BigNum.new(0, 0), hatchCalls = 0, hatchTimeBound = 0, storageStop = 0, topEgg = 0,
 				}
 				for i = 0, Config.CRAFT_INPUT do
 					s.crafts[i] = 0
@@ -529,6 +532,11 @@ local function measureV2(b: Bundle, players: number): any
 			local cap = if actions == math.huge then math.huge else actions * hatchPer
 			local timeBound = n >= cap
 			n = math.min(n, cap)
+			s.hatchCalls += 1
+			s.topEgg = eggId
+			if timeBound and n > 0 and cap ~= math.huge then
+				s.hatchTimeBound += 1
+			end
 			if timeBound and hatchSec > 0 then
 				s.hatchClock += actions * hatchSec
 			else
@@ -542,9 +550,11 @@ local function measureV2(b: Bundle, players: number): any
 			local storage = PetConfig.getStorage(false)
 			for _ = 1, n do
 				if SuccessRateReport.petCount(p) >= storage and not SuccessRateReport.releaseWeakest(p) then
+					s.storageStop += 1
 					break
 				end
 				s.coins = BigNum.sub(s.coins, cost :: BigNumber)
+				s.coinsSpent = BigNum.add(s.coinsSpent, cost :: BigNumber)
 				local def = RollLogic.roll(egg.pets, luck, petCoinRandom)
 				local key = def.id .. ":1"
 				p.pets[key] = (p.pets[key] or 0) + 1
@@ -784,7 +794,9 @@ function EconomyReport.collect(players: number, maxStage: number, st: ((any) -> 
 						local s = st(p)
 						s.at25 = true
 						cur.at25 = { n = s.n, blox = log10Big(p.blox), coins = log10Big(s.coins), rebirthAt = table.clone(s.rebirthAt), pet = SuccessRateReport.petMult(p),
-							owned = #s.kthAt, pick = EconomyV2Logic.equippedMult(s.picks), enh = s.picks.owned[s.picks.equipped].enh }
+							owned = #s.kthAt, pick = EconomyV2Logic.equippedMult(s.picks), enh = s.picks.owned[s.picks.equipped].enh,
+							coinsTotal = log10Big(s.coinsTotal), coinsSpent = log10Big(s.coinsSpent), hatches = s.hatches, topEgg = s.topEgg,
+							timeBound = if s.hatchCalls > 0 then s.hatchTimeBound / s.hatchCalls else 0, storageStop = s.storageStop }
 					end
 				end
 			end
@@ -1431,6 +1443,59 @@ function EconomyReport.run()
 			fmt(old.t25), fmt(old.k15), fmt(old.n25, "%.0f"), fmt(walkOnly.t25), fmt(walkOnly.k15), fmt(lobbyHi.t25), fmt(lobbyHi.k15),
 			fmt(sm.t25), fmt(sm.k15), fmt(sm.n25, "%.0f")))
 		print(string.format("[ECON2] 봇비교 25층 %s분 · 15종 %s분 · ===== 끝 · %.0f초 =====", fmt(sm.t25), fmt(sm.k15), os.clock() - t0))
+		return
+	end
+	if E.MODE == "coins" then -- #48 5부 코인 남음 — 원인 · 선택지 측정만(숫자 · Config는 그대로 — 묶음 동안 메모리에서만 바꾸고 되돌린다)
+		local function coinLine(label: string, b: any)
+			local sm = E.report(b, E.PLAYERS)
+			local r = E._lastResult
+			local function med(key: string): number?
+				return at25Med(r, function(a)
+					return a[key]
+				end)
+			end
+			print(string.format("[ECON2] 코인줄 %s | 25층 %s분 · 15종 %s분 | 25층 때 남은 코인 10^%s · 번 10^%s · 쓴 10^%s · 부화 %s · 최고 알 %s · "
+				.. "부화가 시간(연출)에 막힌 비율 %s · 저장 상한 막힘 %s · 펫 배수 %s",
+				label, fmt(sm.t25), fmt(sm.k15), fmt(med("coins")), fmt(med("coinsTotal")), fmt(med("coinsSpent")), fmt(med("hatches"), "%.0f"),
+				fmt(med("topEgg"), "%.0f"), fmt(med("timeBound"), "%.2f"), fmt(med("storageStop"), "%.0f"), fmt(med("pet"), "%.2f")))
+			return sm
+		end
+		local function costs(list: { number }): { [number]: any }
+			local out = {}
+			for i, v in ipairs(list) do
+				out[i] = BigNum.fromNumber(v)
+			end
+			return out
+		end
+		coinLine("지금(알 3종 50 · 5천 · 20만)", { label = "코인 지금", set = {} })
+		coinLine("가) 알 가격 곡선 ×3(150 · 1.5만 · 60만)", { label = "코인 가격×3", set = { EGG_COIN_COST = costs({ 150, 15000, 600000 }) } })
+		coinLine("가2) 알 3만 ×5(20만 → 100만)", { label = "코인 알3×5", set = { EGG_COIN_COST = costs({ 50, 5000, 1000000 }) } })
+		-- 나) 알 4 추가(코인 비싼 알): 알 3을 EGG_RATIO만큼 더 센 펫 · 해금 블럭스 = 알 3 × (알 3 ÷ 알 2) · 코인 COIN4
+		do
+			local COIN4 = 5000000
+			local egg2, egg3 = PetConfig.Eggs[2], PetConfig.Eggs[3]
+			local pets = {}
+			for tier, def in ipairs(egg3.pets) do
+				pets[tier] = { id = "egg4_sim" .. tier, baseChance = def.baseChance, mult = def.mult * PetConfig.EGG_RATIO }
+			end
+			local world = WorldConfig.get(SuccessRateReport.SIM.WORLD_ID) :: any
+			local savedPacks = table.clone(world.eggPacks)
+			;(PetConfig.Eggs :: any)[4] = { eggId = 4, rollCost = BigNum.mul(egg3.rollCost, BigNum.div(egg3.rollCost, egg2.rollCost)), pets = pets }
+			PetConfig.rebuild()
+			table.insert(world.eggPacks, 4)
+			local ok, err = pcall(function()
+				coinLine("나) 알 4 추가(코인 500만 · 펫 ×1.4)", { label = "코인 알4", set = { EGG_COIN_COST = costs({ 50, 5000, 200000, COIN4 }) } })
+			end)
+			world.eggPacks = savedPacks
+			;(PetConfig.Eggs :: any)[4] = nil
+			PetConfig.rebuild()
+			if not ok then
+				warn("[ECON2] 알 4 측정 오류(되돌림): " .. tostring(err))
+			end
+		end
+		-- 다) 다른 쓸 곳의 크기: 부화 처리량이 막는가 — 트리플 부화가 무료라면(부화 3배 · 같은 코인)
+		coinLine("다) 부화 처리량 ×3(비교 — 트리플 부화가 무료라면)", withPolicy({ label = "코인 부화×3", set = {} }, "부화×3", { tripleHatch = true }))
+		print(string.format("[ECON2] ===== 끝 · %.0f초 =====", os.clock() - t0))
 		return
 	end
 	if E.MODE == "check" then
