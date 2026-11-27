@@ -254,7 +254,14 @@ do
 	for _ in pairs(names) do
 		count += 1
 	end
-	check("커스텀 이벤트 이름 6개 · 서로 다름(공식 한도 100 — #38 pickaxe_kinds 추가)", count == 6)
+	check("커스텀 이벤트 이름 7개 · 서로 다름(공식 한도 100 — #38 pickaxe_kinds · #48 admin_action 추가)", count == 7)
+	-- #48 관리 도구: 쓸 때마다 admin_action(값 1 · 필드 행동 · 종류) · 지급 · 회수(reason admin)는 경제 흐름으로 안 보낸다(경고 없이)
+	local before = #w.custom
+	local sentAdmin = w.a.adminAction(P1, "grant", "coins")
+	local c = w.custom[before + 1]
+	check("관리 도구(#48): admin_action 값 1 · 필드 행동 · 종류 · reason admin은 흐름 silent(대기 0)", sentAdmin and c ~= nil and c.name == E.adminAction
+		and c.value == 1 and c.fields[1] == "grant" and c.fields[2] == "coins" and w.a.bloxFlow(P1, "admin", big(5), big(10)) == "silent"
+		and w.a.coinFlow(P1, "admin", big(5), big(10)) == "silent")
 end
 
 -- 9. 처음 깬 층 중복 없음 (ChallengeService.firstClear — 환생에도 줄지 않는 bestRunDepth) ------------------------------

@@ -156,9 +156,9 @@ do
 		Remotes.UPGRADE_REQUEST, Remotes.TITLE_REQUEST, Remotes.AURA_REQUEST, Remotes.SETTINGS_REQUEST, Remotes.PET_REQUEST,
 		Remotes.PURCHASE_REQUEST, Remotes.AUTO_CLICK_REQUEST, Remotes.POTION_REQUEST, Remotes.PLUS_PROMPT_REQUEST,
 		Remotes.AUTO_ADVANCE_REQUEST, Remotes.DAILY_REQUEST, Remotes.CODE_REQUEST, Remotes.ONBOARDING_REQUEST, Remotes.FORGE_REQUEST,
-		Remotes.EQUIPMENT_REQUEST, Remotes.PET_AUTO_REQUEST, Remotes.ONBOARDING_TIP_REQUEST,
+		Remotes.EQUIPMENT_REQUEST, Remotes.PET_AUTO_REQUEST, Remotes.ONBOARDING_TIP_REQUEST, Remotes.ADMIN_REQUEST,
 	}
-	check("목록: 클라 → 서버 리모트 22개(이름 전부 정의됨)", #inbound == 22)
+	check("목록: 클라 → 서버 리모트 23개(이름 전부 정의됨 · #48 관리 도구 포함)", #inbound == 23)
 	-- 서비스 init은 Bootstrap이 테스트와 같은 때 돌린다 — 붙을 때까지 기다린다(상한 20초 · 넘으면 실패 1개)
 	local deadline = os.clock() + 20
 	local connected = RemoteGuard.connected()
@@ -179,7 +179,7 @@ do
 			table.insert(missing, name)
 		end
 	end
-	check("목록: 22개 전부 RemoteGuard로 붙었다", #missing == 0, table.concat(missing, ","))
+	check("목록: 23개 전부 RemoteGuard로 붙었다", #missing == 0, table.concat(missing, ","))
 	check("목록: SyncRequest는 두 서비스(상태 · 드롭)가 듣는다 — 합 23", (connected[Remotes.SYNC_REQUEST] or 0) == 2)
 	-- 서버 → 클라 쪽은 클라가 OnServerEvent로 보낼 수 없다 — 붙은 것이 inbound 밖에 없어야 한다
 	local extra = {}
@@ -549,6 +549,47 @@ do
 		PetAuto._reset(FUZZ_P)
 	end
 	PetAuto._deps = saved
+end
+
+-- 관리 도구(#48 4부): 관리자(가짜 판정 true)로 흔든다 — 관리자라도 잘못된 값은 관문까지 가지 않는다. 관리자 아님 거부는 AdminServiceTests
+do
+	local Admin = require(script.Parent.AdminService)
+	local function adminDeps()
+		local muts = {}
+		for _, k in ipairs({ "addCurrency", "subCurrency", "addOres", "takeOres", "addTokens", "takeTokens", "grantPickaxe", "revokePickaxe",
+			"grantPet", "releasePet", "broadcast" }) do
+			muts[k] = function()
+				return true
+			end
+		end
+		local deps, calls = RemoteFuzz.spyDeps({
+			isAdmin = function()
+				return true
+			end,
+			findTarget = function(id: number): any?
+				return if id == 7 then { Name = "target", UserId = 7 } else nil
+			end,
+			filterText = function(_a: any, t: string)
+				return true, t
+			end,
+			inspect = function()
+				return {}
+			end,
+			refresh = noop,
+			send = noop,
+			log = noop,
+			analytics = noop,
+		}, muts)
+		local h = Admin.createHandler(deps)
+		return function(p: any, payload: any, now: number)
+			return h.onRequest(p, payload, now)
+		end, calls
+	end
+	fuzz("Admin grant", { name = Remotes.ADMIN_REQUEST, make = adminDeps,
+		valid = { action = "grant", target = 7, kind = "ore", id = "3", amount = 5, text = "" },
+		fields = { action = "string", target = "number", kind = "string", id = "id", amount = "number" } })
+	fuzz("Admin announce", { name = Remotes.ADMIN_REQUEST, make = adminDeps,
+		valid = { action = "announce", target = 0, kind = "", id = "", amount = 0, text = "hello" }, fields = { action = "string", text = "id" } })
 end
 
 -- 클릭 수: 서비스 자체 정리(sanitizeCount)

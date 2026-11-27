@@ -461,6 +461,10 @@ end
 -- 아무 상태도 바꾸지 않는다(읽기 + 통지).
 PlayerStateService.init()
 
+-- 개발자 전용 관리 도구(지시서 #48 4부). ⚠️ 순서: Currency · Inventory · Pet · PlayerState 뒤(지급 뒤 화면 갱신을 부른다).
+-- 게임 주인 · 지정 관리자만(서버 판정) — 아니면 리모트에 답하지 않고 클라는 창을 만들지 않는다
+require(script.Parent.Systems.AdminService).init()
+
 -- 프로필 읽기 print. 검증용 임시 코드가 아니라 상시 유지 대상이다.
 --
 -- ⚠️ lifetimeBlox를 지우지 말 것. 이 값은 클릭 파워 패드 해금(ClickPadConfig)과

@@ -32,7 +32,12 @@ AnalyticsConfig.EVENTS = {
 	autoAdvanceStart = "auto_advance_start",
 	robuxPurchase = "robux_purchase",
 	pickaxeKinds = "pickaxe_kinds", -- #38 진행: 값 = 가진 곡괭이 종 수(늘 때만) · 필드 1 = 새로 얻은 등급
+	adminAction = "admin_action", -- #48 관리 도구: 값 1 · 필드 = 행동(grant · revoke · inspect · announce) · 종류
 }
+
+-- 경제 이벤트로 보내지 않는 reason(지시서 #48 — 관리 도구 지급 · 회수는 게임 경제 흐름이 아니다. 대신 admin_action 커스텀 이벤트).
+-- 흐름표에 없다고 경고하지도 않는다
+AnalyticsConfig.SILENT_REASONS = { admin = true } :: { [string]: boolean }
 
 AnalyticsConfig.CURRENCY_COINS = "Coins"
 AnalyticsConfig.GUIDE_FUNNEL = "FirstGuide"

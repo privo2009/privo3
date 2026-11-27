@@ -246,6 +246,9 @@ function Analytics.new(deps: Deps)
 			reject("blox " .. tostring(reason), string.format("금액 · 잔액이 유한한 BigNum이 아님 (%s · %s)", tostring(amount and amount.m), tostring(balance and balance.m)))
 			return "rejected"
 		end
+		if AnalyticsConfig.SILENT_REASONS[reason] then
+			return "silent" -- 관리 도구(#48) — 경제 흐름이 아니다(admin_action 이벤트가 따로 남는다)
+		end
 		local row, sku = AnalyticsConfig.classify(reason, currency)
 		if row == nil then
 			stats.unclassified += 1
@@ -428,6 +431,11 @@ function Analytics.new(deps: Deps)
 		return self.custom(player, AnalyticsConfig.EVENTS.robuxPurchase, 1, { key, kind })
 	end
 
+	-- 관리 도구를 쓸 때마다(#48 4부) — 쓴 관리자에게 붙인다. 필드: 행동 · 종류
+	function self.adminAction(player: any, action: string, kind: string): boolean
+		return self.custom(player, AnalyticsConfig.EVENTS.adminAction, 1, { action, kind })
+	end
+
 	function self.pendingCount(player: any): number
 		local n = 0
 		for _ in pairs(pending[player] or {}) do
@@ -567,6 +575,11 @@ end
 function Analytics.robuxPurchase(player: any, key: string, kind: string)
 	if live ~= nil then
 		live.robuxPurchase(player, key, kind)
+	end
+end
+function Analytics.adminAction(player: any, action: string, kind: string)
+	if live ~= nil then
+		live.adminAction(player, action, kind)
 	end
 end
 

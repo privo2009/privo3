@@ -169,6 +169,27 @@ local function applyGrantEquipment(data: any, kind: string, id: string): (boolea
 	return true, nil
 end
 
+-- 장비 하나 회수(지시서 #48 관리 도구 — 아이템 복구용). 개수 −1 · 0이 되면 지운다. 장착 중인 것의 마지막 하나는 거부(equipped가 빈 자리를 가리키지 않게)
+local function applyRevokeEquipment(data: any, kind: string, id: string): (boolean, string?)
+	if equipmentDef(kind, id) == nil then
+		return false, string.format("모르는 장비 %s.%s", tostring(kind), tostring(id))
+	end
+	local list = if type(data.equipment) == "table" then data.equipment[kind] else nil
+	local o = if type(list) == "table" then list[id] else nil
+	if o == nil then
+		return false, "보유하지 않은 장비"
+	end
+	if o.count <= 1 then
+		if type(data.equipped) == "table" and data.equipped[kind] == id then
+			return false, "장착 중인 마지막 하나"
+		end
+		list[id] = nil
+	else
+		o.count -= 1
+	end
+	return true, nil
+end
+
 -- 가진 장비를 장착한다(종류별 하나 — #34)
 local function applyEquip(data: any, kind: string, id: string): (boolean, string?)
 	if equipmentDef(kind, id) == nil then
@@ -300,6 +321,7 @@ InventoryService._pure = {
 	applyAddTokens = applyAddTokens,
 	applyTakeTokens = applyTakeTokens,
 	applyGrantEquipment = applyGrantEquipment,
+	applyRevokeEquipment = applyRevokeEquipment,
 	applyEquip = applyEquip,
 	applyOpenForge = applyOpenForge,
 	applyCraft = applyCraft,
@@ -359,8 +381,30 @@ function InventoryService.takeOres(player: Player, counts: Counts, reason: strin
 	end)
 end
 
--- (#44: 부르는 곳이 없던 addTokens · takeTokens · grantEquipment 공개 함수는 지웠다 — 토큰 · 장비는 craft · exchange가
---  applyAddTokens · applyTakeTokens · applyGrantEquipment(_pure)를 한 번에 묶어 쓴다. 따로 필요해지면 run(...)으로 한 줄씩 되살린다)
+-- 토큰 · 장비 하나씩 지급 · 회수(지시서 #48 관리 도구만 부른다 — reason "admin". 게임 흐름은 craft · exchange가 한 번에 묶어 쓴다)
+function InventoryService.addTokens(player: Player, counts: TokenCounts, reason: string): boolean
+	return run("addTokens", player, reason, function(d)
+		return applyAddTokens(d, counts)
+	end)
+end
+
+function InventoryService.takeTokens(player: Player, counts: TokenCounts, reason: string): boolean
+	return run("takeTokens", player, reason, function(d)
+		return applyTakeTokens(d, counts)
+	end)
+end
+
+function InventoryService.grantEquipment(player: Player, kind: string, id: string, reason: string): boolean
+	return run("grantEquipment", player, reason, function(d)
+		return applyGrantEquipment(d, kind, id)
+	end)
+end
+
+function InventoryService.revokeEquipment(player: Player, kind: string, id: string, reason: string): boolean
+	return run("revokeEquipment", player, reason, function(d)
+		return applyRevokeEquipment(d, kind, id)
+	end)
+end
 
 function InventoryService.equip(player: Player, kind: string, id: string, reason: string): boolean
 	return run("equip", player, reason, function(d)
