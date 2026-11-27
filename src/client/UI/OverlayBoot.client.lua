@@ -69,8 +69,14 @@ end)
 local startedAt = os.clock()
 local settled = false
 
+local updating = false -- 소프트 셧다운 "업데이트 중" 화면이 떠 있다(#48) — 로딩 시간 초과 오류를 띄우지 않는다(대기실은 상태를 안 보낸다)
+
 local function settle(state: LoadingScreen.State)
 	if settled or state == "loading" then
+		return
+	end
+	if updating then
+		settled = true
 		return
 	end
 	settled = true
@@ -386,6 +392,51 @@ do
 		elseif payload.kind == "auto_state" and payload.on ~= true and type(payload.reason) == "string" then
 			local Logic = require(script.Parent.Logic.ForgeWindowLogic)
 			toastStack.push({ text = Locale.t("forge.auto.stopped", { reason = Logic.reasonText(payload.reason) }), tier = 1 })
+		end
+	end)
+end
+
+-- ===== 서버 전체 알림 — 소프트 셧다운 · 재시작 예정 · 관리자 공지 (지시서 #48) =========================
+do
+	local TeleportService = game:GetService("TeleportService")
+	local Locale = require(ReplicatedStorage.Shared.Localization.Locale)
+	local SoftShutdownConfig = require(ReplicatedStorage.Shared.Config.SoftShutdownConfig)
+	local ServerNoticeLogic = require(script.Parent.Logic.ServerNoticeLogic)
+	local UpdateScreen = require(script.Parent.Screens.Overlay.UpdateScreen)
+	local updateScreen = UpdateScreen.create()
+	ScreenController.register("UpdateScreen", "Overlay", function()
+		return updateScreen.root
+	end)
+	local function showUpdating()
+		if updating then
+			return
+		end
+		updating = true
+		ScreenController.close("Loading")
+		ScreenController.open("UpdateScreen")
+		-- 옮기는 사이(순간이동 화면)에도 같은 글 — 실패해도 게임은 그대로(Studio는 순간이동이 없다)
+		pcall(function()
+			TeleportService:SetTeleportGui(UpdateScreen.teleportGui())
+		end)
+	end
+	-- 대기실(예약 서버)에 막 도착: 서버 신호를 기다리지 않고 바로(순간이동 데이터 — 클라에서 읽는 공식 API)
+	local okData, data = pcall(function()
+		return TeleportService:GetLocalPlayerTeleportData()
+	end)
+	if okData and ServerNoticeLogic.arrivedForUpdate(data, SoftShutdownConfig.TELEPORT_DATA_KEY) then
+		showUpdating()
+	end
+	channels.serverNotice.OnClientEvent:Connect(function(payload: any)
+		local action = ServerNoticeLogic.decide(payload)
+		if action == nil then
+			return
+		end
+		if action.kind == "updating" then
+			showUpdating()
+		elseif action.kind == "restart" then
+			toastStack.push({ text = Locale.t("overlay.restartSoon", { sec = tostring(action.sec) }), tier = 1 })
+		elseif action.kind == "announce" then
+			toastStack.push({ text = Locale.t("overlay.announce", { text = action.text }), tier = 5 })
 		end
 	end)
 end

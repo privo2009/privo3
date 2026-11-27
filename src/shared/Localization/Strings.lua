@@ -226,6 +226,9 @@ Strings.Entries = {
 	["common.ok"] = { en = "OK", ko = "확인" },
 	["overlay.loading"] = { en = "Loading...", ko = "불러오는 중..." },
 	["overlay.error.loadingTimeout"] = { en = "The server isn't responding. Please rejoin.", ko = "서버 응답이 없습니다. 다시 접속해 주세요" },
+	["overlay.updating"] = { en = "Updating — please wait a moment", ko = "업데이트 중 — 잠시만 기다려 주세요" }, -- 소프트 셧다운 화면(#48)
+	["overlay.restartSoon"] = { en = "The server restarts for an update in {sec}s. Your progress is saved.", ko = "업데이트로 {sec}초 뒤 서버가 다시 시작됩니다. 진행은 저장됩니다." },
+	["overlay.announce"] = { en = "Notice: {text}", ko = "공지: {text}" }, -- 관리자 공지(#48 — 서버가 거른 글)
 	["overlay.run.cashout"] = { en = "Pad = Claim", ko = "발판 = 수령" },
 	["overlay.run.advance"] = { en = "Wall = Advance", ko = "벽 = 진행" },
 	["overlay.run.final"] = { en = "Claim only", ko = "수령만 가능" },
@@ -600,6 +603,7 @@ Strings.Entries = {
 	["shop.reason.failed"] = { en = "Couldn't complete the purchase", ko = "구매하지 못했어요" },
 	-- ===== 접속 끊김 안내 (서버 Player:Kick — Server/Systems/LocaleGate가 그 플레이어 언어로 고른다. K5의 단 하나 예외) =====
 	["kick.loadFailed"] = { en = "Couldn't load your data. Please rejoin.", ko = "데이터 로드에 실패했습니다. 다시 접속해 주세요." },
+	["kick.updating"] = { en = "The server is updating. Please rejoin.", ko = "서버를 업데이트하는 중입니다. 다시 접속해 주세요." }, -- 소프트 셧다운(#48)
 	["kick.versionError"] = { en = "Data version error. Please rejoin.", ko = "데이터 버전 오류입니다. 다시 접속해 주세요." },
 	["kick.corrupted"] = { en = "Your data is damaged and can't be loaded. Please contact an admin.", ko = "데이터가 손상되어 로드할 수 없습니다. 관리자에게 문의해 주세요." },
 	["kick.otherServer"] = { en = "Your data was loaded on another server. Please rejoin.", ko = "다른 서버에서 데이터를 불러왔습니다. 다시 접속해 주세요." },

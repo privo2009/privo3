@@ -21,6 +21,7 @@ local Schema = require(script.Parent.Schema)
 local Migrations = require(script.Parent.Migrations)
 local TestPresetGate = require(script.Parent.TestPresetGate)
 local DataConfig = require(ReplicatedStorage.Shared.Config.DataConfig)
+local SoftShutdownConfig = require(ReplicatedStorage.Shared.Config.SoftShutdownConfig)
 -- Kick 안내문은 서버가 화면에 직접 보이는 유일한 글자다(클라가 이미 없다) — 그 플레이어 언어로 Strings에서 고른다(지시서 #L1 K5)
 local LocaleGate = require(script.Parent.Parent.Systems.LocaleGate)
 
@@ -34,7 +35,7 @@ local DATA_ENV, STORE_NAME, STORE_ERR = DataConfig.resolveStore(RunService:IsStu
 
 -- Roblox는 game:BindToClose 콜백에 대략 30초의 예산만 준다. 20초로 끊어서 여유를 두지 않으면
 -- 콜백이 강제 종료되면서 진행 중이던 UpdateAsync 호출이 오히려 더 지저분하게 끊길 수 있다.
-local BIND_TO_CLOSE_TIMEOUT_SEC = 20
+local BIND_TO_CLOSE_TIMEOUT_SEC = SoftShutdownConfig.SAVE_TIMEOUT_SEC -- 20(#48부터 소프트 셧다운과 같은 값)
 
 local ProfileManager = {}
 
@@ -248,9 +249,12 @@ local function sessionEndedLine(player: Player, inGame: boolean): (string, boole
 end
 
 -- 서버 종료 때 저장을 기다린다: 프로필 전부 EndSession → 표가 빌 때까지(OnSessionEnd가 지운다) · 상한 넘으면 포기하고 남은 수를 돌려준다.
-local function drainOnClose(list: { [any]: any }, timeoutSec: number, clock: () -> number, wait: () -> ()): number
-	for _, profile in pairs(list) do
-		profile:EndSession()
+-- alreadyEnded: 이미 EndSession을 부른 뒤라 기다리기만 한다(소프트 셧다운과 BindToClose가 함께 부를 때 — 저장을 두 번 걸지 않는다 · #48)
+local function drainOnClose(list: { [any]: any }, timeoutSec: number, clock: () -> number, wait: () -> (), alreadyEnded: boolean?): number
+	if not alreadyEnded then
+		for _, profile in pairs(list) do
+			profile:EndSession()
+		end
 	end
 	local deadline = clock() + timeoutSec
 	while next(list) ~= nil do
@@ -273,6 +277,13 @@ local function handlePlayerAdded(player: Player)
 		return -- 이미 다른 경로(PlayerAdded 이벤트 vs GetPlayers() 순회)로 로딩이 시작됨
 	end
 	loadClaimed[player] = true
+	if closing then
+		-- 서버 종료 저장이 시작된 뒤 들어온 사람(#48 소프트 셧다운): 세션을 열지 않는다 — 새 서버로 다시 접속하게
+		if player.Parent == Players then
+			player:Kick(LocaleGate.kickText(player, "kick.updating"))
+		end
+		return
+	end
 
 	local profile, kickKey = openProfile(player, sessionStore, {
 		inGame = function(p: Player)
@@ -329,6 +340,12 @@ function ProfileManager.init(testPreset: string?)
 	end
 	initialized = true
 
+	-- 소프트 셧다운 대기실(예약 서버 — #48)에서는 프로필을 열지 않는다. 몇 초 뒤 새 서버로 다시 보내므로 세션을 잡으면 새 서버가 기다린다
+	if SoftShutdownConfig.isHoldingServer(RunService:IsStudio(), game.PrivateServerId, game.PrivateServerOwnerId) then
+		print("[ProfileManager] 소프트 셧다운 대기실 — 프로필을 열지 않는다")
+		return
+	end
+
 	-- E4 시작 로그 한 줄(저장소를 열지 못했으면 ERROR — 사유 코드)
 	local startLine = DataConfig.startLine(DATA_ENV, STORE_NAME, STORE_ERR)
 	if STORE_NAME ~= nil then
@@ -375,18 +392,32 @@ function ProfileManager.init(testPreset: string?)
 	end)
 
 	game:BindToClose(function()
-		closing = true
 		-- EndSession()은 저장을 새 스레드에서 돌리므로, BindToClose가 끝나기 전에
 		-- 실제로 저장이 끝나길(= OnSessionEnd가 profiles에서 지울 때까지) 기다린다.
 		-- 단, 무한 대기하지 않는다 - Roblox가 강제로 프로세스를 죽이면 진행 중이던
 		-- 저장이 오히려 더 지저분하게 끊길 수 있으므로 타임아웃 후에는 포기하고 빠져나간다.
-		local remaining = drainOnClose(profiles, BIND_TO_CLOSE_TIMEOUT_SEC, os.clock, function()
-			task.wait()
-		end)
+		local remaining = ProfileManager.closeAll(BIND_TO_CLOSE_TIMEOUT_SEC)
 		if remaining > 0 then
 			warn(string.format("[ProfileManager] BindToClose 타임아웃(%ds) - 저장 미완료 프로필 %d개 남음", BIND_TO_CLOSE_TIMEOUT_SEC, remaining))
 		end
 	end)
+end
+
+-- 서버 종료 저장(지시서 #48 — 소프트 셧다운과 BindToClose가 같이 쓴다). 처음 부른 쪽이 세션을 전부 끝내고(저장 시작),
+-- 그 뒤로 부르는 쪽은 기다리기만 한다. 저장을 다 끝내면 0, 상한을 넘기면 남은 수. 부른 뒤로는 새 세션을 열지 않는다(closing)
+local closeStarted = false
+function ProfileManager.closeAll(timeoutSec: number): number
+	closing = true
+	local already = closeStarted
+	closeStarted = true
+	return drainOnClose(profiles, timeoutSec, os.clock, function()
+		task.wait()
+	end, already)
+end
+
+-- 서버 종료 저장 중인가(새 접속에 세션을 열지 않는다)
+function ProfileManager.isClosing(): boolean
+	return closing
 end
 
 return ProfileManager

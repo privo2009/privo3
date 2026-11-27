@@ -46,6 +46,10 @@
 --   PetAutoRequest  클라→서버. 자동 부화 켜기 · 끄기(지시서 #35 — { on, egg }). 결과는 EconomyEvent(auto_hatch_*)
 --   OnboardingTipRequest 클라→서버. 새 경제 안내 상태 다시 받기(지시서 #36 — { action = "sync" }). 결과는 EconomyEvent(tips)
 --   ForgeRequest    클라→서버. 대장간 요청(지시서 #33 — craft · auto · exchange · sync). 결과는 EconomyEvent(forge_* kind)
+--   ServerNotice    서버→클라. 서버 전체 알림(지시서 #48) — { kind = "updating" | "restart" | "announce", text, sec } (빠진 필드 없이)
+--                   updating: 소프트 셧다운 "업데이트 중" 화면 · restart: 재시작 예정(sec초 뒤) · announce: 관리자 공지(text — 서버가 TextService로 거른 글)
+--   AdminRequest    클라→서버. 관리 도구 요청(지시서 #48 4부 — 관리자만. 아니면 서버가 조용히 버린다) — AdminService 주석
+--   AdminResult     서버→클라. 그 요청의 결과(관리자에게만) + 접속 때 "관리자다" 한 번(그때만 클라가 창을 만든다)
 -- 나중에 고빈도 쪽에 배치·스로틀링을 넣을 때 한 채널에 섞여 있으면 상태 전이까지
 -- 같이 지연된다. 채널이 갈라져 있어야 그 최적화를 한쪽에만 적용할 수 있다.
 --
@@ -138,6 +142,9 @@ Remotes.FORGE_REQUEST = "ForgeRequest"
 Remotes.EQUIPMENT_REQUEST = "EquipmentRequest"
 Remotes.PET_AUTO_REQUEST = "PetAutoRequest"
 Remotes.ONBOARDING_TIP_REQUEST = "OnboardingTipRequest" -- 새 경제 안내 동기화(#36) { action = "sync" }
+Remotes.SERVER_NOTICE = "ServerNotice" -- 서버 전체 알림(#48 — 소프트 셧다운 · 관리자 공지)
+Remotes.ADMIN_REQUEST = "AdminRequest" -- 관리 도구(#48 — 관리자만)
+Remotes.ADMIN_RESULT = "AdminResult"
 
 -- 새 경제 신호(서버 → 클라 · OreDropService). kind마다 싣는 것(빠진 필드 없이 — 위 "nil이면 키가 사라진다" 규약):
 --   snapshot    bag · used · cap · coins(BigNum) · ores · forgeOpen · drops   (접속 · 동기화 — HUD 시작값)
@@ -637,6 +644,9 @@ export type Channels = {
 	equipmentRequest: RemoteEvent,
 	petAutoRequest: RemoteEvent,
 	onboardingTipRequest: RemoteEvent,
+	serverNotice: RemoteEvent,
+	adminRequest: RemoteEvent,
+	adminResult: RemoteEvent,
 }
 
 -- ===== 인스턴스 확보 ====================================================================
@@ -727,6 +737,9 @@ function Remotes.getServer(): Channels
 		equipmentRequest = ensureEvent(folder, Remotes.EQUIPMENT_REQUEST),
 		petAutoRequest = ensureEvent(folder, Remotes.PET_AUTO_REQUEST),
 		onboardingTipRequest = ensureEvent(folder, Remotes.ONBOARDING_TIP_REQUEST),
+		serverNotice = ensureEvent(folder, Remotes.SERVER_NOTICE),
+		adminRequest = ensureEvent(folder, Remotes.ADMIN_REQUEST),
+		adminResult = ensureEvent(folder, Remotes.ADMIN_RESULT),
 	}
 	cached = channels
 	return channels
@@ -803,6 +816,9 @@ function Remotes.getClient(): Channels
 		equipmentRequest = waitFor(folder, Remotes.EQUIPMENT_REQUEST) :: RemoteEvent,
 		petAutoRequest = waitFor(folder, Remotes.PET_AUTO_REQUEST) :: RemoteEvent,
 		onboardingTipRequest = waitFor(folder, Remotes.ONBOARDING_TIP_REQUEST) :: RemoteEvent,
+		serverNotice = waitFor(folder, Remotes.SERVER_NOTICE) :: RemoteEvent,
+		adminRequest = waitFor(folder, Remotes.ADMIN_REQUEST) :: RemoteEvent,
+		adminResult = waitFor(folder, Remotes.ADMIN_RESULT) :: RemoteEvent,
 	}
 	cached = channels
 	return channels

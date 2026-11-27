@@ -110,6 +110,9 @@ return {
 	["common.ok"] = "OK",
 	["overlay.loading"] = "Chargement...",
 	["overlay.error.loadingTimeout"] = "Le serveur ne répond pas. Reconnecte-toi.",
+	["overlay.updating"] = "Mise à jour — patiente un instant",
+	["overlay.restartSoon"] = "Le serveur redémarre pour une mise à jour dans {sec} s. Ta progression est sauvegardée.",
+	["overlay.announce"] = "Annonce : {text}",
 	["overlay.run.cashout"] = "Dalle = Encaisser",
 	["overlay.run.advance"] = "Mur = Avancer",
 	["overlay.run.final"] = "Encaisser seulement",
@@ -444,6 +447,7 @@ return {
 	["shop.reason.failed"] = "L'achat n'a pas abouti",
 	-- 접속 끊김 안내
 	["kick.loadFailed"] = "Impossible de charger tes données. Reconnecte-toi.",
+	["kick.updating"] = "Le serveur se met à jour. Reconnecte-toi.",
 	["kick.versionError"] = "Erreur de version des données. Reconnecte-toi.",
 	["kick.corrupted"] = "Tes données sont endommagées et ne peuvent pas être chargées. Contacte un admin.",
 	["kick.otherServer"] = "Tes données ont été chargées sur un autre serveur. Reconnecte-toi.",

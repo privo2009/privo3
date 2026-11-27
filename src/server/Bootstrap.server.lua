@@ -96,6 +96,17 @@ require(script.Parent.Data.TestPresetGate).registerDailySeed(TEST_DAILY_SEED,
 ProfileManager.init(TEST_PRESET)
 print("[Bootstrap] ProfileManager.init() 호출 완료")
 
+-- 소프트 셧다운(지시서 #48 1부): 업데이트로 서버가 닫히면 저장 → 대기실(예약 서버) → 새 서버. 대기실이면 그 일만 한다.
+-- 런 포기 · 저장은 함수로 넘긴다(ChallengeService · ProfileManager를 SoftShutdown이 직접 묶지 않게)
+require(script.Parent.Systems.SoftShutdown).init({
+	abandonRun = function(player: Player)
+		require(script.Parent.Systems.ChallengeService).abandonRun(player)
+	end,
+	saveAll = function(timeoutSec: number): number
+		return ProfileManager.closeAll(timeoutSec)
+	end,
+})
+
 -- 스폰 지점과 아레나 경계를 Workspace에 세운다 (4-2-a).
 -- ⚠️ 순서: PadService.init()보다 앞이어야 한다. 둘 다 Workspace에 파트를 세우는데,
 -- 이쪽이 SpawnLocation을 만든다 — 패드가 먼저 서면 첫 접속자가 스폰 지점 없이 원점
