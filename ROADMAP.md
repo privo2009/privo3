@@ -1,6 +1,6 @@
 # 개발 로드맵
 
-문서 갱신: 2026-11-27 (지시서 #45 — 시뮬 걷기 · 로비 · 봇 정책 · 프리셋 다시 뽑음 · 테스트 5069)
+문서 갱신: 2026-11-27 (지시서 #46 — 배율(블록 · 맵 크기) 0.5 · PICK_RATIO 1.40 · 이동 검사 여유 8 · 프리셋 다시 뽑음 · HUD 1 미만 코인 · 테스트 5050)
 
 ## 원칙
 - 아래에서 위로 쌓는다. BigNum이 흔들리면 전부 무너진다
@@ -14,7 +14,7 @@
 ```
 지금 위치   코드 기반 끝 — 새 경제(#37) · 리모트 보안 · 데이터 안전(#38) · UI 키트 · 미리보기(#39) · 6개 언어(#40) · 마무리(#41) ·
             이름 번역 규칙 · 정수 표시 · 운동기구 A2(#42) · 자동 플레이 봇 · 이동 검사 · 리뷰 · 유형별 측정(#43 — 시험 기간 혼자)
-            테스트 5069 / 0 failed(서버 85행 3488 · 클라 46행 1581 — 아래 "테스트 현황") · 시각 요소(모델 · UI 그림 · 맵)는 아직 임시 도형
+            테스트 5050 / 0 failed(서버 86행 3469 · 클라 46행 1581 — 아래 "테스트 현황") · 시각 요소(모델 · UI 그림 · 맵)는 아직 임시 도형
 점검 도구   모델 · UI를 갈아 끼운 뒤 · 2월 테스트 전: Bootstrap TEST_AUTOPLAY = "fresh" · "min30" · "hour2" · "pre_rebirth"(CLAUDE.md "자동 플레이 봇")
 주의(#44)   시뮬 25층 126분은 층마다 진행 벽까지 걷기를 안 센다 — 넣으면 190분(TUNING 14). 2월에 실제 25층 시간을 잰다
 다시 시작   HANDOFF 가장 최근 날짜 파일의 "시험 뒤 다시 시작하는 법" 한 쪽부터(세션 기록) · 남은 일 원본은 docs/PENDING.md
@@ -50,7 +50,7 @@
 | 파일 | 개수 | 대상 |
 |---|---:|---|
 | `Tests/BigNumTests.server.lua` | 96 | BigNum 사칙연산·비교·직렬화·정밀도·비율 변환 |
-| `Tests/FormatterTests.server.lua` | 37 | 숫자 표기 (접미사, 자릿수) · 정수 표시 formatCount(1 · 15 · 0 · number · 1000 이상 · 음수 · 반올림 — #42) |
+| `Tests/FormatterTests.server.lua` | 38 | 숫자 표기 (접미사, 자릿수) · 정수 표시 formatCount(1 · 15 · 0 · number · 1000 이상 · 음수 · 반올림 — #42) · 1 미만 값 0.50 · 0.00 · −0.25(#46) |
 | `Tests/TestGateTests.server.lua` | 6 | 테스트 · 리포트 게이트(#27 T3) — Studio 주입 true 실행 · false 몸통 0번 · 주입 없음 = IsStudio · 이 Play는 Studio · boolean 아님 거부 · 끝 표시 목록에 있음 |
 | `Tests/TestRunLogicTests.server.lua` | 18 | 테스트 끝 표시(#26) — 요약 줄 읽기 · 끝 줄 꼴(읽기 코드 필터에 걸림 · 행으로 안 읽힘) · 모으기(다시 읽어도 한 번 · 목록 밖 · 빠짐 · 두 번 찍힘) · 기대 목록(Tests로 끝나는 Script · LocalScript) · 실물 서버 목록 · 상한 |
 | `Tests/ConfigTests.server.lua` | 103 | 모든 Config의 validate + 스모크 · 파생 함수(getSlots · getStorage · getUnlockedPacks) · TitleConfig validate 거부 5종 · 블럭스 상품 금지(P1) · AuraConfig m = 사다리 × 비율 · G4 · 단조 거부(#11) · PetConfig m · 비용 100/100K/100M · 해금 · 실효 증가분 · totalMult(nil 구멍) · 강화 4단계 · validate 거부 · Attribute 직렬화(#12) · 레벨 L1 경계(1 · 2 · 3 · 4 · 2^k ± 가수 1 ulp · 10^2000대) · 진행률 0 이상 1 미만 · L2 상한(레벨 48) · 환생 뒤 0(#13) · ShopConfig 검사(가격 · 키 · 계단 순증가 · blox 거부 · 행운 표시 = 효과 · 같은 ID — #16) · 대시보드 ID 39 등록 · ID 표 섞임 · 0 거부 · ownedHigher R1 · R2 · rollCreditLuck(#17) · 1번 패드 덮어쓰기 = Config · 2번부터 식 · 사본 · validate 거부 3종(#24 P1) |
@@ -87,7 +87,7 @@
 | `Tests/PowerBlockTests.client.lua` | 50 | 세 행 Y 범위·하단 띠·8자/4자 규격·진행률 경계·Store 구독 반영·다른 인스턴스 미유출 · 레벨 바 L1(2^k → 레벨 k · 그 레벨 안 위치 · LevelConfig 그대로 — #13) |
 | `Tests/ShopSlotsTests.client.lua` | 36 | 상점 4구좌 배치·ShopConfig 원본 참조·가격 표기 2꼴 |
 | `Tests/AutoToolsTests.client.lua` | 29 | 자동 도구 아이콘 배치 · 미보유 잠김 · 꺼짐 비교는 보유 Store(#16) · 자동 진행 HitArea 있음(#18 AA11 — 옛 "없음" 검사를 바꿨다) |
-| `Systems/ArenaServiceTests.server.lua` | 130 | 스폰 좌표·경계 높이·스테이지 수에 따른 경계 확장·출입구 개방·어깨 벽·바닥 파생과 파트 상한 분할(층 수 흔들기)·전 층 바닥 위 |
+| `Systems/ArenaServiceTests.server.lua` | 99 | 스폰 좌표·경계 높이·스테이지 수에 따른 경계 확장·출입구 개방·어깨 벽·바닥 파생과 파트 상한 분할(층 수 흔들기)·전 층 바닥 위 · #46 바닥 장마다 8줄 → 한 줄(장 수가 배율에 따라 바뀐다) · M2 이동 시간은 위 끝(≤ 4 · 5초 + 1) |
 | `Systems/CashoutPadServiceTests.server.lua` | 50 | 발판 좌표·측면 오프셋·디바운스·런당 1회·플레이어별 격리·source 경로·층 불일치 무시·UiTheme 색 · 근처 확인(멀면 cashout 0 · 런 없으면 묻지 않음 — #23 N1) |
 | `Tests/SuccessRateReportTests.server.lua` | 157 | 확률 시뮬레이터 식 — 펀치 간격·속도 미곱·반경 밖 지연·런 중 클릭·걷기 시간·진행 규칙 2종·모델 범위·seed 결정성·워프 비교(판단·워프 런)·문턱 구간 비교(구간 수·순서·합산·seed 재현)·운동기구 훈련·공허 구매자·업그레이드 S5(가장 싼 것부터 · 예산 = getLeftover · 최대 레벨 건너뜀)·TEMP 후보 교체 되돌림 · 칭호 S7(자동 롤 기준 · 지출 · 장착 · 배수 한 번씩 · 후보 권한) · S5' 1차 4종 · 아우라 A4(20% · 가장 높은 팩 · 장착 · m 클릭 · 1펀치 한 번씩 · 후보 G4) · 펫 E11(15% · 슬롯 먼저 · 가장 높은 알 · 크래프팅 연쇄 · 실효 증가분 순 장착 · 가득 차면 약한 것 놓아주기 · 클릭 힘 한 번 · 데미지 없음 · 후보 되돌림) · S5' 3종(L3) · 걷기 L1 · L2 · 배수 세 자리 공개 함수 · rebirth 공개 · 관측 고리가 결과를 안 바꿈 · StandardPathReport cliffRatio · boundaries · TARGETS · metrics(#13) · #45 걷기 · 로비(거리 = 배치 · 같은 seed 넣고 뺀 차 = 거리 ÷ 속도 · 진행 · 수령 따로 · 옛 경제 · 자동 진행은 안 걷는다 · 로비 런마다 · 옛 경제에 없음 · 오류 없이 끝) |
 | `Tests/EconomyV2Tests.server.lua` | 50 | 새 경제(#30 · #37부터 유일한 경제) — validate · 곡괭이 15종 · 교환 비용 · 별 · 강화 · 광석 구간 · 정수 게이지 · 확률표 합 100 · 칸 단조 · 전설 상한 · ??? 5칸만 · 최고 칸 조합 · 제작 · 교환 · 별 · 강화 · 배수 곱 · 가방 바꿔 줍기 · 환생 v2 비용 · b^n · 나머지 · 운동기구 해금 · RebirthService v2 경로(가짜 deps) |
@@ -179,8 +179,9 @@
 | `Tests/AnalyticsFunnelTests.server.lua` | 25 | 분석 #38 — 한도 · 온보딩 9단계 이름 · 지난 단계 계산(줄지 않는 값 · 차례) · 처음 온 사람 · 돌아온 사람 · 중복 없음 · 곡괭이 종 수 · 코인 경제(모아 보내기 · Sink · 자원 따로) · 나가면 지움 |
 | `Tests/UiKitTests.client.lua` | 53 | UI 키트(#39) — 역할 이름(role · grade · rarity · text · 모르는 이름 오류) · 스킨 기본값 = #39 이전 숫자 · UiSkin 빈 표 · 덮기 · 되돌리기 · styleText · card · skinImage · tab · gauge · toastRow · oddsRow · currencyChip · modalPanel · dim · 틀 여백(0이면 이전 식 · 두께만큼 안으로 · Panel.create) · 미리보기 게이트(flagOn · 커밋 nil · STUDIO_FLAGS) · 창 전부 예시로 만들어짐 · 등급 5종 · AssetSlots UI 칸 · 긴 문장 |
 | `Tests/AutoplayLogicTests.server.lua` | 49 | 자동 플레이 봇(#43 1부) — TEST_AUTOPLAY 커밋 값 nil · STUDIO_FLAGS · 켜는 판정(꺼짐 · Studio 아님 · 모르는 구간 · 글 아님 · 프리셋 다름 · 구간 3개) · 구간 프리셋 · 목표 층 실재 · 봇 자리 반경 안 · 실패 줄 반경 밖 · 클릭 ≤ 수동 상한 · 요청 간격 · 최소 런 ≥ 실패 주기 · 진행/수령 4 · 실패 섞기 2 · 환생 · 워프 3 · 음수 3 · 가방 2(넘친 채 그대로 통과 — #43 3부) · 수령 · 실패 · 런 끝 5 · 제작 5 · 루프 상한 · 모음 2 · 봇 줄 빼기 · #44 환생 검사 3(정상 0 · 블럭스 · 펫 / 배수 · 분석 · 기구) · pre_rebirth 구간 1 · 구간 4개 · #45 글자 단위 자르기(깨진 줄 없음) 1 · 로비 초/런 1 |
-| `Tests/MovementGuardTests.server.lua` | 22 | 이동 검사(#43 2부) — 정상 걷기 · 높은 레벨 달리기 · 점프 · 낙하 · 복제 흔들림 통과 / 순간이동(HOLD 동안 믿지 않음) · 3배 속도(레벨 0 · 상한 60) · 위로 순간이동 걸림 · dt 0 / 게임 순간이동 유예(옛 자리 · 새 자리 섞임) · 유예 뒤 다시 잼 · 리스폰 기준점 · 공개 sample · isTrusted · 나간 플레이어 표 안 만듦(#43 3부) / 공격 move_suspect · 줍기 건너뜀 / 설정에서 읽음 2 |
-| **합계** | **5069** | 서버 85행 3488 · 클라 46행 1581 — 2026-11-27 #45 Play 2번 실측(Studio 플래그 전부 nil · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
+| `Tests/MovementGuardTests.server.lua` | 23 | 이동 검사(#43 2부) — 정상 걷기 · 높은 레벨 달리기 · 점프 · 낙하 · 복제 흔들림 통과 / 순간이동(HOLD 동안 믿지 않음) · 3배 속도(레벨 0 · 상한 60) · 위로 순간이동 걸림 · dt 0 / 게임 순간이동 유예(옛 자리 · 새 자리 섞임) · 유예 뒤 다시 잼 · 리스폰 기준점 · 공개 sample · isTrusted · 나간 플레이어 표 안 만듦(#43 3부) / 공격 move_suspect · 줍기 건너뜀 / 설정에서 읽음 2 · #46 복제 0.15초 늦음(속도 43 — #45 봇 오탐 재현) 통과 · 레벨 0 속도를 LevelConfig에서 |
+| `Tests/ArenaScaleTests.server.lua` | 10 | 아레나 · 로비 배율(#46 1부) — 배율 범위 · 배율 1.0 = 옛 배치(legacyGap) · 지금 값 = layoutAt(ArenaConfig · 블록 · 반경 · 패드 · 기구 · 대장간 · 줍기 · 흩어짐) · 실제 좌표 · 봇 실패 줄 · 로비 물체 수 = 게임 · 배율마다(지금 · 0.4 ~ 0.7) 배치 관계(블록 · 입구 · 진행 벽 · 수령 발판 반경 밖 · 발판 · 벽 안 겹침 · 통로 · 로비 겹침 · 구역 · 게이트 · 통로 ±14) · 발판 반경 규칙(옛 1.0은 어겼다) · 걷는 길이가 배율을 따름 · 블록 ≥ 캐릭터 × 1.5 |
+| **합계** | **5050** | 서버 86행 3469 · 클라 46행 1581 — 2026-11-27 #46 Play 2번 실측(Studio 플래그 전부 nil · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -208,7 +209,20 @@
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-11-27 Studio Play 런타임 실측 (전량, 지시서 #45 — 시뮬 걷기 · 로비 · 봇 정책 · 프리셋 다시 뽑음 · 플래그 전부 nil Play 2번).**
+최근 갱신: **2026-11-27 Studio Play 런타임 실측 (전량, 지시서 #46 — 배율 0.5 · PICK_RATIO 1.40 · 이동 검사 여유 8 · 프리셋 · 플래그 전부 nil Play 2번).**
+132개 행 전부가 같은 개수로 찍혔다. **5050 passed / 0 failed** — 서버 3469(86행) + 클라 1581(46행). 시작 기준 Play는 #45 최종과 같았다(5069).
+
+```
+새 행    ArenaScaleTests        10        배율 1.0 = 옛 배치 · 지금 값 = layoutAt · 배치 관계(#46 1 · 2부)
+바뀐 행  ArenaServiceTests  130 → 99      바닥 장마다 8줄(장 수가 배율 · 층 수로 바뀐다 — 0.5에서 4장 → 3장) → 한 줄 · M2 2줄은 위 끝(기대만)
+바뀐 행  MovementGuardTests  22 → 23      복제 0.15초 늦음 통과 1 · 레벨 0 속도 16 → LevelConfig(기대만)
+바뀐 행  FormatterTests      37 → 38      1 미만 값(봇이 찾은 HUD 오류 — 코인 0.4999…)
+기대만   ConfigTests            103       확정 좌표 · 폭 흔들기 · 입구 · 패드 첫/끝 열을 배치표에서(배율 1.0 숫자는 ArenaScaleTests가 박는다)
+기대만   GymServiceTests · PadServiceTests   통로 24 → getLobbyCorridorHalf(14)
+대조     5069 − 지운 행 0 + 바뀐 행 3(−31 + 1 + 1) + 새 행 1(+10) = 5050
+```
+
+이전 갱신(#45): **2026-11-27 Studio Play 런타임 실측 (전량, 지시서 #45 — 시뮬 걷기 · 로비 · 봇 정책 · 프리셋 다시 뽑음 · 플래그 전부 nil Play 2번).**
 131개 행 전부가 같은 개수로 찍혔다. **5069 passed / 0 failed** — 서버 3488(85행) + 클라 1581(46행). 시작 기준 Play는 #44 최종과 같았다(5058).
 
 ```
