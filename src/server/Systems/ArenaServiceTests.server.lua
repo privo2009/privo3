@@ -340,24 +340,27 @@ do
 	local ok, err = pcall(ArenaConfig.validate, LAST_STAGE)
 	check("ArenaConfig.validate(마지막 층) 통과", ok, tostring(err))
 
+	-- 바닥 장마다(장 수는 배율 · 층 수에 따라 바뀐다 — #46: 장마다 8줄이면 배율을 바꿀 때 테스트 개수가 흔들린다(지시서 #26 규칙) → 한 줄로 모은다)
+	local floorProblems: { string } = {}
 	for _, spec in ipairs(floorSpecs) do
 		-- 윗면 = 중심 + 두께/2. 숫자 필드끼리 다시 계산해 topY와 0을 함께 본다.
 		local top = spec.centerY + spec.sizeY / 2
-		check(spec.name .. ": 윗면 Y == 0 (topY)", spec.topY == 0, tostring(spec.topY))
-		check(spec.name .. ": 중심 + 두께/2 == 0", top == 0, tostring(top))
-		check(spec.name .. ": 두께 == FLOOR_THICKNESS", spec.sizeY == ArenaConfig.FLOOR_THICKNESS, tostring(spec.sizeY))
-		check(
-			spec.name .. ": 세 축 모두 0 초과 MAX_PART_SIZE 이하",
-			spec.sizeX > 0 and spec.sizeX <= ArenaConfig.MAX_PART_SIZE
-				and spec.sizeY > 0 and spec.sizeY <= ArenaConfig.MAX_PART_SIZE
-				and spec.sizeZ > 0 and spec.sizeZ <= ArenaConfig.MAX_PART_SIZE,
-			string.format("(%s, %s, %s)", tostring(spec.sizeX), tostring(spec.sizeY), tostring(spec.sizeZ))
-		)
-		check(spec.name .. ": 크기 X == xMax - xMin", spec.sizeX == spec.xMax - spec.xMin)
-		check(spec.name .. ": 크기 Z == zMax - zMin", spec.sizeZ == spec.zMax - spec.zMin)
-		check(spec.name .. ": 중심 X == 범위 중앙", spec.centerX == (spec.xMin + spec.xMax) / 2)
-		check(spec.name .. ": 중심 Z == 범위 중앙", spec.centerZ == (spec.zMin + spec.zMax) / 2)
+		local bad = {}
+		if spec.topY ~= 0 then table.insert(bad, "윗면 Y " .. tostring(spec.topY)) end
+		if top ~= 0 then table.insert(bad, "중심 + 두께/2 " .. tostring(top)) end
+		if spec.sizeY ~= ArenaConfig.FLOOR_THICKNESS then table.insert(bad, "두께 " .. tostring(spec.sizeY)) end
+		if not (spec.sizeX > 0 and spec.sizeX <= ArenaConfig.MAX_PART_SIZE and spec.sizeY > 0 and spec.sizeY <= ArenaConfig.MAX_PART_SIZE
+			and spec.sizeZ > 0 and spec.sizeZ <= ArenaConfig.MAX_PART_SIZE) then
+			table.insert(bad, string.format("크기 (%s, %s, %s)", tostring(spec.sizeX), tostring(spec.sizeY), tostring(spec.sizeZ)))
+		end
+		if spec.sizeX ~= spec.xMax - spec.xMin or spec.sizeZ ~= spec.zMax - spec.zMin then table.insert(bad, "크기 ≠ 범위") end
+		if spec.centerX ~= (spec.xMin + spec.xMax) / 2 or spec.centerZ ~= (spec.zMin + spec.zMax) / 2 then table.insert(bad, "중심 ≠ 범위 중앙") end
+		if #bad > 0 then
+			table.insert(floorProblems, spec.name .. ": " .. table.concat(bad, ", "))
+		end
 	end
+	check(string.format("바닥 장마다(%d장): 윗면 Y 0 · 중심 + 두께/2 0 · 두께 · 세 축 ≤ MAX_PART_SIZE · 크기 = 범위 · 중심 = 범위 중앙", #floorSpecs),
+		#floorProblems == 0, table.concat(floorProblems, " / "))
 end
 
 -- 9. 회귀 — 모든 층의 서 있을 자리가 바닥 위에 있다 -----------------------------------------

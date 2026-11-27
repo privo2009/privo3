@@ -32,7 +32,8 @@ end
 
 local P = MovementGuard._pure
 local DT = Config.SAMPLE_SEC
-local WALK = 16 -- 레벨 0 이동 속도(로블록스 기본 · SpeedService 레벨 0 상한)
+-- 레벨 0 이동 속도(SpeedService 레벨 0 상한 — LevelConfig에서 읽는다. #46: 예전 16은 #8 전 로블록스 기본값이었다 · 지금 32)
+local WALK = require(ReplicatedStorage.Shared.Config.LevelConfig).getMaxSpeed(BigNum.new(0, 0))
 local GRAV = 196.2 -- 로블록스 기본 중력
 
 -- 표본 열을 하나씩 먹여 의심이 몇 번 났는지 센다
@@ -105,6 +106,10 @@ do
 	check("위로 순간이동(37 studs/주기) → 사유 up", why == "up", tostring(why))
 	local ok2, why2 = P.evaluate({ pos = Vector3.new(0, 3, 0), t = 0 }, { pos = Vector3.new(0, 3, 0), t = 0 }, WALK)
 	check("같은 시각 표본(dt 0)은 판정하지 않는다", ok2 and why2 == nil)
+	-- #46: #45 봇 오탐 재현 — 진행 벽 통과 직후 속도 43 · 위치 복제 0.15초 늦음(한 주기에 0.4초 몫 17.2 studs)은 정상이다(여유 8)
+	local late = 43 * (DT + 0.15)
+	local ok3 = P.evaluate({ pos = Vector3.new(0, 3, 0), t = 0 }, { pos = Vector3.new(late, 3, 0), t = DT }, 43)
+	check("복제 0.15초 늦음(속도 43 · #45 봇 오탐) → 통과", ok3 == true, string.format("%.1f studs", late))
 end
 
 -- 3. 게임 순간이동 직후는 통과 -----------------------------------------------------------------------------------

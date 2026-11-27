@@ -14,7 +14,12 @@ MovementGuardConfig.SAMPLE_SEC = 0.25
 -- 수평 허용 속도 = 그 플레이어의 레벨 이동 속도 상한(SpeedService.getMaxSpeed) + SPEED_MARGIN(studs/초). TEMP
 MovementGuardConfig.SPEED_MARGIN = 8
 -- 한 주기 거리 여유(studs) — 복제가 몰려 오는 흔들림(한 주기에 두 주기 몫이 들어오는 등). TEMP
-MovementGuardConfig.SLACK_STUDS = 4
+-- 지시서 #46 4부(Claude 결정 4 → 8): #45 봇이 진행 벽 통과 직후 정상 걷기(속도 43)를 69 studs/초로 걸렸다 — 위치 복제가 약 0.15초 늦게 와서
+-- 0.25초 표본 하나에 17.3 studs(허용 (43 + 8) × 0.25 + 4 = 16.75). 여유 8이면 속도 여유 몫(8 × 0.25 = 2)과 합쳐 10 studs —
+-- 복제 늦음을 속도 43에서 0.23초 · 상한 80(LevelConfig)에서 0.125초까지 받는다. 순간이동(한 번에 수십 studs) · 3배 속도는 그대로 잡힌다
+-- (MovementGuardTests — "복제 0.15초 늦음(속도 43) → 통과" 줄이 #45 오탐을 재현한다).
+-- "두 표본 연속일 때만" 방식은 쓰지 않는다 — 한 번에 뛰는 순간이동을 놓친다
+MovementGuardConfig.SLACK_STUDS = 8
 
 -- 수직: 오르는 속도 상한(점프 — 기본 JumpPower 50) · 떨어지는 속도 상한(studs/초). TEMP
 MovementGuardConfig.UP_SPEED_MAX = 60

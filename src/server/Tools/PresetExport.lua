@@ -76,8 +76,8 @@ local function render(name: string, label: string, x: any, rank: number, total: 
 	end
 	add(string.format("\t%s = {", name))
 	add(string.format("\t\tlabel = %q,", label))
-	add(string.format("\t\tsource = %q,", string.format("EconomyReport 표준 플레이어(#45 걷기 · 로비 모델) %d명 중 그 시각 중앙값(%d번째 · %.1f분 · 환생 %d회 · 최고 %d층)",
-		total, rank, x.t / 60, x.rebirths, x.maxEver)))
+	add(string.format("\t\tsource = %q,", string.format("EconomyReport 표준 플레이어(배율 %.2f · 걷기 · 로비 모델) %d명 중 그 시각 중앙값(%d번째 · %.1f분 · 환생 %d회 · 최고 %d층)",
+		require(game:GetService("ReplicatedStorage").Shared.Config.ArenaScale).ARENA_SCALE, total, rank, x.t / 60, x.rebirths, x.maxEver)))
 	add(string.format("\t\tstrength = %s,", big(x.strength)))
 	add(string.format("\t\tblox = %s,", big(x.blox)))
 	add(string.format("\t\tlifeBlox = %s,", big(x.lifeBlox)))

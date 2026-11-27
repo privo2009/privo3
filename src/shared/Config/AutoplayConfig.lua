@@ -15,8 +15,8 @@ export type Segment = { preset: string, targetFloor: number, limitSec: number, l
 -- (못 닿아도 검사가 전부 통과면 통과 — 닿은 층은 지표로 적는다).
 AutoplayConfig.SEGMENTS = {
 	fresh = { preset = "fresh", targetFloor = 10, limitSec = 480, label = "fresh → 10층" },
-	-- #45: 프리셋을 걷기 · 로비 모델로 다시 뽑아 30분 = 이번 삶 13층 · 최고 15층(#44까지 16 · 17층) → 목표 15
-	min30 = { preset = "min30", targetFloor = 15, limitSec = 360, label = "min30 → 15층 근처" },
+	-- #46: 배율 0.5 · PICK_RATIO 1.40으로 다시 뽑아 30분 = 이번 삶 15층 · 최고 17층(#45 13 · 15층) → 목표 17
+	min30 = { preset = "min30", targetFloor = 17, limitSec = 360, label = "min30 → 17층 근처" },
 	hour2 = { preset = "hour2", targetFloor = 25, limitSec = 420, label = "hour2 → 24 · 25층 도전" },
 	-- 환생 길(#44): 환생 직전 프리셋 → 환생 창 열기 · 다음 비용 확인 → 환생(실제 리모트 · Mock) → 환생 뒤 상태 검사 → 1 ~ 3층 다시.
 	-- 런 1번이면 끝(minRuns) — 환생 뒤 첫 런으로 1 ~ 3층을 다시 밟는 것까지가 이 구간이다
