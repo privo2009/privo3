@@ -85,10 +85,11 @@ for _, name in ipairs(TestPresets.NAMES) do
 				end)())
 	end
 end
-check("#38 새 경제 필드: 7개 전부 곡괭이 id가 Config에 · 장착 곡괭이는 보유 · 광석 칸 수 · 10분부터 대장간 열림 · 시간 순으로 환생이 늘어난다", (function()
+check("#38 새 경제 필드: 7개 전부 곡괭이 id가 Config에 · 장착 곡괭이는 보유 · 광석 칸 수 · 대장간은 fresh 닫힘 · 한 번 열리면 뒤 시점도 열림 · 시간 순으로 환생이 늘어난다", (function()
 	local EconomyV2Logic = require(ReplicatedStorage.Shared.EconomyV2Logic)
 	local EconomyV2Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
 	local prevRebirths = -1
+	local forgeSeen = false
 	for _, name in ipairs(TestPresets.NAMES) do
 		local preset = TestPresets.Presets[name]
 		local data = TestPresetGate.buildData(name)
@@ -100,9 +101,11 @@ check("#38 새 경제 필드: 7개 전부 곡괭이 id가 Config에 · 장착 �
 		if data.equipment.pickaxe[preset.equippedPickaxe] == nil or #data.ores ~= EconomyV2Config.ORE_COUNT then
 			return false
 		end
-		if (name ~= "fresh") ~= data.forgeOpen then
+		-- #45: 걷기 · 로비 모델로 다시 뽑은 10분은 7층(대장간 8층)이라 닫혀 있다 — 이름이 아니라 순서로 본다(fresh 닫힘 · 열린 뒤 닫히지 않음)
+		if data.forgeOpen ~= preset.forgeOpen or (name == "fresh" and data.forgeOpen) or (forgeSeen and not data.forgeOpen) then
 			return false
 		end
+		forgeSeen = forgeSeen or data.forgeOpen
 		local r = preset.rebirths.m * 10 ^ preset.rebirths.e
 		if r < prevRebirths then
 			return false

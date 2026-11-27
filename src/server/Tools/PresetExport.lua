@@ -1,5 +1,6 @@
 --!strict
--- 테스트 프리셋 뽑기(지시서 #38 6단계 — Studio 전용 · TestGate). EconomyReport V4(지금 TEMP — set = {}) 표준 플레이어를 PLAYERS명 돌려
+-- 테스트 프리셋 뽑기(지시서 #38 6단계 — Studio 전용 · TestGate). EconomyReport 지금 TEMP(set = {}) 표준 플레이어를 PLAYERS명 돌려
+-- (#45부터 표준 모델에 진행 벽 · 수령 발판까지 걷기 · 런 사이 로비 시간이 들어 있다 — SuccessRateReport MODEL)
 -- 시점마다(TIMES) 그 시각에 처음 런을 시작한 순간의 상태를 모으고, 시점마다 **중앙값 플레이어**(환생 수 → 최고 층 순으로 줄 세운 가운데)
 -- 한 사람을 Shared/Config/TestPresets 꼴 Lua 표로 찍는다("[PRESET] …"). 사람이(또는 Claude가) 그 줄을 TestPresets에 옮긴다.
 -- 켜는 곳: Bootstrap PRESET_EXPORT_ENABLED(커밋 값 false). 프로필을 읽지도 쓰지도 않는다(시뮬레이터만).
@@ -13,14 +14,15 @@ local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local PresetExport = {}
 
 PresetExport.PLAYERS = 40
--- 이름 → 시점(초). 30분은 8층 대장간 뒤 · 2시간은 25층 근처 · 3시간은 15종 무렵(V4 중앙값 — TUNING "새 경제 V4")
+-- 이름 → 시점(초). 그 시각의 층 · 환생은 source 줄에 찍힌다(#44까지 걷기 없는 옛 모델에서는 30분 8층 대장간 뒤 · 2시간 25층 근처였다 —
+-- #45 걷기 · 로비 모델에서는 더 늦다. TUNING 15절)
 PresetExport.TIMES = {
 	{ name = "fresh", sec = 0, label = "시작 직후" },
 	{ name = "min10", sec = 600, label = "10분" },
-	{ name = "min30", sec = 1800, label = "30분(8층 대장간 뒤)" },
+	{ name = "min30", sec = 1800, label = "30분" },
 	{ name = "hour1", sec = 3600, label = "1시간" },
-	{ name = "hour2", sec = 7200, label = "2시간(25층 근처)" },
-	{ name = "hour3", sec = 10800, label = "3시간(15종 무렵)" },
+	{ name = "hour2", sec = 7200, label = "2시간" },
+	{ name = "hour3", sec = 10800, label = "3시간" },
 }
 PresetExport.MAX_PETS = 20 -- 보유 펫은 실효 큰 순으로 이만큼(프로필 크기 · 읽기 쉬움)
 
@@ -74,7 +76,7 @@ local function render(name: string, label: string, x: any, rank: number, total: 
 	end
 	add(string.format("\t%s = {", name))
 	add(string.format("\t\tlabel = %q,", label))
-	add(string.format("\t\tsource = %q,", string.format("EconomyReport V4 표준 플레이어 %d명 중 그 시각 중앙값(%d번째 · %.1f분 · 환생 %d회 · 최고 %d층)",
+	add(string.format("\t\tsource = %q,", string.format("EconomyReport 표준 플레이어(#45 걷기 · 로비 모델) %d명 중 그 시각 중앙값(%d번째 · %.1f분 · 환생 %d회 · 최고 %d층)",
 		total, rank, x.t / 60, x.rebirths, x.maxEver)))
 	add(string.format("\t\tstrength = %s,", big(x.strength)))
 	add(string.format("\t\tblox = %s,", big(x.blox)))
@@ -132,7 +134,7 @@ function PresetExport.run()
 	-- #42: 기다리지 않으면 그 테스트 플레이어가 스냅숏에 섞였다(40명 → 56명 · 30분 힘 50배)
 	task.wait(5)
 	local EconomyReport = require(script.Parent.EconomyReport) :: any
-	print(string.format("[PRESET] ===== 뽑기 시작 (V4 · %d명)", PresetExport.PLAYERS))
+	print(string.format("[PRESET] ===== 뽑기 시작 (지금 TEMP · 걷기 · 로비 모델 · %d명)", PresetExport.PLAYERS))
 	local byPlayer: { [any]: { [string]: any } } = {}
 	local order: { any } = {}
 	EconomyReport.snapshots(PresetExport.PLAYERS, function(p: any, s: any, forgeOpen: boolean)
