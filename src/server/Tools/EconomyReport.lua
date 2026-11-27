@@ -138,6 +138,7 @@ EconomyReport.GOAL = {
 }
 -- run() 모드: "full"(재현 + 후보 묶음 + 정책 비교 + 참고 측정) · "explore"(재현 + EXPLORE 목록만) · "gym"(운동기구 선택지 GYM_OPTIONS만 — #41 · docs/GYM_OPTIONS.md) ·
 -- "types"(플레이어 유형 TYPE_OPTIONS만 — #43 4부 · docs/TUNING.md 12절) · "botcompare"(봇 vs 시뮬 — #44 3부 · TUNING 14절)
+-- "retune"(#45 — 걷기 · 로비 넣은 모델에서 GOAL 가운데에 맞는 후보 값만 찾는다 · 커밋 값은 그대로 · TUNING 15절)
 EconomyReport.MODE = "full"
 
 export type Policy = {
@@ -268,9 +269,12 @@ local function withBundle(b: Bundle, fn: () -> ())
 	if b.ownsVoid ~= nil then
 		MODEL.OWNS_VOID_ZONE = b.ownsVoid
 	end
+	-- 원래 값이 nil인 키(WALK_ACROSS_STUDS 등)도 되돌리도록 키 목록을 따로 둔다(표에 nil을 넣으면 사라진다 — #31 Config와 같은 함정)
 	local savedModel: { [string]: any } = {}
+	local modelKeys: { string } = {}
 	for k, v in pairs(b.model or {}) do
 		savedModel[k] = MODEL[k]
+		table.insert(modelKeys, k)
 		MODEL[k] = v
 	end
 	local savedSRR = {
@@ -305,8 +309,8 @@ local function withBundle(b: Bundle, fn: () -> ())
 		table.insert(GymConfig.TIERS, t)
 	end
 	MODEL.GYM_TRAIN_SEC, MODEL.OWNS_VOID_ZONE = savedTrain, savedVoid
-	for k, v in pairs(savedModel) do
-		MODEL[k] = v
+	for _, k in ipairs(modelKeys) do
+		MODEL[k] = savedModel[k]
 	end
 	SRR.trainAtGym = savedSRR.train
 	world.hpGrowthSegments = savedHp
@@ -549,6 +553,8 @@ local function measureV2(b: Bundle, players: number): any
 
 		SRR.ECON = {
 			eager = true,
+			-- 자동 진행(유료)은 서버가 다음 층 입구 · 스폰으로 옮긴다 — 진행 벽 · 수령 발판까지 걷지 않는다(#45)
+			teleports = auto,
 			keepBlox = keep,
 			canRebirth = function(p)
 				return EconomyV2Logic.canRebirth(p.blox, st(p).n)
@@ -1358,7 +1364,7 @@ function EconomyReport.run()
 	local t0 = os.clock()
 	print(string.format("[ECON2] ===== 새 경제 5차 측정 (지시서 #33 — 점수 표 · 드롭 0.5 이상 · 등급별 강화 · 추천까지만) · 모드 %s =====", E.MODE))
 	if E.MODE == "botcompare" then -- 봇 vs 시뮬(#44 3부): 표준 플레이어(fresh 시작)의 층 첫 도달 · 8분 · 10분 때 상태 · 시간 나눔(중앙)
-		local sm = E.report({ label = "표준(봇 비교)", set = {} }, E.PLAYERS)
+		local sm = E.report({ label = "표준(봇 비교 — 걷기 · 로비 넣은 지금 모델)", set = {} }, E.PLAYERS)
 		local r = E._lastResult
 		local reach = {}
 		for stage = 1, 10 do
@@ -1389,7 +1395,7 @@ function EconomyReport.run()
 				return median(xs)
 			end
 			local parts = {}
-			for _, k in ipairs({ "gate", "attack", "attack_fail", "pickup", "gym", "idle", "clears" }) do
+			for _, k in ipairs({ "gate", "attack", "attack_fail", "pickup", "walk_advance", "walk_cashout", "lobby", "gym", "idle", "clears" }) do
 				table.insert(parts, string.format("%s %s", k, fmt(med(function(x)
 					return x.split[k] or 0
 				end), "%.0f")))
@@ -1415,11 +1421,60 @@ function EconomyReport.run()
 					return x.runs
 				end), "%.0f"), table.concat(parts, " · "), #list))
 		end
-		-- 모델 고칠 제안 재기(#44): 깬 층마다 벽 · 발판까지 걷기(166 studs ÷ 이동 속도)를 더하면 25층 · 15종이 얼마나 늦어지나
-		local walk = E.report({ label = "표준 + 깬 층마다 벽까지 걷기 166 studs(#44 제안)", set = {}, model = { WALK_ACROSS_STUDS = 166 } }, E.PLAYERS)
-		print(string.format("[ECON2] 봇비교 걷기 더함: 25층 %s분 · 15종 %s분 · 환생 %s회(표준 %s · %s)", fmt(walk.t25), fmt(walk.k15), fmt(walk.n25, "%.0f"),
-			fmt(sm.t25), fmt(sm.k15)))
+		-- 옛 모델과 비교(#45): 걷기 · 로비 없는 옛 표준(#44까지)으로 같은 seed를 돌리면
+		local old = E.report({ label = "옛 모델(걷기 · 로비 없음 — #44까지)", set = {}, model = { WALK_ACROSS_STUDS = 0, LOBBY_SEC_PER_RUN = 0 } }, E.PLAYERS)
+		local walkOnly = E.report({ label = "걷기만(로비 0)", set = {}, model = { LOBBY_SEC_PER_RUN = 0 } }, E.PLAYERS)
+		local lobbyHi = E.report({ label = "로비 8.5초/런(봇 실측 위 끝)", set = {}, model = { LOBBY_SEC_PER_RUN = 8.5 } }, E.PLAYERS)
+		print(string.format("[ECON2] 봇비교 옛 모델: 25층 %s분 · 15종 %s분 · 환생 %s회 | 걷기만 %s · %s | 로비 8.5초 %s · %s | 지금 표준 %s · %s · 환생 %s",
+			fmt(old.t25), fmt(old.k15), fmt(old.n25, "%.0f"), fmt(walkOnly.t25), fmt(walkOnly.k15), fmt(lobbyHi.t25), fmt(lobbyHi.k15),
+			fmt(sm.t25), fmt(sm.k15), fmt(sm.n25, "%.0f")))
 		print(string.format("[ECON2] 봇비교 25층 %s분 · 15종 %s분 · ===== 끝 · %.0f초 =====", fmt(sm.t25), fmt(sm.k15), os.clock() - t0))
+		return
+	end
+	if E.MODE == "retune" then
+		-- #45: 지금 커밋 값에서 시작해 PICK_RATIO(25층) · 광석 8 드롭(14종) · 광석 9 ~ 10 드롭(15종) · PICK_RATIO(다시)를 GOAL 가운데로.
+		-- 찾기만 한다(커밋 값을 바꾸지 않는다 — 목표 시간은 사람 결정). 순서는 full 모드와 같다(강화 비용 바탕은 빼고)
+		local G = E.GOAL
+		local t25Target, k15Target = (G.t25[1] + G.t25[2]) / 2, (G.t15[1] + G.t15[2]) / 2
+		local k14Target = (G.k14[1] + G.k14[2]) / 2
+		local base = E.report({ label = "지금 값(걷기 · 로비 넣은 새 기준)", set = {} }, E.PLAYERS)
+		local drops = Config.ORE_DROP_BY_ORE or {}
+		local x, y = drops[8] or Config.ORE_DROP_MIN, drops[9] or Config.ORE_DROP_MIN
+		local set: { [string]: any } = { PICK_RATIO = Config.PICK_RATIO }
+		local function b(): any
+			return { label = "다시 맞춤", set = set }
+		end
+		set.PICK_RATIO = E.tune(b(), "PICK_RATIO", { 1.1, 1.6 }, "t25", t25Target, true)
+		print(string.format("[ECON2]   다시맞춤 1 PICK_RATIO %.4g · %.0f초", set.PICK_RATIO, os.clock() - t0))
+		x = E.tuneWith(b(), function(st: { [string]: any }, v: number)
+			st.ORE_DROP_BY_ORE = oreDrops(v, y)
+		end, { Config.ORE_DROP_MIN, 3 }, "k14", k14Target, true)
+		set.ORE_DROP_BY_ORE = oreDrops(x, y)
+		print(string.format("[ECON2]   다시맞춤 2 광석 8 드롭 %.4g · %.0f초", math.max(Config.ORE_DROP_MIN, x), os.clock() - t0))
+		y = E.tuneWith(b(), function(st: { [string]: any }, v: number)
+			st.ORE_DROP_BY_ORE = oreDrops(x, v)
+		end, { Config.ORE_DROP_MIN, 3 }, "k15", k15Target, true)
+		set.ORE_DROP_BY_ORE = oreDrops(x, y)
+		print(string.format("[ECON2]   다시맞춤 3 광석 9~10 드롭 %.4g · %.0f초", math.max(Config.ORE_DROP_MIN, y), os.clock() - t0))
+		set.PICK_RATIO = E.tune(b(), "PICK_RATIO", { 1.1, 1.6 }, "t25", t25Target, true)
+		local cand = E.report({ label = "후보(25층 · 14종 · 15종 GOAL 가운데)", set = set }, E.PLAYERS)
+		local function passes(sm: any): string
+			local bad = {}
+			for _, k in ipairs({ "t25", "t15", "rebirths", "k5", "k10", "k14", "gap", "legend" }) do
+				if sm.pass[k] ~= true then
+					table.insert(bad, k)
+				end
+			end
+			return if #bad == 0 then "기준 안" else "벗어남 " .. table.concat(bad, ",")
+		end
+		print(string.format("[ECON2] 다시맞춤 요약" .. string.char(10)
+			.. "[ECON2] 지금 값 PICK_RATIO %.4g · 드롭 8 %.3g · 9~10 %.3g | 25층 %s · 14종 %s · 15종 %s · 환생 %s · 24→25 %s분 · %s" .. string.char(10)
+			.. "[ECON2] 후보   PICK_RATIO %.4g · 드롭 8 %.3g · 9~10 %.3g | 25층 %s · 14종 %s · 15종 %s · 환생 %s · 24→25 %s분 · %s · %.0f초",
+			Config.PICK_RATIO, drops[8] or Config.ORE_DROP_MIN, drops[9] or Config.ORE_DROP_MIN, fmt(base.t25), fmt(base.k14), fmt(base.k15),
+			fmt(base.n25, "%.0f"), fmt(base.gap), passes(base),
+			set.PICK_RATIO, math.max(Config.ORE_DROP_MIN, x), math.max(Config.ORE_DROP_MIN, y), fmt(cand.t25), fmt(cand.k14), fmt(cand.k15),
+			fmt(cand.n25, "%.0f"), fmt(cand.gap), passes(cand), os.clock() - t0))
+		print(string.format("[ECON2] ===== 끝 · %.0f초 =====", os.clock() - t0))
 		return
 	end
 	if E.MODE == "types" then -- 플레이어 유형(#43 4부) — 재현 없이 유형만 · 끝에 요약 줄을 한 번 더 모아 찍는다

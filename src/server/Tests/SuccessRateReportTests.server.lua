@@ -832,6 +832,88 @@ do
 		m.medianFinalMin == 10 and m.reached == 2 and m.meanRebirths == 4 and m.levelCapReached == 2 and m.medianLevelCapMin == 5 and m.medianLevelCapStage == 12)
 end
 
+-- #45 1부: 걷기 · 로비(새 경제 모델만) — 거리는 실제 배치(ArenaConfig)에서 · 같은 seed로 넣고 뺀 두 모델의 차이 ------------------
+do
+	local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
+	local LevelConfig = require(ReplicatedStorage.Shared.Config.LevelConfig)
+	local savedWalk, savedLobby, savedEcon = MODEL.WALK_ACROSS_STUDS, MODEL.LOBBY_SEC_PER_RUN, SuccessRateReport.ECON
+	local function fakeEcon(teleports: boolean): any
+		return {
+			eager = false,
+			teleports = teleports,
+			canRebirth = function()
+				return false
+			end,
+			rebirthCost = function()
+				return BigNum.new(1, 300)
+			end,
+			applyRebirth = function() end,
+			onStageClear = function()
+				return 0
+			end,
+			onRunEnd = function() end,
+			onRunStart = function() end,
+		}
+	end
+	local ok, err = pcall(function()
+		MODEL.WALK_ACROSS_STUDS = nil
+		local s3 = 3
+		local wantAdv = ArenaConfig.getAdvanceX(s3) - ArenaConfig.getStageEntranceX(s3)
+		local dx = ArenaConfig.getCashoutX(s3) - ArenaConfig.getStageEntranceX(s3)
+		local wantCash = math.sqrt(dx * dx + ArenaConfig.CASHOUT_LATERAL_OFFSET ^ 2)
+		check("걷기 거리: 실제 배치에서(층 입구 → 진행 벽 · 수령 발판)", checkClose(SuccessRateReport.walkDistance("advance", s3), wantAdv)
+			and checkClose(SuccessRateReport.walkDistance("cashout", s3), wantCash) and wantAdv > 0 and wantCash > 0)
+
+		-- 같은 seed · 압도적 힘(층마다 같은 결정 · 속도 상한) — 걷기를 넣은 런과 뺀 런의 시간 차 = 걸은 거리 ÷ 속도
+		local function oneRun(walk: number?, econ: any): any
+			MODEL.WALK_ACROSS_STUDS = walk
+			SuccessRateReport.ECON = econ
+			local p = playerWith(BigNum.new(1, 300))
+			local best = SuccessRateReport.runOnce(p, Random.new(11), {}, {}, nil)
+			return { p = p, best = best, t = p.elapsedSec, split = p.split or {} }
+		end
+		local off = oneRun(0, fakeEcon(false))
+		local on = oneRun(nil, fakeEcon(false))
+		local v = LevelConfig.getMaxSpeed(on.p.strength)
+		local expect = SuccessRateReport.walkDistance("cashout", on.best) / v
+		for s = 1, on.best - 1 do
+			expect += SuccessRateReport.walkDistance("advance", s) / v
+		end
+		check("같은 seed: 걷기를 넣어도 같은 길(같은 층에서 끝)", off.best == on.best and on.best >= 2, string.format("%d vs %d", off.best, on.best))
+		check("같은 seed: 시간 차 = 진행 벽 · 수령 발판까지 거리 ÷ 이동 속도", checkClose(on.t - off.t, expect),
+			string.format("%.3f vs %.3f", on.t - off.t, expect))
+		check("걷기 시간 나눔: 진행 · 수령이 따로 · 옛 모델(0)은 걷기 없음", (on.split.walk_advance or 0) > 0 and (on.split.walk_cashout or 0) > 0
+			and off.split.walk_advance == nil and off.split.walk_cashout == nil)
+		local legacy = oneRun(nil, nil)
+		check("옛 경제 재현(ECON 없음)은 걷기 없음 — 옛 기록 그대로", legacy.split.walk_advance == nil and legacy.split.walk_cashout == nil)
+		local auto = oneRun(nil, fakeEcon(true))
+		check("자동 진행(teleports)은 걷지 않는다", auto.split.walk_advance == nil and auto.split.walk_cashout == nil
+			and checkClose(auto.t, off.t))
+
+		-- 로비: 런마다 MODEL.LOBBY_SEC_PER_RUN(지금 값) · 새 경제 모델만
+		MODEL.WALK_ACROSS_STUDS = nil
+		local L = savedLobby
+		local function lobbyOf(econ: any): (number, number)
+			SuccessRateReport.ECON = econ
+			MODEL.LOBBY_SEC_PER_RUN = L
+			local seenP: any = nil
+			local res = SuccessRateReport.simulatePlayer(Random.new(12), 2, {}, nil, nil, nil, { observer = function(ev: string, p: any)
+				if ev == "run_end" then
+					seenP = p
+				end
+			end })
+			local split = if seenP ~= nil then seenP.split or {} else {}
+			return split.lobby or 0, res.runs
+		end
+		local lobby, runs = lobbyOf(fakeEcon(false))
+		check("로비: 런마다 LOBBY_SEC_PER_RUN(새 경제 모델)", checkClose(lobby, L * runs) and runs >= 1, string.format("%.2f vs %d × %.2f", lobby, runs, L))
+		local lobbyLegacy = lobbyOf(nil)
+		check("로비: 옛 경제 재현에는 없다", lobbyLegacy == 0)
+	end)
+	MODEL.WALK_ACROSS_STUDS, MODEL.LOBBY_SEC_PER_RUN, SuccessRateReport.ECON = savedWalk, savedLobby, savedEcon
+	check("#45 걷기 · 로비 검사가 오류 없이 끝남", ok, tostring(err))
+end
+
 print(string.format("[SuccessRateReportTests] %d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("[SuccessRateReportTests] %d test(s) failed", failed))

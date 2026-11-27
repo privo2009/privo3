@@ -184,10 +184,20 @@ local MODEL = {
 	-- (클릭 · 런 없음 — 시간만 흐른다. 접속 중이라 자동 제작은 그 시간에도 돈다 — EconomyReport 제작 시계가 경과 시간으로 따라온다)
 	IDLE_SHARE = 0,
 
-	-- 층을 깬 뒤 진행 벽 · 수령 발판까지 걷는 거리(studs — 지시서 #44 3부 봇 비교 줄 전용 · 기본 0 = 결과 그대로).
-	-- 게임에서는 층 입구 쪽(공격 자리)에서 진행 벽(층 중심 + 98)까지 약 166 studs를 걸어야 다음 층이다(타이머는 멈춰 있다 — 벽시계만 흐른다).
-	-- 표준 모델은 이 걷기를 세지 않는다(줍기 pickSec만 — 마지막 블록 왕복). 0보다 크면 깬 층마다 이 거리 ÷ 그때 이동 속도를 더한다
-	WALK_ACROSS_STUDS = 0,
+	-- 층을 깬 뒤 진행 벽(진행) · 수령 발판(수령)까지 걷기(지시서 #44 3부 발견 → #45 1부 표준 모델에 넣음).
+	-- 게임에서는 공격 자리(층 입구 — 게이트나 앞 층 벽을 막 지난 곳)에서 진행 벽까지 걸어야 다음 층이고 수령도 발판까지 걷는다
+	-- (타이머는 멈춰 있다 — 성공률은 같고 벽시계만 흐른다). 거리 ÷ 그때 이동 속도(LevelConfig.getMaxSpeed — 게이트 걷기와 같은 함수).
+	-- nil = 실제 배치에서 읽는다(SuccessRateReport.walkDistance — ArenaConfig 진행 벽 · 수령 발판 · 층 입구. 지금 진행 172 · 수령 161 studs —
+	-- #44 봇 실측 약 166과 맞는다) · 숫자 = 그 거리로 고정(0 = 걷기 없는 옛 모델 — 비교 줄 · 옛 기록 재현).
+	-- 새 경제 모델(ECON)에만 쓴다 — 옛 경제 재현(ECON 없음)은 옛 기록 그대로 둔다(#42 기구 배수 고정과 같은 이유).
+	-- 자동 진행(ECON.teleports)은 서버가 다음 층 입구 · 스폰으로 옮겨 걷지 않는다
+	WALK_ACROSS_STUDS = nil :: number?,
+
+	-- 런 사이 로비 시간(초 — 지시서 #45 1부. 운동기구 클릭 시간은 GYM_TRAIN_SEC가 따로 센다). 창 조작 · 대장간 · 펫 · 상점 · 스폰에서
+	-- 기구 · 메뉴로 걷기처럼 런과 런 사이에 클릭 없이 흐르는 시간. 값은 자동 플레이 봇 실측(#45 2부 정책 · 도구 몫 뺌 — TUNING 15절):
+	-- 봇 "관찰 런 사이 로비" fresh 1.3 · min30 7.8 · hour2 5.2초/런(대장간이 열리면 길어진다) → 세 구간 평균 4.8 → 5.
+	-- 새 경제 모델(ECON)에만 쓴다. 0 = 옛 모델
+	LOBBY_SEC_PER_RUN = 5,
 }
 SuccessRateReport.MODEL = MODEL
 
@@ -254,6 +264,7 @@ export type EconHooks = {
 	onStageClear: (p: any, stage: number) -> number,
 	onRunEnd: (p: any, best: number, cashed: boolean) -> (),
 	onRunStart: (p: any) -> (),
+	teleports: boolean?, -- 자동 진행: 서버가 옮겨 진행 벽 · 수령 발판까지 걷지 않는다(#45)
 }
 SuccessRateReport.ECON = nil :: EconHooks?
 
@@ -799,6 +810,37 @@ function SuccessRateReport.trainAtGym(p: Player, sec: number): number
 end
 
 -- 스폰 → 입장 게이트. 걷는 동안 평소 속도로 클릭한다. 걸린 초를 돌려준다.
+-- 깬 층에서 진행 벽 · 수령 발판까지 거리(studs — #45). MODEL.WALK_ACROSS_STUDS가 숫자면 그 값, nil이면 실제 배치(ArenaConfig)에서:
+-- 공격 자리 = 층 입구(getStageEntranceX · Z 0) → 진행 벽(getAdvanceX) / 수령 발판(getCashoutX · CASHOUT_LATERAL_OFFSET)
+function SuccessRateReport.walkDistance(kind: string, stage: number): number
+	local fixed = MODEL.WALK_ACROSS_STUDS
+	if type(fixed) == "number" then
+		return fixed
+	end
+	local fromX = ArenaConfig.getStageEntranceX(stage)
+	if kind == "advance" then
+		return ArenaConfig.getAdvanceX(stage) - fromX
+	end
+	local dx = ArenaConfig.getCashoutX(stage) - fromX
+	local dz = ArenaConfig.CASHOUT_LATERAL_OFFSET
+	return math.sqrt(dx * dx + dz * dz)
+end
+
+-- 그 거리를 그때 이동 속도로 걷는다(시간 · 걷는 동안 클릭 — walkToGate와 같은 규칙). 걸은 초를 돌려준다
+function SuccessRateReport.walkAcross(p: Player, kind: string, stage: number): number
+	local dist = SuccessRateReport.walkDistance(kind, stage)
+	if dist <= 0 then
+		return 0
+	end
+	local sec = dist / LevelConfig.getMaxSpeed(p.strength)
+	if MODEL.CLICK_WHILE_WALKING then
+		addClicks(p, math.floor(p.clickRate * sec))
+	end
+	p.elapsedSec += sec
+	addSplit(p, "walk_" .. kind, sec)
+	return sec
+end
+
 function SuccessRateReport.walkToGate(p: Player): number
 	local speed = LevelConfig.getMaxSpeed(p.strength) -- L2: 32 + 레벨(게임 SpeedService와 같은 함수)
 	local sec = ArenaConfig.getSpawnToEntrance() / speed
@@ -936,15 +978,7 @@ function SuccessRateReport.runOnce(
 			return best -- 실패: 보상 0, 스폰 복귀
 		end
 		best = stage
-		addSplit(p, "clears", 1) -- 깬 층 수(초가 아니라 횟수 — #44 봇 비교: 층마다 벽 · 발판까지 걷는 시간을 시뮬은 안 센다)
-		if MODEL.WALK_ACROSS_STUDS > 0 then
-			local across = MODEL.WALK_ACROSS_STUDS / LevelConfig.getMaxSpeed(p.strength)
-			if MODEL.CLICK_WHILE_WALKING then
-				addClicks(p, math.floor(p.clickRate * across))
-			end
-			p.elapsedSec += across
-			addSplit(p, "walk_across", across)
-		end
+		addSplit(p, "clears", 1) -- 깬 층 수(초가 아니라 횟수 — #44 봇 비교)
 		if econ ~= nil then
 			-- 드롭 줍기(후보 모델). 걷는 동안 런 중 클릭 속도로 클릭한다 — 타이머는 이미 멈췄다(cleared)
 			local pickSec = econ.onStageClear(p, stage)
@@ -961,7 +995,12 @@ function SuccessRateReport.runOnce(
 		local nextExists = StageConfig.hasStage(stage + 1)
 		local wants = if econ ~= nil and econ.advance ~= nil then econ.advance(p, stage, outcome.timeLeft)
 			else SuccessRateReport.wantsAdvance(p, stage, outcome.timeLeft)
-		if not (nextExists and wants) then
+		local advancing = nextExists and wants
+		-- #45: 진행이면 진행 벽까지 · 수령이면 발판까지 걷는다(새 경제 모델 · 자동 진행이 아니면)
+		if econ ~= nil and not econ.teleports then
+			SuccessRateReport.walkAcross(p, if advancing then "advance" else "cashout", stage)
+		end
+		if not advancing then
 			break
 		end
 		stage += 1
@@ -1145,6 +1184,11 @@ function SuccessRateReport.simulatePlayer(rng: Random, maxStage: number, firstTr
 			local idle = (p.elapsedSec - before) * MODEL.IDLE_SHARE / (1 - MODEL.IDLE_SHARE)
 			p.elapsedSec += idle
 			addSplit(p, "idle", idle)
+		end
+		-- 로비 시간(#45 — 새 경제 모델만): 런과 런 사이 창 · 대장간 · 메뉴로 클릭 없이 흐르는 시간. 자동 제작 시계는 경과 시간으로 따라온다
+		if SuccessRateReport.ECON ~= nil and MODEL.LOBBY_SEC_PER_RUN > 0 then
+			p.elapsedSec += MODEL.LOBBY_SEC_PER_RUN
+			addSplit(p, "lobby", MODEL.LOBBY_SEC_PER_RUN)
 		end
 		if observer ~= nil then
 			observer("run_end", p, seen, reached)
