@@ -1,5 +1,5 @@
 --!strict
--- 개발자 전용 관리 도구 값(지시서 #48 4부). 규칙 원본 → DESIGN.md "15. 운영 > 관리 도구" · 입구 검사 → docs/REMOTES.md.
+-- 개발자 전용 관리 도구 값(지시서 #48 4부). 규칙 원본 → DESIGN.md "17. 운영 > 관리 도구" · 입구 검사 → docs/REMOTES.md.
 --
 -- 누가 쓰나: 게임 주인(사용자 소유면 그 사용자 · 그룹 소유면 그룹 주인 — 서버가 game.CreatorType · CreatorId · GroupService로 읽는다)
 --            + 아래 ADMIN_USER_IDS. 판정은 언제나 서버가 한다(클라가 보낸 것은 믿지 않는다). 관리자가 아니면 화면도 만들지 않고

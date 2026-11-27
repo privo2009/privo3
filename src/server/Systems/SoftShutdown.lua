@@ -1,6 +1,6 @@
 --!strict
 -- 소프트 셧다운(지시서 #48 1부) — 새 버전을 게시하고 옛 서버를 닫을 때 플레이어를 잃지 않고 새 서버로 보낸다.
--- 값 · 공식 문서 근거 → Shared/Config/SoftShutdownConfig. 규칙 원본 → DESIGN.md "15. 운영 > 소프트 셧다운".
+-- 값 · 공식 문서 근거 → Shared/Config/SoftShutdownConfig. 규칙 원본 → DESIGN.md "17. 운영 > 소프트 셧다운".
 --
 -- 옛 서버(닫히는 쪽) — BindToClose · ServerRestartScheduled 둘 다 같은 evacuate:
 --   1. 모두에게 "업데이트 중" 화면(ServerNotice kind = "updating")

@@ -1,5 +1,5 @@
 --!strict
--- 개발자 전용 관리 도구(지시서 #48 4부). 값 · 누가 쓰나 → Shared/Config/AdminConfig. 규칙 → DESIGN.md "15. 운영 > 관리 도구" · REMOTES.md.
+-- 개발자 전용 관리 도구(지시서 #48 4부). 값 · 누가 쓰나 → Shared/Config/AdminConfig. 규칙 → DESIGN.md "17. 운영 > 관리 도구" · REMOTES.md.
 --
 -- 입구 AdminRequest(RemoteGuard.connect — 모양 · 연타 · 오류 격리) → 이 모듈:
 --   1. 관리자가 아니면 조용히 버린다(답 없음 — 관리 도구가 있다는 것도 알리지 않는다). 판정은 서버(게임 주인 · 그룹 주인 · 지정 목록)
