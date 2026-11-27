@@ -140,6 +140,7 @@ EconomyReport.GOAL = {
 -- "types"(플레이어 유형 TYPE_OPTIONS만 — #43 4부 · docs/TUNING.md 12절) · "botcompare"(봇 vs 시뮬 — #44 3부 · TUNING 14절)
 -- "retune"(#45 — 걷기 · 로비 넣은 모델에서 GOAL 가운데에 맞는 후보 값만 찾는다 · 커밋 값은 그대로 · TUNING 15절)
 -- "scale"(#46 — 지금 ArenaScale 배율에서 표준 · 2시간 시점 걷기 : 공격 · 24→25 · 자동 진행 차이를 한 줄로 · TUNING 16절)
+-- "check"(#46 3부 — 지금 TEMP 표준 한 묶음의 기준 줄: 25층 · 15종 · 환생 · 첫 환생 · 8층 · 전설 · k종째 · 견고함 · 남는 코인 · 블럭스)
 EconomyReport.MODE = "full"
 
 export type Policy = {
@@ -1430,6 +1431,31 @@ function EconomyReport.run()
 			fmt(old.t25), fmt(old.k15), fmt(old.n25, "%.0f"), fmt(walkOnly.t25), fmt(walkOnly.k15), fmt(lobbyHi.t25), fmt(lobbyHi.k15),
 			fmt(sm.t25), fmt(sm.k15), fmt(sm.n25, "%.0f")))
 		print(string.format("[ECON2] 봇비교 25층 %s분 · 15종 %s분 · ===== 끝 · %.0f초 =====", fmt(sm.t25), fmt(sm.k15), os.clock() - t0))
+		return
+	end
+	if E.MODE == "check" then
+		local b = { label = "지금 TEMP", set = {} }
+		local sm = E.report(b, E.PLAYERS)
+		local r = E._lastResult
+		local first = at25Med(r, function(a)
+			return if a.rebirthAt[1] ~= nil then a.rebirthAt[1] / 60 else nil
+		end)
+		local kth = {}
+		for k = 1, #Config.PICKAXES do
+			table.insert(kth, string.format("%d:%s", k, fmt(endMed(r, function(e)
+				return if e.kthAt[k] ~= nil then e.kthAt[k] / 60 else nil
+			end), "%.0f")))
+		end
+		local deltas = {}
+		for _, row in ipairs({ { "0초", { craftSec = 0 } }, { "10초", { craftSec = 10 } }, { "트리플", { tripleCraft = true } } }) do
+			local rs = E.report(withPolicy(b, "1회 제작 " .. row[1], row[2]), E.PLAYERS)
+			local d = if rs.k15 ~= nil and sm.k15 ~= nil then (rs.k15 / sm.k15 - 1) * 100 else nil
+			table.insert(deltas, string.format("%s %s%%", row[1], if d ~= nil then string.format("%+.1f", d) else "-"))
+		end
+		print(string.format("[ECON2] 점검줄 25층 %s · 15종 %s · 환생 %s · 첫 환생 %s분 · 8층 %s분 · 전설 기대 %s · 24→25 %s분 | k종째 %s | 견고함(15종) %s",
+			fmt(sm.t25), fmt(sm.k15), fmt(sm.n25, "%.0f"), fmt(first, "%.1f"), fmt(firstMin(r, 8), "%.1f"), fmt(sm.legendMean, "%.3f"),
+			fmt(sm.gap), table.concat(kth, " "), table.concat(deltas, " · ")))
+		print(string.format("[ECON2] ===== 끝 · %.0f초 =====", os.clock() - t0))
 		return
 	end
 	if E.MODE == "scale" then

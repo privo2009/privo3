@@ -124,7 +124,8 @@ EconomyV2Config.BIG_BAG_PASS_ID = ShopConfig.V2_GAMEPASS_IDS.bigBag :: number?
 EconomyV2Config.BIG_BAG_MULT = 2
 
 -- 곡괭이 배수 = PICK_RATIO^(rank − 1)(TEMP — 측정 손잡이). 펀치 데미지 업그레이드 자리에 들어간다.
-EconomyV2Config.PICK_RATIO = 1.245
+-- 지시서 #46 3부: 1.245 → 1.40 — 배율 0.5(걷기 · 로비 모델)에서 무과금 25층 ≈ 2시간 · 15종 ≈ 3시간(retune 1.403 · TUNING 16절)
+EconomyV2Config.PICK_RATIO = 1.40
 -- 가방 용량 = BAG_BASE + BAG_PER_RANK × (rank − 1) (장착 곡괭이 — TEMP 측정 손잡이)
 EconomyV2Config.BAG_BASE = 20
 EconomyV2Config.BAG_PER_RANK = 4
