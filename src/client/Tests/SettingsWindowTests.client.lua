@@ -65,7 +65,7 @@ do
 
 	-- 둘째 줄: 다른 사람 펫 숨기기 (지시서 #12 E10)
 	local pets = h._debug.rows[2]
-	check("둘째 항목: 다른 사람 펫 숨기기 · 키 hideOtherPets", #SettingsWindow.ROWS == 4 and pets ~= nil and pets.label.Text == Locale.t("settings.hideOtherPets")
+	check("둘째 항목: 다른 사람 펫 숨기기 · 키 hideOtherPets", #SettingsWindow.ROWS == 5 and pets ~= nil and pets.label.Text == Locale.t("settings.hideOtherPets")
 		and SettingsWindow.ROWS[2].key == "hideOtherPets" and pets.buttonLabel.Text == SettingsWindow.OFF_TEXT)
 	h._debug.press(2)
 	check("펫 숨기기: 지금의 반대 값 1건 · 아우라 줄 대기와 따로", #sends == 3 and sends[3].key == "hideOtherPets" and sends[3].value == true)
@@ -101,8 +101,17 @@ do
 		bottom = math.max(bottom, r.button.root.Position.Y.Scale + r.button.root.Size.Y.Scale)
 	end
 	local code = h._debug.codeHit.Parent :: GuiObject
-	check("줄 넷 · 코드 버튼 · 상태 줄이 겹치지 않는다(본문 Scale)", bottom <= code.Position.Y.Scale
+	check("줄 다섯 · 코드 버튼 · 상태 줄이 겹치지 않는다(본문 Scale)", bottom <= code.Position.Y.Scale
 		and code.Position.Y.Scale + code.Size.Y.Scale <= h._debug.status.Position.Y.Scale)
+	-- #48 저사양 모드: 다섯째 줄 — 서버 요청 없이 바로 바뀐다(클라 세션 값). 두 번 눌러 원래 값으로 되돌린다
+	local LowEndPrefs = require(script.Parent.Parent.UI.LowEndPrefs)
+	local before = LowEndPrefs.get()
+	local sentBefore = #sends
+	h._debug.press(5)
+	local flipped = LowEndPrefs.get() ~= before and h._debug.rows[5].buttonLabel.Text == (if before then SettingsWindow.OFF_TEXT else SettingsWindow.ON_TEXT)
+	h._debug.press(5)
+	check("다섯째 항목: 저사양 모드(lowEnd) — 누르면 바로 바뀜 · 서버 요청 0 · 되돌림", SettingsWindow.ROWS[5].key == "lowEnd" and flipped
+		and LowEndPrefs.get() == before and #sends == sentBefore and h._debug.rows[5].label.Text == Locale.t("settings.lowEnd"))
 	h.root:Destroy()
 end
 
@@ -136,7 +145,7 @@ do
 			end
 		end
 	end
-	check(string.format("폰: 설정 창(줄 넷 · 코드 · 상태) 넘침 0 · 최소 %.1fpx ≥ 11", minH), #bad == 0 and minH >= TextScale.MIN_TEXT_PX - 0.5,
+	check(string.format("폰: 설정 창(줄 다섯 · 코드 · 상태) 넘침 0 · 최소 %.1fpx ≥ 11", minH), #bad == 0 and minH >= TextScale.MIN_TEXT_PX - 0.5,
 		table.concat(bad, ", "))
 	print(string.format("[SettingsWindowTests] 폰 705×338(%s): 최소 %.1fpx · 넘침 %d", Locale.current(), minH, #bad))
 	gui:Destroy()

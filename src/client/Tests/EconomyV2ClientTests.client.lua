@@ -90,7 +90,9 @@ end
 do
 	local gui = Instance.new("ScreenGui")
 	local now = 0
-	local fx = CoinFx.create({ parent = gui, autoStep = false, clock = function()
+	local fx = CoinFx.create({ parent = gui, autoStep = false, lowEnd = function()
+		return false -- 기기 품질과 상관없이(#48 저사양 모드 — 줄어드는 쪽은 LowEndModeTests)
+	end, clock = function()
 		return now
 	end, toScreen = function(p: Vector3)
 		return Vector2.new(p.X, p.Y)

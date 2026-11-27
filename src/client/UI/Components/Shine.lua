@@ -26,6 +26,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UIFxConfig = require(ReplicatedStorage.Shared.Config.UIFxConfig)
 local ShineLogic = require(script.Parent.Parent.Logic.ShineLogic)
 local FxPrefs = require(script.Parent.Parent.FxPrefs)
+local LowEndPrefs = require(script.Parent.Parent.LowEndPrefs) -- 저사양 모드(#48)
+local LowEndConfig = require(game:GetService("ReplicatedStorage").Shared.Config.LowEndConfig)
 
 local Shine = {}
 
@@ -178,7 +180,8 @@ local function newDriver(opts: { clock: (() -> number)?, prefs: Prefs? }?): Driv
 			table.insert(flat, { visible = e.visible, priority = e.priority, order = e.order })
 		end
 		local activeSet: { [Entry]: boolean } = {}
-		local reduced = prefs.reduceMotion()
+		-- 저사양 모드(#48 3부)도 빛 띠를 멈춘다 — 전역 구동기만(테스트가 넘긴 prefs는 그대로 — 격리)
+		local reduced = prefs.reduceMotion() or (o.prefs == nil and not LowEndConfig.SHINE and LowEndPrefs.get())
 		if not reduced then
 			for _, i in ipairs(ShineLogic.pickActive(flat, UIFxConfig.SHINE_MAX_ACTIVE)) do
 				activeSet[list[i]] = true

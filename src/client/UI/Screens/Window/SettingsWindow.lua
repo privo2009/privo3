@@ -1,7 +1,8 @@
 --!strict
 -- 설정 창 (작은 창, Window 층). Phase 7 지시서 #11 A8. 메뉴 레일 "설정" 칸(screenName "Settings")이 연다.
 --
--- 항목 넷: "다른 사람 아우라 숨기기"(#11 A8) · "다른 사람 펫 숨기기"(#12 E10) · "연출 줄이기" · "효과음"(#25 U7 · S3). 줄은 ROWS 표에서 나온다.
+-- 항목 다섯: "다른 사람 아우라 숨기기"(#11 A8) · "다른 사람 펫 숨기기"(#12 E10) · "연출 줄이기" · "효과음"(#25 U7 · S3) ·
+-- "저사양 모드"(#48 — 클라 세션 값 · 서버 요청 없음). 줄은 ROWS 표에서 나온다.
 -- 토글은 자동 도구 · 칭호 창과 같은 두 채널: 테두리 색(켜짐 = 수령 · 안전 노랑 / 꺼짐 = 검정 — 버튼 그림의 UIStroke) + 글자 밝기.
 -- 요청은 SettingsRequest{key, value}(서버 화이트리스트가 다시 판정), 결과는 SettingsResult. 저장된 값은 PlayerState(Store "auras" · "pets" ·
 -- "settings")가 돌려준다. 토글 아래 줄: "코드 입력" 버튼(지시서 #20 C6) — 코드 입력 창을 연다(Window 단일 오픈이라 이 창은 닫힌다).
@@ -17,6 +18,7 @@ local WindowParts = require(script.Parent.Parent.Parent.Components.WindowParts)
 local Store = require(script.Parent.Parent.Parent.Store)
 local TitleWindowLogic = require(script.Parent.Parent.Parent.Logic.TitleWindowLogic)
 local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39 — 모양 숫자 · 색은 UiTheme.Skin)
+local LowEndPrefs = require(script.Parent.Parent.Parent.LowEndPrefs) -- 저사양 모드(#48 — 클라 세션 값)
 
 local SettingsWindow = {}
 
@@ -58,11 +60,23 @@ local ROWS = {
 			return not (type(st) == "table" and st.sfxEnabled == false)
 		end,
 	},
+	{
+		key = "lowEnd", -- 지시서 #48 3부 — 저사양 모드. 클라 세션 값(LowEndPrefs) — 서버에 보내지 않고 저장하지 않는다(접속마다 기기 품질로 첫 값)
+		label = Locale.t("settings.lowEnd"),
+		localOnly = true,
+		read = function(_source: any): boolean
+			return LowEndPrefs.get()
+		end,
+		toggle = function()
+			LowEndPrefs.set(not LowEndPrefs.get())
+		end,
+	},
 }
 SettingsWindow.ROWS = ROWS
 
-local ROW_H = 0.13
-local ROW_GAP = 0.02
+-- #48: 줄 다섯(저사양 모드 더함) — 0.13 + 0.02 → 0.115 + 0.015(코드 버튼 · 상태 줄과 안 겹치게 · 폰 11px 하한은 SettingsWindowTests)
+local ROW_H = 0.115
+local ROW_GAP = 0.015
 local LABEL_W = 0.62
 local TOGGLE_X, TOGGLE_W = 0.66, 0.34
 
@@ -159,6 +173,13 @@ function SettingsWindow.create(deps: Deps): Handle
 			return
 		end
 		resultText = nil
+		if (row :: any).localOnly then
+			-- 저사양 모드: 서버에 보내지 않고 바로 바꾼다(대기 없음)
+			pending.finish(row.key);
+			(row :: any).toggle()
+			render()
+			return
+		end
 		deps.sendRequest({ key = row.key, value = not row.read(source) })
 		render()
 		task.delay(TitleWindowLogic.PENDING_TIMEOUT_SEC + 0.05, render)
@@ -191,6 +212,9 @@ function SettingsWindow.create(deps: Deps): Handle
 	source.subscribe("auras", render)
 	source.subscribe("pets", render)
 	source.subscribe("settings", render)
+	LowEndPrefs.onChanged(function()
+		render()
+	end)
 	render()
 
 	return { root = panel.root, refresh = render, onResult = onResult, _debug = { press = press, rows = rows, status = status, codeHit = codeHit, codeLabel = codeLabel } }

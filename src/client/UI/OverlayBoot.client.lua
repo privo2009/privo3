@@ -31,6 +31,8 @@ local UIFxConfig = require(ReplicatedStorage.Shared.Config.UIFxConfig)
 local Fx = require(script.Parent.Components.Fx)
 local OverlayParts = require(script.Parent.Screens.Overlay.OverlayParts)
 local Sfx = require(script.Parent.Parent.Audio.Sfx)
+local LowEndPrefs = require(script.Parent.LowEndPrefs)
+local LowEndConfig = require(ReplicatedStorage.Shared.Config.LowEndConfig)
 local SfxLogic = require(script.Parent.Parent.Audio.SfxLogic)
 
 -- 효과음 한 번(키가 nil이면 소리 없음)
@@ -142,7 +144,9 @@ channels.rebirthResult.OnClientEvent:Connect(function(payload: Remotes.RebirthRe
 	if type(payload) ~= "table" or not payload.ok or type(payload.total) ~= "table" or type(payload.gained) ~= "table" then
 		return
 	end
-	Fx.flash(rebirthFlash, UIFxConfig.REBIRTH_FLASH_FROM, UIFxConfig.REBIRTH_FLASH_TIME)
+	if LowEndConfig.REBIRTH_FLASH or not LowEndPrefs.get() then -- 저사양 모드(#48)면 화면 번쩍임 생략(안내 글 · 소리는 그대로)
+		Fx.flash(rebirthFlash, UIFxConfig.REBIRTH_FLASH_FROM, UIFxConfig.REBIRTH_FLASH_TIME)
+	end
 	sfx(SfxLogic.forRebirth(payload))
 	rebirthNotice.show(FeedbackLogic.rebirthNotice(BigNum.new(payload.total.m, payload.total.e), BigNum.new(payload.gained.m, payload.gained.e)))
 end)

@@ -28,6 +28,6 @@ function TestGate.flagOn(value: any, isStudio: boolean?): boolean
 end
 
 -- 커밋 값이 꺼져 있어야 하는 Studio 전용 플래그 이름(check_test_gate.py가 같은 목록으로 파일을 본다 — 빠지면 실패)
-TestGate.STUDIO_FLAGS = { "TEST_UI_PREVIEW", "TEST_AUTOPLAY" }
+TestGate.STUDIO_FLAGS = { "TEST_UI_PREVIEW", "TEST_AUTOPLAY", "TEST_LOW_END" }
 
 return TestGate

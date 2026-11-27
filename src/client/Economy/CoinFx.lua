@@ -13,6 +13,12 @@ local Kit = require(script.Parent.Parent.UI.Components.Kit) -- UI 키트(#39 —
 local CoinFx = {}
 
 CoinFx.MAX_PER_BURST = 6
+-- 지금 한 번에 날리는 최대 수(저사양 모드 #48 — LowEndConfig.COIN_BURST). 코인 수(재화)는 서버 값 그대로 — 그림만 줄어든다
+function CoinFx.burstMax(lowEnd: (() -> boolean)?): number
+	local LowEndConfig = require(game:GetService("ReplicatedStorage").Shared.Config.LowEndConfig)
+	local read = lowEnd or require(script.Parent.Parent.UI.LowEndPrefs).get
+	return LowEndConfig.pick(read(), CoinFx.MAX_PER_BURST, LowEndConfig.COIN_BURST)
+end
 CoinFx.FLY_SEC = 0.6
 CoinFx.SIZE = 0.025 -- 화면 높이 대비(Scale — 폭은 비율 제약이 높이를 따라간다)
 
@@ -22,6 +28,7 @@ export type Options = {
 	target: () -> Vector2, -- 날아갈 곳(HUD 코인 아이콘)
 	clock: (() -> number)?,
 	autoStep: boolean?,
+	lowEnd: (() -> boolean)?, -- 저사양 모드인가(기본 LowEndPrefs.get — #48). 테스트는 고정값을 넘긴다(기기 품질과 상관없게)
 }
 
 export type Handle = {
@@ -88,7 +95,7 @@ function CoinFx.create(o: Options): Handle
 		local n = 0
 		local now = clock()
 		for _, pos in ipairs(positions) do
-			if n >= CoinFx.MAX_PER_BURST then
+			if n >= CoinFx.burstMax(o.lowEnd) then
 				break
 			end
 			local screen = toScreen(pos)

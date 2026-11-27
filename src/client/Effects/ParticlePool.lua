@@ -9,6 +9,8 @@
 -- 사용법: local fragment = ParticlePool.acquire(); if fragment then ... ParticlePool.release(fragment) end
 
 local Workspace = game:GetService("Workspace")
+local LowEndConfig = require(game:GetService("ReplicatedStorage").Shared.Config.LowEndConfig)
+local LowEndPrefs = require(script.Parent.Parent.UI.LowEndPrefs) -- 저사양 모드(#48 3부): 동시 파편 상한을 절반으로
 
 local ParticlePool = {}
 
@@ -66,6 +68,10 @@ function ParticlePool.acquire(): Fragment?
 	if count == 0 then
 		return nil
 	end
+	-- 저사양 모드: 빌려준 수가 FRAGMENT_CAP에 닿으면 더 안 빌려준다(풀 크기는 그대로 — 켜고 끄기를 바로 따른다)
+	if POOL_SIZE - count >= ParticlePool.cap() then
+		return nil
+	end
 
 	local fragment = freeList[count]
 	freeList[count] = nil
@@ -91,6 +97,11 @@ function ParticlePool.release(fragment: Fragment)
 	fragment.CFrame = CFrame.new(PARKED_POSITION)
 
 	table.insert(freeList, fragment)
+end
+
+-- 지금 동시 파편 상한(저사양 모드면 LowEndConfig.FRAGMENT_CAP · 아니면 풀 크기)
+function ParticlePool.cap(): number
+	return LowEndConfig.pick(LowEndPrefs.get(), POOL_SIZE, LowEndConfig.FRAGMENT_CAP)
 end
 
 -- 디버그/데모용 현황 조회.

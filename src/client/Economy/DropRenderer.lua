@@ -12,6 +12,8 @@ local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config.EconomyV2Config)
 local AssetSlots = require(ReplicatedStorage.Shared.AssetSlots)
+local LowEndConfig = require(ReplicatedStorage.Shared.Config.LowEndConfig)
+local LowEndPrefs = require(script.Parent.Parent.UI.LowEndPrefs)
 
 local DropRenderer = {}
 
@@ -27,6 +29,7 @@ export type Options = {
 	clock: (() -> number)?,
 	autoStep: boolean?, -- 기본 true — RenderStepped로 움직인다(테스트는 false · step을 직접)
 	template: ((key: string) -> Instance?)?, -- 모델 틀 찾기(기본 AssetSlots.template — 테스트는 가짜 틀)
+	lowEnd: (() -> boolean)?, -- 저사양 모드인가(기본 LowEndPrefs.get — #48). 켜면 동시 드롭 DROP_VISIBLE_MAX · 반짝이 끔
 }
 
 export type Handle = {
@@ -63,6 +66,7 @@ function DropRenderer.create(options: Options?): Handle
 		folder = f
 	end
 	local getTarget = o.getTarget or defaultTarget
+	local lowEnd: () -> boolean = o.lowEnd or LowEndPrefs.get
 
 	local findTemplate = o.template or function(key: string): Instance?
 		return AssetSlots.template(key)
@@ -132,7 +136,7 @@ function DropRenderer.create(options: Options?): Handle
 			fx = e
 		end
 		if fx ~= nil then
-			fx.Enabled = texture ~= nil
+			fx.Enabled = texture ~= nil and (LowEndConfig.DROP_SPARKLE or not lowEnd())
 			if texture ~= nil then
 				fx.Texture = texture
 			end
@@ -155,8 +159,15 @@ function DropRenderer.create(options: Options?): Handle
 	local self = {} :: Handle
 
 	function self.spawn(drops: { any })
+		-- 저사양 모드: 동시에 그리는 드롭을 DROP_VISIBLE_MAX까지(넘는 것은 안 그린다 — 줍기 · 가방은 서버 판정이라 그대로)
+		local visible = self.activeCount()
+		local cap = if lowEnd() then LowEndConfig.DROP_VISIBLE_MAX else math.huge
 		for _, d in ipairs(drops) do
+			if visible >= cap then
+				break
+			end
 			if type(d) == "table" and type(d.id) == "number" and active[d.id] == nil and typeof(d.position) == "Vector3" then
+				visible += 1
 				local ore = if Config.ORE_VISUALS[d.ore] ~= nil then d.ore else 1
 				local part = take(ore)
 				if part:GetAttribute("PoolKey") == TEMP_KEY then

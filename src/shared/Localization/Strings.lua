@@ -247,6 +247,7 @@ Strings.Entries = {
 	["settings.hideOtherPets"] = { en = "Hide other players' Pets", ko = "다른 사람 펫 숨기기" },
 	["settings.reduceMotion"] = { en = "Reduce Motion", ko = "연출 줄이기" },
 	["settings.sfxEnabled"] = { en = "Sound Effects", ko = "효과음" },
+	["settings.lowEnd"] = { en = "Low-End Mode", ko = "저사양 모드" }, -- #48 — 파편 · 코인 · 드롭 · 빛 띠를 줄인다
 	["settings.reason.not_allowed"] = { en = "This setting can't be changed", ko = "바꿀 수 없는 설정이에요" },
 	["settings.reason.bad_value"] = { en = "Invalid value", ko = "잘못된 값이에요" },
 	["settings.reason.failed"] = { en = "Couldn't change it", ko = "바꾸지 못했어요" },
@@ -604,6 +605,19 @@ Strings.Entries = {
 	-- ===== 접속 끊김 안내 (서버 Player:Kick — Server/Systems/LocaleGate가 그 플레이어 언어로 고른다. K5의 단 하나 예외) =====
 	["kick.loadFailed"] = { en = "Couldn't load your data. Please rejoin.", ko = "데이터 로드에 실패했습니다. 다시 접속해 주세요." },
 	["kick.updating"] = { en = "The server is updating. Please rejoin.", ko = "서버를 업데이트하는 중입니다. 다시 접속해 주세요." }, -- 소프트 셧다운(#48)
+	["admin.title"] = { en = "Admin Tools", ko = "관리 도구" }, -- #48 관리 도구(개발자 전용 — 관리자에게만 보인다)
+	["admin.open"] = { en = "Admin", ko = "관리" },
+	["admin.target"] = { en = "UserId", ko = "UserId" },
+	["admin.id"] = { en = "Id (ore 1-10 · token · pickaxe · pet)", ko = "Id(광석 1-10 · 토큰 · 곡괭이 · 펫)" },
+	["admin.amount"] = { en = "Amount", ko = "개수" },
+	["admin.text"] = { en = "Notice text", ko = "공지 글" },
+	["admin.kind"] = { en = "Kind: {kind}", ko = "종류: {kind}" },
+	["admin.grant"] = { en = "Grant", ko = "지급" },
+	["admin.revoke"] = { en = "Revoke", ko = "회수" },
+	["admin.inspect"] = { en = "Inspect", ko = "상태" },
+	["admin.announce"] = { en = "Announce", ko = "공지" },
+	["admin.ok"] = { en = "Done", ko = "완료" },
+	["admin.fail"] = { en = "Failed: {reason}", ko = "실패: {reason}" },
 	["kick.versionError"] = { en = "Data version error. Please rejoin.", ko = "데이터 버전 오류입니다. 다시 접속해 주세요." },
 	["kick.corrupted"] = { en = "Your data is damaged and can't be loaded. Please contact an admin.", ko = "데이터가 손상되어 로드할 수 없습니다. 관리자에게 문의해 주세요." },
 	["kick.otherServer"] = { en = "Your data was loaded on another server. Please rejoin.", ko = "다른 서버에서 데이터를 불러왔습니다. 다시 접속해 주세요." },

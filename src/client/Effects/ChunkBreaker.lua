@@ -14,6 +14,8 @@
 --   - 물리 금지. 파편 낙하는 Heartbeat 기반 수동 애니메이션(위치를 직접 계산해서 대입)이고
 --     TweenService/물리 엔진을 쓰지 않는다
 
+local LowEndConfig = require(game:GetService("ReplicatedStorage").Shared.Config.LowEndConfig)
+local LowEndPrefs = require(script.Parent.Parent.UI.LowEndPrefs) -- 저사양 모드(#48)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -48,11 +50,15 @@ local SAMPLE_FULL_EFFECT_MAX_BATCH_SIZE = 6
 local SAMPLE_TARGET_FRAGMENT_COUNT = 12
 
 -- batchSize개 중 몇 개마다 하나씩 파편을 낼지. 1이면 전부, 2면 하나 걸러 하나...
+-- 저사양 모드(#48 3부)면 두 값을 LowEndConfig의 낮은 값으로(파편이 절반쯤). 큐브 숨김(게임 상태)은 그대로 전부
 local function computeSampleInterval(batchSize: number): number
-	if batchSize <= SAMPLE_FULL_EFFECT_MAX_BATCH_SIZE then
+	local low = LowEndPrefs.get()
+	local fullMax = LowEndConfig.pick(low, SAMPLE_FULL_EFFECT_MAX_BATCH_SIZE, LowEndConfig.FRAGMENT_FULL_BATCH)
+	local target = LowEndConfig.pick(low, SAMPLE_TARGET_FRAGMENT_COUNT, LowEndConfig.FRAGMENT_TARGET)
+	if batchSize <= fullMax then
 		return 1
 	end
-	return math.max(1, math.ceil(batchSize / SAMPLE_TARGET_FRAGMENT_COUNT))
+	return math.max(1, math.ceil(batchSize / target))
 end
 
 type ActiveFragment = {
@@ -268,5 +274,7 @@ function ChunkBreaker.new(model: Model, totalCubes: number, seed: number, stagge
 
 	return self
 end
+
+ChunkBreaker._computeSampleInterval = computeSampleInterval -- 테스트 전용(#48 저사양 모드)
 
 return ChunkBreaker
