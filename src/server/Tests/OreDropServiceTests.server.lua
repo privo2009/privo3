@@ -218,6 +218,34 @@ do
 	check("자동 진행 보유자: 멀어도 전부 줍는다", P.bagUsed((OreDropService._state(p) :: any).bag) > 0)
 	OreDropService._reset(p)
 end
+-- #49 제한 지역(유료 랜덤 제한 유저): 자동 진행을 가져도 "전부 줍기"가 꺼지고 일반 반경만. 제한 · 비제한 × 보유 · 미보유 네 경우 —
+-- 먼 드롭(반경 × 3)은 보유 · 비제한만 줍고 · 가까운 드롭(반경 안)은 넷 다 줍는다
+do
+	local results = {}
+	for _, case in ipairs({ { auto = true, restricted = false }, { auto = true, restricted = true }, { auto = false, restricted = false },
+		{ auto = false, restricted = true } }) do
+		local w = fakeWorld({ auto = case.auto })
+		w.deps.isRestricted = function()
+			return case.restricted
+		end
+		OreDropService._deps = w.deps
+		local p: any = { Name = "OreTestRestricted", UserId = 3204 }
+		OreDropService._reset(p)
+		OreDropService.onStageEnter(p, 1, "start")
+		w.root = Vector3.new(R * 3, 0, 0)
+		OreDropService.onBlocksDestroyed(p, 1, { Vector3.new(0, 0, 0) })
+		OreDropService.pickupTick(p)
+		local far = P.bagUsed((OreDropService._state(p) :: any).bag) > 0
+		w.root = Vector3.zero
+		OreDropService.pickupTick(p)
+		local near = P.bagUsed((OreDropService._state(p) :: any).bag) > 0
+		table.insert(results, { far = far, near = near })
+		OreDropService._reset(p)
+	end
+	check("제한 지역(#49): 먼 드롭은 보유 · 비제한만 · 보유 · 제한 / 미보유 둘은 반경 안만 줍는다(네 경우)",
+		results[1].far and not results[2].far and not results[3].far and not results[4].far
+			and results[2].near and results[3].near and results[4].near)
+end
 do
 	local w = fakeWorld({ inv = (function()
 		local t = L.newInv()
