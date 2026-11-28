@@ -165,11 +165,11 @@ do
 		end
 	end
 	check("제한 유저(#48): 창 로벅스 칸에도 행운 상품 · 숨김 목록(Triple Hatch 등) 0줄 — 로벅스 탭과 같다", #leaks == 0, table.concat(leaks, ","))
-	-- #49 "Enhanced resource drops": 자동 진행의 드롭 전부 줍기는 구매 전 설명에 · 제한 유저는 그 효과가 없어 줍기를 말하지 않는 문장
+	-- #50(#49 되돌림): 자동 진행은 제한 지역에서도 드롭 전부 줍기 — 설명은 하나(구매 전 효과 설명 "드롭을 전부 주워요")
 	local aaFree = rowByKey(RobuxShopLogic.rows(shop(nil, false), {}), "autoAdvance")
 	local aaRestricted = rowByKey(RobuxShopLogic.rows(shop(nil, true), {}), "autoAdvance")
-	check("자동 진행 설명(#49): 일반 = 드롭 전부 줍기 포함 · 제한 = 줍기 없는 문장(상품은 그대로 판다)", aaFree ~= nil and aaRestricted ~= nil
-		and aaFree.detail == Locale.t("shop.autoAdvance.descPickup") and aaRestricted.detail == Locale.t("shop.autoAdvance.desc"))
+	check("자동 진행 설명(#50): 일반 · 제한 같은 문장 하나(드롭 전부 줍기 — 상품 그대로 판다)", aaFree ~= nil and aaRestricted ~= nil
+		and aaFree.detail == Locale.t("shop.autoAdvance.desc") and aaRestricted.detail == aaFree.detail)
 end
 
 -- 2. 행운 게임패스(10배 아우라 · 10배 칭호 · 2배 펫) -----------------------------------------------------------

@@ -218,8 +218,8 @@ do
 	check("자동 진행 보유자: 멀어도 전부 줍는다", P.bagUsed((OreDropService._state(p) :: any).bag) > 0)
 	OreDropService._reset(p)
 end
--- #49 제한 지역(유료 랜덤 제한 유저): 자동 진행을 가져도 "전부 줍기"가 꺼지고 일반 반경만. 제한 · 비제한 × 보유 · 미보유 네 경우 —
--- 먼 드롭(반경 × 3)은 보유 · 비제한만 줍고 · 가까운 드롭(반경 안)은 넷 다 줍는다
+-- #50(#49 되돌림) 제한 지역(유료 랜덤 제한 유저)도 자동 진행을 가지면 전부 줍는다. 제한 · 비제한 × 보유 · 미보유 네 경우 —
+-- 먼 드롭(반경 × 3)은 보유자만(제한 여부와 무관) · 가까운 드롭(반경 안)은 넷 다 줍는다. isRestricted를 끼워도 줍기는 그것을 보지 않는다
 do
 	local results = {}
 	for _, case in ipairs({ { auto = true, restricted = false }, { auto = true, restricted = true }, { auto = false, restricted = false },
@@ -242,9 +242,9 @@ do
 		table.insert(results, { far = far, near = near })
 		OreDropService._reset(p)
 	end
-	check("제한 지역(#49): 먼 드롭은 보유 · 비제한만 · 보유 · 제한 / 미보유 둘은 반경 안만 줍는다(네 경우)",
-		results[1].far and not results[2].far and not results[3].far and not results[4].far
-			and results[2].near and results[3].near and results[4].near)
+	check("제한 지역(#50): 먼 드롭은 보유자만(제한 · 비제한 둘 다) · 미보유 둘은 반경 안만 줍는다(네 경우)",
+		results[1].far and results[2].far and not results[3].far and not results[4].far
+			and results[3].near and results[4].near)
 end
 do
 	local w = fakeWorld({ inv = (function()

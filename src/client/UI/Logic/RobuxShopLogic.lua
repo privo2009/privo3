@@ -118,22 +118,11 @@ function RobuxShopLogic.oddsText(roll: string, mult: number, ctx: Context, shop:
 		after = after[#tiers] }) -- percentages가 "%"를 붙인다
 end
 
--- 자동 진행 설명(#49): 드롭 전부 줍기는 구매 전에 알린다(공식 "Enhanced resource drops" — 숫자 · 효과 설명). 제한 유저에게는 그 효과가 없으니
--- 줍기를 말하지 않는 문장(원래 설명)
-function RobuxShopLogic.autoAdvanceDesc(shop: any): string
-	if ShopEffectsLogic.fromSummary(shop).restricted then
-		return Locale.t("shop.autoAdvance.desc")
-	end
-	return Locale.t("shop.autoAdvance.descPickup")
-end
-
 local function passRow(key: string, owns: (string) -> boolean, ctx: Context, shop: any): Row
 	local def = ShopConfig.get(key) :: ShopConfig.ProductDef
 	local detail = Names.productDesc(key)
 	if def.effect.type == "luckPass" then
 		detail = RobuxShopLogic.oddsText(def.effect.roll, def.effect.mult, ctx, shop)
-	elseif def.effect.type == "autoAdvance" then
-		detail = RobuxShopLogic.autoAdvanceDesc(shop)
 	end
 	local state: State = if owns(key) then "owned"
 		elseif ShopConfig.ownedHigher(key, owns) ~= nil then "ownedHigher"

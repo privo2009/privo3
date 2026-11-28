@@ -171,8 +171,7 @@ Strings.Entries = {
 	["shop.voidTrainingZone.name"] = { en = "Void Training Zone", ko = "공허 훈련 구역" },
 	["shop.voidTrainingZone.desc"] = { en = "Unlocks the strongest Gym", ko = "가장 센 운동기구를 열어요" },
 	["shop.autoAdvance.name"] = { en = "Auto Advance", ko = "자동 진행" },
-	["shop.autoAdvance.desc"] = { en = "Keeps advancing up to your target floor", ko = "목표층까지 멈추지 않고 진행해요" },
-	["shop.autoAdvance.descPickup"] = { en = "Auto-advances · picks up all drops", ko = "목표층까지 진행 · 드롭을 전부 주워요" }, -- #49 제한 지역 밖 설명
+	["shop.autoAdvance.desc"] = { en = "Auto-advances · picks up all drops", ko = "목표층까지 진행 · 드롭을 전부 주워요" }, -- #50 하나로(제한 지역도 같다)
 	["shop.strengthTier.name"] = { en = "x{mult} Power", ko = "{mult}배 힘" },
 	["shop.strengthTier.desc"] = { en = "x{mult} Power from clicks (only your highest tier applies)", ko = "클릭으로 얻는 힘이 {mult}배예요(가장 높은 단계 하나만)" },
 	["shop.luckyRoll5.name"] = { en = "Lucky Roll x5", ko = "럭키 롤 5회" },

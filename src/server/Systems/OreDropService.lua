@@ -13,8 +13,8 @@
 --             좋을 때만 바꿔 줍고(낮은 것은 사라진다) 아니면 바닥에 남는다(EconomyV2Logic.addToBag)
 --   층 이동   다음 층으로 가면 남은 드롭은 사라진다(가방은 그대로)
 --   자동 진행 보유자(게임패스 autoAdvance)는 거리와 상관없이 전부 줍는다. 가방 상한은 그대로
---             ⚠️ 유료 랜덤 제한 유저(PolicyGate — ArePaidRandomItemsRestricted)는 보유해도 일반 반경으로만 줍는다(#49 희준 결정 —
---             공식 예 "Enhanced resource drops" · 큰 가방 숨김과 같은 기준). 층 자동 진행은 그대로
+--             유료 랜덤 제한 유저(PolicyGate)도 같다(#50 희준 결정 — #49의 제한 유저 반경 줍기를 되돌림: 산 사람이 오히려 0개를 줍고,
+--             자동 진행은 누구나 걸어가면 주울 드롭을 대신 주울 뿐 양 · 확률을 늘리지 않는다. 양을 늘리는 큰 가방은 제한 지역에서 그대로 숨긴다)
 --   런 끝     수령 → 가방을 인벤토리로(InventoryService.addOres) · 실패 · 사망 · 이탈 · 나가기 → 가방을 비운다(G11)
 --   코인      블록이 깨지면 그 층 코인이 바로 들어온다(CurrencyService "coins" — 실패해도 잃지 않는다) · 클라에 코인 이펙트 신호
 --   대장간    FORGE_UNLOCK_STAGE에 처음 도달하면 열림을 저장(InventoryService.openForge — 영구)하고 알린다. 열리기 전에 첫 광석을 주우면
@@ -166,8 +166,6 @@ export type Deps = {
 	openForge: (Player, string) -> boolean,
 	getEquipped: (Player) -> string?,
 	ownsAutoAdvance: (Player) -> boolean,
-	-- 유료 랜덤 제한 유저인가(#49 — 자동 진행 "전부 줍기"를 끈다). 없으면 제한 아님(기록용 deps · 예전 테스트)
-	isRestricted: ((Player) -> boolean)?,
 	ownsBigBag: (Player) -> boolean,
 	rootPosition: (Player) -> Vector3?,
 	-- 위치를 믿어도 되나(지시서 #43 2부 — MovementGuard.isTrusted). 없으면 믿는다(기록용 deps · 예전 테스트)
@@ -199,9 +197,6 @@ local function liveDeps(): Deps
 		end,
 		ownsAutoAdvance = function(player)
 			return GamepassService.owns(player, "autoAdvance")
-		end,
-		isRestricted = function(player)
-			return require(script.Parent.PolicyGate).isPaidRandomRestricted(player)
 		end,
 		ownsBigBag = function(player)
 			-- 큰 가방(#35 — ShopConfig 키 bigBag · 제한 지역이면 끔). ID가 nil이면 상품 표에 없어 보유 없음
@@ -350,18 +345,13 @@ function OreDropService.onRunEnded(player: Player, reason: string)
 end
 
 -- 줍기 한 번(루프 · 테스트). 주운 게 있으면 가방 신호 · 처음 주운 광석이면 대장간 안내.
--- 거리와 상관없이 전부 줍는가(#49): 자동 진행 보유 · 제한 유저 아님 둘 다일 때만. 순수 — 네 경우를 테스트가 본다
-function OreDropService.pickAll(ownsAutoAdvance: boolean, restricted: boolean): boolean
-	return ownsAutoAdvance and not restricted
-end
-
 function OreDropService.pickupTick(player: Player)
 	local state = states[player]
 	if state == nil or next(state.drops) == nil then
 		return
 	end
 	local d = deps()
-	local all = OreDropService.pickAll(d.ownsAutoAdvance(player), d.isRestricted ~= nil and d.isRestricted(player))
+	local all = d.ownsAutoAdvance(player) -- 자동 진행 보유자는 제한 지역이어도 전부 줍는다(#50)
 	local root = if all then nil else d.rootPosition(player)
 	if not all and root == nil then
 		return
