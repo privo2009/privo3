@@ -390,7 +390,7 @@ function AutoplayBot.run()
 	local function petVisit()
 		setPhase("pet")
 		local s = snap()
-		local eggs = PetConfig.getUnlockedEggs(s.lifetimeBlox, s.pets.world)
+		local eggs = PetConfig.getUnlockedEggs(s.lifetimeBlox, s.pets.world, s.pets.bestDepth)
 		local egg = eggs[#eggs]
 		if egg == nil or econ.get().autoHatchOn then
 			return
@@ -415,7 +415,7 @@ function AutoplayBot.run()
 			request(channels.forgeRequest, { action = "auto", on = true, fill = true }, "auto_state")
 		end
 		local s = snap()
-		local eggs = PetConfig.getUnlockedEggs(s.lifetimeBlox, s.pets.world)
+		local eggs = PetConfig.getUnlockedEggs(s.lifetimeBlox, s.pets.world, s.pets.bestDepth)
 		local egg = eggs[#eggs]
 		if egg ~= nil and not econ.get().autoHatchOn then
 			local cost = EconomyV2Logic.eggCoinCost(egg)

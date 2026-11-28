@@ -77,6 +77,17 @@ function OnboardingTipsLogic.facts(data: any, bagUsed: number?): Facts
 	local hasPet = next(pets) ~= nil
 	local egg1 = PetConfig.Eggs[1]
 	local eggOpen = egg1 ~= nil and BigNum.gte(big(d.lifetimeBlox), egg1.rollCost)
+	-- 알 4(#49): 25층을 처음 깸(stats.bestRunDepth) → 안내 · 그 알 펫을 가지면 지남
+	local egg4 = PetConfig.Eggs[4]
+	local depth = if type(d.stats) == "table" and type(d.stats.bestRunDepth) == "number" then d.stats.bestRunDepth else 0
+	local egg4Open = egg4 ~= nil and PetConfig.eggOpen(egg4, big(d.lifetimeBlox), depth)
+	local hasEgg4Pet = false
+	for _, pet in pairs(pets) do
+		local _, eggId = PetConfig.get(if type(pet) == "table" then pet.petId else nil)
+		if eggId == 4 then
+			hasEgg4Pet = true
+		end
+	end
 	return {
 		blox = { trigger = positive(d.lifetimeBlox) or positive(d.blox), past = hasRebirth },
 		coins = { trigger = positive(d.coins), past = false },
@@ -85,6 +96,7 @@ function OnboardingTipsLogic.facts(data: any, bagUsed: number?): Facts
 		craft = { trigger = forgeOpen, past = anyPositive(d.tokens) or owned > 1 },
 		equip = { trigger = better, past = equippedId ~= EconomyV2Config.START_PICKAXE },
 		egg = { trigger = eggOpen, past = hasPet },
+		egg4 = { trigger = egg4Open, past = hasEgg4Pet },
 	}
 end
 

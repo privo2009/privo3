@@ -49,7 +49,8 @@ local Kit = require(script.Parent.Parent.Parent.Components.Kit) -- UI 키트(#39
 local PetWindow = {}
 
 -- 본문 기준 배치. Claude가 정했다(docs/UI.md "지시서 #12" 절).
-local TAB_H, TAB_W, TAB_GAP, MAX_TABS = 0.09, 0.19, 0.015, 3
+-- #49: 알 넷(알 4 — 25층) — 탭 0.19 × 3 → 0.14 × 4(로벅스 탭 · 최고 장착 버튼 자리는 그대로 0.8 앞까지)
+local TAB_H, TAB_W, TAB_GAP, MAX_TABS = 0.09, 0.14, 0.01, 4
 local BEST_W = 0.2
 local INFO_Y, INFO_H = 0.1, 0.06
 local ODDS_Y, ODDS_H = 0.17, 0.07
@@ -57,7 +58,7 @@ local ODDS_Y, ODDS_H = 0.17, 0.07
 local HATCH_Y, HATCH_H, HATCH_W = 0.25, 0.1, 0.24
 local HATCH3_X, HATCH3_W = 0.26, 0.16
 local HATCH_FOOT_X, HATCH_FOOT_W = 0.43, 0.2
-local ROBUX_TAB_X, ROBUX_TAB_W = MAX_TABS * (TAB_W + TAB_GAP), 0.17 -- 알 탭 셋 다음(최고 장착 버튼 0.8 앞까지)
+local ROBUX_TAB_X, ROBUX_TAB_W = MAX_TABS * (TAB_W + TAB_GAP), 0.19 -- 알 탭 넷 다음(최고 장착 버튼 0.8 앞까지)
 local LIST_ROW_H, LIST_ROW_GAP = 0.24, 0.008 -- 상품 목록(아래 칸 높이 0.63) 기준 — 본문 약 0.15(상점 로벅스 탭 줄과 같은 높이)
 local STATUS_X = 0.64
 local LEFT_W = 0.62

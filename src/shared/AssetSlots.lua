@@ -60,6 +60,7 @@ function AssetSlots.list(): { Slot }
 	add("forge_icon", "image", Config.FORGE_SITE.iconId, "HUD 대장간 버튼 아이콘(버튼 왼쪽)")
 	add("forge_fx", "texture", Config.FORGE_SITE.effectId, "대장간 화로 이펙트 텍스처")
 	add("hatch_egg", "image", Config.HATCH_FX_VISUAL.eggImageId, "부화 연출 알 그림(화면)")
+	add("egg_4", "image", (Config.EGG_VISUALS[4] or {}).imageId, "알 4 그림(부화 연출 — 없으면 hatch_egg · 그것도 없으면 임시 칸 · #49)")
 	add("hatch_fx", "image", Config.HATCH_FX_VISUAL.effectId, "부화 결과 빛 그림(화면 — 결과 이름 뒤)")
 	-- 펫 모델(#37 — 알 3 × 4등급 + 리미티드). 펫 id 순서 = 알 번호 · 등급 순
 	local petIds = {}

@@ -34,8 +34,9 @@ export type PetDef = {
 
 export type EggDef = {
 	eggId: number, -- 화면 이름은 Strings "egg.name.<번호>" (지시서 #L1 K6 — 화면 이름은 Strings 키, Shared/Localization/Names)
-	rollCost: BigNumber, -- = 해금 조건(lifetimeBlox ≥ 이 값, G8)
+	rollCost: BigNumber, -- = 해금 조건(lifetimeBlox ≥ 이 값, G8). unlockFloor가 있는 알은 이 값 대신 층으로 연다(값은 알 순서 규칙용)
 	pets: { PetDef }, -- 희귀도 낮은 순. 인덱스 = 종 희귀도(1 일반 · 2 희귀 · 3 영웅 · 4 전설)
+	unlockFloor: number?, -- 있으면 해금 = 계정 전체에서 이 층을 처음 깼을 때(stats.bestRunDepth ≥ 이 값 — 환생해도 줄지 않는다 · #49 알 4)
 }
 
 -- 보유 펫 한 마리(프로필 pets.owned[uid]). tier = **강화 단계** 1~MAX_LEVEL(DESIGN 10장 스키마 이름 그대로).
@@ -97,8 +98,12 @@ PetConfig.DISPLAY = {
 }
 
 local TIER_KEYS = { "common", "rare", "epic", "legendary" }
-local EGG_COUNT = 3
-PetConfig.EGG_COST_EXPONENTS = { 2, 5, 8 } -- 100 · 100K · 100M (E1 확정)
+local EGG_COUNT = 4
+-- 100 · 100K · 100M (E1 확정) · 알 4는 1e11(#49 — 1000배 간격 그대로. 알 4는 이 값이 아니라 층으로 연다 — EGG_UNLOCK_FLOOR)
+PetConfig.EGG_COST_EXPONENTS = { 2, 5, 8, 11 }
+-- 알 4(지시서 #49 — 2026-11-29 희준 결정 "25층 뒤 코인 쓸 곳" · #48 5부 나안): 25층을 처음 깨면 열린다. 펫은 알 3 × EGG_RATIO(1.4 단계) ·
+-- 코인 가격 EconomyV2Config.EGG_COIN_COST[4](TEMP 500만). 이름은 임시(en · ko만 — NameKeys)
+PetConfig.EGG_UNLOCK_FLOOR = { [4] = 25 } :: { [number]: number }
 
 local Eggs: { [number]: EggDef } = {}
 PetConfig.Eggs = Eggs
@@ -137,11 +142,13 @@ function PetConfig.rebuild()
 		end
 		local existing = Eggs[eggId]
 		local cost = BigNum.new(1, PetConfig.EGG_COST_EXPONENTS[eggId])
+		local floor = PetConfig.EGG_UNLOCK_FLOOR[eggId]
 		if existing ~= nil then
 			existing.rollCost = cost
 			existing.pets = pets
+			existing.unlockFloor = floor
 		else
-			Eggs[eggId] = { eggId = eggId, rollCost = cost, pets = pets }
+			Eggs[eggId] = { eggId = eggId, rollCost = cost, pets = pets, unlockFloor = floor }
 		end
 	end
 	rebuildIndex()
@@ -247,9 +254,18 @@ function PetConfig.getStorage(hasStoragePass: boolean): number
 	return PetConfig.BaseStorage + (if hasStoragePass then PetConfig.GamepassStorageBonus else 0)
 end
 
--- 열린 알 — 파생값(G8). 두 축: 월드가 **어느 알이 있는지**(WorldConfig.eggPacks), lifetimeBlox가 **어디까지 열렸는지**
--- (해금 조건 = 부화 1회 비용). 반환: 열린 알 번호 배열(월드 순서). 월드가 없으면 빈 배열.
-function PetConfig.getUnlockedEggs(lifetimeBlox: BigNumber, worldId: number): { number }
+-- 알 하나가 열렸나(순수). unlockFloor가 있는 알(#49 알 4)은 계정 전체에서 깬 가장 깊은 층(stats.bestRunDepth)으로,
+-- 없는 알은 lifetimeBlox ≥ rollCost(G8)로 연다. bestDepth를 모르면(nil) 층으로 여는 알은 잠김
+function PetConfig.eggOpen(egg: EggDef, lifetimeBlox: BigNumber, bestDepth: number?): boolean
+	if egg.unlockFloor ~= nil then
+		return type(bestDepth) == "number" and bestDepth >= egg.unlockFloor
+	end
+	return BigNum.gte(lifetimeBlox, egg.rollCost)
+end
+
+-- 열린 알 — 파생값(G8). 두 축: 월드가 **어느 알이 있는지**(WorldConfig.eggPacks), lifetimeBlox · 깬 층이 **어디까지 열렸는지**
+-- (해금 조건 = 부화 1회 비용 · 알 4는 25층 — eggOpen). 반환: 열린 알 번호 배열(월드 순서). 월드가 없으면 빈 배열.
+function PetConfig.getUnlockedEggs(lifetimeBlox: BigNumber, worldId: number, bestDepth: number?): { number }
 	local world = WorldConfig.get(worldId)
 	local out: { number } = {}
 	if world == nil then
@@ -257,7 +273,7 @@ function PetConfig.getUnlockedEggs(lifetimeBlox: BigNumber, worldId: number): { 
 	end
 	for _, eggId in ipairs(world.eggPacks) do
 		local egg = Eggs[eggId]
-		if egg ~= nil and BigNum.gte(lifetimeBlox, egg.rollCost) then
+		if egg ~= nil and PetConfig.eggOpen(egg, lifetimeBlox, bestDepth) then
 			table.insert(out, eggId)
 		end
 	end
@@ -278,8 +294,8 @@ function PetConfig.isInWorld(eggId: any, worldId: number): boolean
 	return false
 end
 
-function PetConfig.isUnlocked(eggId: any, lifetimeBlox: BigNumber, worldId: number): boolean
-	for _, id in ipairs(PetConfig.getUnlockedEggs(lifetimeBlox, worldId)) do
+function PetConfig.isUnlocked(eggId: any, lifetimeBlox: BigNumber, worldId: number, bestDepth: number?): boolean
+	for _, id in ipairs(PetConfig.getUnlockedEggs(lifetimeBlox, worldId, bestDepth)) do
 		if id == eggId then
 			return true
 		end

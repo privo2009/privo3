@@ -531,13 +531,14 @@ check("PetConfig: 부화 비용 100 / 100K / 100M (E1 확정) · 일반은 폴�
 		and p[1].baseChance == nil and p[2].baseChance == 0.3 and p[3].baseChance == 0.09 and p[4].baseChance == 0.01
 end)
 
-check("PetConfig: 해금 = lifetimeBlox ≥ 부화 비용 (G8) · 월드 1 알 1~3", function()
+check("PetConfig: 해금 = lifetimeBlox ≥ 부화 비용 (G8) · 월드 1 알 1~3 · 알 4는 25층(#49 — 블럭스로는 안 열림)", function()
 	local e = PetConfig.Eggs
 	local none = PetConfig.getUnlockedEggs(BigNum.sub(e[1].rollCost, BigNum.fromNumber(1)), 1)
 	local one = PetConfig.getUnlockedEggs(e[1].rollCost, 1)
 	local two = PetConfig.getUnlockedEggs(e[2].rollCost, 1)
 	local all = PetConfig.getUnlockedEggs(BigNum.new(1, 300), 1)
-	return #none == 0 and #one == 1 and #two == 2 and #all == 3 and PetConfig.isInWorld(3, 1) and not PetConfig.isInWorld(4, 1)
+	return #none == 0 and #one == 1 and #two == 2 and #all == 3 and PetConfig.isInWorld(3, 1) and PetConfig.isInWorld(4, 1)
+		and not PetConfig.isInWorld(5, 1) and #PetConfig.getUnlockedEggs(BigNum.new(1, 300), 1, 25) == 4
 		and #PetConfig.getUnlockedEggs(BigNum.new(1, 300), 999) == 0
 end)
 

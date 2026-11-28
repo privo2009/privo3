@@ -11,7 +11,7 @@
 --
 --   1. 프로필 · 표 읽기                 없으면 no_profile. 알 번호가 정수가 아니면 invalid_request
 --   2. 부화 간격                         연출 + 스킵(EconomyV2Logic.hatchStep — 무료 5초 · 즉시 부화 최소 간격) 안이면 too_soon
---   3. 해금                             그 월드에 없거나 잠긴 알(lifetimeBlox < 알의 해금 기준 rollCost)이면 egg_locked
+--   3. 해금                             그 월드에 없거나 잠긴 알(lifetimeBlox < 알의 해금 기준 rollCost · 알 4는 25층을 깬 적 없음 — #49)이면 egg_locked
 --   4. 저장 공간                        보유 수 ≥ 파생 저장 공간이면 storage_full
 --   5. 잔액 미리 보기                    코인(EGG_COIN_COST × 마리 수)보다 적으면 insufficient_coins — 차감을 부르지 않는다
 --   ----- 여기까지 부작용 0 -----
@@ -126,6 +126,13 @@ local function lifetimeOf(data: any): BigNumber
 	return BigNum.new(0, 0)
 end
 
+-- 계정 전체에서 깬 가장 깊은 층(stats.bestRunDepth — 환생해도 줄지 않는다). 알 4 해금(#49 — PetConfig.EGG_UNLOCK_FLOOR)
+local function depthOf(data: any): number
+	local stats = if type(data) == "table" then data.stats else nil
+	local d = if type(stats) == "table" then stats.bestRunDepth else nil
+	return if type(d) == "number" and d == d then d else 0
+end
+
 local function slotsLevelOf(data: any): number
 	local upgrades = if type(data) == "table" then data.upgrades else nil
 	local raw = if type(upgrades) == "table" then upgrades.petSlots else nil
@@ -230,7 +237,7 @@ local function createRuntime(deps: Deps)
 
 		-- 3. 해금(G8 — 월드에 있고 lifetimeBlox ≥ 부화 비용)
 		local egg = PetConfig.Eggs[eggId]
-		if egg == nil or not PetConfig.isUnlocked(eggId, lifetimeOf(data), worldOf(data)) then
+		if egg == nil or not PetConfig.isUnlocked(eggId, lifetimeOf(data), worldOf(data), depthOf(data)) then
 			return false, PetService.REASON_EGG_LOCKED
 		end
 
@@ -648,6 +655,7 @@ function PetService.summarize(data: any, slotPass: boolean?, storagePass: boolea
 		storage = PetConfig.getStorage(storagePass == true),
 		hideOtherPets = cosmetics ~= nil and cosmetics.hideOtherPets == true,
 		world = worldOf(data),
+		bestDepth = depthOf(data), -- 알 4 해금(#49) — 창이 잠김 · 안내를 같은 식으로 그린다
 	}
 end
 

@@ -83,7 +83,7 @@ local function render(name: string, label: string, x: any, rank: number, total: 
 	add(string.format("\t\tlifeBlox = %s,", big(x.lifeBlox)))
 	add(string.format("\t\tlifetimeBlox = %s,", big(x.lifetimeBlox)))
 	add(string.format("\t\trebirths = %s,", big(BigNum.fromNumber(x.rebirths))))
-	add(string.format("\t\tpadIndex = %d, maxStage = %d,", x.padIndex, x.maxStage))
+	add(string.format("\t\tpadIndex = %d, maxStage = %d, bestDepth = %d,", x.padIndex, x.maxStage, x.maxEver)) -- bestDepth = 깬 가장 깊은 층(#49 알 4)
 	local ups = {}
 	for _, k in ipairs({ "auraLuck", "bloxGain", "petLuck", "petSlots", "punchSpeed", "titleLuck" }) do
 		table.insert(ups, string.format("%s = %d", k, x.upgrades[k] or 0))

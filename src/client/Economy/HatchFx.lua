@@ -55,9 +55,12 @@ function HatchFx.create(options: { parent: Instance, clock: (() -> number)?, aut
 	aspect.Parent = egg
 	egg.Parent = root
 	-- 에셋 자리(#36): 알 그림이 있으면 임시 알 칸 대신 · 결과 빛 그림은 이름 뒤(드러난 뒤에만)
-	if AssetSlots.applyImage(egg, Config.HATCH_FX_VISUAL.eggImageId) ~= nil then
-		egg.BackgroundTransparency = 1
+	-- #49: 알마다 그림(EGG_VISUALS — 알 4)이 있으면 그 그림 · 없으면 공용 그림 · 그것도 없으면 임시 칸. 바뀔 때만 다시 붙인다
+	local function setEggImage(id: number?)
+		-- applyImage는 같은 SlotImage를 다시 쓴다(없으면 숨긴다) — 새로 만들지 않는다
+		egg.BackgroundTransparency = if AssetSlots.applyImage(egg, id) ~= nil then 1 else 0
 	end
+	setEggImage(Config.HATCH_FX_VISUAL.eggImageId)
 	local burst = AssetSlots.applyImage(root, Config.HATCH_FX_VISUAL.effectId, { position = UDim2.fromScale(0.5, 0.42), size = UDim2.fromScale(0.5, 0.6) })
 	if burst ~= nil then
 		burst.ZIndex = Z + 1
@@ -121,6 +124,9 @@ function HatchFx.create(options: { parent: Instance, clock: (() -> number)?, aut
 
 	local function show(pets: { any })
 		shown = pets
+		local _, firstEgg = PetConfig.get(if pets[1] ~= nil then pets[1].petId else nil)
+		local perEgg = if firstEgg ~= nil and Config.EGG_VISUALS[firstEgg] ~= nil then Config.EGG_VISUALS[firstEgg].imageId else nil
+		setEggImage(perEgg or Config.HATCH_FX_VISUAL.eggImageId)
 		title.Text = Locale.t("pet.hatching")
 		for i, l in ipairs(names) do
 			local p = pets[i]

@@ -100,6 +100,7 @@ function TestPresetGate.buildData(name: string): any
 	data.lifetimeBlox = copyBig(preset.lifetimeBlox)
 	data.rebirths = copyBig(preset.rebirths)
 	data.progress.maxStage = preset.maxStage
+	data.stats.bestRunDepth = preset.bestDepth or 0 -- 깬 가장 깊은 층(환생해도 안 줄어든다 — #49 알 4 해금)
 	data.progress.selectedPadIndex = preset.padIndex
 	for key, level in pairs(preset.upgrades) do
 		if data.upgrades[key] ~= nil then

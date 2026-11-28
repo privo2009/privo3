@@ -38,6 +38,7 @@ OnboardingConfig.V2_TIPS = {
 	{ key = "craft", target = "forge" }, -- 대장간 열림 → 자동 채우기 → 제작
 	{ key = "equip", target = "equip" }, -- 더 좋은 곡괭이가 생김 → 장비 → 장착
 	{ key = "egg", target = "pet", hud = "pet" }, -- 첫 알 해금 → HUD 펫 칸 · 코인으로 첫 부화
+	{ key = "egg4", target = "pet" }, -- #49 25층을 처음 깸 → 알 4(25층 뒤 코인 쓸 곳)
 } :: { Tip }
 OnboardingConfig.TIP_POLL_SEC = 0.5 -- 서버가 상태를 읽는 주기(한 번에 안내 하나)
 OnboardingConfig.TIP_SHOW_SEC = 15 -- 안내가 띠에 머무는 시간(그 전에 "알겠어요"로 닫는다) — 지나면 다음 것

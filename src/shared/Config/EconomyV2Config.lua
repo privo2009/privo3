@@ -258,7 +258,10 @@ EconomyV2Config.EGG_COIN_COST = {
 	[1] = BigNum.new(5, 1), -- 50
 	[2] = BigNum.new(5, 3), -- 5,000
 	[3] = BigNum.new(2, 5), -- 200,000
+	[4] = BigNum.new(5, 6), -- 5,000,000 — #49 알 4(25층 뒤 코인 쓸 곳 · TEMP — #48 5부 나안 측정값)
 } :: { [number]: BigNumber }
+-- 알 그림 자리(#49 — 알 번호 → 그림 ID). 부화 연출이 그 알 그림을 쓴다 · nil이면 HATCH_FX_VISUAL.eggImageId · 그것도 nil이면 임시 칸
+EconomyV2Config.EGG_VISUALS = { [4] = { imageId = nil :: number? } } :: { [number]: { imageId: number? } }
 
 -- ===== 환생 v2 (DESIGN 16장 "환생 (새 경제)") ============================================================
 

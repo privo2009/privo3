@@ -46,7 +46,21 @@ end
 -- 1. 알 · 확률 · 행운 ------------------------------------------------------------------------------
 do
 	local tabs = PetWindowLogic.eggs(summary(), E2.rollCost)
-	check("알 탭: 월드 1 알 3개 · 열린 둘 · 잠긴 셋째", #tabs == 3 and tabs[1].unlocked and tabs[2].unlocked and not tabs[3].unlocked)
+	check("알 탭: 월드 1 알 4개(#49 알 4) · 열린 둘 · 잠긴 셋째 · 넷째", #tabs == 4 and tabs[1].unlocked and tabs[2].unlocked and not tabs[3].unlocked
+		and not tabs[4].unlocked)
+	-- #49 알 4: 블럭스가 아니라 깬 가장 깊은 층(요약 bestDepth)으로 연다 — 잠긴 안내는 "25층을 깨면"
+	local E4 = PetConfig.Eggs[4]
+	local s24 = summary()
+	s24.bestDepth = E4.unlockFloor - 1
+	local s25 = summary()
+	s25.bestDepth = E4.unlockFloor
+	local t24 = PetWindowLogic.eggs(s24, BigNum.new(1, 300))
+	local t25 = PetWindowLogic.eggs(s25, BigNum.new(0, 0))
+	local coins = BigNum.new(1, 30)
+	check("알 4(#49): 24층까지 잠김 · \"25층을 깨면\" 안내 · 25층을 깨면 열림(블럭스 0이어도) · 부화 버튼도 같은 판정",
+		not t24[4].unlocked and t24[4].infoText == Locale.t("pet.egg.infoLockedFloor", { egg = Names.egg(4), floor = tostring(E4.unlockFloor) })
+			and t25[4].unlocked and not PetWindowLogic.hatchState(s24, BigNum.new(1, 300), coins, 4).canHatch
+			and PetWindowLogic.hatchState(s25, BigNum.new(0, 0), coins, 4).canHatch and PetWindowLogic.defaultEgg(s25, BigNum.new(1, 300)) == 4)
 	check("잠긴 알: 해금 조건 = 부화 1회 비용(G8)", string.find(tabs[3].infoText, Formatter.format(E3.rollCost), 1, true) ~= nil and tabs[3].label == Locale.t("pet.egg.tabLocked", { egg = Names.egg(3) }))
 	check("열린 알: 1회 비용", string.find(tabs[1].infoText, Formatter.format(E1.rollCost), 1, true) ~= nil)
 	check("처음 보이는 알 = 열린 것 중 가장 높은 알", PetWindowLogic.defaultEgg(summary(), E2.rollCost) == 2 and PetWindowLogic.defaultEgg(summary(), BigNum.new(0, 0)) == 1)

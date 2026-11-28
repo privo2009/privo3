@@ -82,7 +82,8 @@ local function tiersFor(roll: string, ctx: Context): { any }?
 		return if pack ~= nil then pack.auras else nil
 	elseif roll == "pet" then
 		local world = if type(ctx.pets) == "table" and type(ctx.pets.world) == "number" then ctx.pets.world else 1
-		local unlocked = PetConfig.getUnlockedEggs(ctx.lifetimeBlox or BigNum.new(0, 0), world)
+		local depth = if type(ctx.pets) == "table" and type(ctx.pets.bestDepth) == "number" then ctx.pets.bestDepth else nil
+		local unlocked = PetConfig.getUnlockedEggs(ctx.lifetimeBlox or BigNum.new(0, 0), world, depth) -- 알 4는 25층(#49)
 		local eggId = unlocked[#unlocked] or 1
 		local egg = PetConfig.Eggs[eggId]
 		return if egg ~= nil then egg.pets else nil
@@ -117,11 +118,22 @@ function RobuxShopLogic.oddsText(roll: string, mult: number, ctx: Context, shop:
 		after = after[#tiers] }) -- percentages가 "%"를 붙인다
 end
 
+-- 자동 진행 설명(#49): 드롭 전부 줍기는 구매 전에 알린다(공식 "Enhanced resource drops" — 숫자 · 효과 설명). 제한 유저에게는 그 효과가 없으니
+-- 줍기를 말하지 않는 문장(원래 설명)
+function RobuxShopLogic.autoAdvanceDesc(shop: any): string
+	if ShopEffectsLogic.fromSummary(shop).restricted then
+		return Locale.t("shop.autoAdvance.desc")
+	end
+	return Locale.t("shop.autoAdvance.descPickup")
+end
+
 local function passRow(key: string, owns: (string) -> boolean, ctx: Context, shop: any): Row
 	local def = ShopConfig.get(key) :: ShopConfig.ProductDef
 	local detail = Names.productDesc(key)
 	if def.effect.type == "luckPass" then
 		detail = RobuxShopLogic.oddsText(def.effect.roll, def.effect.mult, ctx, shop)
+	elseif def.effect.type == "autoAdvance" then
+		detail = RobuxShopLogic.autoAdvanceDesc(shop)
 	end
 	local state: State = if owns(key) then "owned"
 		elseif ShopConfig.ownedHigher(key, owns) ~= nil then "ownedHigher"

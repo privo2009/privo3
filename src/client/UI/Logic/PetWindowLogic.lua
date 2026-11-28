@@ -100,6 +100,11 @@ local function worldOf(summary: any): number
 	return if type(summary) == "table" and type(summary.world) == "number" then summary.world else 1
 end
 
+-- 계정 전체에서 깬 가장 깊은 층(서버 PetService 요약 bestDepth — 알 4 해금 #49)
+local function depthOf(summary: any): number?
+	return if type(summary) == "table" and type(summary.bestDepth) == "number" then summary.bestDepth else nil
+end
+
 local function ownedList(summary: any): { any }
 	return if type(summary) == "table" and type(summary.owned) == "table" then summary.owned else {}
 end
@@ -114,7 +119,7 @@ end
 
 export type EggTab = { eggId: number, unlocked: boolean, label: string, infoText: string }
 
--- 그 월드에 있는 알 탭. 잠긴 알은 해금 조건(lifetimeBlox ≥ 부화 1회 비용 — G8)을 보인다.
+-- 그 월드에 있는 알 탭. 잠긴 알은 해금 조건(lifetimeBlox ≥ 부화 1회 비용 — G8 · 알 4는 "N층을 깨면" — #49)을 보인다.
 function PetWindowLogic.eggs(summary: any, lifetimeBlox: any): { EggTab }
 	local world = WorldConfig.get(worldOf(summary))
 	local out: { EggTab } = {}
@@ -125,13 +130,16 @@ function PetWindowLogic.eggs(summary: any, lifetimeBlox: any): { EggTab }
 	for _, eggId in ipairs(world.eggPacks) do
 		local egg = PetConfig.Eggs[eggId]
 		if egg ~= nil then
-			local unlocked = BigNum.gte(lifetime, egg.rollCost)
+			local unlocked = PetConfig.eggOpen(egg, lifetime, depthOf(summary))
 			local eggName = Names.egg(eggId)
+			local lockedInfo = if egg.unlockFloor ~= nil
+				then Locale.t("pet.egg.infoLockedFloor", { egg = eggName, floor = tostring(egg.unlockFloor) })
+				else Locale.t("pet.egg.infoLocked", { egg = eggName, cost = Formatter.format(egg.rollCost) })
 			table.insert(out, {
 				eggId = eggId,
 				unlocked = unlocked,
 				label = if unlocked then eggName else Locale.t("pet.egg.tabLocked", { egg = eggName }),
-				infoText = Locale.t(if unlocked then "pet.egg.info" else "pet.egg.infoLocked", { egg = eggName, cost = Formatter.format(egg.rollCost) }),
+				infoText = if unlocked then Locale.t("pet.egg.info", { egg = eggName, cost = Formatter.format(egg.rollCost) }) else lockedInfo,
 			})
 		end
 	end
@@ -191,7 +199,7 @@ function PetWindowLogic.hatchState(summary: any, lifetimeBlox: any, coins: any, 
 	end
 	local cost = costOf(eggId, 1)
 	local buttonText = Locale.t("pet.hatchCostCoins", { cost = Formatter.format(cost) })
-	if not PetConfig.isUnlocked(eggId, big(lifetimeBlox), worldOf(summary)) then
+	if not PetConfig.isUnlocked(eggId, big(lifetimeBlox), worldOf(summary), depthOf(summary)) then
 		return { canHatch = false, buttonText = buttonText, footText = PetWindowLogic.reasonText("egg_locked") }
 	end
 	local storage = if type(summary) == "table" and type(summary.storage) == "number" then summary.storage else 0
@@ -218,7 +226,7 @@ function PetWindowLogic.hatch3State(summary: any, lifetimeBlox: any, coins: any,
 	-- 제한 지역에서 Triple Hatch를 끈다(#35 — v2PassActive)
 	local owns = ShopEffectsLogic.v2PassActive(ShopEffectsLogic.fromSummary(shop), "hatch3x")
 	local storage = if type(summary) == "table" and type(summary.storage) == "number" then summary.storage else 0
-	local can = owns and PetConfig.isUnlocked(eggId, big(lifetimeBlox), worldOf(summary)) and #ownedList(summary) + count <= storage
+	local can = owns and PetConfig.isUnlocked(eggId, big(lifetimeBlox), worldOf(summary), depthOf(summary)) and #ownedList(summary) + count <= storage
 		and not BigNum.lt(big(coins), cost)
 	return { canHatch = can, buttonText = buttonText, footText = "" }
 end

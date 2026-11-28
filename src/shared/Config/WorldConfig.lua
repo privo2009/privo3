@@ -72,7 +72,7 @@ local Worlds: { [number]: WorldDef } = {
 		bloxGrowthSegments = {
 			{ from = 1, to = 25, growth = 2.7 },
 		},
-		eggPacks = { 1, 2, 3 },
+		eggPacks = { 1, 2, 3, 4 }, -- #49 알 4(25층을 처음 깨면 — PetConfig.EGG_UNLOCK_FLOOR)
 		-- 팩 4 · 5는 월드 2로 옮겼다(2026-10-24 사람 결정 G3/S8 — 월드 1 25층 보상으로 팩 4 해금 비용에 닿지 않는다).
 		auraPacks = { 1, 2, 3 },
 		-- 클릭 파워 패드 24개. 파워는 패드당 2배(2 → 16.78M), 해금 조건은 1·3 단위 사다리

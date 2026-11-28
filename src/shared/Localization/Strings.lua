@@ -105,6 +105,7 @@ Strings.Entries = {
 	["egg.name.1"] = { en = "Wood Egg", ko = "나무 알" },
 	["egg.name.2"] = { en = "Stone Egg", ko = "돌 알" },
 	["egg.name.3"] = { en = "Iron Egg", ko = "철 알" },
+	["egg.name.4"] = { en = "Gold Egg", ko = "금 알" }, -- #49 알 4(임시 이름 — en · ko만)
 	-- 펫 12종 (PetConfig id = egg<알>_<희귀도>) — 영어 이름은 #L1에서 Claude가 지었다(바꿀 수 있다)
 	["pet.name.egg1_common"] = { en = "Acorn", ko = "도토리" },
 	["pet.name.egg1_rare"] = { en = "Squirrel", ko = "다람쥐" },
@@ -118,6 +119,10 @@ Strings.Entries = {
 	["pet.name.egg3_rare"] = { en = "Mech Hawk", ko = "기계매" },
 	["pet.name.egg3_epic"] = { en = "Steel Drake", ko = "강철드레이크" },
 	["pet.name.egg3_legendary"] = { en = "Machine God", ko = "기계신" },
+	["pet.name.egg4_common"] = { en = "Gilded Beetle", ko = "금딱정벌레" }, -- #49 알 4 펫 4종(임시 이름 — en · ko만)
+	["pet.name.egg4_rare"] = { en = "Sun Fox", ko = "태양여우" },
+	["pet.name.egg4_epic"] = { en = "Gold Golem", ko = "황금골렘" },
+	["pet.name.egg4_legendary"] = { en = "Crown Dragon", ko = "왕관용" },
 	-- 리미티드 펫(일일 보상 7일째 — 지시서 #20 D4). 이름은 Claude가 지었다(바꿀 수 있다)
 	["pet.name.limited_dawn"] = { en = "Dawn Phoenix", ko = "새벽불사조" },
 	-- 펫 강화 단계 1 ~ 4 (종 희귀도와 다른 낱말 — E4 · G10)
@@ -167,6 +172,7 @@ Strings.Entries = {
 	["shop.voidTrainingZone.desc"] = { en = "Unlocks the strongest Gym", ko = "가장 센 운동기구를 열어요" },
 	["shop.autoAdvance.name"] = { en = "Auto Advance", ko = "자동 진행" },
 	["shop.autoAdvance.desc"] = { en = "Keeps advancing up to your target floor", ko = "목표층까지 멈추지 않고 진행해요" },
+	["shop.autoAdvance.descPickup"] = { en = "Auto-advances · picks up all drops", ko = "목표층까지 진행 · 드롭을 전부 주워요" }, -- #49 제한 지역 밖 설명
 	["shop.strengthTier.name"] = { en = "x{mult} Power", ko = "{mult}배 힘" },
 	["shop.strengthTier.desc"] = { en = "x{mult} Power from clicks (only your highest tier applies)", ko = "클릭으로 얻는 힘이 {mult}배예요(가장 높은 단계 하나만)" },
 	["shop.luckyRoll5.name"] = { en = "Lucky Roll x5", ko = "럭키 롤 5회" },
@@ -294,6 +300,7 @@ Strings.Entries = {
 	["onboarding.tip.craft"] = { en = "Forge: tap Auto Fill, then Craft to make a pickaxe", ko = "대장간: 자동 채우기 → 제작으로 곡괭이를 만들어요" },
 	["onboarding.tip.equip"] = { en = "A better pickaxe! Open Equipment and equip it", ko = "더 좋은 곡괭이가 생겼어요! 장비에서 장착해요" },
 	["onboarding.tip.egg"] = { en = "An egg is open! Hatch a pet with Coins in Pets", ko = "알이 열렸어요! 펫 목록에서 코인으로 부화해요" },
+	["onboarding.tip.egg4"] = { en = "A new egg is open! Floor 25 cleared — find it in Pets", ko = "새 알이 열렸어요! 25층을 깼어요 — 펫 목록에서 봐요" }, -- #49
 	["onboarding.progress"] = { en = "Step {n}/{total}", ko = "{n}/{total}단계" },
 	["onboarding.skip"] = { en = "Skip", ko = "건너뛰기" },
 	["onboarding.skipConfirm"] = { en = "Tap again", ko = "한 번 더" },
@@ -539,6 +546,7 @@ Strings.Entries = {
 	["pet.egg.tabLocked"] = { en = "{egg} Locked", ko = "{egg} 잠김" },
 	["pet.egg.info"] = { en = "{egg} · {cost} Blox per hatch", ko = "{egg} · 1회 {cost} 블럭스" },
 	["pet.egg.infoLocked"] = { en = "{egg} — unlocks at {cost} lifetime Blox", ko = "{egg} — 누적 블럭스 {cost} 이상이면 열려요" },
+	["pet.egg.infoLockedFloor"] = { en = "{egg} — unlocks when you clear Floor {floor}", ko = "{egg} — {floor}층을 깨면 열려요" }, -- #49 알 4
 	["pet.odd"] = { en = "{name} ×{mult} · {chance}", ko = "{name} ×{mult} · {chance}" },
 	["pet.storage"] = { en = "Owned {n} / {max}", ko = "보유 {n} / {max}" },
 	["pet.slots"] = { en = "Equipped {n} / {max}", ko = "장착 {n} / {max}" },
