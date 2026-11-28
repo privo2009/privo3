@@ -178,19 +178,27 @@ ore_10  Starstone / 별빛석         10    25 전용           #F5F5FF 흰빛
 ## 6. 펫 · 부화 연출 — 우선순위 6
 
 ```
-펫 수        13종 = 알 3개 × 4등급 12 + 리미티드 1
+펫 수        17종 = 알 4개 × 4등급 16 + 리미티드 1(#49 알 4 더함)
 알 1 Wood Egg / 나무 알    Acorn 도토리 · Squirrel 다람쥐 · Owl 올빼미 · Ancient Treant 고대나무정령
 알 2 Stone Egg / 돌 알     Pebble 자갈 · Baby Golem 골렘새끼 · Crystal Worm 크리스탈웜 · Mountain Spirit 산의정령
 알 3 Iron Egg / 철 알      Cog Rat 톱니쥐 · Mech Hawk 기계매 · Steel Drake 강철드레이크 · Machine God 기계신
+알 4 Gold Egg / 금 알      Gilded Beetle 금딱정벌레 · Sun Fox 태양여우 · Gold Golem 황금골렘 · Crown Dragon 왕관용
+                          (#49 — 25층을 깨면 열림 · 코인 500만 · 이름 임시 — 정하면 Strings만 바꾼다)
+알 4 그림    egg_4(512 PNG 투명 — 부화 연출 알 그림. 없으면 공용 hatch_egg · 그것도 없으면 임시 칸) — 넣는 곳 EconomyV2Config.EGG_VISUALS[4].imageId
+알 4 펫 모델  4개(pet_egg4_common · _rare · _epic · _legendary) — 다른 펫과 같은 규격 · 금색 계열로 알 3보다 한 단계 화려하게
 리미티드                  Dawn Phoenix 새벽불사조(이름 확인 필요 — PENDING #20)
 지금 표시     희귀도 색 구 하나(지름 1.2 · 1.45 · 1.7 · 2.0 스터드 — 강화 단계) + 2단계 이상 껍질 · 캐릭터 뒤 4 스터드에서 따라옴
-펫 모델      펫마다 Model 에셋 하나(#37 — 자리 13칸 pet_<petId>). 모델 크기 = 1단계 크기 기준 — 강화 단계가 오르면 코드가 같은 비율로 키운다.
+펫 모델      펫마다 Model 에셋 하나(#37 — 자리 13칸 · #49부터 17칸 pet_<petId>). 모델 크기 = 1단계 크기 기준 — 강화 단계가 오르면 코드가 같은 비율로 키운다.
              삼각형 상한은 정해야 함(0절 로블록스 제한 안). 모델이 nil이거나 불러오기에 실패하면 지금 구 그대로
 부화 연출     화면(2D) — 알이 1초 흔들린 뒤 이름(희귀도 색) · 5초에 스킵 · 6초 닫힘
              자리: hatch_egg(알 그림 — 512 PNG 투명) · hatch_fx(결과 빛 그림 — 이름 뒤)
 넣는 곳      펫 모델: Shared/Config/PetConfig.VISUALS[petId] = { modelId = … }(예: VISUALS.egg1_rare = { modelId = 123 })
              부화 연출: HATCH_FX_VISUAL = { eggImageId = …, effectId = … }
 ```
+
+### 포션 그림 메모 (#49 — 설문 "술 없음")
+포션(힘 · 데미지 · 행운) 그림은 **술병처럼 보이지 않게** 그린다 — 와인 · 맥주병 모양 · 잔 · 거품 금지. 둥근 마법 물약 · 결정 · 빛나는 구 쪽으로.
+콘텐츠 등급 설문에서 "술 · 약 없음"으로 답한다(`docs/LAUNCH_QUESTIONNAIRE.md`). 술처럼 보이면 등급이 올라간다
 
 ## 7. 토큰 아이콘 5개 + ??? · 새 패스 4개 아이콘 — 우선순위 7
 

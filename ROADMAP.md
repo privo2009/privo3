@@ -1,6 +1,6 @@
 # 개발 로드맵
 
-문서 갱신: 2026-11-28 (지시서 #48 — 소프트 셧다운 · 정책 재점검 · 설문 초안 · 저사양 모드 · 관리 도구 · 코인 측정 · 테스트 5120)
+문서 갱신: 2026-11-29 (지시서 #49 — 알 4 · 제한 지역 자동 진행 줍기 · 테스트 5134)
 
 ## 원칙
 - 아래에서 위로 쌓는다. BigNum이 흔들리면 전부 무너진다
@@ -14,8 +14,8 @@
 ```
 지금 위치   코드 기반 끝 — 새 경제(#37) · 리모트 보안 · 데이터 안전(#38) · UI 키트 · 미리보기(#39) · 6개 언어(#40) · 마무리(#41) ·
             이름 번역 규칙 · 정수 표시 · 운동기구 A2(#42) · 자동 플레이 봇 · 이동 검사 · 리뷰 · 유형별 측정(#43 — 시험 기간 혼자)
-            · 걷기 시뮬(#45) · 배율 0.5(#46 · #47 확정) · 소프트 셧다운 · 정책 재점검 · 설문 초안 · 저사양 모드 · 관리 도구(#48)
-            테스트 5120 / 0 failed(서버 88행 3511 · 클라 49행 1609 — 아래 "테스트 현황") · 시각 요소(모델 · UI 그림 · 맵)는 아직 임시 도형
+            · 걷기 시뮬(#45) · 배율 0.5(#46 · #47 확정) · 소프트 셧다운 · 정책 재점검 · 설문 초안 · 저사양 모드 · 관리 도구(#48) · 알 4 · 제한 지역 줍기(#49)
+            테스트 5134 / 0 failed(서버 89행 3523 · 클라 49행 1611 — 아래 "테스트 현황") · 시각 요소(모델 · UI 그림 · 맵)는 아직 임시 도형
 점검 도구   모델 · UI를 갈아 끼운 뒤 · 2월 테스트 전: Bootstrap TEST_AUTOPLAY = "fresh" · "min30" · "hour2" · "pre_rebirth"(CLAUDE.md "자동 플레이 봇")
 주의(#44)   시뮬 25층 126분은 층마다 진행 벽까지 걷기를 안 센다 — 넣으면 190분(TUNING 14). 2월에 실제 25층 시간을 잰다
 다시 시작   HANDOFF 가장 최근 날짜 파일의 "시험 뒤 다시 시작하는 법" 한 쪽부터(세션 기록) · 남은 일 원본은 docs/PENDING.md
@@ -54,7 +54,7 @@
 | `Tests/FormatterTests.server.lua` | 38 | 숫자 표기 (접미사, 자릿수) · 정수 표시 formatCount(1 · 15 · 0 · number · 1000 이상 · 음수 · 반올림 — #42) · 1 미만 값 0.50 · 0.00 · −0.25(#46) |
 | `Tests/TestGateTests.server.lua` | 6 | 테스트 · 리포트 게이트(#27 T3) — Studio 주입 true 실행 · false 몸통 0번 · 주입 없음 = IsStudio · 이 Play는 Studio · boolean 아님 거부 · 끝 표시 목록에 있음 |
 | `Tests/TestRunLogicTests.server.lua` | 18 | 테스트 끝 표시(#26) — 요약 줄 읽기 · 끝 줄 꼴(읽기 코드 필터에 걸림 · 행으로 안 읽힘) · 모으기(다시 읽어도 한 번 · 목록 밖 · 빠짐 · 두 번 찍힘) · 기대 목록(Tests로 끝나는 Script · LocalScript) · 실물 서버 목록 · 상한 |
-| `Tests/ConfigTests.server.lua` | 103 | 모든 Config의 validate + 스모크 · 파생 함수(getSlots · getStorage · getUnlockedPacks) · TitleConfig validate 거부 5종 · 블럭스 상품 금지(P1) · AuraConfig m = 사다리 × 비율 · G4 · 단조 거부(#11) · PetConfig m · 비용 100/100K/100M · 해금 · 실효 증가분 · totalMult(nil 구멍) · 강화 4단계 · validate 거부 · Attribute 직렬화(#12) · 레벨 L1 경계(1 · 2 · 3 · 4 · 2^k ± 가수 1 ulp · 10^2000대) · 진행률 0 이상 1 미만 · L2 상한(레벨 48) · 환생 뒤 0(#13) · ShopConfig 검사(가격 · 키 · 계단 순증가 · blox 거부 · 행운 표시 = 효과 · 같은 ID — #16) · 대시보드 ID 39 등록 · ID 표 섞임 · 0 거부 · ownedHigher R1 · R2 · rollCreditLuck(#17) · 1번 패드 덮어쓰기 = Config · 2번부터 식 · 사본 · validate 거부 3종(#24 P1) |
+| `Tests/ConfigTests.server.lua` | 103 | 모든 Config의 validate + 스모크 · 파생 함수(getSlots · getStorage · getUnlockedPacks) · TitleConfig validate 거부 5종 · 블럭스 상품 금지(P1) · AuraConfig m = 사다리 × 비율 · G4 · 단조 거부(#11) · PetConfig m · 비용 100/100K/100M · 해금 · 실효 증가분 · totalMult(nil 구멍) · 강화 4단계 · validate 거부 · Attribute 직렬화(#12) · 레벨 L1 경계(1 · 2 · 3 · 4 · 2^k ± 가수 1 ulp · 10^2000대) · 진행률 0 이상 1 미만 · L2 상한(레벨 48) · 환생 뒤 0(#13) · ShopConfig 검사(가격 · 키 · 계단 순증가 · blox 거부 · 행운 표시 = 효과 · 같은 ID — #16) · 대시보드 ID 39 등록 · ID 표 섞임 · 0 거부 · ownedHigher R1 · R2 · rollCreditLuck(#17) · 1번 패드 덮어쓰기 = Config · 2번부터 식 · 사본 · validate 거부 3종(#24 P1) · #49 알 4는 25층(기대만) |
 | `Tests/BlockShuffleTests.server.lua` | 3 | 파괴 순서 결정론적 셔플 |
 | `Tests/WarpConfigTests.server.lua` | 31 | 워프 비용 곡선(지수·단조)·순수성·거부 사유 3종 |
 | `Tests/AttackConfigTests.server.lua` | 29 | 펀치 속도·판정 반경 파생·경계(이하) |
@@ -95,10 +95,10 @@
 | `Tests/EconomyV2DecisionTests.server.lua` | 21 | 새 경제 #31 결정(deps) — 제작 · 부화 연출 + 스킵(무료 · 연출 생략 · 트리플 · 자동 회수) · 대장간 여는 조건(층 · 환생 수 — Claude 제안) · 상위 광석 드롭 기대값 · 확률 드롭 평균 · 강화 블럭스 변형 nil · 임시 이름 25(en · ko · 뒤 Pickaxe / 곡괭이 · 겹침 없음) · x2 Rebirths(빠진 상품 · 효과 1 · 구매 not_available · 끄면 그대로) · 분석 rebirth v2 · 환생 v2 결과 비용 |
 | `Tests/EconomyV2SaveTests.server.lua` | 28 | 새 경제 저장 v10(#32) — Schema 상한 = Config · 기본값(시작 곡괭이 보유 · 장착) · v9 → v10 이주(기본 · 기존 값 · 멱등 · 꼴 틀림만 기본) · 검증 거부 · InventoryService 관문(광석 · 토큰 · 장비 종류별 · 장착 · 대장간 — 실패면 그대로 · 사유 · 사본 읽기) · 코인 = CurrencyService 재화 |
 | `Tests/EquipmentServiceTests.server.lua` | 29 | 장비 서버(#34) — 장착(없음 · 같은 것 다시 · 대장간 닫혀도 장착) · 강화(비용 등급 × 단계 · 낮은 광석부터 · 부족 · +10 · 없는 곡괭이) · 별(여벌 · 1개 남김 · 누적 26 · 5성) · 요청(가짜 deps · 연타) · 데미지 배수 일치(게임 multFromSave = 시뮬 equippedMult · AttackService.punchDamageFactor) · 펀치 데미지 업그레이드 빠짐 · 가방 넘침 · 용량 즉시 · 손 모델(붙음 · 등급 색 · 묶음 · 하나만 · 지움) · 플래그 꺼짐 |
-| `Tests/OnboardingTipsTests.server.lua` | 28 | 새 경제 안내 · 에셋 자리(#36) — 조건 · 순서(blox → coins) · 한 번만 · 가방 · 환생 · 대장간 · 장착 · 알 · 지난 것 글 없이 · 안내 끔 · floor9 꼴 접속 · 서비스(한 틱에 하나 · 동기화 · 연타) · 건너뛰기 = 안내 끔(새 경제만) · 저장(tips · tipsOff · 버전 10) · 문장 · HUD 칸 · 자리 89칸 · contentId · 틀 · 불러오기(성공 · 빈 · 실패 · 전부 nil) · 손 모델 틀 · 휘두르기 자리 · 플래그 꺼짐 |
+| `Tests/OnboardingTipsTests.server.lua` | 28 | 새 경제 안내 · 에셋 자리(#36) — 조건 · 순서(blox → coins) · 한 번만 · 가방 · 환생 · 대장간 · 장착 · 알 · 지난 것 글 없이 · 안내 끔 · floor9 꼴 접속 · 서비스(한 틱에 하나 · 동기화 · 연타) · 건너뛰기 = 안내 끔(새 경제만) · 저장(tips · tipsOff · 버전 10) · 문장 · HUD 칸 · 자리 89칸 · contentId · 틀 · 불러오기(성공 · 빈 · 실패 · 전부 nil) · 손 모델 틀 · 휘두르기 자리 · 플래그 꺼짐 · #49 자리 목록 알 4(기대 — PetConfig에서 센다) |
 | `Tests/PetV2Tests.server.lua` | 18 | 새 경제 펫(#35 — 가짜 deps) — 코인 부화 · 부족 · 간격(무료 · 즉시 부화) · 트리플 3마리 · 코인 3배 · 꺼짐 블럭스 · 자동 부화(반복 · 기다림 · 멈춤 · 알 번호) · 새 패스 4개(ID nil 줄 없음 · 가격 · 설정 ID · 가짜 소유 효과) · 제한 지역 목록 · R6 Right Arm · 플래그 꺼짐 |
 | `Tests/ForgeServiceTests.server.lua` | 33 | 대장간 서버(#33 — 가짜 deps · Schema.new 데이터에 InventoryService 순수 함수) — 점수 표 · 층 → 토큰 등급 · 자동 채우기 · 확률 표시 합 · 0% 금지 · 꼴 · 제작 거부(닫힘 · 모양 · 광석) · 난수 주입 결과 · 토큰 · 간격(무료 · 생략 ID 자리 · 트리플) · 자동 제작 반복 · 멈춤 · 교환(부족 · 차감 · 일반 · ??? · 닫힘) · 지급 원자성 · 요청 연타 · 플래그 꺼짐 init 없음 · 표 글자 합 정확히 100%(#48 정책 재점검) |
-| `Tests/OreDropServiceTests.server.lua` | 25 | 새 경제 드롭 · 줍기(#32 — 가짜 deps) — 반경(수평) · 가방 자리 · 바꿔 줍기 · 바닥에 남기 · 자동 진행 전부 · 높은 광석부터 · 층 이동 시 드롭 사라짐 · 수령 → 인벤토리 · 실패 · 이탈 → 비움 · 코인 유지 · 대장간 8층 영구(환생 뒤) · 첫 광석 안내 한 번 · ChallengeService 고리(순서 · 던져도 런 그대로) |
+| `Tests/OreDropServiceTests.server.lua` | 26 | 새 경제 드롭 · 줍기(#32 — 가짜 deps) — 반경(수평) · 가방 자리 · 바꿔 줍기 · 바닥에 남기 · 자동 진행 전부 · 높은 광석부터 · 층 이동 시 드롭 사라짐 · 수령 → 인벤토리 · 실패 · 이탈 → 비움 · 코인 유지 · 대장간 8층 영구(환생 뒤) · 첫 광석 안내 한 번 · ChallengeService 고리(순서 · 던져도 런 그대로) · #49 제한 지역 자동 진행 줍기 네 경우(제한 · 비제한 × 보유 · 미보유) |
 | `Systems/GymServiceTests.server.lua` | 53 | 운동기구 조건·배수·가격 순증가·해금 경계·공허 훈련 구역(로벅스 전용·맨 끝·가장 비쌈·가장 셈·ShopConfig 가격)·스폰 구역 안·게이트 앞·패드와 안 겹침·발판 판정·배수 결정 · getShopKey · 선해금 가격 = ShopConfig(#16) · A2(#42 — 12기구 표 · 환생별 열린 수 · 등록 1 ~ 8 / ID nil 9 ~ 12 · 가격표 · ID 들어오면 줄 · 미등록 구매 거부 · 3줄 × 5열 · 모델 자리) |
 | `Tests/CashoutPadViewTests.server.lua` | 23 | 런 상태 → 발판 켜짐(클리어 + 같은 층)·꺼짐(미클리어·다른 층·런 없음)·켜진 발판 1개·역할 키 |
 | `Tests/AdvanceWallViewTests.server.lua` | 97 | 런 상태 → 벽 모습(숨김·닫힘·열림)·크기 파생·층별 위치·잘못된 stage·LevelConfig 깊이 소스 등록 |
@@ -141,7 +141,7 @@
 | `Tests/SettingsWindowTests.client.lua` | 20 | 설정 토글(반대 값 1건 · 두 채널 · 거부 문구) · 파티클 방출량(등급 · 숨기기 · 내 것은 보임 · 전체 상한) · 둘째 항목 펫 숨기기(#12) · 셋째 · 넷째 항목 연출 줄이기 · 효과음(기본값 · 반대 값 · Store 반영 · 줄 겹침 없음) · 폰 틀 705×338 넘침 0 · 11px(#25) · 다섯째 저사양 모드(서버 요청 없음 · #48) |
 | `Systems/PetServiceTests.server.lua` | 84 | 부화 거부 부작용 0(잠긴 알 · 월드 밖 · 저장 공간 가득 · 잔액 · 경합 · 시계 · 잘못된 알) · 차감 → 판정 · uid 문자열 · 깨진 nextUid · 새 종만 저장 · 빈 슬롯 자동 장착 · 장착 ≤ 파생 슬롯 · 해제 · equipBest · 크래프팅(재료 순서 · 장착 자리 이어받기 · 부족 · 최대 · 연쇄) · 놓아주기 · 로드 정리 · E3 · 한 번만 · 데미지 없음 · 요약 · 프로필 크기 · 펫 게임패스(슬롯 · 저장 · 잘라내기는 소유 확인 뒤에만) · 3배 부화(거부 부작용 0 · 비용 3배 한 번 · 3마리 · 롤 시계 1회 — #16) |
 | `Systems/PetRequestServiceTests.server.lua` | 28 | payload 위생(알 번호 · uid 숫자 문자열) · 빈도 상한 · 사유 그대로 · 응답 필드 전부 · 퇴장 정리 · 설정 hideOtherPets · hatch3(결과 1건에 3마리 · pets 목록 — #16) |
-| `Tests/PetWindowTests.client.lua` | 62 | 알 탭 · 잠김 사유(해금 · 보관함 · 잔액) · 실제 확률 합 100 · 행운 · 희귀도 매핑 · 격자 · 슬롯 수 = 파생값 · 상세(크래프팅 가능 · 놓아주기 막힘) · 결과 판정(모달 · 토스트) · 요청 한 번만 · 놓아주기 확인 단계 · 추적 계획(내 펫 먼저 · 숨기기 · 파트 상한 · 자리 · 치는 모습) |
+| `Tests/PetWindowTests.client.lua` | 63 | 알 탭 · 잠김 사유(해금 · 보관함 · 잔액) · 실제 확률 합 100 · 행운 · 희귀도 매핑 · 격자 · 슬롯 수 = 파생값 · 상세(크래프팅 가능 · 놓아주기 막힘) · 결과 판정(모달 · 토스트) · 요청 한 번만 · 놓아주기 확인 단계 · 추적 계획(내 펫 먼저 · 숨기기 · 파트 상한 · 자리 · 치는 모습) · #49 알 탭 넷 · 알 4 25층 해금 · 잠긴 안내 · 부화 버튼 |
 | `Systems/GamepassServiceTests.server.lua` | 29 | 게임패스 소유 S1 — 조회 성공 · 실패 · RETRY_SEC 재시도 · 구매 완료 즉시 소유 · ID 0 조회 안 함 · 가짜 소유 Studio 전용(밖이면 무시 + ERROR) · 커밋된 TEST_GAMEPASSES = nil(#16) · G-OWN Studio 실제 소유 무시 · 실서버 그대로 · 구매 완료 반영 · 가짜 소유만(#17) |
 | `Systems/PolicyGateTests.server.lua` | 12 | 유료 랜덤 아이템 제한 S13 — 확인 전 · 판정 실패 · 필드 없음은 제한 · false만 허용 · 퇴장(#16) · 가짜 제한 판정 TEST_PAID_RANDOM_RESTRICTED(nil · Studio true · false · Studio 밖 · boolean 아님 ERROR · 응답보다 먼저 · 커밋 값 nil — #27 +5) |
 | `Systems/ProductServiceTests.server.lua` | 25 | 영수증 S2 · S3 — 같은 PurchaseId 두 번 지급 1회 · 프로필 미로드 · 저장 실패 NotProcessedYet · 지급 함수 없음 ERROR · 기록 상한 100 · ProfileStore Mock 실물 저장 확인(#16) · 분석 통지 onGranted 영수증당 1회(#23 A3) · 선해금 12 영수증 멱등(#42) |
@@ -166,7 +166,7 @@
 | `Systems/OnboardingServiceTests.server.lua` | 27 | 첫 접속 안내 O1 ~ O5 — 단계마다 신호 · 분석 이벤트 1 ~ 5 · 확인 → 완료 보상 1회 · 순서가 어긋난 신호 버림 · 재접속 이어가기 · 클릭 수 세션 메모리 · 건너뛰기(보상 · 이벤트 없음) · 기존 프로필 끝남 · 요청 채널 · 설정 · 훅 · PlayerState onboarding(#20) |
 | `Tests/DailyRewardWindowTests.client.lua` | 26 | 일일 보상 UI — 칸(서버 원본 · bloxScaled = 서버 식 · 리미티드 tier6) · 버튼 · 남은 시간 · 사유 · 자동 등장(안내 뒤 · 런 아님 · 그날 한 번) · 큐 순서 · 배지 · 요청 한 번만 · en · ko · 폰 705×338(#20) · 등장 연출은 자기 판만 끝낸다(#27 — finishAll 경합 · 개수 그대로) |
 | `Tests/CodeWindowTests.client.lua` | 14 | 코드 입력 UI — 결과 문구(서버 결과 · Strings만) · 입력 글자를 되보이지 않음 · 보내면 비움 · 한 번만 · 결과 줄 빈칸 시작 · 설정 창 버튼 · en · ko · 폰 넘침 0 · 입력칸 위 45% 안(#20) |
-| `Tests/PaidRandomPolicyTests.client.lua` | 50 | 유료 랜덤 상품 점검(#27 — docs/POLICY_CHECK.md) — 럭키 · 슈퍼 롤 줄(아우라 창에서만 · 배수 숫자 + a% → b%) · 확률 보기 결과 전부 · 합 100(팩 셋) · 패스 · 포션 함께 곱 · 모드 순환 · 제한 유저(줄 · 창 상품 · 사용 버튼 없음) · 행운 패스 줄 · 보유 후 창 확률 · 제한이면 효과 1 · 행운 포션 설명 · ×2 · 끝나면 복귀 · 칭호 표 합 100 · 번들 숨김 · 알 확률 합 100 · 리미티드 없음 · 창 확률 보기 버튼 실물 · 폰 틀 글자 · **#28 +19:** 칭호 · 펫 확률 보기(패스 키 · 볼 수 있음 · 더하면 = 산 뒤 확률(업그레이드 · 포션) · 결과 전부 · 합 100 · 가짐 · 제한이면 그대로 · 토글 글자) · 상점 행운 패스 줄 확률 보기(칭호 · 펫만 · 가지면 없음 · 창 상품 줄엔 없음) · 창 실물(토글 · 보유 · 제한 숨김 · showOdds) · 상점 줄 → 그 창 · 요청 0 · 폰 틀(토글 두 상태 · 상점 버튼) · **#28 후속 +9:** 아우라 더하면 단계 · 순서 · 보유 · 제한 숨김 · 산 뒤 확률 합 100 · 배수 꼴(20 · 2.5 · 1.25 · 100) · 공통 토글 글자 · 창 실물(showOdds) · 폰 틀 네 단계 · **#48 +1:** 제한 유저 창 로벅스 칸도 숨김 목록(Triple Hatch) 0줄 |
+| `Tests/PaidRandomPolicyTests.client.lua` | 51 | 유료 랜덤 상품 점검(#27 — docs/POLICY_CHECK.md) — 럭키 · 슈퍼 롤 줄(아우라 창에서만 · 배수 숫자 + a% → b%) · 확률 보기 결과 전부 · 합 100(팩 셋) · 패스 · 포션 함께 곱 · 모드 순환 · 제한 유저(줄 · 창 상품 · 사용 버튼 없음) · 행운 패스 줄 · 보유 후 창 확률 · 제한이면 효과 1 · 행운 포션 설명 · ×2 · 끝나면 복귀 · 칭호 표 합 100 · 번들 숨김 · 알 확률 합 100 · 리미티드 없음 · 창 확률 보기 버튼 실물 · 폰 틀 글자 · **#28 +19:** 칭호 · 펫 확률 보기(패스 키 · 볼 수 있음 · 더하면 = 산 뒤 확률(업그레이드 · 포션) · 결과 전부 · 합 100 · 가짐 · 제한이면 그대로 · 토글 글자) · 상점 행운 패스 줄 확률 보기(칭호 · 펫만 · 가지면 없음 · 창 상품 줄엔 없음) · 창 실물(토글 · 보유 · 제한 숨김 · showOdds) · 상점 줄 → 그 창 · 요청 0 · 폰 틀(토글 두 상태 · 상점 버튼) · **#28 후속 +9:** 아우라 더하면 단계 · 순서 · 보유 · 제한 숨김 · 산 뒤 확률 합 100 · 배수 꼴(20 · 2.5 · 1.25 · 100) · 공통 토글 글자 · 창 실물(showOdds) · 폰 틀 네 단계 · **#48 +1:** 제한 유저 창 로벅스 칸도 숨김 목록(Triple Hatch) 0줄 · **#49 +1:** 자동 진행 설명(일반 줍기 · 제한 줍기 없음) |
 | `Tests/OnboardingBandTests.client.lua` | 28 | 첫 접속 안내 띠 — 단계 문구 · 숨김 · 건너뛰기 두 번 누름 · 확인 한 번만 · 창이 열리면 숨김 · 3D 대상 · 자리(중앙 금지 밖) · en · ko · 폰 1 ~ 5단계(#20) · 토스트와 자리 나누기(#26 +11 — 띠 아래 칸 자리 · 띠 보임 알림 · 내리기 · 되돌리기 · 폰 틀 띠와 겹침 0 · 가장 긴 토스트 문구 19개 넘침 0 · 11px) |
 | `Tests/UiFxTests.client.lua` | 59 | UI 효과(#21) — 버튼 상태 전이 · 목표 Scale · 트윈 종류 · 잘림 상한 · 실물(가운데 기준 · 쉬면 원래 배치 · 터치 · 비활성 2종 · 격자 · 목록 · 다른 UIScale 래퍼 · 스크롤 안 · 파괴 정리 · 공용 진입점 · 직접 만든 HitArea 연결) · 빛 띠(키포인트 · Offset · 가시성 · 상한 · 색 · 덮개 ZIndex · 글씨 색 · 그라디언트 · 숨김 · 상한 · 프리셋 · 둥근 모서리 · 9-slice · 떼기 · 파괴 · HUD 구좌 · 상점 줄) · 커밋 값(ENABLED · 멈춤 nil) |
 | `Tests/DataConfigTests.server.lua` | 31 | 데이터 환경(#23 E1 ~ E6) — DATA_ENV 커밋 값 beta · live만 · Studio면 언제나 studio · Studio 밖 beta · live · 잘못된 값 · 저장소 이름 3종 · Studio에서 beta · live 거부 · 시작 로그 줄 · beta 개발자 상품 거부 · 허용 목록(ShopConfig 개발자 상품) · 게임패스 판매 |
@@ -187,7 +187,8 @@
 | `Tests/ServerNoticeTests.client.lua` | 7 | 서버 전체 알림(#48) — updating · restart · announce 판정 · 모양 틀림 8종 · 초 · 글 자르기 · 대기실 도착(순간이동 데이터) · 업데이트 화면(전체 · 입력 막음 · 맨 위 · 글) · 순간이동 화면 ScreenGui |
 | `Tests/LowEndModeTests.client.lua` | 12 | 저사양 모드(#48 3부) — 첫 값(기기 품질 1 ~ 3 · Automatic · nil) · 가짜 읽기 · 실제 값 범위 · new 알림 · 동시 파편 100/200 · 빌림 상한 · 파편 솎기 · 코인 3/6 · 드롭 20/전부 · 끄는 연출 · 줄기만 함 · 설정 줄 localOnly |
 | `Tests/AdminWindowTests.client.lua` | 7 | 관리 창(#48 4부) — payload 빠진 필드 없음 · 편의 검사 6종 · 종류 돌리기 · 결과 글 · 창 보냄 · 실패 글 · Scale만 |
-| **합계** | **5120** | 서버 88행 3511 · 클라 49행 1609 — 2026-11-28 #48 Play 2번 실측(Studio 플래그 전부 nil · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
+| `Tests/Egg4Tests.server.lua` | 11 | 알 4(#49) — 설정(배수 · 확률 모양 · 25층 · 500만 · 알 간 규칙 · validate) · 이름 en · ko · 해금(24 잠김 · 25 열림 · 층 모름 잠김 · 블럭스 0도 층이면) · 서버 부화(잠김 · 부족 · 차감 · 지급 · 사유) · 즉시 · 트리플 · 확률표 합 100% · 0% 없음(행운 ×1 · ×2) · 안내 egg4 · 에셋 자리 |
+| **합계** | **5134** | 서버 89행 3523 · 클라 49행 1611 — 2026-11-29 #49 Play 2번 실측(Studio 플래그 전부 nil · 두 번 같음). 끝 표시 줄 `[TestRunDone]`은 행이 아니다 |
 
 ※ 여덟 행 다 **헬퍼 또는 루프가 check를 여러 번 부른다.** `RebirthServiceTests`는
 7개 check를 묶은 `checkUntouched`를 3번 호출하고(정적 53), `WarpServiceTests`는
@@ -215,7 +216,17 @@
 **합계 대조는 개별 행의 오류를 잡지 못한다** — 상쇄되면 조용히 통과한다.
 각 파일이 찍는 자기 줄과 눈으로 대조하는 것 말고 다른 방법이 없다.
 
-최근 갱신: **2026-11-28 Studio Play 런타임 실측 (전량, 지시서 #48 — 소프트 셧다운 · 정책 재점검 고침 · 저사양 모드 · 관리 도구 · 플래그 전부 nil Play 2번).**
+최근 갱신: **2026-11-29 Studio Play 런타임 실측 (전량, 지시서 #49 — 알 4 · 제한 지역 자동 진행 줍기 · 플래그 전부 nil Play 2번).**
+138개 행 전부가 같은 개수로 찍혔다. **5134 passed / 0 failed** — 서버 3523(89행) + 클라 1611(49행). 시작 기준 Play는 #48 최종과 같았다(5120).
+
+```
+새 행    Egg4Tests 11(서버)
+바뀐 행  OreDropServiceTests 25 → 26(제한 지역 줍기) · PetWindowTests 62 → 63(알 4) · PaidRandomPolicyTests 50 → 51(자동 진행 설명)
+기대만   ConfigTests 103(알 4는 층) · OnboardingTipsTests 28(자리 목록 알 4 — PetConfig에서 센다)
+대조     5120 − 지운 행 0 + 바뀐 행 3(+3) + 새 행 1(+11) = 5134
+```
+
+이전 갱신(#48): **2026-11-28 Studio Play 런타임 실측 (전량, 지시서 #48 — 소프트 셧다운 · 정책 재점검 고침 · 저사양 모드 · 관리 도구 · 플래그 전부 nil Play 2번).**
 137개 행 전부가 같은 개수로 찍혔다. **5120 passed / 0 failed** — 서버 3511(88행) + 클라 1609(49행). 시작 기준 Play는 #46 최종과 같았다(5050).
 
 ```
